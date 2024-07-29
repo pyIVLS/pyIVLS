@@ -19,8 +19,12 @@ if __name__ == "__main__":
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = QtWidgets.QApplication(sys.argv)
     
-    GUI_mainWindow = pyIVLS_GUI()
     pluginsContainer = pyIVLS_container()
+    GUI_mainWindow = pyIVLS_GUI(pluginsContainer)
+    
+
+
+
     
     ###init interfaces
     GUI_mainWindow.setSettingsWidget(pluginsContainer.getPluginInfoFromSettings())

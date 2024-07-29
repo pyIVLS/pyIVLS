@@ -10,7 +10,21 @@ import pyIVLS_constants
 
 import importlib
 
-class pyIVLS_container():
+# Import to communicate with the GUI
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+
+class pyIVLS_container(QObject):
+  
+  #### Signals for communication
+  available_plugins_signal = pyqtSignal(dict)
+
+  #### Slots for communication 
+  @pyqtSlot()
+  def read_available_plugins(self):
+    self.available_plugins_signal.emit(self.getPluginDict())
+    #old
+    #keys = list(self.getPluginDict().keys())
+    #self.available_plugins_signal.emit(keys)
 
   def getPluginInfoFromSettings(self):
 #     inData = [None]*pyRTA_constants.positionsSettings
@@ -56,7 +70,6 @@ class pyIVLS_container():
       if plugin in parser.sections():
         pluginDict[plugin] = dict(parser.items(plugin))
 
-    print(pluginDict)
     return pluginDict
   
   def setRegistered(self, active: list):
@@ -108,7 +121,7 @@ class pyIVLS_container():
         self._unregister(plugin)
 
   def __init__(self):
-    super(pyIVLS_container,self).__init__()
+    super().__init__()
     self.path = dirname(__file__) + sep 
 
     self.pm = pluggy.PluginManager("pyIVLS")
