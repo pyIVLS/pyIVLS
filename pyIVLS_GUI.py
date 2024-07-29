@@ -40,6 +40,7 @@ class pyIVLS_GUI(QObject):
     ###init signals
     self.pluginloader.request_available_plugins_signal.connect(self.container.read_available_plugins)
     self.container.available_plugins_signal.connect(self.pluginloader.populate_list)
+    self.pluginloader.register_plugins_signal.connect(self.container.update_registration)
 
     self.window.actionPlugins.triggered.connect(self.actionPlugins) 
 

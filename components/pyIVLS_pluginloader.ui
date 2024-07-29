@@ -31,7 +31,7 @@
    </property>
    <property name="geometry">
     <rect>
-     <x>400</x>
+     <x>490</x>
      <y>340</y>
      <width>89</width>
      <height>25</height>
@@ -41,26 +41,13 @@
     <string>Apply</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="cancelButton">
-   <property name="geometry">
-    <rect>
-     <x>500</x>
-     <y>340</y>
-     <width>89</width>
-     <height>25</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Cancel</string>
-   </property>
-  </widget>
   <widget class="QGroupBox" name="groupBox">
    <property name="geometry">
     <rect>
      <x>10</x>
      <y>10</y>
      <width>571</width>
-     <height>311</height>
+     <height>321</height>
     </rect>
    </property>
    <property name="title">
@@ -69,8 +56,8 @@
    <widget class="QPushButton" name="refreshButton">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>280</y>
+      <x>10</x>
+      <y>290</y>
       <width>89</width>
       <height>25</height>
      </rect>
@@ -85,7 +72,7 @@
       <x>15</x>
       <y>31</y>
       <width>541</width>
-      <height>241</height>
+      <height>251</height>
      </rect>
     </property>
    </widget>

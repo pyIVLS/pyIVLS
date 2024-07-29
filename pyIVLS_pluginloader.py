@@ -65,6 +65,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             # Link buttons
             self.refreshButton.clicked.connect(self.refresh)
             self.applyButton.clicked.connect(self.apply)
+            
 
 
     
