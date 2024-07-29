@@ -24,7 +24,6 @@ if __name__ == "__main__":
     
     ###init interfaces
     GUI_mainWindow.setSettingsWidget(pluginsContainer.getPluginInfoFromSettings())
-      
-    GUI_mainWindow.window.show() 
+    GUI_mainWindow.window.show()
     
     sys.exit(app.exec())
