@@ -11,30 +11,39 @@ from PyQt6 import QtWidgets, uic, QtGui
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 
 
-class pyIVLS_pluginloader(QtWidgets.QDialog):  
-    
+class pyIVLS_pluginloader(QtWidgets.QDialog):
+
     #### Signals for communication
     request_available_plugins_signal = pyqtSignal()
     register_plugins_signal = pyqtSignal(list)
 
-    #### Slots for communication 
+    #### Slots for communication
     @pyqtSlot(dict)
     def populate_list(self, plugins):
         self.model.clear()  # Clear the existing items in the model
-        
+
         for item, properties in plugins.items():
-            plugin_name = f"{properties.get('type')}: {item} ({properties.get('function')})"
+            plugin_name = (
+                f"{properties.get('type')}: {item} ({properties.get('function')})"
+            )
             list_item = QtGui.QStandardItem(plugin_name)
             list_item.setCheckable(True)
             list_item.setCheckState(Qt.CheckState.Unchecked)
             list_item.setFlags(list_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            if properties.get("load") == 'True':
+            if properties.get("load") == "True":
                 list_item.setCheckState(Qt.CheckState.Checked)
-            
+
             list_item.setToolTip(item)
             list_item.setData(item, Qt.ItemDataRole.UserRole)
-            
+
             self.model.appendRow(list_item)
+
+    @pyqtSlot(str)
+    def state_changed(self, plugin_name):
+        for i in range(self.model.rowCount()):
+            item = self.model.item(i)
+            if item.data(Qt.ItemDataRole.UserRole) == plugin_name:
+                item.setCheckState(Qt.CheckState.Checked)
 
     #### Button actions
     def refresh(self):
@@ -48,8 +57,13 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
                 plugins.append(item.data(Qt.ItemDataRole.UserRole))
         self.register_plugins_signal.emit(plugins)
 
+    def configure(self):
+        print("Configure button clicked")
+        pass
+
+    #### Internal functions
     def __init__(self, path):
-        super().__init__()
+        super(pyIVLS_pluginloader, self).__init__()
         ui_file_name = path + "components" + sep + "pyIVLS_pluginloader.ui"
         window_option = uic.loadUi(ui_file_name, self)
         if window_option is None:
@@ -57,24 +71,15 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             sys.exit(-1)
         else:
             self.window = window_option
-            self.listView = self.window.findChild(QtWidgets.QListView, 'pluginList')
-            
+            self.listView = self.window.findChild(QtWidgets.QListView, "pluginList")
+
             self.model = QtGui.QStandardItemModel()
             self.listView.setModel(self.model)
 
             # Link buttons
             self.refreshButton.clicked.connect(self.refresh)
             self.applyButton.clicked.connect(self.apply)
-            
-
-
-    
-
-
-
-
-
-
+            self.listView.doubleClicked.connect(self.configure)
 
     """"
     #### redefine close event####
