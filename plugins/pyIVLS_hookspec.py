@@ -6,8 +6,7 @@ class pyIVLS_hookspec:
     hookspec = pluggy.HookspecMarker("pyIVLS")
 
     @hookspec
-    def get_setup_interface(self):
-
+    def get_setup_interface(self) -> dict:
         """returns a widget for a tab in setup, and probably data for the setup structure
 
         :plugin_type: as all the plugins will be rolled in one loop, but plugins will be of different types, not all of them should return smth.

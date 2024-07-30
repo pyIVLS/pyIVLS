@@ -14,8 +14,8 @@ import importlib
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 # FIXME: Debug
-from plugins.pyIVLS_VenusUSB2 import pyIVLS_VenusUSB2_plugin
-from plugins.pyIVLS_Keithley2612B import pyIVLS_Keithley2612B_plugin
+# from plugins.pyIVLS_VenusUSB2 import pyIVLS_VenusUSB2_plugin
+# from plugins.pyIVLS_Keithley2612B import pyIVLS_Keithley2612B_plugin
 
 
 class pyIVLS_container(QObject):
@@ -37,6 +37,7 @@ class pyIVLS_container(QObject):
             else:
                 self._unregister(plugin)
         self.plugins_updated_signal.emit()
+        self.cleanup()
 
     def getPluginInfoFromSettings(self):
         #     inData = [None]*pyRTA_constants.positionsSettings
@@ -49,7 +50,6 @@ class pyIVLS_container(QObject):
         #          parser.write(configfile)
 
         return_v = self.pm.hook.get_setup_interface()
-        print(f"Inside the container, this is what i got: {return_v}")
         return return_v
 
     def getPluginDict(self) -> dict:
@@ -64,23 +64,58 @@ class pyIVLS_container(QObject):
 
     def _register(self, plugin: str):
         module_name = f"plugins.pyIVLS_{plugin}"
+        class_name = f"pyIVLS_{plugin}_plugin"
+
+        try:
+            # Dynamic import using importlib
+            module = importlib.import_module(module_name)
+            plugin_class = getattr(module, class_name)
+            plugin_instance = plugin_class()
+
+            if self.pm.get_plugin(plugin) is None:
+                self.pm.register(plugin_instance, name=plugin)
+                self.config[plugin]["load"] = "True"
+                print(f"Plugin {plugin} loaded")
+        except (ImportError, AttributeError) as e:
+            print(f"Failed to load plugin {plugin}: {e}")
+
+    def _unregister(self, plugin: str):
+        module_name = f"plugins.pyIVLS_{plugin}"
+        class_name = f"pyIVLS_{plugin}_plugin"
+
+        try:
+            # Dynamic import using importlib
+            module = importlib.import_module(module_name)
+            plugin_class = getattr(module, class_name)
+            plugin_instance = plugin_class()
+
+            if self.pm.get_plugin(plugin) is not None:
+                self.pm.unregister(plugin_instance, name=plugin)
+                self.config[plugin]["load"] = "False"
+                print(f"Plugin {plugin} unloaded")
+        except (ImportError, AttributeError) as e:
+            print(f"Failed to unload plugin {plugin}: {e}")
+
+    """
+    def _register(self, plugin: str):
+        module_name = f"plugins.pyIVLS_{plugin}"
         class_name = f"pyIVLS_{plugin}_plugin()"
         if not self.pm.is_registered(class_name):
             # Dynamic import using importlib
             module = importlib.import_module(module_name)
-            self.pm.register(class_name)
+            self.pm.register(class_name,name=plugin)
             self.config[plugin]["load"] = "True"
             print(f"Plugin {plugin} loaded")
 
 
-
+    
     def _unregister(self, plugin: str):
         class_name = f"pyIVLS_{plugin}_plugin()"
         if self.pm.is_registered(class_name):
-            self.pm.unregister(class_name)
+            self.pm.unregister(class_name, name=plugin)
             self.config[plugin]["load"] = "False"
             print(f"Plugin {plugin} unloaded")
-
+    """
 
     def registerStartUp(self):
         for plugin in self.config.sections():
@@ -105,24 +140,21 @@ class pyIVLS_container(QObject):
         except KeyError:
             pass
 
-
-    def is_registered(self, plugin: str) -> bool:
-        return self.pm.is_registered(f"pyIVLS_{plugin}_plugin()")
-
     def __init__(self):
         super(pyIVLS_container, self).__init__()
         self.path = dirname(__file__) + sep
 
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
-        
-        # FIXME: DEBUG
-        # self.pm.register(pyIVLS_VenusUSB2_plugin())
-        
+
+        # self.pm.register("pyIVLS_Keithley2612B_plugin()")
+
         self.config = SafeConfigParser()
         self.config.read(self.path + pyIVLS_constants.configFileName)
+        self.registerStartUp()
 
-    def __del__(self):
-        with open(self.path + pyIVLS_constants.configFileName, "w") as configfile:
+    def cleanup(self):
+        """Explicitly cleanup resources, such as writing the config file."""
+        config_path = self.path + pyIVLS_constants.configFileName
+        with open(config_path, "w") as configfile:
             self.config.write(configfile)
-        

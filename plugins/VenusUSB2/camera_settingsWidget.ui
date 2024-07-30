@@ -112,19 +112,6 @@
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QLabel" name="warnLabel">
-           <property name="text">
-            <string>Feed not found</string>
-           </property>
-           <property name="textFormat">
-            <enum>Qt::AutoText</enum>
-           </property>
-           <property name="textInteractionFlags">
-            <set>Qt::NoTextInteraction</set>
-           </property>
-          </widget>
-         </item>
         </layout>
        </widget>
       </item>

@@ -17,4 +17,4 @@ class pyIVLS_VenusUSB2_plugin:
         self.camera = VenusUSB2()
         print("I am getting info for the camera plugin")
 
-        return "saatana"
+        return {VenusUSB2: self.camera.settingsWidget}

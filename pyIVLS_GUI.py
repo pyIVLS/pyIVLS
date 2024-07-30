@@ -9,7 +9,7 @@ from PyQt6.QtCore import (
     Qt,
     QEvent,
     pyqtSignal,
-    pyqtSlot
+    pyqtSlot,
 )
 from PyQt6.QtWidgets import QVBoxLayout
 
@@ -19,8 +19,6 @@ from pyIVLS_pluginloader import pyIVLS_pluginloader
 
 
 class pyIVLS_GUI(QObject):
-
-
 
     ############################### GUI functions
     def show_message(self, txt):
@@ -36,9 +34,23 @@ class pyIVLS_GUI(QObject):
 
     ############### end of Menu actions
 
-    def setSettingsWidget(self, widget):
-        assert isinstance(widget, QtWidgets.QWidget)
-        self.window.dockWidget.setWidget(widget)
+    def setSettingsWidget(self, widgets: dict):
+        """
+        Set a list of widgets in a tabbed QDockWidget.
+
+        :param widgets: dict of QtWidgets.QWidget instances to be tabbed
+        """
+
+        # Create a QTabWidget to hold the widgets
+        tab_widget = QtWidgets.QTabWidget()
+
+        # Add each widget to the QTabWidget as a new tab
+        for name, widget in widgets.items():
+            tab_widget.addTab(widget, name)
+
+        # Set the QTabWidget as the widget for the QDockWidget
+        self.window.dockWidget.setWidget(tab_widget)
+        self.window.dockWidget.show()  # Ensure the dock widget is visible
 
     def __init__(self):
         super(pyIVLS_GUI, self).__init__()
@@ -46,6 +58,5 @@ class pyIVLS_GUI(QObject):
 
         self.window = uic.loadUi(self.path + "pyIVLS_GUI.ui")
         self.pluginloader = pyIVLS_pluginloader(self.path)
-
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)

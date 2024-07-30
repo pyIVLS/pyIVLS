@@ -28,7 +28,6 @@ class VenusUSB2(QObject):
         # FIXME check the exposures
         self.handle = "/dev/video2"
         self.exposures = [0,1,2,5,10,20,39,78,156,312]
-        print("i have become python, the creator of cameras")
 
         QObject.__init__(self)    
         self.path = os.path.dirname(__file__) + os.path.sep 

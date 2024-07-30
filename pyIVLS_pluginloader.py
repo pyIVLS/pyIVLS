@@ -56,6 +56,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             if item.checkState() == Qt.CheckState.Checked:
                 plugins.append(item.data(Qt.ItemDataRole.UserRole))
         self.register_plugins_signal.emit(plugins)
+        
 
     def configure(self):
         print("Configure button clicked")
