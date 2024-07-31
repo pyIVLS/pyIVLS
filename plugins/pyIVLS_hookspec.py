@@ -1,5 +1,6 @@
 #!/usr/bin/python3.8
 import pluggy
+from PyQt6 import QtWidgets
 
 
 class pyIVLS_hookspec:
@@ -13,3 +14,19 @@ class pyIVLS_hookspec:
         This argument will allow the specific implementation of the hook to identify if any response is needed or not.
         :return: dict containing widget and setup structure
         """
+
+    @hookspec
+    def camera_preview(self):
+        """Preview the camera stream"""
+
+    @hookspec
+    def camera_set_source(self, source: str) -> bool:
+        """Set the camera source"""
+
+    @hookspec
+    def camera_set_exposure(self, exposure: int) -> bool:
+        """Set the camera exposure"""
+
+    @hookspec
+    def parse_settings_widget(self, settings: QtWidgets.QWidget) -> dict:
+        """Parse the settings widget"""

@@ -12,12 +12,14 @@ from PyQt6 import QtWidgets
 from pyIVLS_GUI import pyIVLS_GUI
 from pyIVLS_container import pyIVLS_container
 
-######################################
+###################################### slots
 
 
 @pyqtSlot()
 def update_settings_widget():
     whatAmI = pluginsContainer.getPluginInfoFromSettings()
+    GUI_mainWindow.clearDockWidget()
+    GUI_mainWindow.setSettingsWidget(whatAmI)
 
 
 ############################### main function
@@ -44,7 +46,7 @@ if __name__ == "__main__":
 
     ###init interfaces
     whatAmI = pluginsContainer.getPluginInfoFromSettings()
-    print(dict(whatAmI))
+    print(whatAmI)
     GUI_mainWindow.setSettingsWidget(whatAmI)
     GUI_mainWindow.window.show()
 

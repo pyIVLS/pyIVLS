@@ -32,7 +32,7 @@ class pyIVLS_GUI(QObject):
     def actionPlugins(self):
         self.pluginloader.window.show()
 
-    ############### end of Menu actions
+    ############### Settings Widget
 
     def setSettingsWidget(self, widgets: dict):
         """
@@ -40,23 +40,36 @@ class pyIVLS_GUI(QObject):
 
         :param widgets: dict of QtWidgets.QWidget instances to be tabbed
         """
-
+        # FIXME: AASHASH
         # Create a QTabWidget to hold the widgets
         tab_widget = QtWidgets.QTabWidget()
 
+        print(widgets)
+
         # Add each widget to the QTabWidget as a new tab
         for name, widget in widgets.items():
-            tab_widget.addTab(widget, name)
+            tab_widget.addTab(widget, str(name))  # Ensure name is a string
 
         # Set the QTabWidget as the widget for the QDockWidget
         self.window.dockWidget.setWidget(tab_widget)
         self.window.dockWidget.show()  # Ensure the dock widget is visible
 
+    def clearDockWidget(self):
+        """
+        Clear the dock widget by removing all tabs and setting its widget to None.
+        """
+        dock_widget = self.window.dockWidget.widget()
+        if isinstance(dock_widget, QtWidgets.QTabWidget):
+            dock_widget.clear()  # Clear all tabs
+        self.window.dockWidget.setWidget(None)
+
     def __init__(self):
-        super(pyIVLS_GUI, self).__init__()
+        super().__init__()
         self.path = dirname(__file__) + sep
 
         self.window = uic.loadUi(self.path + "pyIVLS_GUI.ui")
         self.pluginloader = pyIVLS_pluginloader(self.path)
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
+
+        self.initial_widget_state = {}

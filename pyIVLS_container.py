@@ -13,10 +13,6 @@ import importlib
 # Import to communicate with the GUI
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
-# FIXME: Debug
-# from plugins.pyIVLS_VenusUSB2 import pyIVLS_VenusUSB2_plugin
-# from plugins.pyIVLS_Keithley2612B import pyIVLS_Keithley2612B_plugin
-
 
 class pyIVLS_container(QObject):
 
@@ -30,14 +26,26 @@ class pyIVLS_container(QObject):
         self.available_plugins_signal.emit(self.getPluginDict())
 
     @pyqtSlot(list)
-    def update_registration(self, pluginsToActivate: list):
+    def update_registration(self, plugins_to_activate: list):
+        """Updates the registrations based on the list of plugins to activate. Unloads all other plugins.
+        Only signals the settings widget to update if changes are applied.
+
+        Args:
+            plugins_to_activate (list): list of plugin names to activate
+        """
+        changes_applied = False
+
         for plugin in self.config.sections():
-            if plugin in pluginsToActivate:
-                self._register(plugin)
+            if plugin in plugins_to_activate:
+                if self._register(plugin):
+                    changes_applied = True
             else:
-                self._unregister(plugin)
-        self.plugins_updated_signal.emit()
-        self.cleanup()
+                if self._unregister(plugin):
+                    changes_applied = True
+
+        if changes_applied:
+            self.plugins_updated_signal.emit()
+            self.cleanup()
 
     def getPluginInfoFromSettings(self):
         #     inData = [None]*pyRTA_constants.positionsSettings
@@ -49,8 +57,11 @@ class pyIVLS_container(QObject):
         #     with open(self.path+pyIVLS_constants.configFileName, 'w') as configfile:
         #          parser.write(configfile)
 
-        return_v = self.pm.hook.get_setup_interface()
-        return return_v
+        single_element_dicts = self.pm.hook.get_setup_interface()
+        combined_dict = {}
+        for d in single_element_dicts:
+            combined_dict.update(d)
+        return combined_dict
 
     def getPluginDict(self) -> dict:
         # Extract plugin names
@@ -62,7 +73,7 @@ class pyIVLS_container(QObject):
 
         return section_dict
 
-    def _register(self, plugin: str):
+    def _register(self, plugin: str) -> bool:
         module_name = f"plugins.pyIVLS_{plugin}"
         class_name = f"pyIVLS_{plugin}_plugin"
 
@@ -76,46 +87,30 @@ class pyIVLS_container(QObject):
                 self.pm.register(plugin_instance, name=plugin)
                 self.config[plugin]["load"] = "True"
                 print(f"Plugin {plugin} loaded")
+                return True
+            else:
+                return False
         except (ImportError, AttributeError) as e:
             print(f"Failed to load plugin {plugin}: {e}")
 
-    def _unregister(self, plugin: str):
+    def _unregister(self, plugin: str) -> bool:
         module_name = f"plugins.pyIVLS_{plugin}"
         class_name = f"pyIVLS_{plugin}_plugin"
 
         try:
-            # Dynamic import using importlib
-            module = importlib.import_module(module_name)
-            plugin_class = getattr(module, class_name)
-            plugin_instance = plugin_class()
+            # Retrieve the registered plugin instance
+            plugin_instance = self.pm.get_plugin(plugin)
 
-            if self.pm.get_plugin(plugin) is not None:
-                self.pm.unregister(plugin_instance, name=plugin)
+            if plugin_instance is not None:
+                self.pm.unregister(plugin_instance)
                 self.config[plugin]["load"] = "False"
                 print(f"Plugin {plugin} unloaded")
-        except (ImportError, AttributeError) as e:
+                return True
+            else:
+                print(f"Plugin {plugin} is not registered")
+                return False
+        except Exception as e:
             print(f"Failed to unload plugin {plugin}: {e}")
-
-    """
-    def _register(self, plugin: str):
-        module_name = f"plugins.pyIVLS_{plugin}"
-        class_name = f"pyIVLS_{plugin}_plugin()"
-        if not self.pm.is_registered(class_name):
-            # Dynamic import using importlib
-            module = importlib.import_module(module_name)
-            self.pm.register(class_name,name=plugin)
-            self.config[plugin]["load"] = "True"
-            print(f"Plugin {plugin} loaded")
-
-
-    
-    def _unregister(self, plugin: str):
-        class_name = f"pyIVLS_{plugin}_plugin()"
-        if self.pm.is_registered(class_name):
-            self.pm.unregister(class_name, name=plugin)
-            self.config[plugin]["load"] = "False"
-            print(f"Plugin {plugin} unloaded")
-    """
 
     def registerStartUp(self):
         for plugin in self.config.sections():
