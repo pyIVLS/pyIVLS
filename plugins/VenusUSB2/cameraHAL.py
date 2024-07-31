@@ -23,19 +23,20 @@ Camera Controls
     focus_automatic_continuous 0x009a090c (bool)   : default=0 value=0
 """
 
+
 class VenusUSB2(QObject):
     def __init__(self):
         # FIXME check the exposures
-        self.handle = "/dev/video2"
-        self.exposures = [0,1,2,5,10,20,39,78,156,312]
+        self.source = "/dev/video2"
+        self.exposures = [0, 1, 2, 5, 10, 20, 39, 78, 156, 312]
 
-        QObject.__init__(self)    
-        self.path = os.path.dirname(__file__) + os.path.sep 
-        self.settingsWidget = uic.loadUi(self.path + 'camera_settingsWidget.ui')
+        QObject.__init__(self)
+        self.path = os.path.dirname(__file__) + os.path.sep
+        self.settingsWidget = uic.loadUi(self.path + "camera_settingsWidget.ui")
 
     def open_camera(self):
         # Method to open the camera
-        self.cap = cv.VideoCapture(self.handle)
+        self.cap = cv.VideoCapture(self.source)
         assert self.cap.isOpened(), "Error: Unable to open camera"
 
     def close_camera(self):
@@ -45,14 +46,13 @@ class VenusUSB2(QObject):
         # Method to capture an image
         ret, frame = self.cap.read()
         return frame
-    
 
     def preview(self):
         # Method to preview the camera feed
         while True:
             frame = self.capture_image()
-            cv.imshow('Camera Feed', frame)
-            if cv.waitKey(1) & 0xFF == ord('q'):
+            cv.imshow("Camera Feed", frame)
+            if cv.waitKey(1) & 0xFF == ord("q"):
                 break
 
     def set_exposure(self, exposure):
@@ -64,4 +64,6 @@ class VenusUSB2(QObject):
         # Method to get the exposure value
         return self.cap.get(cv.CAP_PROP_EXPOSURE)
 
-    
+    def set_source(self, source):
+        # Method to set the source
+        self.source = source

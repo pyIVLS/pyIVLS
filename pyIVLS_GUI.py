@@ -1,41 +1,75 @@
 from PyQt6 import QtWidgets, uic
 from os.path import dirname, sep
 
-from PyQt6.QtCore import QObject, QFile, QIODevice, QCoreApplication, Qt, QEvent, pyqtSignal
+from PyQt6.QtCore import (
+    QObject,
+    QFile,
+    QIODevice,
+    QCoreApplication,
+    Qt,
+    QEvent,
+    pyqtSignal,
+    pyqtSlot,
+)
 from PyQt6.QtWidgets import QVBoxLayout
 
 import pyIVLS_constants
-
+from pyIVLS_container import pyIVLS_container
 from pyIVLS_pluginloader import pyIVLS_pluginloader
+
 
 class pyIVLS_GUI(QObject):
 
-  def show_message(self,txt): 
-       msg = QtWidgets.QMessageBox()
-       msg.setText(txt)
-       msg.setWindowTitle("Warning")
-       msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
-       msg.exec_() 
-################ Menu actions
-  def actionPlugins(self):
-     self.pluginloader.window.exec()
-#    if self.pluginloader.window.exec():
-#         self.pyRTAsettings = self.pyRTAsettings_window.getSettings()
-#         self.signalSettingsChanged.emit(self.pyRTAsettings)
+    ############################### GUI functions
+    def show_message(self, txt):
+        msg = QtWidgets.QMessageBox()
+        msg.setText(txt)
+        msg.setWindowTitle("Warning")
+        msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        msg.exec_()
 
-############### end of Menu actions
+    ################ Menu actions
+    def actionPlugins(self):
+        self.pluginloader.window.show()
 
-  def setSettingsWidget(self, widget):
-       self.window.dockWidget.setWidget(widget)
-  
+    ############### Settings Widget
 
-  def __init__(self):
-    super(pyIVLS_GUI,self).__init__()
-    self.path = dirname(__file__) + sep 
+    def setSettingsWidget(self, widgets: dict):
+        """
+        Set a list of widgets in a tabbed QDockWidget.
 
-  
-    self.window = uic.loadUi(self.path + 'pyIVLS_GUI.ui')
+        :param widgets: dict of QtWidgets.QWidget instances to be tabbed
+        """
+        # FIXME: AASHASH
+        # Create a QTabWidget to hold the widgets
+        tab_widget = QtWidgets.QTabWidget()
 
-    self.pluginloader = pyIVLS_pluginloader(self.path)
-    self.window.actionPlugins.triggered.connect(self.actionPlugins) 
+        print(widgets)
 
+        # Add each widget to the QTabWidget as a new tab
+        for name, widget in widgets.items():
+            tab_widget.addTab(widget, str(name))  # Ensure name is a string
+
+        # Set the QTabWidget as the widget for the QDockWidget
+        self.window.dockWidget.setWidget(tab_widget)
+        self.window.dockWidget.show()  # Ensure the dock widget is visible
+
+    def clearDockWidget(self):
+        """
+        Clear the dock widget by removing all tabs and setting its widget to None.
+        """
+        dock_widget = self.window.dockWidget.widget()
+        if isinstance(dock_widget, QtWidgets.QTabWidget):
+            dock_widget.clear()  # Clear all tabs
+        self.window.dockWidget.setWidget(None)
+
+    def __init__(self):
+        super().__init__()
+        self.path = dirname(__file__) + sep
+
+        self.window = uic.loadUi(self.path + "pyIVLS_GUI.ui")
+        self.pluginloader = pyIVLS_pluginloader(self.path)
+
+        self.window.actionPlugins.triggered.connect(self.actionPlugins)
+
+        self.initial_widget_state = {}

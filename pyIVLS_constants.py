@@ -1,7 +1,7 @@
 # File: pyIVLS_constants.py definitions for the constants used in pyIVLS
 
 ### main config name
-configFileName = 'pyIVLS.ini'
+configFileName = "pyIVLS.ini"
 
 ### dictionary for plugin data
 
