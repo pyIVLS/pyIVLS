@@ -23,9 +23,10 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         self.model.clear()  # Clear the existing items in the model
 
         for item, properties in plugins.items():
-            plugin_name = (
-                f"{properties.get('type')}: {item} ({properties.get('function')})"
-            )
+            dependencies = properties.get("dependencies", "")
+            if not dependencies:
+                dependencies = "None"
+            plugin_name = f"{properties.get('type')}: {item} ({properties.get('function')}) - Dependencies: {dependencies}"
             list_item = QtGui.QStandardItem(plugin_name)
             list_item.setCheckable(True)
             list_item.setCheckState(Qt.CheckState.Unchecked)
