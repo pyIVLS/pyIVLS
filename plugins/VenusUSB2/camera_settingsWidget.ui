@@ -21,7 +21,7 @@
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="2" column="0">
-    <widget class="QPushButton" name="pushButton">
+    <widget class="QPushButton" name="cameraSave">
      <property name="text">
       <string>Save settings</string>
      </property>
@@ -59,7 +59,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QSlider" name="horizontalSlider">
+          <widget class="QSlider" name="cameraExposure">
            <property name="maximum">
             <number>9</number>
            </property>
@@ -119,7 +119,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QLineEdit" name="sourceInput">
+          <widget class="QLineEdit" name="cameraSource">
            <property name="text">
             <string>/dev/video2</string>
            </property>
@@ -148,7 +148,7 @@
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_3">
          <item>
-          <widget class="QPushButton" name="previewButton">
+          <widget class="QPushButton" name="cameraPreview">
            <property name="text">
             <string>preview</string>
            </property>
