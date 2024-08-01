@@ -21,6 +21,7 @@ from pyIVLS_pluginloader import pyIVLS_pluginloader
 class pyIVLS_GUI(QObject):
 
     ############################### GUI functions
+    # FIXME: incorrect, see pyIVLS_pluginloader.py
     def show_message(self, txt):
         msg = QtWidgets.QMessageBox()
         msg.setText(txt)
@@ -41,11 +42,9 @@ class pyIVLS_GUI(QObject):
 
         :param widgets: dict of QtWidgets.QWidget instances to be tabbed
         """
-        # FIXME: AASHASH
+
         # Create a QTabWidget to hold the widgets
         tab_widget = QtWidgets.QTabWidget()
-
-        print(widgets)
 
         # Add each widget to the QTabWidget as a new tab
         for name, widget in widgets.items():
