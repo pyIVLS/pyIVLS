@@ -2,7 +2,7 @@ import cv2 as cv
 import os
 
 from PyQt6 import uic
-from PyQt6.QtWidgets import QWidget
+from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject
 
 """
@@ -34,10 +34,12 @@ class VenusUSB2(QObject):
         self.path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(self.path + "camera_settingsWidget.ui")
 
-    def open_camera(self):
+    def open_camera(self) -> bool:
         # Method to open the camera
         self.cap = cv.VideoCapture(self.source)
-        assert self.cap.isOpened(), "Error: Unable to open camera"
+        if self.cap.isOpened():
+            return True
+        return False
 
     def close_camera(self):
         self.cap.release()
@@ -55,7 +57,7 @@ class VenusUSB2(QObject):
             if cv.waitKey(1) & 0xFF == ord("q"):
                 break
 
-    def set_exposure(self, exposure):
+    def _set_exposure(self, exposure):
         # Method to set the exposure
         assert 0 <= exposure <= 9, "Error: Exposure value out of range"
         self.cap.set(cv.CAP_PROP_EXPOSURE, self.exposures[exposure])
@@ -64,6 +66,38 @@ class VenusUSB2(QObject):
         # Method to get the exposure value
         return self.cap.get(cv.CAP_PROP_EXPOSURE)
 
-    def set_source(self, source):
+    def _set_source(self, source):
         # Method to set the source
-        self.source = source
+        # FIXME: just for windows.
+        self.source = int(source)
+
+    def parse_settings_widget(self) -> dict:
+        exposureSlider = self.settingsWidget.findChild(
+            QtWidgets.QSlider, "cameraExposure"
+        )
+        sourceInput = self.settingsWidget.findChild(QtWidgets.QLineEdit, "cameraSource")
+        exposure_value = exposureSlider.value()
+        source_input = sourceInput.text()
+
+        print(f"Exposure: {exposure_value}, Source: {source_input}")
+
+        return {"exposure": exposure_value, "source": source_input}
+
+    def preview_button(self):
+        settings = self.parse_settings_widget()
+        self._set_source(settings["source"])
+        if self.open_camera():
+            self._set_exposure(settings["exposure"])
+            self.preview()
+            self.close_camera()
+        else:
+            print("Huutista")
+
+    def save_button(self) -> bool:
+        settings = self.parse_settings_widget()
+        self._set_source(settings["source"])
+        if self.open_camera():
+            self._set_exposure(settings["exposure"])
+            return True
+        print("Huutista")
+        return False
