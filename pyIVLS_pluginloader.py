@@ -45,6 +45,15 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             if item.data(Qt.ItemDataRole.UserRole) == plugin_name:
                 item.setCheckState(Qt.CheckState.Checked)
 
+    @pyqtSlot(str)
+    def show_message(self, txt):
+        msg = QtWidgets.QMessageBox()
+        msg.setText(txt)
+        msg.setWindowTitle("Warning")
+        msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+        msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
+        msg.exec()
+
     #### Button actions
     def refresh(self):
         self.request_available_plugins_signal.emit()
@@ -56,7 +65,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             if item.checkState() == Qt.CheckState.Checked:
                 plugins.append(item.data(Qt.ItemDataRole.UserRole))
         self.register_plugins_signal.emit(plugins)
-        
+        self.refresh()
 
     def configure(self):
         print("Configure button clicked")
@@ -64,7 +73,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
 
     #### Internal functions
     def __init__(self, path):
-        super(pyIVLS_pluginloader, self).__init__()
+        super().__init__()
         ui_file_name = path + "components" + sep + "pyIVLS_pluginloader.ui"
         window_option = uic.loadUi(ui_file_name, self)
         if window_option is None:
@@ -78,7 +87,8 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             self.listView.setModel(self.model)
 
             # Link buttons
-            self.refreshButton.clicked.connect(self.refresh)
+            # FIXME: cheking to remove the refresh button. It is not needed.
+            # self.refreshButton.clicked.connect(self.refresh)
             self.applyButton.clicked.connect(self.apply)
             self.listView.doubleClicked.connect(self.configure)
 
