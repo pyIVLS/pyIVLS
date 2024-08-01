@@ -20,6 +20,7 @@ def update_settings_widget():
     whatAmI = pluginsContainer.getPluginInfoFromSettings()
     GUI_mainWindow.clearDockWidget()
     GUI_mainWindow.setSettingsWidget(whatAmI)
+    GUI_mainWindow.pluginloader.refresh()
 
 
 ############################### main function
@@ -44,9 +45,12 @@ if __name__ == "__main__":
     )
     pluginsContainer.plugins_updated_signal.connect(update_settings_widget)
 
+    pluginsContainer.show_message_signal.connect(
+        GUI_mainWindow.pluginloader.show_message
+    )
+
     ###init interfaces
     whatAmI = pluginsContainer.getPluginInfoFromSettings()
-    print(whatAmI)
     GUI_mainWindow.setSettingsWidget(whatAmI)
     GUI_mainWindow.window.show()
 

@@ -21,6 +21,7 @@ class pyIVLS_container(QObject):
     #### Signals for communication
     available_plugins_signal = pyqtSignal(dict)
     plugins_updated_signal = pyqtSignal()
+    show_message_signal = pyqtSignal(str)
 
     #### Slots for communication
     @pyqtSlot()
@@ -111,7 +112,7 @@ class pyIVLS_container(QObject):
 
                 # check if the plugin is a dependency for another plugin
                 if is_dependency:
-                    print(
+                    self.show_message_signal.emit(
                         f"Plugin {plugin} is a dependency for {dependent_plugin}, not unloading"
                     )
                     return False
@@ -147,7 +148,11 @@ class pyIVLS_container(QObject):
                     # add the dependency to the list of plugins to activate
                     plugins_to_activate.append(dependency)
                     added_deps.append(dependency)
-
+        # notify the user if dependencies are automatically added
+        if added_deps:
+            self.show_message_signal.emit(
+                f"Added dependencies: {', '.join(added_deps)} to the list of plugins to activate"
+            )
         return plugins_to_activate
 
     def _check_dependencies_unregister(self, plugin: str) -> tuple[bool, str]:

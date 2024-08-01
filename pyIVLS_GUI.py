@@ -30,6 +30,7 @@ class pyIVLS_GUI(QObject):
 
     ################ Menu actions
     def actionPlugins(self):
+        self.pluginloader.refresh()
         self.pluginloader.window.show()
 
     ############### Settings Widget
