@@ -19,13 +19,18 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 class pyIVLS_container(QObject):
 
     #### Signals for communication
+
+    # send available plugins to the plugin loader
     available_plugins_signal = pyqtSignal(dict)
+    # update the settings widget. This goes all the way to pyIVLS.py which handles the updating of the main GUI.
     plugins_updated_signal = pyqtSignal()
+    # show a message to the user in the plugin loader GUI
     show_message_signal = pyqtSignal(str)
 
     #### Slots for communication
     @pyqtSlot()
     def read_available_plugins(self):
+        """Called from the plugin loader to request the available plugins. Emits the available_plugins_signal with the plugin dictionary."""
         self.available_plugins_signal.emit(self.get_plugin_dict())
 
     @pyqtSlot(list)

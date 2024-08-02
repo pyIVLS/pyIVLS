@@ -25,6 +25,12 @@ Camera Controls
 
 
 class VenusUSB2(QObject):
+    """Handles communication with the VenusUSB2 camera
+
+    Args:
+        QObject (QObject): Inherits from QObject
+    """
+
     def __init__(self):
         # FIXME check the exposures
         self.source = "/dev/video2"
@@ -35,6 +41,11 @@ class VenusUSB2(QObject):
         self.settingsWidget = uic.loadUi(self.path + "camera_settingsWidget.ui")
 
     def open_camera(self) -> bool:
+        """Opens the camera using the source
+
+        Returns:
+            bool: pass/fail
+        """
         # Method to open the camera
         self.cap = cv.VideoCapture(self.source)
         if self.cap.isOpened():
@@ -42,14 +53,21 @@ class VenusUSB2(QObject):
         return False
 
     def close_camera(self):
+        """Pretty self explanatory"""
         self.cap.release()
 
     def capture_image(self):
+        """Captures an image from the camera
+
+        Returns:
+            matlike: The image
+        """
         # Method to capture an image
         ret, frame = self.cap.read()
         return frame
 
-    def preview(self):
+    def _preview(self):
+        """Preview the opened camera feed. Open() needs to called before this. 'q' exits the preview."""
         # Method to preview the camera feed
         while True:
             frame = self.capture_image()
@@ -57,21 +75,58 @@ class VenusUSB2(QObject):
             if cv.waitKey(1) & 0xFF == ord("q"):
                 break
 
+    # FIXME: Might not work on windows
     def _set_exposure(self, exposure):
+        """Sets the exposure for the camera
+
+        Args:
+            exposure (int): index of the possible exposure. See self.exposures for the values
+        """
         # Method to set the exposure
         assert 0 <= exposure <= 9, "Error: Exposure value out of range"
-        self.cap.set(cv.CAP_PROP_EXPOSURE, self.exposures[exposure])
+
+        # Check if the camera supports setting exposure
+        if not self.cap.get(cv.CAP_PROP_EXPOSURE):
+            print("Camera does not support setting exposure.")
+            return
+
+        # Set the exposure
+        success = self.cap.set(cv.CAP_PROP_EXPOSURE, self.exposures[exposure])
+        if success:
+            print(f"Exposure set to {self.exposures[exposure]}")
+        else:
+            print("Failed to set exposure.")
+
+        # Verify the exposure value
+        current_exposure = self.cap.get(cv.CAP_PROP_EXPOSURE)
+        print(f"Current exposure: {current_exposure}")
 
     def get_exposure(self):
+        """Getter for the current exposure value
+
+        Returns:
+            _type_: current exposure as set in the camera
+        """
         # Method to get the exposure value
         return self.cap.get(cv.CAP_PROP_EXPOSURE)
 
+    # FIXME: just for windows, remove the int conversion when porting to linux
     def _set_source(self, source):
+        """Sets the camera feed source
+
+        Args:
+            source (str): device string for the camera
+        """
         # Method to set the source
-        # FIXME: just for windows.
         self.source = int(source)
+        print(f"Source set to {source}")
 
     def parse_settings_widget(self) -> dict:
+        """Parses the settings widget for the camera. Extracts current values
+
+        Returns:
+            dict: setting -> value
+        """
         exposureSlider = self.settingsWidget.findChild(
             QtWidgets.QSlider, "cameraExposure"
         )
@@ -84,20 +139,23 @@ class VenusUSB2(QObject):
         return {"exposure": exposure_value, "source": source_input}
 
     def preview_button(self):
+        """interface for the preview button. Opens the camera, sets the exposure and previews the feed"""
         settings = self.parse_settings_widget()
         self._set_source(settings["source"])
         if self.open_camera():
             self._set_exposure(settings["exposure"])
-            self.preview()
+            self._preview()
             self.close_camera()
-        else:
-            print("Huutista")
 
     def save_button(self) -> bool:
+        """interface for the save button. Opens the camera, sets the exposure and returns True if successful. Can be called multiple times and just replaces the current self.cap
+
+        Returns:
+            bool: pass/fail
+        """
         settings = self.parse_settings_widget()
         self._set_source(settings["source"])
         if self.open_camera():
             self._set_exposure(settings["exposure"])
             return True
-        print("Huutista")
         return False
