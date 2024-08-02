@@ -1,22 +1,23 @@
 #!/usr/bin/python3.8
-import sys
 from os.path import dirname, sep
 
+
+import importlib
 from configparser import SafeConfigParser
 import pluggy
+
+# Import to communicate with the GUI
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from plugins.pyIVLS_hookspec import pyIVLS_hookspec
 
 import pyIVLS_constants
 
-import importlib
-
-# Import to communicate with the GUI
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 # please stop yelling at me pylint :(
 
 
 class pyIVLS_container(QObject):
+    """Container to handle pluggy module loading"""
 
     #### Signals for communication
 
@@ -30,7 +31,8 @@ class pyIVLS_container(QObject):
     #### Slots for communication
     @pyqtSlot()
     def read_available_plugins(self):
-        """Called from the plugin loader to request the available plugins. Emits the available_plugins_signal with the plugin dictionary."""
+        """Called from the plugin loader to request the available plugins.
+        Emits the available_plugins_signal with the plugin dictionary."""
         self.available_plugins_signal.emit(self.get_plugin_dict())
 
     @pyqtSlot(list)
@@ -150,8 +152,7 @@ class pyIVLS_container(QObject):
                 print(f"Plugin {plugin} unloaded")
                 return True
             # plugin not registered, do nothing.
-            else:
-                return False
+            return False
         except Exception as e:
             print(f"Failed to unload plugin {plugin}: {e}")
             return False
