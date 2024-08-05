@@ -36,9 +36,15 @@ class VenusUSB2(QObject):
         self.source = "/dev/video2"
         self.exposures = [0, 1, 2, 5, 10, 20, 39, 78, 156, 312]
 
+        # Initialize the settings widget
         QObject.__init__(self)
         self.path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(self.path + "camera_settingsWidget.ui")
+
+        # Initialize labels that might be modified:
+        self.source_label = self.settingsWidget.findChild(
+            QtWidgets.QLabel, "sourceLabel"
+        )
 
     def open_camera(self) -> bool:
         """Opens the camera using the source
@@ -49,7 +55,9 @@ class VenusUSB2(QObject):
         # Method to open the camera
         self.cap = cv.VideoCapture(self.source)
         if self.cap.isOpened():
+            self.source_label.setText(f"Source: {self.source}")
             return True
+        self.source_label.setText(f"Failed to open source: {self.source}")
         return False
 
     def close_camera(self):
@@ -119,7 +127,6 @@ class VenusUSB2(QObject):
         """
         # Method to set the source
         self.source = int(source)
-        print(f"Source set to {source}")
 
     def parse_settings_widget(self) -> dict:
         """Parses the settings widget for the camera. Extracts current values

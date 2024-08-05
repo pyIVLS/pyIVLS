@@ -17,9 +17,9 @@ from pyIVLS_container import pyIVLS_container
 
 @pyqtSlot()
 def update_settings_widget():
-    whatAmI = pluginsContainer.get_plugin_info_from_settings()
+    what_am_i = pluginsContainer.get_plugin_info_from_settings()
     GUI_mainWindow.clearDockWidget()
-    GUI_mainWindow.setSettingsWidget(whatAmI)
+    GUI_mainWindow.setSettingsWidget(what_am_i)
     GUI_mainWindow.pluginloader.refresh()
 
 

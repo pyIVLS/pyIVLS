@@ -3,16 +3,9 @@ import numpy as np
 import os
 
 from PyQt6 import uic
-from PyQt6.QtWidgets import (
-    QApplication,
-    QWidget,
-    QLabel,
-    QPushButton,
-    QFileDialog,
-    QVBoxLayout,
-)
+from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject
-from PyQt6.QtGui import QPixmap
+import matplotlib.pyplot as plt
 
 
 class Affine(QObject):
@@ -24,6 +17,10 @@ class Affine(QObject):
     - When transformation is found, use coords() to get the transformed coordinates of a point.
     """
 
+    ### Signals and slots.
+    # FIXME: Review if this really is the best way to do this. It could be easier
+    # if the class had an instance of pluginManager and could call the functions directly.
+
     def __init__(self):
         """
         Initializes the Affine class.
@@ -32,7 +29,7 @@ class Affine(QObject):
         - MIN_MATCH_COUNT (int): Minimum number of matches required to find affine transformation.
         - imgW (np.ndarray): Image that produced the result.
         - maskW (np.ndarray): Mask that produced the result.
-        - A (np.ndarray): Affine transformation matrix.
+        - A (np.ndarray): Affine transformation matrix.ks
         """
         self._MIN_MATCH_COUNT = (
             10  # Minimum number of matches required to find affine transformation.
@@ -40,11 +37,19 @@ class Affine(QObject):
         self.imgW = None  # Image that produced the result
         self.maskW = None  # Mask that produced the result
         self.A = None  # Affine transformation matrix
+        self.internal_img = None  # Internal image
+        self.internal_mask = None  # Internal mask
 
         # Load the settings widget
         QObject.__init__(self)
         self.path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(self.path + "affine_settingsWidget.ui")
+
+        # save the labels that might be modified:
+        self.affine_label = self.settingsWidget.findChild(
+            QtWidgets.QLabel, "affineLabel"
+        )
+        self.mask_label = self.settingsWidget.findChild(QtWidgets.QLabel, "maskLabel")
 
     @staticmethod
     def _preprocess_img(img):
@@ -109,6 +114,9 @@ class Affine(QObject):
             edgeThreshold=edgeThreshold,  # OpenCV default: 10
             sigma=sigma,  # OpenCV default: 1.6
         )
+        # FIXME: maybe add a popup if this is raised?
+        if img is None or mask is None:
+            return False
 
         # Preprocess the images
         img = self._preprocess_img(img)
@@ -171,17 +179,107 @@ class Affine(QObject):
         """
         Function to be called when the mask button is clicked.
         """
-        fileName, _ = QFileDialog.getOpenFileName(
+        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(
             self.settingsWidget,
             "Open Image",
-            self.path + "masks",
+            self.path + os.sep + "masks",
             "Image Files (*.png *.jpg *.bmp)",
         )
 
         if fileName:
-            # Display the image in the label
-            pixmap = QPixmap(fileName)
-            image_label = self.settingsWidget.findChild(QLabel, "imageLabel")
-            if image_label:
-                image_label.setPixmap(pixmap)
-                image_label.setScaledContents(True)  # Make the image fit the label size
+            self.internal_mask = cv.imread(fileName, cv.IMREAD_GRAYSCALE)
+            self.mask_label.setText("Mask loaded successfully.")
+
+    def find_button(self) -> bool:
+        # FIXME: add stuff to get the image from the camera. For now, hardcoded.
+        self.affine_label.setText("Computing.")
+        self.internal_img = cv.imread(
+            self.path + os.sep + "testImages" + os.sep + "NC3.png", cv.IMREAD_GRAYSCALE
+        )
+        if self.try_match(self.internal_img, self.internal_mask):
+            self.affine_label.setText("Affine matrix found.")
+            return True
+        else:
+            self.affine_label.setText(
+                "Affine matrix not found. Please click 'Find Affine'."
+            )
+            return False
+
+    def save_button(self):
+        visu = Visualize(self)
+        visu.queue_affine()
+        visu.show()
+
+    def set_img(self, img):
+        self.internal_img = img
+
+
+# Nothing beyond this comment. Nothing to see here. Certainly no messy import workarounds. Move along.
+class Visualize:
+    def __init__(self, parent):
+        self.parent = parent
+        self.visuQueue = []
+
+    def queue_affine(self):
+        if self.parent.A is not None:
+            # Warp the img using the affine transformation matrix
+            warped_img = cv.warpAffine(
+                self.parent.imgW,
+                self.parent.A,
+                (self.parent.maskW.shape[1], self.parent.maskW.shape[0]),
+            )
+
+            # Convert both images to color to allow blending
+            if len(self.parent.maskW.shape) == 2:  # If maskW is grayscale
+                mask_color = cv.cvtColor(self.parent.maskW, cv.COLOR_GRAY2BGR)
+            else:
+                mask_color = self.parent.maskW.copy()
+
+            if len(warped_img.shape) == 2:  # If warped_img is grayscale
+                warped_img_color = cv.cvtColor(warped_img, cv.COLOR_GRAY2BGR)
+            else:
+                warped_img_color = warped_img.copy()
+
+            # Blend the images with transparency
+            alpha = 0.5  # Transparency factor
+            blended_img = cv.addWeighted(
+                mask_color, 1 - alpha, warped_img_color, alpha, 0
+            )
+
+            # Get screen resolution
+            screen_res = 1920, 1080
+            scale_width = screen_res[0] / blended_img.shape[1]
+            scale_height = screen_res[1] / blended_img.shape[0]
+            scale = min(scale_width, scale_height)
+
+            # Rescale the image
+            new_size = (
+                int(blended_img.shape[1] * scale),
+                int(blended_img.shape[0] * scale),
+            )
+            resized_img = cv.resize(blended_img, new_size, interpolation=cv.INTER_AREA)
+
+            # add visu to queue
+            self.visuQueue.append(resized_img)
+
+        else:
+            print("Affine transform not found. Run try_match() first.")
+
+    # Prints out the visualizations in the queue
+    def show(self, num_rows=2):
+        num_images = len(self.visuQueue)
+
+        # Calculate the number of columns
+        num_cols = (num_images + num_rows - 1) // num_rows
+
+        # Adjust the figsize to accommodate the grid layout better
+        plt.figure(figsize=(5 * num_cols, 5 * num_rows))
+
+        for i in range(num_images):
+            img = self.visuQueue.pop(0)  # Remove the first element from visuQueue
+            plt.subplot(num_rows, num_cols, i + 1)
+            plt.imshow(img)
+            plt.axis("off")  # Optional: Turn off axis
+
+        plt.tight_layout()
+        plt.show()

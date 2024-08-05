@@ -40,7 +40,7 @@
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_2">
          <item>
-          <widget class="QLabel" name="label_Channel">
+          <widget class="QLabel" name="exposureText">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -100,7 +100,7 @@
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout">
          <item>
-          <widget class="QLabel" name="sourceLabel">
+          <widget class="QLabel" name="sourceText">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -122,6 +122,13 @@
           <widget class="QLineEdit" name="cameraSource">
            <property name="text">
             <string>/dev/video2</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="sourceLabel">
+           <property name="text">
+            <string/>
            </property>
           </widget>
          </item>
