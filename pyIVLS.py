@@ -33,7 +33,7 @@ if __name__ == "__main__":
     pluginsContainer = pyIVLS_container()
     GUI_mainWindow = pyIVLS_GUI()
 
-    ###init signals for pluginloader <-> container communication
+    ### initalize signals for pluginloader <-> container communication
     GUI_mainWindow.pluginloader.request_available_plugins_signal.connect(
         pluginsContainer.read_available_plugins
     )
