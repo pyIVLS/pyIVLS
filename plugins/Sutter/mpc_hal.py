@@ -39,15 +39,20 @@ class Mpc325(QObject):
         self._maximum_s: Final = (
             400000  # Manual says 266667, this is the actual maximum.
         )
+        self.ser = serial.Serial()  # init a closed port
 
         # Load the settings widget
         QObject.__init__(self)
         self.path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(self.path + "sutter_settingsWidget.ui")
 
+        # initialize labels that might be modified:
+        self.port_label = self.settingsWidget.findChild(QtWidgets.QLabel, "portLabel")
+
     # Close the connection when python garbage collection gets around to it.
     def __del__(self):
-        self.ser.close()
+        if self.ser.is_open():
+            self.ser.close()
 
     def open(self):
         # Open port
