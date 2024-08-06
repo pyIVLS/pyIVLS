@@ -90,7 +90,6 @@ class VenusUSB2(QObject):
             _, frame = self.cap.read()
         else:
             frame = np.zeros((480, 640, 3), np.uint8)
-        print(f"captured image: {frame}")
         return frame
 
     def _preview(self):

@@ -119,6 +119,7 @@ class pyIVLS_container(QObject):
                 return False
         except (ImportError, AttributeError) as e:
             print(f"Failed to load plugin {plugin}: {e}")
+            self.config[plugin]["load"] = "False"
             return False
 
     def _unregister(self, plugin: str) -> bool:
@@ -155,10 +156,10 @@ class pyIVLS_container(QObject):
             # plugin not registered, do nothing.
             return False
         except ImportError as e:
-            print(f"Failed to load plugin {plugin}: {e}")
+            print(f"Failed to unload plugin {plugin}: {e}")
             return False
         except AttributeError as e:
-            print(f"Failed to load plugin {plugin}: {e}")
+            print(f"Failed to unload plugin {plugin}: {e}")
             return False
 
     def register_start_up(self):
