@@ -1,7 +1,6 @@
 #!/usr/bin/python3.8
 import sys
 from os.path import dirname, sep
-from os import sep
 
 IVLS_path = dirname(__file__) + sep
 sys.path.append(IVLS_path)
@@ -49,7 +48,11 @@ if __name__ == "__main__":
         GUI_mainWindow.pluginloader.show_message
     )
 
-    ###init interfaces
+    # Think about this. The plugins need to communicate with each other. This *should* happen through the pluginscontainer pluginmanager.
+    # The issue begins with the fact that the settings widgets are parsed inside the plugins themselves, which have no way of knowing about the other plugins.
+    # Signals and slots are not great for this, since they are not dynamic. Should
+
+    ### init interfaces
     whatAmI = pluginsContainer.get_plugin_info_from_settings()
     GUI_mainWindow.setSettingsWidget(whatAmI)
     GUI_mainWindow.window.show()

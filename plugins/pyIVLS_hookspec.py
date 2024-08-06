@@ -1,13 +1,13 @@
 #!/usr/bin/python3.8
 import pluggy
-from PyQt6 import QtWidgets
+import cv2
 
 
 class pyIVLS_hookspec:
     hookspec = pluggy.HookspecMarker("pyIVLS")
 
     @hookspec
-    def get_setup_interface(self) -> dict:
+    def get_setup_interface(self, pm: pluggy.PluginManager) -> dict:
         """returns a widget for a tab in setup, and probably data for the setup structure
 
         :plugin_type: as all the plugins will be rolled in one loop, but plugins will be of different types, not all of them should return smth.
@@ -16,17 +16,8 @@ class pyIVLS_hookspec:
         """
 
     @hookspec
-    def camera_preview(self):
-        """Preview the camera stream"""
+    def camera_get_image(self) -> cv2.typing.MatLike:
+        """returns the image from the camera
 
-    @hookspec
-    def camera_set_source(self, source: str) -> bool:
-        """Set the camera source"""
-
-    @hookspec
-    def camera_set_exposure(self, exposure: int) -> bool:
-        """Set the camera exposure"""
-
-    @hookspec
-    def parse_settings_widget(self, settings: QtWidgets.QWidget) -> dict:
-        """Parse the settings widget"""
+        :return: image from the camera
+        """

@@ -66,7 +66,8 @@ class pyIVLS_container(QObject):
         Returns:
             dict: plugin name -> plugin widget
         """
-        single_element_dicts = self.pm.hook.get_setup_interface()
+        plugin_manager = self.pm
+        single_element_dicts = self.pm.hook.get_setup_interface(pm=plugin_manager)
         combined_dict = {}
         for d in single_element_dicts:
             combined_dict.update(d)
@@ -153,8 +154,11 @@ class pyIVLS_container(QObject):
                 return True
             # plugin not registered, do nothing.
             return False
-        except Exception as e:
-            print(f"Failed to unload plugin {plugin}: {e}")
+        except ImportError as e:
+            print(f"Failed to load plugin {plugin}: {e}")
+            return False
+        except AttributeError as e:
+            print(f"Failed to load plugin {plugin}: {e}")
             return False
 
     def register_start_up(self):

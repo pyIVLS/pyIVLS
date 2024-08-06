@@ -1,26 +1,30 @@
 import cv2 as cv
 import os
 
+import numpy as np
 from PyQt6 import uic
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+
+from typing import Optional
+import pluggy
 
 """
-User Controls
+    User Controls
 
-                    brightness 0x00980900 (int)    : min=0 max=255 step=1 default=128 value=128
-                    contrast 0x00980901 (int)    : min=0 max=255 step=1 default=128 value=128
-                    saturation 0x00980902 (int)    : min=0 max=255 step=1 default=64 value=64
-    white_balance_automatic 0x0098090c (bool)   : default=1 value=1
-    white_balance_temperature 0x0098091a (int)    : min=1 max=5 step=1 default=1 value=1 flags=inactive
-                    sharpness 0x0098091b (int)    : min=0 max=255 step=1 default=128 value=128
+                        brightness 0x00980900 (int)    : min=0 max=255 step=1 default=128 value=128
+                        contrast 0x00980901 (int)    : min=0 max=255 step=1 default=128 value=128
+                        saturation 0x00980902 (int)    : min=0 max=255 step=1 default=64 value=64
+        white_balance_automatic 0x0098090c (bool)   : default=1 value=1
+        white_balance_temperature 0x0098091a (int)    : min=1 max=5 step=1 default=1 value=1 flags=inactive
+                        sharpness 0x0098091b (int)    : min=0 max=255 step=1 default=128 value=128
 
-Camera Controls
+    Camera Controls
 
-                auto_exposure 0x009a0901 (menu)   : min=0 max=3 default=3 value=1 (Manual Mode)
-            1: Manual Mode
-        exposure_time_absolute 0x009a0902 (int)    : min=0 max=320 step=1 default=20 value=10
-    focus_automatic_continuous 0x009a090c (bool)   : default=0 value=0
+                    auto_exposure 0x009a0901 (menu)   : min=0 max=3 default=3 value=1 (Manual Mode)
+                1: Manual Mode
+            exposure_time_absolute 0x009a0902 (int)    : min=0 max=320 step=1 default=20 value=10
+        focus_automatic_continuous 0x009a090c (bool)   : default=0 value=0
 """
 
 
@@ -35,6 +39,7 @@ class VenusUSB2(QObject):
         # FIXME check the exposures
         self.source = "/dev/video2"
         self.exposures = [0, 1, 2, 5, 10, 20, 39, 78, 156, 312]
+        self.pm: Optional[pluggy.PluginManager] = None
 
         # Initialize the settings widget
         QObject.__init__(self)
@@ -45,6 +50,7 @@ class VenusUSB2(QObject):
         self.source_label = self.settingsWidget.findChild(
             QtWidgets.QLabel, "sourceLabel"
         )
+        self.pm = None
 
     def open_camera(self) -> bool:
         """Opens the camera using the source
@@ -55,7 +61,7 @@ class VenusUSB2(QObject):
         # Method to open the camera
         self.cap = cv.VideoCapture(self.source)
         if self.cap.isOpened():
-            self.source_label.setText(f"Source: {self.source}")
+            self.source_label.setText(f"Source open: {self.source}")
             return True
         self.source_label.setText(f"Failed to open source: {self.source}")
         return False
@@ -64,14 +70,20 @@ class VenusUSB2(QObject):
         """Pretty self explanatory"""
         self.cap.release()
 
-    def capture_image(self):
-        """Captures an image from the camera
+    # FIXME: hard crash when trying to capture image without opening camera.
+    def capture_image(self) -> cv.typing.MatLike:
+        """Captures an image from the camera. NOTE: returns color image
 
         Returns:
             matlike: The image
         """
         # Method to capture an image
-        ret, frame = self.cap.read()
+        if self.cap.isOpened():
+            ret, frame = self.cap.read()
+        else:
+            self.open_camera()
+            ret, frame = self.cap.read()
+        print(f"captured image: {frame}")
         return frame
 
     def _preview(self):
@@ -152,7 +164,6 @@ class VenusUSB2(QObject):
         if self.open_camera():
             self._set_exposure(settings["exposure"])
             self._preview()
-            self.close_camera()
 
     def save_button(self) -> bool:
         """interface for the save button. Opens the camera, sets the exposure and returns True if successful. Can be called multiple times and just replaces the current self.cap

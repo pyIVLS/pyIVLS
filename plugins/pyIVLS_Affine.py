@@ -14,13 +14,13 @@ class pyIVLS_Affine_plugin:
         self.affine = Affine()
 
     @hookimpl
-    def get_setup_interface(self) -> dict:
+    def get_setup_interface(self, pm) -> dict:
         """Sets up the buttons for affine conversion plugin
 
         Returns:
             dict: name, widget
         """
-
+        print("Affine plugin is here")
         mask_button = self.affine.settingsWidget.findChild(
             QtWidgets.QPushButton, "maskButton"
         )
@@ -43,7 +43,9 @@ class pyIVLS_Affine_plugin:
                 "Affine matrix not found. Please click 'Find Affine'."
             )
 
-        if self.affine.internal_mask is None:
-            self.affine.mask_label.setText("Set mask image.")
+        # FIXME: Should this be saved do a .ini file?
+        self.affine.mask_label.setText("Set mask image.")
+
+        self.affine.pm = pm
 
         return {"Affine": self.affine.settingsWidget}

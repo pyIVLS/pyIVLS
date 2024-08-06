@@ -9,17 +9,14 @@ import matplotlib.pyplot as plt
 
 
 class Affine(QObject):
-    """Calculates the affine transformation between two images using SIFT keypoints and descriptors. Assumes the images are grayscale.
+    """Calculates the affine transformation between two images using SIFT keypoints and descriptors.
+    Assumes the images are grayscale.
     Usage:
     - Create an Affine object.
     - Call try_match() with the input image and mask.
     - If the transformation is found, access the transformation matrix using the A attribute.
     - When transformation is found, use coords() to get the transformed coordinates of a point.
     """
-
-    ### Signals and slots.
-    # FIXME: Review if this really is the best way to do this. It could be easier
-    # if the class had an instance of pluginManager and could call the functions directly.
 
     def __init__(self):
         """
@@ -29,7 +26,7 @@ class Affine(QObject):
         - MIN_MATCH_COUNT (int): Minimum number of matches required to find affine transformation.
         - imgW (np.ndarray): Image that produced the result.
         - maskW (np.ndarray): Mask that produced the result.
-        - A (np.ndarray): Affine transformation matrix.ks
+        - A (np.ndarray): Affine transformation matrix
         """
         self._MIN_MATCH_COUNT = (
             10  # Minimum number of matches required to find affine transformation.
@@ -37,8 +34,9 @@ class Affine(QObject):
         self.imgW = None  # Image that produced the result
         self.maskW = None  # Mask that produced the result
         self.A = None  # Affine transformation matrix
-        self.internal_img = None  # Internal image
-        self.internal_mask = None  # Internal mask
+        self.internal_img: cv.typing.MatLike  # Internal image
+        self.internal_mask: cv.typing.MatLike  # Internal mask
+        self.pm = None
 
         # Load the settings widget
         QObject.__init__(self)
@@ -54,7 +52,8 @@ class Affine(QObject):
     @staticmethod
     def _preprocess_img(img):
         """
-        Preprocesses the input image by applying Gaussian blur and histogram equalization.
+        Preprocesses the input image by converting to grayscale, applying Gaussian blur,
+        and histogram equalization.
 
         Args:
         - img (np.ndarray): Input image.
@@ -62,6 +61,8 @@ class Affine(QObject):
         Returns:
         - img (np.ndarray): Preprocessed image.
         """
+
+        img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)  # Convert to grayscale
         img = cv.GaussianBlur(img, (5, 5), 0)  # Remove noise
         img = cv.equalizeHist(img)  # Bring out contrast
         return img
@@ -77,9 +78,8 @@ class Affine(QObject):
         Returns:
         - mask (np.ndarray): Preprocessed mask.
         """
-        mask = cv.bitwise_not(
-            mask
-        )  # Invert image. The mask should be white and the background black.
+        # Invert image. The mask should be white and the background black.
+        mask = cv.bitwise_not(mask)
         mask = cv.equalizeHist(mask)  # Bring out contrast
         return mask
 
@@ -93,7 +93,8 @@ class Affine(QObject):
         sigma=2.6,
     ) -> bool:
         """
-        Attempts to find the affine transformation between the input image and mask using SIFT keypoints and descriptors.
+        Attempts to find the affine transformation between the input image and
+        mask using SIFT keypoints and descriptors.
 
         Args:
         - img (np.ndarray): Input image.
@@ -191,11 +192,22 @@ class Affine(QObject):
             self.mask_label.setText("Mask loaded successfully.")
 
     def find_button(self) -> bool:
-        # FIXME: add stuff to get the image from the camera. For now, hardcoded.
         self.affine_label.setText("Computing.")
-        self.internal_img = cv.imread(
-            self.path + os.sep + "testImages" + os.sep + "NC3.png", cv.IMREAD_GRAYSCALE
-        )
+
+        # call pm to get the image
+        self.internal_img = self.pm.hook.camera_get_image()
+        # NOTE: calling the hook without a spesific camera instance returns a list, since pm expects multiple answers.
+        if self.internal_img is None:
+            self.affine_label.setText("Camera not connected or invalid image format.")
+            return False
+
+        # HACK: self.pm.hook.camera_get_image() returns a list, take first.
+        if isinstance(self.internal_img, list):
+            self.internal_img = self.internal_img[0]
+
+        # FIXME: remove debug print
+        cv.imshow("internal_img", self.internal_img)
+
         if self.try_match(self.internal_img, self.internal_mask):
             self.affine_label.setText("Affine matrix found.")
             return True
@@ -211,6 +223,7 @@ class Affine(QObject):
         visu.show()
 
     def set_img(self, img):
+        raise NotImplementedError("Deprecated")
         self.internal_img = img
 
 
