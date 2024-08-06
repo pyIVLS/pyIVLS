@@ -83,7 +83,6 @@ class VenusUSB2(QObject):
         else:
             self.open_camera()
             ret, frame = self.cap.read()
-        print(f"captured image: {frame}")
         return frame
 
     def _preview(self):
@@ -138,7 +137,7 @@ class VenusUSB2(QObject):
             source (str): device string for the camera
         """
         # Method to set the source
-        self.source = int(source)
+        self.source = source
 
     def parse_settings_widget(self) -> dict:
         """Parses the settings widget for the camera. Extracts current values
