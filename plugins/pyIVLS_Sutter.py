@@ -2,17 +2,16 @@
 import pluggy
 from PyQt6 import QtWidgets
 
-from plugins.VenusUSB2.cameraHAL import VenusUSB2
-import cv2
+from plugins.Sutter.mpc_hal import Mpc325
 
 
-class pyIVLS_VenusUSB2_plugin:
-    """Hooks for VenusUSB2 camera plugin"""
+class pyIVLS_Sutter_plugin:
+    """Hooks for Sutter micromanipulator plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.camera = VenusUSB2()
+        self.hal = Mpc325()
 
     @hookimpl
     def get_setup_interface(self, pm) -> dict:
@@ -21,7 +20,8 @@ class pyIVLS_VenusUSB2_plugin:
         Returns:
             dict: name, widget
         """
-
+        # FIXME: Check buttons, see below.
+        """
         preview_button = self.camera.settingsWidget.findChild(
             QtWidgets.QPushButton, "cameraPreview"
         )
@@ -31,17 +31,6 @@ class pyIVLS_VenusUSB2_plugin:
         # Connect widget buttons to functions
         preview_button.clicked.connect(self.camera.preview_button)
         save_button.clicked.connect(self.camera.save_button)
-
-        # FIXME: Make executive decision on to remove or not.
-        # self.camera.pm = pm
-
-        return {"VenusUSB2": self.camera.settingsWidget}
-
-    @hookimpl
-    def camera_get_image(self) -> cv2.typing.MatLike:
-        """returns the image from the camera
-
-        :return: image from the camera
         """
-        print("Getting image from VenusUSB2 camera")
-        return self.camera.capture_image()
+
+        return {"Sutter": self.hal.settingsWidget}

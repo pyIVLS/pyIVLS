@@ -20,7 +20,7 @@ class pyIVLS_Affine_plugin:
         Returns:
             dict: name, widget
         """
-        print("Affine plugin is here")
+
         mask_button = self.affine.settingsWidget.findChild(
             QtWidgets.QPushButton, "maskButton"
         )
