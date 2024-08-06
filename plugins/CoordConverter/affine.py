@@ -34,8 +34,8 @@ class Affine(QObject):
         self.imgW = None  # Image that produced the result
         self.maskW = None  # Mask that produced the result
         self.A = None  # Affine transformation matrix
-        self.internal_img: cv.typing.MatLike  # Internal image
-        self.internal_mask: cv.typing.MatLike  # Internal mask
+        self.internal_img = None  # Internal image
+        self.internal_mask = None  # Internal mask
         self.pm = None
 
         # Load the settings widget
@@ -115,9 +115,6 @@ class Affine(QObject):
             edgeThreshold=edgeThreshold,  # OpenCV default: 10
             sigma=sigma,  # OpenCV default: 1.6
         )
-        # FIXME: maybe add a popup if this is raised?
-        if img is None or mask is None:
-            return False
 
         # Preprocess the images
         img = self._preprocess_img(img)
@@ -193,9 +190,11 @@ class Affine(QObject):
 
     def find_button(self) -> bool:
 
+        self.update_img()
 
-        # FIXME: remove debug print
-        cv.imshow("internal_img", self.internal_img)
+        if self.internal_mask is None:
+            self.affine_label.setText("No mask loaded. Please load a mask.")
+            return False
 
         if self.try_match(self.internal_img, self.internal_mask):
             self.affine_label.setText("Affine matrix found. Click 'Save' to visualize.")
@@ -215,12 +214,11 @@ class Affine(QObject):
         return_img = self.pm.hook.camera_get_image()
         if return_img is None:
             self.affine_label.setText("Camera not connected or invalid image format.")
-            return None
-    
-        
+            print("Camera not connected or invalid image format.")
+
         # HACK: self.pm.hook.camera_get_image() returns a list, take first.
-        if isinstance(self.internal_img, list):
-            self.internal_img = self.internal_img[0]
+        if isinstance(return_img, list):
+            self.internal_img = return_img[0]
 
 
 # Nothing beyond this comment. Nothing to see here. Certainly no messy import workarounds. Move along.

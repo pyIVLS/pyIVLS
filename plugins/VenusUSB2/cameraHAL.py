@@ -37,7 +37,7 @@ class VenusUSB2(QObject):
 
     def __init__(self):
         # FIXME check the exposures
-        self.exposures = [0, 1, 2, 5, 10, 20, 39, 78, 156, 312]
+        self.exposures = [1, 1, 2, 5, 10, 20, 39, 78, 156, 312]
         self.pm: Optional[pluggy.PluginManager] = None
 
         # Initialize the settings widget
@@ -158,6 +158,7 @@ class VenusUSB2(QObject):
         settings = self.parse_settings_widget()
         if self.open_camera(source=settings["source"], exposure=settings["exposure"]):
             self._preview()
+            self.close_camera()
 
     def save_button(self) -> None:
         """interface for the save button. Updates the settings and saves them to internal dict.
@@ -166,3 +167,4 @@ class VenusUSB2(QObject):
             bool: pass/fail
         """
         self.settings = self.parse_settings_widget()
+        self.close_camera()
