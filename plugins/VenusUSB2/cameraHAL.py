@@ -37,7 +37,6 @@ class VenusUSB2(QObject):
 
     def __init__(self):
         # FIXME check the exposures
-        self.source = "/dev/video2"
         self.exposures = [0, 1, 2, 5, 10, 20, 39, 78, 156, 312]
         self.pm: Optional[pluggy.PluginManager] = None
 
@@ -51,38 +50,46 @@ class VenusUSB2(QObject):
             QtWidgets.QLabel, "sourceLabel"
         )
         self.pm = None
+        # Initialize cap as empty capture
+        self.cap = cv.VideoCapture()
+        self.save_button()
 
-    def open_camera(self) -> bool:
-        """Opens the camera using the source
+    def open_camera(self, source=None, exposure=None) -> bool:
+        """Opens the camera using current settings.
 
         Returns:
             bool: pass/fail
         """
-        # Method to open the camera
-        self.cap = cv.VideoCapture(self.source)
+        if source is None:
+            source = self.settings["source"]
+        if exposure is None:
+            exposure = self.settings["exposure"]
+
+        self.cap.open(source)
         if self.cap.isOpened():
-            self.source_label.setText(f"Source open: {self.source}")
+            self.source_label.setText(f"Source open: {source}")
+            self._set_exposure(exposure)
             return True
-        self.source_label.setText(f"Failed to open source: {self.source}")
+        self.source_label.setText(f"Failed to open source: {source}")
         return False
 
     def close_camera(self):
         """Pretty self explanatory"""
         self.cap.release()
 
-    # FIXME: hard crash when trying to capture image without opening camera.
     def capture_image(self) -> cv.typing.MatLike:
         """Captures an image from the camera. NOTE: returns color image
 
         Returns:
             matlike: The image
         """
-        # Method to capture an image
+        # is the cap opened?
         if self.cap.isOpened():
-            ret, frame = self.cap.read()
+            _, frame = self.cap.read()
+        elif self.open_camera():
+            _, frame = self.cap.read()
         else:
-            self.open_camera()
-            ret, frame = self.cap.read()
+            frame = np.zeros((480, 640, 3), np.uint8)
         return frame
 
     def _preview(self):
@@ -129,16 +136,6 @@ class VenusUSB2(QObject):
         # Method to get the exposure value
         return self.cap.get(cv.CAP_PROP_EXPOSURE)
 
-    # FIXME: just for windows, remove the int conversion when porting to linux
-    def _set_source(self, source):
-        """Sets the camera feed source
-
-        Args:
-            source (str): device string for the camera
-        """
-        # Method to set the source
-        self.source = source
-
     def parse_settings_widget(self) -> dict:
         """Parses the settings widget for the camera. Extracts current values
 
@@ -159,20 +156,13 @@ class VenusUSB2(QObject):
     def preview_button(self):
         """interface for the preview button. Opens the camera, sets the exposure and previews the feed"""
         settings = self.parse_settings_widget()
-        self._set_source(settings["source"])
-        if self.open_camera():
-            self._set_exposure(settings["exposure"])
+        if self.open_camera(source=settings["source"], exposure=settings["exposure"]):
             self._preview()
 
-    def save_button(self) -> bool:
-        """interface for the save button. Opens the camera, sets the exposure and returns True if successful. Can be called multiple times and just replaces the current self.cap
+    def save_button(self) -> None:
+        """interface for the save button. Updates the settings and saves them to internal dict.
 
         Returns:
             bool: pass/fail
         """
-        settings = self.parse_settings_widget()
-        self._set_source(settings["source"])
-        if self.open_camera():
-            self._set_exposure(settings["exposure"])
-            return True
-        return False
+        self.settings = self.parse_settings_widget()

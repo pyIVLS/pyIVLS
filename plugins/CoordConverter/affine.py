@@ -192,28 +192,17 @@ class Affine(QObject):
             self.mask_label.setText("Mask loaded successfully.")
 
     def find_button(self) -> bool:
-        self.affine_label.setText("Computing.")
 
-        # call pm to get the image
-        self.internal_img = self.pm.hook.camera_get_image()
-        # NOTE: calling the hook without a spesific camera instance returns a list, since pm expects multiple answers.
-        if self.internal_img is None:
-            self.affine_label.setText("Camera not connected or invalid image format.")
-            return False
-
-        # HACK: self.pm.hook.camera_get_image() returns a list, take first.
-        if isinstance(self.internal_img, list):
-            self.internal_img = self.internal_img[0]
 
         # FIXME: remove debug print
         cv.imshow("internal_img", self.internal_img)
 
         if self.try_match(self.internal_img, self.internal_mask):
-            self.affine_label.setText("Affine matrix found.")
+            self.affine_label.setText("Affine matrix found. Click 'Save' to visualize.")
             return True
         else:
             self.affine_label.setText(
-                "Affine matrix not found. Please click 'Find Affine'."
+                "Affine matrix not found. Please click 'Find Affine' to try again."
             )
             return False
 
@@ -222,9 +211,16 @@ class Affine(QObject):
         visu.queue_affine()
         visu.show()
 
-    def set_img(self, img):
-        raise NotImplementedError("Deprecated")
-        self.internal_img = img
+    def update_img(self):
+        return_img = self.pm.hook.camera_get_image()
+        if return_img is None:
+            self.affine_label.setText("Camera not connected or invalid image format.")
+            return None
+    
+        
+        # HACK: self.pm.hook.camera_get_image() returns a list, take first.
+        if isinstance(self.internal_img, list):
+            self.internal_img = self.internal_img[0]
 
 
 # Nothing beyond this comment. Nothing to see here. Certainly no messy import workarounds. Move along.
