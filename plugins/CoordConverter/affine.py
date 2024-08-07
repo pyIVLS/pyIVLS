@@ -7,6 +7,9 @@ from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject
 import matplotlib.pyplot as plt
 
+# for gds loading
+from klayout import lay
+
 
 class Affine(QObject):
     """Calculates the affine transformation between two images using SIFT keypoints and descriptors.
@@ -188,8 +191,24 @@ class Affine(QObject):
             self.internal_mask = cv.imread(fileName, cv.IMREAD_GRAYSCALE)
             self.mask_label.setText("Mask loaded successfully.")
 
-    def find_button(self) -> bool:
+    def mask_gds_button(self):
+        """Interface for the gds mask loading button.
+        """
+        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self.settingsWidget,
+            "Open .GDS file",
+            self.path + os.sep + "masks",
+            "Mask Files (*.gds)",
+        )
+        if fileName:
+            self.load_and_save_gds(fileName)
 
+    def find_button(self) -> bool:
+        """Interface for the find button
+
+        Returns:
+            bool: Affine found or not
+        """
         self.update_img()
 
         if self.internal_mask is None:
@@ -201,16 +220,20 @@ class Affine(QObject):
             return True
         else:
             self.affine_label.setText(
-                "Affine matrix not found. Please click 'Find Affine' to try again."
+                "Affine matrix not found. Check camera feed and click again."
             )
             return False
 
     def save_button(self):
+        """Interface for the save button. Shows the affine transformation.
+        """
         visu = Visualize(self)
         visu.queue_affine()
         visu.show()
 
     def update_img(self):
+        """Calls the camera through a hook and updates the internal image.
+        """
         return_img = self.pm.hook.camera_get_image()
         if return_img is None:
             self.affine_label.setText("Camera not connected or invalid image format.")
@@ -220,8 +243,62 @@ class Affine(QObject):
         if isinstance(return_img, list):
             self.internal_img = return_img[0]
 
+    def check_mask_button(self):
+        """Interface to check the mask image. Displays the mask image in a window.
+        """
+        if self.internal_mask is not None:
+            cv.imshow("Mask", self.internal_mask)
 
-# Nothing beyond this comment. Nothing to see here. Certainly no messy import workarounds. Move along.
+    # FIXME: the size is a bit arbitary. Scale to mask size?
+    def load_and_save_gds(
+        self,
+        input_gds_path,
+        output_image_path=None,
+        width=800,
+        height=800,
+    ):
+        """Loads a GDS file and saves it as a PNG image.
+
+        Args:
+            input_gds_path (str): path to .gds file
+            output_image_path (str, optional): Where to save results. Defaults to None.
+            width (int, optional): image width. Defaults to 800.
+            height (int, optional): image height. Defaults to 800.
+        """
+
+        if output_image_path is None:
+            output_image_path = (
+                self.path + os.sep + "masks" + os.sep + "converted_mask.png"
+            )
+        # Create a layout view
+        view = lay.LayoutView()
+
+        view.load_layout(input_gds_path, add_cellview=True)
+
+        # Zoom to fit the entire layout
+        view.zoom_fit()
+        # mystery function that makes sure all layers are visible: https://www.klayout.de/forum/discussion/1711/screenshot-with-all-the-layer-and-screenshot-only-one-layer#latest
+        view.max_hier()
+
+        # Iterate over all layers and make them visible and remove the dither pattern just in case.
+        it = view.begin_layers()
+        while not it.at_end():
+            lp = it.current()
+            new_layer = lp.dup()
+            new_layer.visible = True
+            new_layer.clear_dither_pattern()  # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA why is this called dither pattern instead of stipple like in the GUI. I'm intensely mad about this
+            view.set_layer_properties(it, new_layer)
+
+            it.next()
+
+        # Save the layout view as an image
+        view.save_image(output_image_path, width, height)
+
+        self.internal_mask = cv.imread(output_image_path, cv.IMREAD_GRAYSCALE)
+        self.mask_label.setText("Mask converted and loaded successfully.")
+
+
+# Ugly import workaround.
 class Visualize:
     def __init__(self, parent):
         self.parent = parent

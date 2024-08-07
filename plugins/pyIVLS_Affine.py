@@ -32,12 +32,20 @@ class pyIVLS_Affine_plugin:
         save_button = self.affine.settingsWidget.findChild(
             QtWidgets.QPushButton, "saveButton"
         )
+        mask_gds_button = self.affine.settingsWidget.findChild(
+            QtWidgets.QPushButton, "maskGdsButton"
+        )
+        check_mask_button = self.affine.settingsWidget.findChild(
+            QtWidgets.QPushButton, "checkMaskButton"
+        )
+
         # FIXME: a button to reset the affine? might not be necessary.
         # Connect widget buttons to functions
         mask_button.clicked.connect(self.affine.mask_button)
         find_button.clicked.connect(self.affine.find_button)
         save_button.clicked.connect(self.affine.save_button)
-
+        mask_gds_button.clicked.connect(self.affine.mask_gds_button)
+        check_mask_button.clicked.connect(self.affine.check_mask_button)
         if self.affine.A is None:
             self.affine.affine_label.setText(
                 "Affine matrix not found. Please click 'Find Affine'."

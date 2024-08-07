@@ -51,7 +51,7 @@ class Mpc325(QObject):
 
     # Close the connection when python garbage collection gets around to it.
     def __del__(self):
-        if self.ser.is_open():
+        if self.ser.is_open:
             self.ser.close()
 
     def open(self):

@@ -149,8 +149,6 @@ class VenusUSB2(QObject):
         exposure_value = exposureSlider.value()
         source_input = sourceInput.text()
 
-        print(f"Exposure: {exposure_value}, Source: {source_input}")
-
         return {"exposure": exposure_value, "source": source_input}
 
     def preview_button(self):
