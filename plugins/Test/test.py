@@ -17,9 +17,12 @@ class Test:
         self.runButton = None
         self.statusLabel = None
 
-        # Load the settings widget
+        # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "test_settingsWidget.ui")
+        filename = (
+            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
+        )
+        self.settingsWidget = uic.loadUi(self.path + filename)
 
     def run_button(self):
         """Run the test function"""

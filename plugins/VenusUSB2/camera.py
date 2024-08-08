@@ -40,9 +40,12 @@ class VenusUSB2:
         self.exposures = [1, 1, 2, 5, 10, 20, 39, 78, 156, 312]
         self.pm: Optional[pluggy.PluginManager] = None
 
-        # Initialize the settings widget
+        # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "camera_settingsWidget.ui")
+        filename = (
+            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
+        )
+        self.settingsWidget = uic.loadUi(self.path + filename)
 
         # Initialize labels that might be modified:
         self.source_label = self.settingsWidget.findChild(
@@ -123,10 +126,6 @@ class VenusUSB2:
             print(f"Exposure set to {self.exposures[exposure]}")
         else:
             print("Failed to set exposure.")
-
-        # Verify the exposure value
-        current_exposure = self.cap.get(cv.CAP_PROP_EXPOSURE)
-        print(f"Current exposure: {current_exposure}")
 
     def get_exposure(self):
         """Getter for the current exposure value

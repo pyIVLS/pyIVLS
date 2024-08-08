@@ -41,9 +41,12 @@ class Affine:
         self.internal_mask = None  # Internal mask
         self.pm = None
 
-        # Load the settings widget
+        # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "affine_settingsWidget.ui")
+        filename = (
+            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
+        )
+        self.settingsWidget = uic.loadUi(self.path + filename)
 
         # save the labels that might be modified:
         self.affine_label = self.settingsWidget.findChild(
@@ -244,6 +247,7 @@ class Affine:
         """Interface to check the mask image. Displays the mask image in a window."""
         if self.internal_mask is not None:
             cv.imshow("Mask", self.internal_mask)
+            cv.waitKey(0)
 
     # FIXME: the size is a bit arbitary. Scale to mask size?
     def load_and_save_gds(

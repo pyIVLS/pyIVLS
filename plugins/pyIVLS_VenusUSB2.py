@@ -2,7 +2,7 @@
 import pluggy
 from PyQt6 import QtWidgets
 
-from plugins.VenusUSB2.cameraHAL import VenusUSB2
+from plugins.VenusUSB2.camera import VenusUSB2
 import cv2
 
 

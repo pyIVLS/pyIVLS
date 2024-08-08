@@ -41,9 +41,12 @@ class Mpc325:
         )
         self.ser = serial.Serial()  # init a closed port
 
-        # Load the settings widget
+        # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "sutter_settingsWidget.ui")
+        filename = (
+            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
+        )
+        self.settingsWidget = uic.loadUi(self.path + filename)
 
         # initialize labels that might be modified:
         self.port_label = self.settingsWidget.findChild(QtWidgets.QLabel, "portLabel")
