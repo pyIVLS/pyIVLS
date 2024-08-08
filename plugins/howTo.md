@@ -10,3 +10,6 @@
 
 # On writing hooks
 -All args have to be named when the hook is called
+for instance:
+pm.hook.mm_move(1,0,0,0) crashes
+pm.hook.mm_move(speed=1, x=0, y=0, z=0) works
