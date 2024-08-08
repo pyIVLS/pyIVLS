@@ -19,7 +19,7 @@ DEFAULT_PORT = (
 )
 
 
-class Mpc325(QObject):
+class Mpc325:
     """Handles communication with the Sutter MPC-325 micromanipulator system.
     Methods are named after the commands in the manual.
     """
@@ -41,10 +41,12 @@ class Mpc325(QObject):
         )
         self.ser = serial.Serial()  # init a closed port
 
-        # Load the settings widget
-        QObject.__init__(self)
+        # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "sutter_settingsWidget.ui")
+        filename = (
+            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
+        )
+        self.settingsWidget = uic.loadUi(self.path + filename)
 
         # initialize labels that might be modified:
         self.port_label = self.settingsWidget.findChild(QtWidgets.QLabel, "portLabel")
@@ -99,8 +101,9 @@ class Mpc325(QObject):
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         time.sleep(
-            0.002
+            0.020
         )  # Hardcoded wait time (2 ms) between commands from the manual.
+        # FIXME: made it 20 ms for testing
 
     def get_connected_devices_status(self):
         """Get the status of connected micromanipulators

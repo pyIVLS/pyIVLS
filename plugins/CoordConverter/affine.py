@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from klayout import lay
 
 
-class Affine(QObject):
+class Affine:
     """Calculates the affine transformation between two images using SIFT keypoints and descriptors.
     Assumes the images are grayscale.
     Usage:
@@ -32,7 +32,7 @@ class Affine(QObject):
         - A (np.ndarray): Affine transformation matrix
         """
         self._MIN_MATCH_COUNT = (
-            10  # Minimum number of matches required to find affine transformation.
+            15  # Minimum number of matches required to find affine transformation.
         )
         self.imgW = None  # Image that produced the result
         self.maskW = None  # Mask that produced the result
@@ -41,10 +41,12 @@ class Affine(QObject):
         self.internal_mask = None  # Internal mask
         self.pm = None
 
-        # Load the settings widget
-        QObject.__init__(self)
+        # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "affine_settingsWidget.ui")
+        filename = (
+            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
+        )
+        self.settingsWidget = uic.loadUi(self.path + filename)
 
         # save the labels that might be modified:
         self.affine_label = self.settingsWidget.findChild(
@@ -192,8 +194,7 @@ class Affine(QObject):
             self.mask_label.setText("Mask loaded successfully.")
 
     def mask_gds_button(self):
-        """Interface for the gds mask loading button.
-        """
+        """Interface for the gds mask loading button."""
         fileName, _ = QtWidgets.QFileDialog.getOpenFileName(
             self.settingsWidget,
             "Open .GDS file",
@@ -225,17 +226,16 @@ class Affine(QObject):
             return False
 
     def save_button(self):
-        """Interface for the save button. Shows the affine transformation.
-        """
+        """Interface for the save button. Shows the affine transformation."""
         visu = Visualize(self)
         visu.queue_affine()
         visu.show()
 
+    # FIXME: add something to check the state of the camera return, and notify user.
     def update_img(self):
-        """Calls the camera through a hook and updates the internal image.
-        """
+        """Calls the camera through a hook and updates the internal image."""
         return_img = self.pm.hook.camera_get_image()
-        if return_img is None:
+        if return_img[0] is np.zeros((480, 640, 3), np.uint8):
             self.affine_label.setText("Camera not connected or invalid image format.")
             print("Camera not connected or invalid image format.")
 
@@ -244,10 +244,10 @@ class Affine(QObject):
             self.internal_img = return_img[0]
 
     def check_mask_button(self):
-        """Interface to check the mask image. Displays the mask image in a window.
-        """
+        """Interface to check the mask image. Displays the mask image in a window."""
         if self.internal_mask is not None:
             cv.imshow("Mask", self.internal_mask)
+            cv.waitKey(0)
 
     # FIXME: the size is a bit arbitary. Scale to mask size?
     def load_and_save_gds(

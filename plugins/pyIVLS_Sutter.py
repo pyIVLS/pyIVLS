@@ -2,7 +2,7 @@
 import pluggy
 from PyQt6 import QtWidgets
 
-from plugins.Sutter.mpc_hal import Mpc325
+from plugins.Sutter.sutter import Mpc325
 
 
 class pyIVLS_Sutter_plugin:
@@ -21,16 +21,45 @@ class pyIVLS_Sutter_plugin:
             dict: name, widget
         """
         # FIXME: Check buttons, see below.
-        """
-        preview_button = self.camera.settingsWidget.findChild(
-            QtWidgets.QPushButton, "cameraPreview"
+
+        calibrate_button = self.hal.settingsWidget.findChild(
+            QtWidgets.QPushButton, "calibrateButton"
         )
-        save_button = self.camera.settingsWidget.findChild(
-            QtWidgets.QPushButton, "cameraSave"
+
+        connect_button = self.hal.settingsWidget.findChild(
+            QtWidgets.QPushButton, "connectButton"
         )
-        # Connect widget buttons to functions
-        preview_button.clicked.connect(self.camera.preview_button)
-        save_button.clicked.connect(self.camera.save_button)
-        """
+
+        connect_button.clicked.connect(self.hal.open)
+
+        calibrate_button.clicked.connect(self.hal.calibrate)
 
         return {"Sutter": self.hal.settingsWidget}
+
+    @hookimpl
+    def mm_change_active_device(self, dev_num):
+        """Micromanipulator active device change.
+
+        Args:
+            *args: device number
+        """
+        if self.hal.change_active_device(dev_num):
+            return True
+        return False
+
+    # FIXME: Create a wrapper function for move through settings.
+    @hookimpl
+    def mm_move(self, speed, x, y, z):
+        """Micromanipulator move.
+
+        Args:
+            *args: x, y, z
+        """
+        if self.hal.slow_move_to(speed, x, y, z):
+            return True
+        return False
+
+    @hookimpl
+    def mm_stop(self):
+        """Micromanipulator stop."""
+        self.hal.stop()

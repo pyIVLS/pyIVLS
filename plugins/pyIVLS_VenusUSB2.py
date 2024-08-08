@@ -2,7 +2,7 @@
 import pluggy
 from PyQt6 import QtWidgets
 
-from plugins.VenusUSB2.cameraHAL import VenusUSB2
+from plugins.VenusUSB2.camera import VenusUSB2
 import cv2
 
 
@@ -43,5 +43,10 @@ class pyIVLS_VenusUSB2_plugin:
 
         :return: image from the camera
         """
-        print("Getting image from VenusUSB2 camera")
+        print("Camera hookcall")
         return self.camera.capture_image()
+
+    @hookimpl
+    def get_functions(self, *args):
+        if "camera" in args:
+            return {"camera_get_image": self.camera.capture_image}
