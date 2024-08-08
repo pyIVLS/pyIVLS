@@ -17,7 +17,39 @@ class pyIVLS_hookspec:
 
     @hookspec
     def camera_get_image(self) -> cv2.typing.MatLike:
-        """returns the image from the camera
+        """returns the image from the camera. If function = camera, this must be implemented
 
         :return: image from the camera
+        """
+
+    @hookspec
+    def mm_change_active_device(self, dev_num):
+        """Micromanipulator active device change.
+        if function = micromanipulator, this must be implemented
+
+        Args:
+            *args: device number
+        """
+
+    @hookspec
+    def mm_move(self, speed, x, y, z):
+        """Micromanipulator move.
+        if function = micromanipulator, this must be implemented
+
+        Args:
+            *args: x, y, z
+        """
+
+    @hookspec
+    def mm_stop(self):
+        """Micromanipulator stop.
+        if function = micromanipulator, this must be implemented
+        """
+
+    @hookspec
+    def get_functions(self, *args):
+        """Returns available functions for a plugin. FIXME: Deprecated, use specific hooks instead.
+
+        Returns:
+            dict: _description_
         """

@@ -19,7 +19,7 @@ DEFAULT_PORT = (
 )
 
 
-class Mpc325(QObject):
+class Mpc325:
     """Handles communication with the Sutter MPC-325 micromanipulator system.
     Methods are named after the commands in the manual.
     """
@@ -42,7 +42,6 @@ class Mpc325(QObject):
         self.ser = serial.Serial()  # init a closed port
 
         # Load the settings widget
-        QObject.__init__(self)
         self.path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(self.path + "sutter_settingsWidget.ui")
 

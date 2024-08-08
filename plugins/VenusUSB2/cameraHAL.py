@@ -28,7 +28,7 @@ import pluggy
 """
 
 
-class VenusUSB2(QObject):
+class VenusUSB2:
     """Handles communication with the VenusUSB2 camera
 
     Args:
@@ -41,7 +41,6 @@ class VenusUSB2(QObject):
         self.pm: Optional[pluggy.PluginManager] = None
 
         # Initialize the settings widget
-        QObject.__init__(self)
         self.path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(self.path + "camera_settingsWidget.ui")
 
@@ -77,6 +76,8 @@ class VenusUSB2(QObject):
         """Pretty self explanatory"""
         self.cap.release()
 
+    # FIXME: Maybe this should send more info if an error is encountered.
+    # Info could be used in AFFINE to display a message to the user.
     def capture_image(self) -> cv.typing.MatLike:
         """Captures an image from the camera. NOTE: returns color image
 

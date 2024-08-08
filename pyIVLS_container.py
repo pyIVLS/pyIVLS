@@ -187,10 +187,13 @@ class pyIVLS_container(QObject):
                 # Check if dep is empty:
                 if dependency == "":
                     continue
-                if self.pm.get_plugin(dependency) is None:
-                    # add the dependency to the list of plugins to activate
-                    plugins_to_activate.append(dependency)
-                    added_deps.append(dependency)
+                # Check against the "function" field
+                for plugin_name in self.config.sections():
+                    if self.config[plugin_name]["function"] == dependency:
+                        if self.pm.get_plugin(plugin_name) is None:
+                            # add the dependency to the list of plugins to activate
+                            plugins_to_activate.append(plugin_name)
+                            added_deps.append(plugin_name)
         # notify the user if dependencies are automatically added
         if added_deps:
             self.show_message_signal.emit(
@@ -210,7 +213,8 @@ class pyIVLS_container(QObject):
         for plugin_name in self.config.sections():
             if self.pm.get_plugin(plugin_name) is not None:
                 dependencies = self.config[plugin_name]["dependencies"].split(",")
-                if plugin in dependencies:
+                # Check against the "function" field
+                if self.config[plugin]["function"] in dependencies:
                     return True, plugin_name
 
         return False, ""

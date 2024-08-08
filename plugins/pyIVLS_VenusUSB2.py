@@ -45,3 +45,8 @@ class pyIVLS_VenusUSB2_plugin:
         """
         print("Getting image from VenusUSB2 camera")
         return self.camera.capture_image()
+
+    @hookimpl
+    def get_functions(self, *args):
+        if "camera" in args:
+            return {"camera_get_image": self.camera.capture_image}

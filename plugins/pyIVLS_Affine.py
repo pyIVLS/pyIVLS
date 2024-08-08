@@ -54,6 +54,19 @@ class pyIVLS_Affine_plugin:
         # FIXME: Should this be saved do a .ini file?
         self.affine.mask_label.setText("Set mask image.")
 
-        self.affine.pm = pm
+        if self.affine.pm is None:
+            self.affine.pm = pm
 
         return {"Affine": self.affine.settingsWidget}
+
+    @hookimpl
+    def get_functions(self, *args):
+
+        if "coordinate conversion" in args:
+            return {
+                "affine_coords": self.affine.coords,
+            }
+
+    @hookimpl(optionalhook=True)
+    def affine_coords(self, x, y):
+        return self.affine.coords(x, y)
