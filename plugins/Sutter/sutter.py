@@ -41,6 +41,12 @@ class Mpc325:
         )
         self.ser = serial.Serial()  # init a closed port
 
+        # Initialize settings:
+        self.quick_move = False
+        self.speed = 1
+
+        self
+
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
         filename = (
@@ -49,7 +55,12 @@ class Mpc325:
         self.settingsWidget = uic.loadUi(self.path + filename)
 
         # initialize labels that might be modified:
-        self.port_label = self.settingsWidget.findChild(QtWidgets.QLabel, "portLabel")
+        self.port_label = self.settingsWidget.findChild(
+            QtWidgets.QLabel, "connectionLabel"
+        )
+        self.status_label = self.settingsWidget.findChild(
+            QtWidgets.QLabel, "statusLabel"
+        )
 
     # Close the connection when python garbage collection gets around to it.
     def __del__(self):
@@ -71,8 +82,14 @@ class Mpc325:
                 f"Port {self._port} is open: {self.ser.is_open}. Flushing I/O to initialize."
             )
             self._flush()
+            return True
         except serial.SerialException as e:
-            print(f"Error: {e}")
+            return False
+
+    def close(self):
+        if self.ser.is_open:
+            self.ser.close()
+            print(f"Port {self._port} is closed: {self.ser.is_open}")
 
     def _validate_and_unpack(self, format_str, output):
         """Takes in a struct of bytes, validates end marker and unpacks the data.
@@ -171,10 +188,11 @@ class Mpc325:
         """Calibrate the device. Does the same thing as the calibrate button on the back of the control unit.
         (moves to 0,0,0)
         """
-        self._flush()
-        self.ser.write(bytes([78]))  # Send command (ASCII: N)
-        output = self.ser.read(1)
-        self._validate_and_unpack("B", output)
+        if self.ser.is_open:
+            self._flush()
+            self.ser.write(bytes([78]))  # Send command (ASCII: N)
+            output = self.ser.read(1)
+            self._validate_and_unpack("B", output)
 
     def quick_move_to(self, x: np.float64, y: np.float64, z: np.float64):
         """Quickmove orthogonally at full speed.
@@ -205,7 +223,7 @@ class Mpc325:
         output = self.ser.read(1)
         self._validate_and_unpack("B", output)
 
-    def slow_move_to(self, speed, x: np.float64, y: np.float64, z: np.float64):
+    def slow_move_to(self, x: np.float64, y: np.float64, z: np.float64):
         """Slower move in straight lines. Less prone to collisions
 
         Args:
@@ -217,7 +235,7 @@ class Mpc325:
         """
         self._flush()
         # Enforce speed limits
-        speed = max(0, min(speed, 15))
+        speed = max(0, min(self.speed, 15))
 
         # Pack first part of command
         command1 = struct.pack("<2B", 83, speed)
@@ -233,7 +251,7 @@ class Mpc325:
         )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
 
         self.ser.write(command1)
-        time.sleep(0.03)  # wait period spesified in the manual (30 ms)
+        time.sleep(0.03)  # wait period specified in the manual (30 ms)
         self.ser.write(command2)
         output = self.ser.read(1)
         self._validate_and_unpack("B", output)
@@ -244,6 +262,50 @@ class Mpc325:
         self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>)
         output = self.ser.read(1)
         self._validate_and_unpack("B", output)
+
+    def move(self, x, y, z):
+        """Move to a position. If quick_move is set to True, the movement will be at full speed.
+
+        Args:
+            x (np.float64): x in microns
+            y (np.float64): y in microns
+            z (np.float64): z in microns
+        """
+        if self.quick_move:
+            self.quick_move_to(x, y, z)
+        else:
+            self.slow_move_to(x, y, z)
+
+    def parse_settings_widget(self):
+        """Parses the settings widget and sets the values in the class."""
+
+        quick_move = self.settingsWidget.findChild(QtWidgets.QCheckBox, "quickBox")
+        if quick_move.isChecked():
+            self.quick_move = True
+
+        speed = self.settingsWidget.findChild(QtWidgets.QSlider, "speedSlider")
+        self.speed = speed.value()
+
+        source = self.settingsWidget.findChild(QtWidgets.QLineEdit, "sourceInput")
+        self._port = source.text()
+
+    ## Button functionality:
+
+    def connect_button(self):
+        self.parse_settings_widget()
+        if self.open():
+            self.port_label.setText(f"Connected to {self._port}")
+        else:
+            self.port_label.setText(f"Failed to connect to {self._port}")
+
+    def status_button(self):
+        if self.ser.is_open:
+            num_devices, device_statuses = self.get_connected_devices_status()
+            self.status_label.setText(
+                f"Connected devices: {num_devices}\nStatus: {device_statuses}"
+            )
+        else:
+            self.status_label.setText("Not connected")
 
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
     def _handrail_micron(self, microns) -> np.uint32:

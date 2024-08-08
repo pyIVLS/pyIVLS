@@ -1,5 +1,3 @@
-
-
 class Tester:
 
     def __init__(self):
@@ -18,10 +16,18 @@ class Tester:
         return self.function2
 
 
+from plugins.CoordConverter.affine import Affine, Visualize
+import cv2 as cv
+
 if __name__ == "__main__":
-    test = Tester()
-    func1 = test.give_out_function1()
-    func2 = test.give_out_function2()
-    print(func1("Hello "))
-    print(func2("Hello "))
-    
+    imgPath = "plugins/CoordConverter/testImages/NC1.png"
+    maskPath = "plugins/CoordConverter/masks/NCM.png"
+
+    aff = Affine()
+    vis = Visualize(aff)
+    img = cv.imread(imgPath, cv.IMREAD_GRAYSCALE)
+    mask = cv.imread(maskPath, cv.IMREAD_GRAYSCALE)
+    if aff.try_match(imgPath, maskPath):
+        vis.queue_affine()
+        vis.show()
+    else: 

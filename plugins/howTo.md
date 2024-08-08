@@ -13,3 +13,6 @@ First, check the folder template_plugin for template files.
 for instance:
 pm.hook.mm_move(1,0,0,0) crashes
 pm.hook.mm_move(speed=1, x=0, y=0, z=0) works
+
+# ini file:
+Write dependencies with no spaces and comma separated values.
