@@ -21,28 +21,20 @@ class pyIVLS_Sutter_plugin:
             dict: name, widget
         """
         # FIXME: Check buttons, see below.
-        """
-        preview_button = self.camera.settingsWidget.findChild(
-            QtWidgets.QPushButton, "cameraPreview"
+
+        calibrate_button = self.hal.settingsWidget.findChild(
+            QtWidgets.QPushButton, "calibrateButton"
         )
-        save_button = self.camera.settingsWidget.findChild(
-            QtWidgets.QPushButton, "cameraSave"
+
+        connect_button = self.hal.settingsWidget.findChild(
+            QtWidgets.QPushButton, "connectButton"
         )
-        # Connect widget buttons to functions
-        preview_button.clicked.connect(self.camera.preview_button)
-        save_button.clicked.connect(self.camera.save_button)
-            """
+
+        connect_button.clicked.connect(self.hal.open)
+
+        calibrate_button.clicked.connect(self.hal.calibrate)
 
         return {"Sutter": self.hal.settingsWidget}
-    
-    @hookimpl
-    def get_functions(self, *args):
-        if "micromanipulator" in args
-            return {
-                "mm_change_active_device": self.hal.change_active_device,
-                "mm_move": self.hal.slow_move_to,
-                "mm_stop": self.hal.stop   
-            }
 
     @hookimpl
     def mm_change_active_device(self, dev_num):
@@ -54,8 +46,8 @@ class pyIVLS_Sutter_plugin:
         if self.hal.change_active_device(dev_num):
             return True
         return False
-    
-    # FIXME: Create a wrapper function for move through settings. 
+
+    # FIXME: Create a wrapper function for move through settings.
     @hookimpl
     def mm_move(self, speed, x, y, z):
         """Micromanipulator move.
@@ -66,10 +58,8 @@ class pyIVLS_Sutter_plugin:
         if self.hal.slow_move_to(speed, x, y, z):
             return True
         return False
-    
+
     @hookimpl
     def mm_stop(self):
-        """Micromanipulator stop.
-        """
+        """Micromanipulator stop."""
         self.hal.stop()
-    

@@ -63,7 +63,7 @@
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_2">
          <item>
-          <widget class="QPushButton" name="pushButton">
+          <widget class="QPushButton" name="calibrateButton">
            <property name="text">
             <string>Calibrate</string>
            </property>

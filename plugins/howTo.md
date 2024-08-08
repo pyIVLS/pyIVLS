@@ -6,3 +6,7 @@
 4. Place the source files in the folder, name it {plugin name}.py
 5. Add an .ui file with the name {plugin name}_settings widget.ui
 6. Add hook implementation file in /plugins with the name pyIVLS_{plugin name}.py
+
+
+# On writing hooks
+-All args have to be named when the hook is called

@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from klayout import lay
 
 
-class Affine():
+class Affine:
     """Calculates the affine transformation between two images using SIFT keypoints and descriptors.
     Assumes the images are grayscale.
     Usage:
@@ -32,7 +32,7 @@ class Affine():
         - A (np.ndarray): Affine transformation matrix
         """
         self._MIN_MATCH_COUNT = (
-            10  # Minimum number of matches required to find affine transformation.
+            15  # Minimum number of matches required to find affine transformation.
         )
         self.imgW = None  # Image that produced the result
         self.maskW = None  # Mask that produced the result

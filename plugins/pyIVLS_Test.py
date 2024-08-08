@@ -34,4 +34,7 @@ class pyIVLS_Test_plugin:
 
         self.test.statusLabel.setText("Test function not run")
 
+        if self.test.pm is None:
+            self.test.pm = pm
+
         return {"Test": self.test.settingsWidget}

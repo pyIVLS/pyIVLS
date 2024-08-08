@@ -98,8 +98,9 @@ class Mpc325:
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         time.sleep(
-            0.002
+            0.020
         )  # Hardcoded wait time (2 ms) between commands from the manual.
+        # FIXME: made it 20 ms for testing
 
     def get_connected_devices_status(self):
         """Get the status of connected micromanipulators

@@ -67,6 +67,6 @@ class pyIVLS_Affine_plugin:
                 "affine_coords": self.affine.coords,
             }
 
-    @hookimpl(optionalhook=True)
+    @hookimpl
     def affine_coords(self, x, y):
         return self.affine.coords(x, y)

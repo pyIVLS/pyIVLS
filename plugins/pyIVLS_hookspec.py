@@ -53,3 +53,12 @@ class pyIVLS_hookspec:
         Returns:
             dict: _description_
         """
+
+    @hookspec
+    def affine_coords(self, x, y):
+        """Affine coordinates.
+
+        Args:
+            x (float): x coordinate
+            y (float): y coordinate
+        """

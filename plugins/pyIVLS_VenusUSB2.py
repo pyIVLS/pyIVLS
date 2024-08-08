@@ -43,7 +43,7 @@ class pyIVLS_VenusUSB2_plugin:
 
         :return: image from the camera
         """
-        print("Getting image from VenusUSB2 camera")
+        print("Camera hookcall")
         return self.camera.capture_image()
 
     @hookimpl
