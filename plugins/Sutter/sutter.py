@@ -272,9 +272,9 @@ class Mpc325:
             z (np.float64): z in microns
         """
         if self.quick_move:
-            self.quick_move_to(x, y, z)
+            return self.quick_move_to(x, y, z)
         else:
-            self.slow_move_to(x, y, z)
+            return self.slow_move_to(x, y, z)
 
     def parse_settings_widget(self):
         """Parses the settings widget and sets the values in the class."""
@@ -306,6 +306,10 @@ class Mpc325:
             )
         else:
             self.status_label.setText("Not connected")
+
+    def save_button(self):
+        self.parse_settings_widget()
+        self.status_label.setText("Settings saved.")
 
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
     def _handrail_micron(self, microns) -> np.uint32:

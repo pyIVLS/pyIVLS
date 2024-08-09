@@ -55,7 +55,7 @@ class pyIVLS_hookspec:
         """
 
     @hookspec
-    def affine_coords(self, x, y):
+    def affine_coords(self, point):
         """Affine coordinates.
 
         Args:
