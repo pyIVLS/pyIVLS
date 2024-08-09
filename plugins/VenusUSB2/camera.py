@@ -126,7 +126,9 @@ class VenusUSB2:
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         height, width, channel = frame.shape
         bytes_per_line = 3 * width
-        q_img = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+        q_img = QImage(
+            frame.data, width, height, bytes_per_line, QImage.Format.Format_RGB888
+        )
         self.preview_label.setPixmap(QPixmap.fromImage(q_img))
 
     # FIXME: Might not work on windows
