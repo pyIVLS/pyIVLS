@@ -152,6 +152,9 @@ class Affine:
             self.maskW = mask
             return True
         else:
+            print(
+                f"Not enough matches are found - {len(matches)}/{self._MIN_MATCH_COUNT}"
+            )
             return False
 
     def coords(self, point: tuple[float, float]) -> tuple[float, float]:
@@ -233,6 +236,7 @@ class Affine:
     def update_img(self):
         """Calls the camera through a hook and updates the internal image."""
         return_img = self.pm.hook.camera_get_image()
+        print(f"Return image list length: {len(return_img)}")
         if return_img[0] is np.zeros((480, 640, 3), np.uint8):
             self.affine_label.setText("Camera not connected or invalid image format.")
             print("Camera not connected or invalid image format.")
@@ -240,6 +244,7 @@ class Affine:
         # HACK: self.pm.hook.camera_get_image() returns a list, take first.
         if isinstance(return_img, list):
             self.internal_img = return_img[0]
+            print("Affine image updated.")
 
     def check_mask_button(self):
         """Interface to check the mask image. Displays the mask image in a window."""

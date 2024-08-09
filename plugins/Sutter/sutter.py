@@ -272,9 +272,9 @@ class Mpc325:
             z (np.float64): z in microns
         """
         if self.quick_move:
-            self.quick_move_to(x, y, z)
+            return self.quick_move_to(x, y, z)
         else:
-            self.slow_move_to(x, y, z)
+            return self.slow_move_to(x, y, z)
 
     def parse_settings_widget(self):
         """Parses the settings widget and sets the values in the class."""

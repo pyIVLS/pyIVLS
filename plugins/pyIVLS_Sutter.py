@@ -63,7 +63,7 @@ class pyIVLS_Sutter_plugin:
         Args:
             *args: x, y, z
         """
-        if self.hal.slow_move_to(speed, x, y, z):
+        if self.hal.move(x, y, z):
             return True
         return False
 

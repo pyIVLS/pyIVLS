@@ -71,6 +71,7 @@ class VenusUSB2:
         if self.cap.isOpened():
             self.source_label.setText(f"Source open: {source}")
             self._set_exposure(exposure)
+            self.cap.set(cv.CAP_PROP_BUFFERSIZE, 1)
             return True
         self.source_label.setText(f"Failed to open source: {source}")
         return False
@@ -88,9 +89,12 @@ class VenusUSB2:
             matlike: The image
         """
         # is the cap opened?
+        # HACK: Camera is set to buffer 1 frame, so 1 frame is discarded to get current state.
         if self.cap.isOpened():
+            self.cap.read()
             _, frame = self.cap.read()
         elif self.open_camera():
+            self.cap.read()
             _, frame = self.cap.read()
         else:
             frame = np.zeros((480, 640, 3), np.uint8)
