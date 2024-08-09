@@ -57,8 +57,7 @@ class Affine:
     @staticmethod
     def _preprocess_img(img):
         """
-        Preprocesses the input image by converting to grayscale, applying Gaussian blur,
-        and histogram equalization.
+        Preprocesses the input image by resizing, applying Gaussian blur, and histogram equalization.
 
         Args:
         - img (np.ndarray): Input image.
@@ -67,7 +66,8 @@ class Affine:
         - img (np.ndarray): Preprocessed image.
         """
 
-        img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)  # Convert to grayscale
+        if len(img.shape) == 3:  # Check if the image is not grayscale
+            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         img = cv.GaussianBlur(img, (5, 5), 0)  # Remove noise
         img = cv.equalizeHist(img)  # Bring out contrast
         return img
@@ -75,7 +75,7 @@ class Affine:
     @staticmethod
     def _preprocess_mask(mask):
         """
-        Preprocesses the input mask by inverting and applying histogram equalization.
+        Preprocesses the input mask by resizing, inverting, and applying histogram equalization.
 
         Args:
         - mask (np.ndarray): Input mask.
@@ -83,7 +83,10 @@ class Affine:
         Returns:
         - mask (np.ndarray): Preprocessed mask.
         """
-        # Invert image. The mask should be white and the background black.
+
+        if len(mask.shape) == 3:  # Check if the image is not grayscale
+            mask = cv.cvtColor(mask, cv.COLOR_BGR2GRAY)
+        # Invert image. The mask should be white and the background black
         mask = cv.bitwise_not(mask)
         mask = cv.equalizeHist(mask)  # Bring out contrast
         return mask
@@ -151,32 +154,27 @@ class Affine:
         else:
             return False
 
-    def coords(self, x, y):
+    def coords(self, point: tuple[float, float]) -> tuple[float, float]:
         """
-        Converts x, y coordinates using the calculated affine matrix.
+        Transforms a point from the mask to the corresponding point on the image using the affine transformation.
 
         Args:
-        - x (float): x-coordinate.
-        - y (float): y-coordinate.
+        - point (tuple): (x, y) coordinates of the point on the mask.
 
         Returns:
-        - tuple: Transformed coordinates (x', y').
+        - transformed_point (tuple): (x, y) coordinates of the corresponding point on the image.
         """
         if self.A is None:
-            raise ValueError(
-                "Affine transformation matrix not found. Run try_match() first."
-            )
+            raise ValueError("Affine transformation not found. Call try_match() first.")
 
-        # Create a homogeneous coordinate vector
-        point = np.array([[x, y, 1]], dtype=np.float32)
+        # Convert the point to a homogeneous coordinate for affine transformation
+        point_homogeneous = np.array([[point[0]], [point[1]], [1]])
 
-        # Apply the affine transformation matrix
-        transformed_point = cv.transform(point, self.A)
+        # Apply the affine transformation matrix A
+        transformed_point = np.dot(self.A, point_homogeneous)
 
-        # Extract the transformed coordinates
-        x_prime, y_prime, _ = transformed_point[0]
-
-        return x_prime, y_prime
+        # Return the transformed (x, y) coordinates
+        return (transformed_point[0][0], transformed_point[1][0])
 
     def mask_button(self):
         """

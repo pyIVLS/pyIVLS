@@ -60,5 +60,5 @@ class pyIVLS_Affine_plugin:
         return {"Affine": self.affine.settingsWidget}
 
     @hookimpl
-    def affine_coords(self, x, y):
-        return self.affine.coords(x, y)
+    def affine_coords(self, point):
+        return self.affine.coords(point)

@@ -33,11 +33,13 @@ class pyIVLS_Sutter_plugin:
         status_button = self.hal.settingsWidget.findChild(
             QtWidgets.QPushButton, "statusButton"
         )
+        save_button = self.hal.settingsWidget.findChild(
+            QtWidgets.QPushButton, "saveButton"
+        )
 
+        save_button.clicked.connect(self.hal.save_button)
         connect_button.clicked.connect(self.hal.connect_button)
-
         calibrate_button.clicked.connect(self.hal.calibrate)
-
         status_button.clicked.connect(self.hal.status_button)
 
         return {"Sutter": self.hal.settingsWidget}

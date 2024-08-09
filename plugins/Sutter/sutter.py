@@ -307,6 +307,10 @@ class Mpc325:
         else:
             self.status_label.setText("Not connected")
 
+    def save_button(self):
+        self.parse_settings_widget()
+        self.status_label.setText("Settings saved.")
+
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
     def _handrail_micron(self, microns) -> np.uint32:
         return max(self._minimum_ms, min(microns, self._maximum_m))
