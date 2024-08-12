@@ -112,15 +112,6 @@ class VenusUSB2:
             frame = np.zeros((480, 640, 3), np.uint8)
         return frame
 
-    def _preview(self):
-        if self.preview_running:
-            self.timer.stop()
-            self.preview_label.setText("Preview stopped")
-            self.preview_running = False
-        else:
-            self.timer.start(30)
-            self.preview_running = True
-
     def update_frame(self):
         frame = self.capture_image()
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
@@ -179,10 +170,16 @@ class VenusUSB2:
 
     def preview_button(self):
         """interface for the preview button. Opens the camera, sets the exposure and previews the feed"""
-        settings = self.parse_settings_widget()
-        if self.open_camera(source=settings["source"], exposure=settings["exposure"]):
-            self._preview()
+        if self.preview_running:
+            self.timer.stop()
+            self.preview_label.setText("Preview stopped")
+            self.preview_running = False
             self.close_camera()
+        else:
+            sett = self.parse_settings_widget()
+            self.open_camera(source=sett["source"], exposure=sett["exposure"])
+            self.timer.start(30)
+            self.preview_running = True
 
     def save_button(self) -> None:
         """interface for the save button. Updates the settings and saves them to internal dict.
