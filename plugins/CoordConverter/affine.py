@@ -34,8 +34,7 @@ class Affine:
         self._MIN_MATCH_COUNT = (
             15  # Minimum number of matches required to find affine transformation.
         )
-        self.imgW = None  # Image that produced the result
-        self.maskW = None  # Mask that produced the result
+        self.result = dict()
         self.A = None  # Affine transformation matrix
         self.internal_img = None  # Internal image
         self.internal_mask = None  # Internal mask
@@ -55,38 +54,41 @@ class Affine:
         self.mask_label = self.settingsWidget.findChild(QtWidgets.QLabel, "maskLabel")
 
     @staticmethod
-    def _preprocess_img(img):
-        """
-        Preprocesses the input image by converting to grayscale, applying Gaussian blur,
-        and histogram equalization.
+        def _preprocess_img(img):
+            """
+            Preprocesses the input image by resizing, applying Gaussian blur, and histogram equalization.
 
-        Args:
-        - img (np.ndarray): Input image.
+            Args:
+            - img (np.ndarray): Input image.
 
-        Returns:
-        - img (np.ndarray): Preprocessed image.
-        """
+            Returns:
+            - img (np.ndarray): Preprocessed image.
+            """
 
-        img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)  # Convert to grayscale
-        img = cv.GaussianBlur(img, (5, 5), 0)  # Remove noise
-        img = cv.equalizeHist(img)  # Bring out contrast
-        return img
+            if len(img.shape) == 3:  # Check if the image is not grayscale
+                img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            img = cv.GaussianBlur(img, (5, 5), 0)  # Remove noise
+            img = cv.equalizeHist(img)  # Bring out contrast
+            return img
 
-    @staticmethod
-    def _preprocess_mask(mask):
-        """
-        Preprocesses the input mask by inverting and applying histogram equalization.
+        @staticmethod
+        def _preprocess_mask(mask):
+            """
+            Preprocesses the input mask by resizing, inverting, and applying histogram equalization.
 
-        Args:
-        - mask (np.ndarray): Input mask.
+            Args:
+            - mask (np.ndarray): Input mask.
 
-        Returns:
-        - mask (np.ndarray): Preprocessed mask.
-        """
-        # Invert image. The mask should be white and the background black.
-        mask = cv.bitwise_not(mask)
-        mask = cv.equalizeHist(mask)  # Bring out contrast
-        return mask
+            Returns:
+            - mask (np.ndarray): Preprocessed mask.
+            """
+
+            if len(mask.shape) == 3:  # Check if the image is not grayscale
+                mask = cv.cvtColor(mask, cv.COLOR_BGR2GRAY)
+            # Invert image. The mask should be white and the background black
+            mask = cv.bitwise_not(mask)
+            mask = cv.equalizeHist(mask)  # Bring out contrast
+            return mask
 
     def try_match(
         self,
@@ -145,8 +147,13 @@ class Affine:
             )
             # Populate the class variables when a transformation is found.
             self.A = A
-            self.imgW = img
-            self.maskW = mask
+            self.result["img"] = img
+            self.result["mask"] = mask
+            self.result["kp1"] = kp1
+            self.result["kp2"] = kp2
+            self.result["aMask"] = aMask
+            self.result["matches"] = matches
+
             return True
         else:
             return False
@@ -307,25 +314,27 @@ class Visualize:
     def queue_affine(self):
         if self.parent.A is not None:
             # Warp the img using the affine transformation matrix
+            img = self.parent.result["img"]
+            mask = self.parent.result["mask"]
             warped_img = cv.warpAffine(
-                self.parent.imgW,
+                img,
                 self.parent.A,
-                (self.parent.maskW.shape[1], self.parent.maskW.shape[0]),
+                (mask.shape[1], mask.shape[0]),
             )
 
             # Convert both images to color to allow blending
-            if len(self.parent.maskW.shape) == 2:  # If maskW is grayscale
+            if len(mask) == 2:  # If maskW is grayscale
                 mask_color = cv.cvtColor(self.parent.maskW, cv.COLOR_GRAY2BGR)
             else:
-                mask_color = self.parent.maskW.copy()
+                mask_color = mask.copy()
 
-            if len(warped_img.shape) == 2:  # If warped_img is grayscale
+            if len(img) == 2:  # If warped_img is grayscale
                 warped_img_color = cv.cvtColor(warped_img, cv.COLOR_GRAY2BGR)
             else:
                 warped_img_color = warped_img.copy()
 
             # Blend the images with transparency
-            alpha = 0.5  # Transparency factor
+            alpha = 0.4  # Transparency factor
             blended_img = cv.addWeighted(
                 mask_color, 1 - alpha, warped_img_color, alpha, 0
             )
@@ -345,6 +354,7 @@ class Visualize:
 
             # add visu to queue
             self.visuQueue.append(resized_img)
+            self.visualize_matches()
 
         else:
             print("Affine transform not found. Run try_match() first.")
@@ -367,3 +377,67 @@ class Visualize:
 
         plt.tight_layout()
         plt.show()
+
+    def visualize_point_conversion(self):
+        # Define the corner points of the image
+        h, w = self.parent.imgW.shape[:2]
+        points = [(0, 0), (w, 0), (w, h), (0, h)]
+
+        # Transform the corner points
+        transformed_points = [self.parent.transform_point(point) for point in points]
+
+        # Draw the original and transformed points on the mask
+        mask_with_points = self.parent.maskW.copy()
+        mask_with_points = cv.cvtColor(mask_with_points, cv.COLOR_GRAY2BGR)
+        for point in points:
+            int_point = tuple(
+                map(int, point)
+            )  # Ensure the point is a tuple of integers
+            cv.circle(
+                mask_with_points, int_point, 100, (255, 0, 0), -1
+            )  # Blue for original points
+        for point in transformed_points:
+            int_point = tuple(
+                map(int, point)
+            )  # Ensure the point is a tuple of integers
+            cv.circle(
+                mask_with_points, int_point, 100, (0, 0, 255), -1
+            )  # Red for transformed points
+
+        # Add the visualization to the queue
+        self.visuQueue.append(mask_with_points)
+
+    def visualize_matches(self):
+        # Draw matches between the images
+
+        draw_params = dict(
+            matchColor=(0, 255, 0),
+            singlePointColor=(255, 0, 0),
+            flags=cv.DrawMatchesFlags_DEFAULT,
+        )
+        # Draw the matches
+        matches_img = cv.drawMatches(
+            self.parent.result["img"],
+            self.parent.result["kp1"],
+            self.parent.result["mask"],
+            self.parent.result["kp2"],
+            self.parent.result["matches"],
+            None,
+            **draw_params,
+        )
+
+        # Get screen resolution
+        screen_res = 1920, 1080
+        scale_width = screen_res[0] / matches_img.shape[1]
+        scale_height = screen_res[1] / matches_img.shape[0]
+        scale = min(scale_width, scale_height)
+
+        # Rescale the image
+        new_size = (
+            int(matches_img.shape[1] * scale),
+            int(matches_img.shape[0] * scale),
+        )
+        resized_img = cv.resize(matches_img, new_size, interpolation=cv.INTER_AREA)
+
+        # Add the visualization to the queue
+        self.visuQueue.append(resized_img)
