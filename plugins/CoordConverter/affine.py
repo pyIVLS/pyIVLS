@@ -253,8 +253,10 @@ class Affine:
     def check_mask_button(self):
         """Interface to check the mask image. Displays the mask image in a window."""
         if self.internal_mask is not None:
-            cv.imshow("Mask", self.internal_mask)
-            cv.waitKey(0)
+            plt.imshow(self.internal_mask, cmap="gray")
+            plt.title("Mask")
+            plt.axis("off")  # Hide axes for better visualization
+            plt.show()
 
     # FIXME: the size is a bit arbitary. Scale to mask size?
     def load_and_save_gds(
