@@ -377,7 +377,7 @@ class Visualize:
             plt.imshow(img)
             plt.axis("off")  # Optional: Turn off axis
 
-        plt.tight_layout()
+        # plt.tight_layout()
         plt.show()
 
     def visualize_point_conversion(self):

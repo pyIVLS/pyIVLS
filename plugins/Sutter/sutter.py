@@ -45,8 +45,6 @@ class Mpc325:
         self.quick_move = False
         self.speed = 1
 
-        self
-
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
         filename = (
@@ -118,7 +116,7 @@ class Mpc325:
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         time.sleep(
-            0.020
+            0.050
         )  # Hardcoded wait time (2 ms) between commands from the manual.
         # FIXME: made it 20 ms for testing
 
