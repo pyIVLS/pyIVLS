@@ -26,12 +26,12 @@ class Test:
 
     def run_button(self):
         """Run the test function"""
-        image = self.pm.hook.camera_get_image()
-        print("I got an image")
+        # image = self.pm.hook.camera_get_image()
+        # print("I got an image")
 
-        ret = self.pm.hook.affine_coords(point=(0, 0))
+        # ret = self.pm.hook.affine_coords(point=(0, 0))
 
-        print(f"hooked Affine coordinates: {ret[0]}")
+        # print(f"hooked Affine coordinates: {ret[0]}")
 
         # FIXME: coords no worky
 
