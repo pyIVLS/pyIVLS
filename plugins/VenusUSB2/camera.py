@@ -4,7 +4,8 @@ import os
 import numpy as np
 from PyQt6 import uic
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QTimer
+from PyQt6.QtGui import QImage, QPixmap
 
 from typing import Optional
 import pluggy
@@ -51,10 +52,20 @@ class VenusUSB2:
         self.source_label = self.settingsWidget.findChild(
             QtWidgets.QLabel, "sourceLabel"
         )
+
+        self.preview_label = self.settingsWidget.findChild(
+            QtWidgets.QLabel, "previewLabel"
+        )
+
         self.pm = None
         # Initialize cap as empty capture
         self.cap = cv.VideoCapture()
         self.save_button()
+
+        # Set a timer for the camera feed
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_frame)
+        self.preview_running = False
 
     def open_camera(self, source=None, exposure=None) -> bool:
         """Opens the camera using current settings.
@@ -71,6 +82,8 @@ class VenusUSB2:
         if self.cap.isOpened():
             self.source_label.setText(f"Source open: {source}")
             self._set_exposure(exposure)
+            # Set buffer size to 1.
+            self.cap.set(cv.CAP_PROP_BUFFERSIZE, 1)
             return True
         self.source_label.setText(f"Failed to open source: {source}")
         return False
@@ -88,22 +101,35 @@ class VenusUSB2:
             matlike: The image
         """
         # is the cap opened?
+        # HACK: Camera is set to buffer 1 frame, so 1 frame is discarded to get current state.
         if self.cap.isOpened():
+            self.cap.read()
             _, frame = self.cap.read()
         elif self.open_camera():
+            self.cap.read()
             _, frame = self.cap.read()
         else:
             frame = np.zeros((480, 640, 3), np.uint8)
         return frame
 
     def _preview(self):
-        """Preview the opened camera feed. Open() needs to called before this. 'q' exits the preview."""
-        # Method to preview the camera feed
-        while True:
-            frame = self.capture_image()
-            cv.imshow("Camera Feed", frame)
-            if cv.waitKey(1) & 0xFF == ord("q"):
-                break
+        if self.preview_running:
+            self.timer.stop()
+            self.preview_label.setText("Preview stopped")
+            self.preview_running = False
+        else:
+            self.timer.start(30)
+            self.preview_running = True
+
+    def update_frame(self):
+        frame = self.capture_image()
+        frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+        height, width, channel = frame.shape
+        bytes_per_line = 3 * width
+        q_img = QImage(
+            frame.data, width, height, bytes_per_line, QImage.Format.Format_RGB888
+        )
+        self.preview_label.setPixmap(QPixmap.fromImage(q_img))
 
     # FIXME: Might not work on windows
     def _set_exposure(self, exposure):
