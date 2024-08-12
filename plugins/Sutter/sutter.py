@@ -41,6 +41,25 @@ class Mpc325:
         )
         self.ser = serial.Serial()  # init a closed port
 
+        # Move speeds in micometer/second
+        self.move_speeds = {
+            15: 1300,
+            14: 1218.75,
+            13: 1137.5,
+            12: 1056.25,
+            11: 975,
+            10: 893.75,
+            9: 812.5,
+            8: 731.25,
+            7: 650,
+            6: 568.75,
+            5: 487.5,
+            4: 406.25,
+            3: 325,
+            2: 243.75,
+            1: 162.5,
+            0: 81.25,
+        }
         # Initialize settings:
         self.quick_move = False
         self.speed = 1
@@ -116,7 +135,7 @@ class Mpc325:
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         time.sleep(
-            0.050
+            0.002
         )  # Hardcoded wait time (2 ms) between commands from the manual.
         # FIXME: made it 20 ms for testing
 
@@ -210,6 +229,10 @@ class Mpc325:
         print(
             f"Moving to: ({self._s2m(x_s)}, {self._s2m(y_s)}, {self._s2m(z_s)}) in microns."
         )
+
+        # Wait time: 
+        wait_time = self._calculate_wait_time(15, x_s, y_s, z_s)
+
         command2 = struct.pack(
             "<3I", x_s, y_s, z_s
         )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
@@ -218,6 +241,8 @@ class Mpc325:
         self.ser.write(command1)
         self.ser.write(command2)
         self.ser.write(command3)
+        
+        time.sleep(wait_time)  # wait for the move to finish
         output = self.ser.read(1)
         self._validate_and_unpack("B", output)
 
@@ -244,6 +269,10 @@ class Mpc325:
         print(
             f"Moving to: ({self._s2m(x_s)}, {self._s2m(y_s)}, {self._s2m(z_s)}) in microns."
         )
+        # Calculate wait time for the move to prevent a timeout or conflicting commands.
+
+        wait_time = self._calculate_wait_time(speed, x_s, y_s, z_s)
+
         command2 = struct.pack(
             "<3I", x_s, y_s, z_s
         )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
@@ -251,6 +280,7 @@ class Mpc325:
         self.ser.write(command1)
         time.sleep(0.03)  # wait period specified in the manual (30 ms)
         self.ser.write(command2)
+        time.sleep(wait_time)  # wait for the move to finish
         output = self.ser.read(1)
         self._validate_and_unpack("B", output)
 
@@ -323,3 +353,15 @@ class Mpc325:
     # Function to convert microsteps to microns.
     def _s2m(self, steps: np.uint32) -> np.float64:
         return np.float64(steps * self._s2mconv)
+
+    def _calculate_wait_time(self, speed, x, y, z):
+        curr_pos = self.get_current_position()
+        x_diff = abs(curr_pos[0] - x)
+        y_diff = abs(curr_pos[1] - y)
+        z_diff = abs(curr_pos[2] - z)
+
+        total_diff = x_diff + y_diff + z_diff
+        time = total_diff / self.move_speeds[speed]
+        return time
+
+
