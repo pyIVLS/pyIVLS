@@ -146,12 +146,12 @@
          </property>
          <item>
           <property name="text">
-           <string>current</string>
+           <string>Current</string>
           </property>
          </item>
          <item>
           <property name="text">
-           <string>voltage</string>
+           <string>Voltage</string>
           </property>
          </item>
         </widget>
@@ -2032,6 +2032,19 @@
      </layout>
     </widget>
    </widget>
+  </widget>
+  <widget class="QPushButton" name="pushButton">
+   <property name="geometry">
+    <rect>
+     <x>60</x>
+     <y>610</y>
+     <width>75</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Debug</string>
+   </property>
   </widget>
  </widget>
  <resources/>
