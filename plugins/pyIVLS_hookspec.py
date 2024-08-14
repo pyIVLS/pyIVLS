@@ -47,14 +47,6 @@ class pyIVLS_hookspec:
         """
 
     @hookspec
-    def get_functions(self, *args):
-        """Returns available functions for a plugin. FIXME: Deprecated, use specific hooks instead.
-
-        Returns:
-            dict: _description_
-        """
-
-    @hookspec
     def affine_coords(self, point):
         """Affine coordinates.
 
