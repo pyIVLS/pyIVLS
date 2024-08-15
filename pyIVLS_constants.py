@@ -12,3 +12,6 @@ plugin_type = 2
 plugin_function = 3
 plugin_address = 4
 """
+
+### Keithley constants
+keithley_visa = "TCPIP::192.168.1.5::INSTR"
