@@ -2048,5 +2048,38 @@
   </widget>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>checkBox_singleChannel</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>groupBox_drain</receiver>
+   <slot>setHidden(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>128</x>
+     <y>95</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>440</x>
+     <y>230</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>checkBox_singleChannel</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>groupBox_drainSweep</receiver>
+   <slot>setHidden(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>128</x>
+     <y>95</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>440</x>
+     <y>545</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>
