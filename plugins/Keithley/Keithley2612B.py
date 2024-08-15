@@ -16,7 +16,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QObject
 
 import pyvisa
-from keithley2600 import Keithley2600
 import numpy as np
 import time
 
@@ -58,7 +57,7 @@ class Keithley2612B(QObject):
         )
         self.settingsWidget = uic.loadUi(self.path + filename)
 
-        # Extract settings from settingsWidget
+        # Initialize the settings dict
         self.s = self._get_settings_dict()
 
         # Initialize resource manager
@@ -66,11 +65,22 @@ class Keithley2612B(QObject):
 
         # FIXME: DEBUG
         debug_button = self.settingsWidget.findChild(QPushButton, "pushButton")
-        debug_button.clicked.connect(self.parse_settings_widget)
+        debug_button.clicked.connect(self.debug_button)
 
         self._connect_signals()
 
+    def debug_button(self):
+        settings = self.parse_settings_widget()
+        self.connect()
+        self.init_channel(settings, self.k)
+
     def _get_settings_dict(self):
+        """Generates a dict of the settings. Returned as lambda functions so that the latest values
+        are always returned. Accessed by () on the value.
+
+        Returns:
+            dict: name of the widget -> lambda function to get the current value
+        """
         checkboxes = self.settingsWidget.findChildren(QCheckBox)
         comboboxes = self.settingsWidget.findChildren(QComboBox)
         lineedits = self.settingsWidget.findChildren(QLineEdit)
@@ -262,7 +272,6 @@ class Keithley2612B(QObject):
             legacy_dict["steps"] = self.s["lineEdit_continuousPoints"]()
             legacy_dict["limit"] = self.s["lineEdit_continuousLimit"]()
             legacy_dict["nplc"] = self.s["lineEdit_continuousNPLC"]()
-            # FIXME: NOT READING PULSE PAUSE
             if self.s["comboBox_continuousDelayMode"]() == "Auto":
                 legacy_dict["delay"] = "off"
             else:
