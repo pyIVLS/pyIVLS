@@ -72,7 +72,9 @@ class Keithley2612B(QObject):
     def debug_button(self):
         settings = self.parse_settings_widget()
         self.connect()
+        print(settings)
         self.init_channel(settings, self.k)
+        self.disconnect()
 
     def _get_settings_dict(self):
         """Generates a dict of the settings. Returned as lambda functions so that the latest values
@@ -215,9 +217,9 @@ class Keithley2612B(QObject):
 
         # set mode
         if self.s["comboBox_mode"]() == "Continuous":
-            legacy_dict["pulse"] = False
+            legacy_dict["pulse"] = "off"
         elif self.s["comboBox_mode"]() == "Pulsed":
-            legacy_dict["pulse"] = True
+            legacy_dict["pulse"] = self.s["lineEdit_pulsedPause"]()
         else:
             # How to handle this? Call a separate function to handle this?
             raise NotImplementedError("Mixed mode not implemented yet.")
@@ -262,7 +264,7 @@ class Keithley2612B(QObject):
             legacy_dict["nplc"] = self.s["lineEdit_pulsedNPLC"]()
             # FIXME: NOT READING PULSE PAUSE
             if self.s["comboBox_pulsedDelayMode"]() == "Auto":
-                legacy_dict["delay"] = "-1"
+                legacy_dict["delay"] = "off"
             else:
                 legacy_dict["delay"] = self.s["lineEdit_pulsedDelay"]()
 

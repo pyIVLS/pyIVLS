@@ -5,3 +5,4 @@ if __name__ == "__main__":
     rm = pyvisa.ResourceManager("@py")
     k = rm.open_resource(keithley_name)
     print(k.query("*IDN?"))
+    k.close()
