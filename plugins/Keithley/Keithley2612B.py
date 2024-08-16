@@ -1,7 +1,7 @@
 import sys
 import os
 import time
-from threading import Lock
+from threading import RLock
 
 
 from PyQt6 import uic
@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QHBoxLayout,
+    QLabel,
 )
 from PyQt6.QtCore import QObject
 
@@ -69,11 +70,20 @@ class Keithley2612B(QObject):
 
         self._connect_signals()
 
+        # Initialize the lock for the measurement
+        self.lock = RLock()
+        self.debug_mode = False
+
+    ## Widget functions
     def debug_button(self):
         settings = self.parse_settings_widget()
-        self.connect()
         print(settings)
-        self.init_channel(settings, self.k)
+
+        self.connect()
+        if settings["single_ch"]:
+            self.KeithleyInitSingleCh(settings, self.k)
+        else:
+            self.keithley_init_dual_ch(settings, self.k)
         self.disconnect()
 
     def _get_settings_dict(self):
@@ -105,6 +115,10 @@ class Keithley2612B(QObject):
         mode_box.activated.connect(self._mode_changed)
         # call mode changed to update to the correct mode
         self._mode_changed()
+
+        inject_box = self.settingsWidget.findChild(QComboBox, "comboBox_inject")
+        inject_box.activated.connect(self._inject_changed)
+        self._inject_changed()
 
         # FIXME: This does not currently work, as QHBoxLayout cannot be shown or hidden as a group.
         """
@@ -146,6 +160,57 @@ class Keithley2612B(QObject):
 
         self.settingsWidget.update()
 
+    def _inject_changed(self):
+        """Changes the unit labels based on the selected injection type."""
+        continuous_start_label = self.settingsWidget.findChild(
+            QLabel, "label_continuousStartUnits"
+        )
+        pulse_start_label = self.settingsWidget.findChild(
+            QLabel, "label_pulsedStartUnits"
+        )
+        drain_start_label = self.settingsWidget.findChild(
+            QLabel, "label_drainStartUnits"
+        )
+        continuous_end_label = self.settingsWidget.findChild(
+            QLabel, "label_continuousEndUnits"
+        )
+
+        pulse_end_label = self.settingsWidget.findChild(QLabel, "label_pulsedEndUnits")
+
+        drain_end_label = self.settingsWidget.findChild(QLabel, "label_drainEndUnits")
+
+        continuous_limit_label = self.settingsWidget.findChild(
+            QLabel, "label_continuousLimitUnits"
+        )
+        pulse_limit_label = self.settingsWidget.findChild(
+            QLabel, "label_pulsedLimitUnits"
+        )
+        drain_limit_label = self.settingsWidget.findChild(
+            QLabel, "label_drainLimitUnits"
+        )
+
+        inject_type = self.s["comboBox_inject"]()
+        if inject_type == "Voltage":
+            continuous_start_label.setText("V")
+            pulse_start_label.setText("V")
+            drain_start_label.setText("V")
+            continuous_end_label.setText("V")
+            pulse_end_label.setText("V")
+            drain_end_label.setText("V")
+            continuous_limit_label.setText("A")
+            pulse_limit_label.setText("A")
+            drain_limit_label.setText("A")
+        else:
+            continuous_start_label.setText("A")
+            pulse_start_label.setText("A")
+            drain_start_label.setText("A")
+            continuous_end_label.setText("A")
+            pulse_end_label.setText("A")
+            drain_end_label.setText("A")
+            continuous_limit_label.setText("V")
+            pulse_limit_label.setText("V")
+            drain_limit_label.setText("V")
+
     def _delay_mode_changed(self):
         """Handles the visibility of the delay input fields based on the selected mode."""
         continuous_input = self.settingsWidget.findChild(
@@ -179,10 +244,24 @@ class Keithley2612B(QObject):
 
         self.settingsWidget.update()
 
+    ## Communication functions
+    def safewrite(self, command):
+        try:
+            self.k.write(command)
+            if self.debug_mode:
+                error_code = self.k.query("print(errorqueue.next())")
+                if "Queue Is Empty" not in error_code:
+                    print(f"Error sending command: {command}\nError code: {error_code}")
+        except Exception as e:
+            print(f"Exception sending command: {command}\nException: {e}")
+        finally:
+            self.k.write("errorqueue.clear()")
+
     def connect(self):
         print("Connecting to Keithley 2612B")
         self.k = self.rm.open_resource(pyIVLS_constants.keithley_visa)
         self.k.query("*IDN?")
+        self.k.read_termination = "\n"
         # FIXME: add settings for termination
         # my_instrument.read_termination = '\n'
         # my_instrument.write_termination = '\n'
@@ -192,7 +271,13 @@ class Keithley2612B(QObject):
         self.k.close()
 
     def busy(self) -> bool:
-        raise NotImplementedError("Busy function not implemented yet.")
+
+        gotten = self.lock.acquire(blocking=False)
+
+        if gotten:
+            self.lock.release()
+
+        return not gotten
 
     def parse_settings_widget(self) -> dict:
         """Parse the settings widget into a form that the legacy code can understand.
@@ -210,7 +295,7 @@ class Keithley2612B(QObject):
 
         # Determine source type
         inject_type = self.s["comboBox_inject"]()
-        print("Voltage source" if inject_type == "voltage" else "Current source")
+        legacy_dict["type"] = "v" if inject_type == "voltage" else "i"
 
         # Determine repeat count
         legacy_dict["repeat"] = self.s["lineEdit_repeat"]()
@@ -226,6 +311,7 @@ class Keithley2612B(QObject):
 
         # Set single channel and drain
         legacy_dict["single_ch"] = self.s["checkBox_singleChannel"]()
+        legacy_dict["highC"] = self.s["checkBox_sourceHighC"]()
         if not legacy_dict["single_ch"]:
             legacy_dict["drain"] = "smub" if legacy_dict["source"] == "smua" else "smua"
 
@@ -256,7 +342,7 @@ class Keithley2612B(QObject):
                 # How to handle this? Call a separate function to handle this, which provides two copies of the settings?
                 raise NotImplementedError("2 + 4 mode not implemented yet.")
 
-        if legacy_dict["pulse"]:
+        if legacy_dict["pulse"] != "off":
             legacy_dict["start"] = self.s["lineEdit_pulsedStart"]()
             legacy_dict["end"] = self.s["lineEdit_pulsedEnd"]()
             legacy_dict["steps"] = self.s["lineEdit_pulsedPoints"]()
@@ -281,284 +367,310 @@ class Keithley2612B(QObject):
 
         return legacy_dict
 
-    def init_channel(self, s: dict, k):
-        """Combines the functionality of init_sigle_channel and init_dual_channel into one function.
-        % % % Keithley.delay %%str "off"/time in sec before measurement
-        % % % Keithley.pulse %%str "off"/time in sec pause between pulses
-        % % % Keithley.source %%str "smua"/"smub"
-        % % % Keithley.drain %%str "smua"/"smub"
-        % % % Keithley.nplc %% str
-        % % % Keithley.sense %% true/false
-        % % % Keithley.sense_drain %% true/false
-        % % % Keithley.single_ch %% true/false
-        Sets integration time, sense mode, pulse delay.
-        Args:
-            s (dict): dict of settings. See above.
-            dev (_type_): pyvisa device instance
-        """
-        k.write("reset()")
-        k.write("beeper.enable=0")
-        k.write(f"{s['source']}.reset()")
-
-        if "drain" in s:
-            k.write(f"{s['drain']}.reset()")
-
-        if s["sense"]:
-            k.write(f"{s['source']}.sense = {s['source']}.SENSE_REMOTE")
-        else:
-            k.write(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
-
-        if not s["single_ch"]:
-            if s["sense_drain"] and s["sense"]:
-                k.write(f"{s['drain']}.sense = {s['drain']}.SENSE_REMOTE")
-            else:
-                k.write(f"{s['drain']}.sense = {s['drain']}.SENSE_LOCAL")
-
-        # Common settings
-        k.write(f"{s['source']}.measure.filter.count = 4")
-        k.write(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
-        k.write(f"{s['source']}.measure.filter.type = {s['source']}.FILTER_REPEAT_AVG")
-        k.write(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_ON")
-        k.write(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_ON")
-
-        if not s["single_ch"]:
-            k.write("smua.measure.filter.count = 4")
-            k.write("smub.measure.filter.count = 4")
-            k.write("smua.measure.filter.enable = smua.FILTER_ON")
-            k.write("smub.measure.filter.enable = smub.FILTER_ON")
-            k.write("smua.measure.filter.type = smua.FILTER_REPEAT_AVG")
-            k.write("smub.measure.filter.type = smub.FILTER_REPEAT_AVG")
-            k.write(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_ON")
-            k.write(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_ON")
-
-        if s["pulse"] == "off":
-            k.write(
-                f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_HOLD"
-            )
-        else:
-            k.write(
-                f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE"
-            )
-            k.write(f"trigger.timer[1].delay = {s['pulse']}")
-            k.write("trigger.timer[1].passthrough = false")
-            k.write("trigger.timer[1].count = 1")
-            k.write("trigger.blender[1].orenable = true")
-            k.write(
-                f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.SWEEPING_EVENT_ID"
-            )
-            k.write(
-                f"trigger.blender[1].stimulus[2] = {s['source']}.trigger.PULSE_COMPLETE_EVENT_ID"
-            )
-            k.write("trigger.timer[1].stimulus = trigger.blender[1].EVENT_ID")
-            k.write(
-                f"{s['source']}.trigger.source.stimulus = trigger.timer[1].EVENT_ID"
-            )
-
-        k.write(f"{s['source']}.source.settling = {s['source']}.SETTLE_FAST_RANGE")
-        k.write("display.screen = display.SMUA_SMUB")
-        k.write("format.data = format.ASCII")
-
-        if s["delay"] == "off":
-            k.write(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
-            if s["pulse"] == "off":
-                k.write(f"{s['source']}.measure.delayfactor = 28.0")
-            else:
-                k.write(f"{s['source']}.measure.delayfactor = 1.0")
-        else:
-            k.write(f"{s['source']}.measure.delay = {s['delay']}")
-
-        k.write(
-            f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)"
-        )
-        k.write(f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE")
-        k.write(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")
-        k.write(f"{s['source']}.measure.nplc = {s['nplc']}")
-        k.write(f"{s['source']}.trigger.endsweep.action = {s['source']}.SOURCE_IDLE")
-        k.write(
-            f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
-        )
-        k.write(
-            f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID"
-        )
-
-        # Set highc mode if needed.
-        if s.get("highC_source", False):
-            k.write(f"{s['source']}.source.highc = {s['source']}.ENABLE")
-        if s["single_ch"] and s.get("highC_drain", False):
-            k.write(f"{s['drain']}.source.highc = {s['drain']}.ENABLE")
-
-        if not s["single_ch"]:
-            k.write(
-                f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)"
-            )
-            k.write(f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE")
-            k.write(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")
-
-            if s["delay"] == "off":
-                k.write(f"{s['drain']}.measure.delay = {s['drain']}.DELAY_AUTO")
-                if s["pulse"] == "off":
-                    k.write(f"{s['drain']}.measure.delayfactor = 28.0")
-                else:
-                    k.write(f"{s['drain']}.measure.delayfactor = 1.0")
-            else:
-                k.write(f"{s['drain']}.measure.delay = {s['delay']}")
-
-            k.write(f"{s['drain']}.measure.nplc = {s['nplc']}")
-            k.write(
-                f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
-            )
-            k.write(
-                f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
-            )
-            k.write("trigger.blender[2].orenable = false")
-            k.write(
-                f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID"
-            )
-            k.write(
-                f"trigger.blender[2].stimulus[2] = {s['drain']}.trigger.MEASURE_COMPLETE_EVENT_ID"
-            )
-            k.write(
-                f"{s['source']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID"
-            )
-
-    def run_sweep_voltage(self, s: dict):
-        """
-        % % % Keithley.steps %%int
-        % % % Keithley.repeat %%int
-        % % % Keithley.start %%int
-        % % % Keithley.end %%int
-        % % % Keithley.limit %%float
-        % % % Keithley.delay %%str "off"/time in sec before measurement SET
-        % % % Keithley.pulse %%str "off"/time in sec pause between pulses
-        % % % Keithley.source %%str "smua"/"smub"
-        % % % Keithley.drain %%str "smua"/"smub"
-        % % % Keithley.type %%str "i"/"v"
-        % % % Keithley.drainLimit %% str
-        % % % Keithley.freq %% float
-        % % % Keithley.drainVoltage %% str "off"/value
-        % % % Keithley.nplc %% str  SET
-        % % % Keithley.sense %% true/false
-        % % % Keithley.sense_drain %% true/false
-        % % % Keithley.single_ch %% true/false
+    def KeithleyInitSingleCh(self, s: dict, k):
+        """TESTED AND WORKING YEEHAW
 
         Args:
             s (dict): _description_
+            k (_type_): _description_
         """
-        # Generate the sweep list for the source
-        sweep_list = np.linspace(s["start"], s["end"], s["steps"])
-        if s["source"] == "smua":
-            self.k.voltage_sweep_single_channel(
-                smu=s["source"],
-                sweep_list=sweep_list,
-                delay=int(s["delay"]),
-                pulsed=s["pulse"],
+        self.safewrite("reset()")
+        self.safewrite("beeper.enable=0")
+        self.safewrite(f'{s["source"]}.reset()')
+
+        if s["sense"]:
+            self.safewrite(f'{s["source"]}.sense = {s["source"]}.SENSE_REMOTE')
+        else:
+            self.safewrite(f'{s["source"]}.sense = {s["source"]}.SENSE_LOCAL')
+
+        # Consider moving this to GUI
+        self.safewrite(f'{s["source"]}.measure.filter.count = 4')
+        self.safewrite(f'{s["source"]}.measure.filter.enable = {s["source"]}.FILTER_ON')
+        self.safewrite(
+            f'{s["source"]}.measure.filter.type = {s["source"]}.FILTER_REPEAT_AVG'
+        )
+        self.safewrite(f'{s["source"]}.measure.autorangei = {s["source"]}.AUTORANGE_ON')
+        self.safewrite(f'{s["source"]}.measure.autorangev = {s["source"]}.AUTORANGE_ON')
+        # End of consider moving this to GUI
+
+        if s["pulse"] == "off":
+            self.safewrite(
+                f'{s["source"]}.trigger.endpulse.action = {s["source"]}.SOURCE_HOLD'
             )
-        if s["single_ch"]:
-            self.k.voltage_sweep_single_channel(
-                smu=s["source_inst"],
-                sweep_list=sweep_list,
-                delay=int(s["delay"]),
-                pulsed=s["pulse"],
+        else:
+            self.safewrite(
+                f'{s["source"]}.trigger.endpulse.action = {s["source"]}.SOURCE_IDLE'
+            )
+            self.safewrite(f'trigger.timer[1].delay = {s["pulse"]}')
+            self.safewrite("trigger.timer[1].passthrough = false")
+            self.safewrite("trigger.timer[1].count = 1")
+            self.safewrite("trigger.blender[1].orenable = true")
+            self.safewrite(
+                f'trigger.blender[1].stimulus[1] = {s["source"]}.trigger.SWEEPING_EVENT_ID'
+            )
+            self.safewrite(
+                f'trigger.blender[1].stimulus[2] = {s["source"]}.trigger.PULSE_COMPLETE_EVENT_ID'
+            )
+            self.safewrite("trigger.timer[1].stimulus = trigger.blender[1].EVENT_ID")
+            self.safewrite(
+                f'{s["source"]}.trigger.source.stimulus = trigger.timer[1].EVENT_ID'
             )
 
-    def KeithleyRunSingleChSweep(self, s: dict):
-        readsteps = s["steps"]
-        waitDelay = float(s["pulse"]) if s["pulse"] != "off" else 1
+        self.safewrite(
+            f'{s["source"]}.source.settling = {s["source"]}.SETTLE_FAST_RANGE'
+        )
+        self.safewrite("display.screen = display.SMUA_SMUB")
+        self.safewrite("format.data = format.ASCII")
 
-        k.write(f"{s['source']}.nvbuffer1.clear()")
-        k.write(f"{s['source']}.nvbuffer2.clear()")
-        k.write(f"{s['source']}.trigger.count = {s['steps']}")
-        k.write(f"{s['source']}.trigger.arm.count = {s['repeat']}")
-        k.write(
-            f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})"
+        if s["delay"] == "off":
+            self.safewrite(f'{s["source"]}.measure.delay = {s["source"]}.DELAY_AUTO')
+            if s["pulse"] == "off":
+                self.safewrite(f'{s["source"]}.measure.delayfactor = 28.0')
+            else:
+                self.safewrite(f'{s["source"]}.measure.delayfactor = 1.0')
+        else:
+            self.safewrite(f'{s["source"]}.measure.delay = {s["delay"]}')
+
+        self.safewrite(
+            f'{s["source"]}.trigger.measure.iv({s["source"]}.nvbuffer1, {s["source"]}.nvbuffer2)'
+        )
+        self.safewrite(f'{s["source"]}.trigger.measure.action = {s["source"]}.ENABLE')
+        self.safewrite(f'{s["source"]}.trigger.source.action = {s["source"]}.ENABLE')
+        self.safewrite(f'{s["source"]}.measure.nplc = {s["nplc"]}')
+        self.safewrite(
+            f'{s["source"]}.trigger.endsweep.action = {s["source"]}.SOURCE_IDLE'
+        )
+        self.safewrite(
+            f'{s["source"]}.trigger.measure.stimulus = {s["source"]}.trigger.SOURCE_COMPLETE_EVENT_ID'
+        )
+        self.safewrite(
+            f'{s["source"]}.trigger.endpulse.stimulus = {s["source"]}.trigger.MEASURE_COMPLETE_EVENT_ID'
         )
 
-        if s["type"] == "i":
-            if abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5:
-                k.write(f"{s['source']}.trigger.source.limitv = {s['limit']}")
-                k.write(f"{s['source']}.source.limitv = {s['limit']}")
-            else:
-                k.write(
-                    f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
-                )
-                k.write(
-                    f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
-                )
-                k.write(
-                    f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
-                )
-                k.write(f"{s['source']}.source.delay = 100e-6")
-                k.write(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
-                k.write(f"{s['source']}.source.rangei = 10")
-                k.write(f"{s['source']}.source.leveli = 0")
-                k.write(f"{s['source']}.source.limitv = 6")
-                k.write(f"{s['source']}.trigger.source.limiti = 10")
-            k.write(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
+        if s["highC"]:
+            self.safewrite(f'{s["source"]}.source.highc = {s["source"]}.ENABLE')
+
+    def keithley_init_dual_ch(self, s: dict, k):
+
+        self.safewrite("reset()")
+        self.safewrite("beeper.enable=0")
+        self.safewrite(f"{s['source']}.reset()")
+        self.safewrite(f"{s['drain']}.reset()")
+
+        if s["sense"]:
+            self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_REMOTE")
         else:
-            if abs(s["limit"]) < 1.5:
-                k.write(f"{s['source']}.trigger.source.limiti = {s['limit']}")
-                k.write(f"{s['source']}.source.limiti = {s['limit']}")
+            self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
+
+        if s["sense_drain"] and s["sense"]:
+            self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_REMOTE")
+        else:
+            self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_LOCAL")
+
+        self.safewrite("smua.measure.filter.count = 4")
+        self.safewrite("smub.measure.filter.count = 4")
+        self.safewrite("smua.measure.filter.enable = smua.FILTER_ON")
+        self.safewrite("smub.measure.filter.enable = smub.FILTER_ON")
+        self.safewrite("smua.measure.filter.type = smua.FILTER_REPEAT_AVG")
+        self.safewrite("smub.measure.filter.type = smub.FILTER_REPEAT_AVG")
+
+        self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_ON")
+        self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_ON")
+        self.safewrite(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_ON")
+        self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_ON")
+
+        if s["pulse"] == "off":
+            self.safewrite(
+                f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_HOLD"
+            )
+        else:
+            self.safewrite(
+                f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE"
+            )
+            self.safewrite(f"trigger.timer[1].delay = {s['pulse']}")
+            self.safewrite("trigger.timer[1].passthrough = false")
+            self.safewrite("trigger.timer[1].count = 1")
+            self.safewrite("trigger.blender[1].orenable = true")
+            self.safewrite(
+                f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.SWEEPING_EVENT_ID"
+            )
+            self.safewrite(
+                f"trigger.blender[1].stimulus[2] = {s['source']}.trigger.PULSE_COMPLETE_EVENT_ID"
+            )
+            self.safewrite("trigger.timer[1].stimulus = trigger.blender[1].EVENT_ID")
+            self.safewrite(
+                f"{s['source']}.trigger.source.stimulus = trigger.timer[1].EVENT_ID"
+            )
+
+        self.safewrite("smua.source.settling = smua.SETTLE_FAST_RANGE")
+        self.safewrite("smub.source.settling = smub.SETTLE_FAST_RANGE")
+        self.safewrite("display.screen = display.SMUA_SMUB")
+        self.safewrite("format.data = format.ASCII")
+
+        if s["delay"] == "off":
+            self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
+            if s["pulse"] == "off":
+                self.safewrite(f"{s['source']}.measure.delayfactor = 28.0")
             else:
-                k.write(
-                    f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
-                )
-                k.write(
-                    f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
-                )
-                k.write(
-                    f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
-                )
-                k.write(f"{s['source']}.measure.rangei = 10")
-                k.write(f"{s['source']}.source.delay = 100e-6")
-                k.write(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
-                k.write(f"{s['source']}.source.rangev = 6")
-                k.write(f"{s['source']}.source.levelv = 0")
-                k.write(f"{s['source']}.source.limiti = {s['limit']}")
-                k.write(f"{s['source']}.trigger.source.limiti = {s['limit']}")
-            k.write(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
+                self.safewrite(f"{s['source']}.measure.delayfactor = 1.0")
+        else:
+            self.safewrite(f"{s['source']}.measure.delay = {s['delay']}")
 
-        k.write(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
-        k.write(f"{s['source']}.trigger.initiate()")
-        time.sleep(waitDelay)
+        self.safewrite(
+            f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)"
+        )
+        self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE")
+        self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")
+        self.safewrite(
+            f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)"
+        )
+        self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE")
+        self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")
 
-        buffer_prev = 0
-        iv = []
-        # NOTE: change to use read_buffer method of Keithley2600?
-        while True:
-            if not self.busy():
-                k.write(f"{s['source']}.abort()")
-                k.write(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
-                return iv
+        self.safewrite(f"{s['source']}.measure.nplc = {s['nplc']}")
+        self.safewrite(
+            f"{s['source']}.trigger.endsweep.action = {s['source']}.SOURCE_IDLE"
+        )
 
-            k.write(f"print({s['source']}.nvbuffer2.n)")
-            buffern = int(s["handle"].read())
+        if s["delay"] == "off":
+            self.safewrite(f"{s['drain']}.measure.delay = {s['drain']}.DELAY_AUTO")
+            if s["pulse"] == "off":
+                self.safewrite(f"{s['drain']}.measure.delayfactor = 28.0")
+            else:
+                self.safewrite(f"{s['drain']}.measure.delayfactor = 1.0")
+        else:
+            self.safewrite(f"{s['drain']}.measure.delay = {s['delay']}")
 
-            if buffern >= s["steps"] * s["repeat"]:
-                break
+        self.safewrite(f"{s['drain']}.measure.nplc = {s['nplc']}")
+        self.safewrite(
+            f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
+        )
+        self.safewrite(
+            f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
+        )
+        self.safewrite("trigger.blender[2].orenable = false")
+        self.safewrite(
+            f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID"
+        )
+        self.safewrite(
+            f"trigger.blender[2].stimulus[2] = {s['drain']}.trigger.MEASURE_COMPLETE_EVENT_ID"
+        )
+        self.safewrite(
+            f"{s['source']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID"
+        )
 
-            if buffern > buffer_prev:
-                k.write(f"printbuffer({buffern}, {buffern}, {s['source']}.nvbuffer1)")
-                i_tmp = float(s["handle"].read())
-                k.write(f"printbuffer({buffern}, {buffern}, {s['source']}.nvbuffer2)")
-                v_tmp = float(s["handle"].read())
-                iv.append((v_tmp, i_tmp))
+        if s["highC"]:
+            self.safewrite(f"{s['source']}.source.highc = {s['source']}.ENABLE")
+            self.safewrite(f"{s['drain']}.source.highc = {s['drain']}.ENABLE")
 
-                if (s["type"] == "i" and abs(v_tmp) > 0.95 * abs(s["limit"])) or (
-                    s["type"] == "v" and abs(i_tmp) > 0.95 * abs(s["limit"])
-                ):
+    def KeithleyRunSingleChSweep(self, s: dict, k):
+        with self.lock:
+
+            readsteps = s["steps"]
+            waitDelay = float(s["pulse"]) if s["pulse"] != "off" else 1
+
+            k.write(f"{s['source']}.nvbuffer1.clear()")
+            k.write(f"{s['source']}.nvbuffer2.clear()")
+            k.write(f"{s['source']}.trigger.count = {s['steps']}")
+            k.write(f"{s['source']}.trigger.arm.count = {s['repeat']}")
+            k.write(
+                f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})"
+            )
+
+            if s["type"] == "i":
+                if abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5:
+                    k.write(f"{s['source']}.trigger.source.limitv = {s['limit']}")
+                    k.write(f"{s['source']}.source.limitv = {s['limit']}")
+                else:
+                    k.write(
+                        f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
+                    )
+                    k.write(
+                        f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
+                    )
+                    k.write(
+                        f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
+                    )
+                    k.write(f"{s['source']}.source.delay = 100e-6")
+                    k.write(
+                        f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF"
+                    )
+                    k.write(f"{s['source']}.source.rangei = 10")
+                    k.write(f"{s['source']}.source.leveli = 0")
+                    k.write(f"{s['source']}.source.limitv = 6")
+                    k.write(f"{s['source']}.trigger.source.limiti = 10")
+                k.write(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
+            else:
+                if abs(s["limit"]) < 1.5:
+                    k.write(f"{s['source']}.trigger.source.limiti = {s['limit']}")
+                    k.write(f"{s['source']}.source.limiti = {s['limit']}")
+                else:
+                    k.write(
+                        f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
+                    )
+                    k.write(
+                        f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
+                    )
+                    k.write(
+                        f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
+                    )
+                    k.write(f"{s['source']}.measure.rangei = 10")
+                    k.write(f"{s['source']}.source.delay = 100e-6")
+                    k.write(
+                        f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF"
+                    )
+                    k.write(f"{s['source']}.source.rangev = 6")
+                    k.write(f"{s['source']}.source.levelv = 0")
+                    k.write(f"{s['source']}.source.limiti = {s['limit']}")
+                    k.write(f"{s['source']}.trigger.source.limiti = {s['limit']}")
+                k.write(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
+
+            k.write(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
+            k.write(f"{s['source']}.trigger.initiate()")
+            time.sleep(waitDelay)
+
+            buffer_prev = 0
+            iv = []
+            # NOTE: change to use read_buffer method of Keithley2600?
+            while True:
+                if not self.busy():
                     k.write(f"{s['source']}.abort()")
-                    readsteps = buffern
+                    k.write(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
+                    return iv
+
+                k.write(f"print({s['source']}.nvbuffer2.n)")
+                buffern = int(s["handle"].read())
+
+                if buffern >= s["steps"] * s["repeat"]:
                     break
 
-                buffer_prev = buffern
+                if buffern > buffer_prev:
+                    k.write(
+                        f"printbuffer({buffern}, {buffern}, {s['source']}.nvbuffer1)"
+                    )
+                    i_tmp = float(s["handle"].read())
+                    k.write(
+                        f"printbuffer({buffern}, {buffern}, {s['source']}.nvbuffer2)"
+                    )
+                    v_tmp = float(s["handle"].read())
+                    iv.append((v_tmp, i_tmp))
 
-            time.sleep(0.5)
+                    if (s["type"] == "i" and abs(v_tmp) > 0.95 * abs(s["limit"])) or (
+                        s["type"] == "v" and abs(i_tmp) > 0.95 * abs(s["limit"])
+                    ):
+                        k.write(f"{s['source']}.abort()")
+                        readsteps = buffern
+                        break
 
-        time.sleep(waitDelay * 1.2)
-        k.write(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
-        k.write(f"printbuffer(1, {readsteps}, {s['source']}.nvbuffer1)")
-        iv[:, 0] = [float(x) for x in s["handle"].read().split()]
-        k.write(f"printbuffer(1, {readsteps}, {s['source']}.nvbuffer2)")
-        iv[:, 1] = [float(x) for x in s["handle"].read().split()]
+                    buffer_prev = buffern
 
-        return iv
+                time.sleep(0.5)
+
+            time.sleep(waitDelay * 1.2)
+            k.write(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
+            k.write(f"printbuffer(1, {readsteps}, {s['source']}.nvbuffer1)")
+            iv[:, 0] = [float(x) for x in s["handle"].read().split()]
+            k.write(f"printbuffer(1, {readsteps}, {s['source']}.nvbuffer2)")
+            iv[:, 1] = [float(x) for x in s["handle"].read().split()]
+
+            return iv
