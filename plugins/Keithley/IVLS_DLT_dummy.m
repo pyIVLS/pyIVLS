@@ -4102,7 +4102,7 @@ function IVLS(varargin)
       fprintf(smu.handle,strcat(smu.drain,'.source.func = ',smu.drain,'.OUTPUT_DCVOLTS'));
       fprintf(smu.handle,strcat(smu.drain,'.source.levelv = ', smu.drainVoltage));
       fprintf(smu.handle,strcat(smu.drain,'.source.limiti = ', smu.drainLimit));
-	  drainLimitVoltage = str2num(smu.drainLimit);
+	    drainLimitVoltage = str2num(smu.drainLimit);
      else
       fprintf(smu.handle,strcat(smu.drain,'.source.func = ',smu.drain,'.OUTPUT_DCVOLTS'));
       fprintf(smu.handle,strcat(smu.drain,'.source.levelv = 0'));
