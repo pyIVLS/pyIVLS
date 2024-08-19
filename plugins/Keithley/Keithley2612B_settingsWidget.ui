@@ -387,6 +387,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>0</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -445,6 +448,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -505,6 +511,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>1</string>
+          </property>
          </widget>
         </item>
        </layout>
@@ -556,6 +565,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -621,6 +633,9 @@
             <width>0</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>1</string>
           </property>
          </widget>
         </item>
@@ -842,6 +857,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>0</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -900,6 +918,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -960,6 +981,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>1</string>
+          </property>
          </widget>
         </item>
        </layout>
@@ -1011,6 +1035,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -1077,6 +1104,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>1</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -1141,6 +1171,9 @@
             <width>0</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>1</string>
           </property>
          </widget>
         </item>
@@ -1362,6 +1395,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>0</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -1420,6 +1456,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -1480,6 +1519,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>0</string>
+          </property>
          </widget>
         </item>
        </layout>
@@ -1531,6 +1573,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -1596,6 +1641,9 @@
             <width>0</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>1</string>
           </property>
          </widget>
         </item>
