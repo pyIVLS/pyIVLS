@@ -35,4 +35,17 @@ class pyIVLS_tlccs_plugin:
         # Replace name here with the name of the plugin
         return {"tlccs": self.drv.settingsWidget}
 
-    # The rest of the hooks go here
+    @hookimpl(optionalhook=True)
+    def run_scan(self):
+        """Currently open needs to be called separatedly
+
+        Returns:
+            _type_: _description_
+        """
+        self.drv.start_scan()
+        return self.drv.get_scan_data()
+
+    @hookimpl(optionalhook=True)
+    def open(self):
+        """Open the connection to the device"""
+        return self.drv.open()

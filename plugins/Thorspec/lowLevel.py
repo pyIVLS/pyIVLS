@@ -15,8 +15,10 @@ class LLIO:
         self.pid = pid
         self.bulk_in_pipe = None
         self.timeout = None
+        self.dev = None
+        self.connected = False
 
-    def _connect(self) -> None:
+    def _connect(self) -> bool:
         """private function to connect to the device.
 
         Raises:
@@ -24,11 +26,15 @@ class LLIO:
             ConnectionError: usb error when connecting to the device
         """
         try:
-            self.dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
+            if not self.connected:
+                self.dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
 
-            if self.dev is None:
-                raise ValueError("Device not found")
-            self.dev.set_configuration()
+                if self.dev is None:
+                    raise ValueError("Device not found")
+                self.dev.set_configuration()
+                self.connected = True
+                return True
+            return False
         except usb.core.USBError as e:
             raise ConnectionError(f"Failed to connect to device: {e}") from e
 
@@ -36,19 +42,22 @@ class LLIO:
         if self.dev is not None:
             self.close()
 
-    def open(self) -> None:
+    def open(self) -> bool:
         """interface to open the connection and set default values for
         bulk_in_pipe and timeout."""
-        self._connect()
-        self.bulk_in_pipe = const.LL_DEFAULT_BULK_IN_PIPE
-        self.timeout = const.LL_DEFAULT_TIMEOUT
-        self.flush()
+        if self._connect():
+            self.bulk_in_pipe = const.LL_DEFAULT_BULK_IN_PIPE
+            self.timeout = const.LL_DEFAULT_TIMEOUT
+            self.flush()
+            return True
+        return False
 
     def close(self) -> None:
         """Closes the connection to the device. Disposes resources and
         sets dev to None."""
         usb.util.dispose_resources(self.dev)
         self.dev = None
+        self.connected = False
 
     def get_bulk_in_status(self) -> str:
         """Send a standard control transfer to the device to get the status of the bulk_in_pipe. NOTE: Unused and only briefly tested.

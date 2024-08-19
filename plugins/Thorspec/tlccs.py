@@ -59,29 +59,29 @@ class CCSDRV:
         """
         # Set class vars
         self.io = LLIO(vid, pid)
-        self.dev = self.io.dev
-        self.io.open()
+        if self.io.open():
+            self.dev = self.io.dev
 
-        # if integration time is not passed as an arg, read from GUI.
-        if integration_time is None:
-            integration_time = self.read_integration_time_GUI()
+            # if integration time is not passed as an arg, read from GUI.
+            if integration_time is None:
+                integration_time = self.read_integration_time_GUI()
 
-        # Set default integration time
-        assert self.set_integration_time(integration_time)
-        state = self.get_device_status()
-        self.integration_time = const.CCS_SERIES_DEF_INT_TIME
+            # Set default integration time
+            assert self.set_integration_time(integration_time)
+            state = self.get_device_status()
+            self.integration_time = const.CCS_SERIES_DEF_INT_TIME
 
-        if "SCAN_IDLE" not in state:
-            # FIXME: This is a workaround for the device not being in idle state
-            # after opening connection for first time. Look into reset.
-            print(
-                "Device not in idle state after opening connection. Running a scan and flushing to reset"
-            )
-            time.sleep(3)
-            self.start_scan()
-            self.get_scan_data()
+            if "SCAN_IDLE" not in state:
+                # FIXME: This is a workaround for the device not being in idle state
+                # after opening connection for first time. Look into reset.
+                print(
+                    "Device not in idle state after opening connection. Running a scan and flushing to reset"
+                )
+                time.sleep(3)
+                self.start_scan()
+                self.get_scan_data()
 
-        self.status_label.setText("Connected")
+            self.status_label.setText("Connected")
 
     def close(self):
         """Closes the connection through LLIO."""

@@ -3,6 +3,7 @@ from PyQt6 import uic
 
 # FIXME: Debug
 import cv2 as cv
+import matplotlib.pyplot as plt
 
 
 class Test:
@@ -34,7 +35,7 @@ class Test:
         # print(f"hooked Affine coordinates: {ret[0]}")
 
         # FIXME: coords no worky
-
+        """
         if self.pm.hook.mm_move(speed=1, x=200, y=200, z=200):
             print("Moved micromanipulator with great success")
 
@@ -49,5 +50,19 @@ class Test:
 
         if self.pm.hook.mm_move(speed=1, x=0, y=100, z=200):
             print("Moved micromanipulator with great success")
+        """
+        self.pm.hook.open()
+        # discard one scan:
+        self.pm.hook.run_scan()
+        data = self.pm.hook.run_scan()
+        data = data[0]
+        # Print the first 10 values of data
+        print(data[:10])
 
+        # Plot the data
+        plt.plot(data)
+        plt.xlabel("Index")
+        plt.ylabel("Value")
+        plt.title("Scan Data")
+        plt.show()
         self.statusLabel.setText("Test function complete")
