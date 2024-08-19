@@ -15,3 +15,4 @@ plugin_address = 4
 
 ### Keithley constants
 keithley_visa = "TCPIP::192.168.1.5::INSTR"
+line_freq = 50 # Hz

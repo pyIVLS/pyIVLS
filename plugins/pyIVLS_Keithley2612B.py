@@ -1,6 +1,7 @@
 #!/usr/bin/python3.8
 import pluggy
 from plugins.Keithley.Keithley2612B import Keithley2612B
+import numpy as np
 
 
 class pyIVLS_Keithley2612B_plugin:
@@ -15,6 +16,31 @@ class pyIVLS_Keithley2612B_plugin:
         :return: dict containing widget and setup structure
         """
         self.smu = Keithley2612B()
-        print("I am getting info for the Keithley plugin")
 
         return {"Keithley2612B": self.smu.settingsWidget}
+
+    @hookimpl
+    def open(self, *kwargs):
+        """opens the plugin
+
+        :return: None
+        """
+        self.smu.connect()
+
+    @hookimpl(optionalhook=True)
+    def run_sweep(self) -> np.ndarray:
+        """runs a sweep
+
+        :return: list of data
+        """
+        try:
+            settings = self.smu.parse_settings_widget()
+            if settings["single_ch"]:
+                self.smu.keithley_init(settings)
+                data = self.smu.keithley_run_single_ch_sweep(settings)
+                return data
+            else:
+                raise NotImplementedError("Two channel mode not implemented yet")
+        except:
+            print("Error in run_sweep")
+            return np.array([])
