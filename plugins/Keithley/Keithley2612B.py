@@ -1,7 +1,7 @@
 import sys
 import os
 import time
-from threading import RLock
+from threading import RLock, Lock
 
 
 from PyQt6 import uic
@@ -71,7 +71,7 @@ class Keithley2612B(QObject):
         self._connect_signals()
 
         # Initialize the lock for the measurement
-        self.lock = RLock()
+        self.lock = Lock()
         self.debug_mode = False
 
     ## Widget functions
@@ -79,11 +79,14 @@ class Keithley2612B(QObject):
         settings = self.parse_settings_widget()
         print(settings)
         self.debug_mode = True
+        self.connect()
         self.keithley_init(settings)
-        print("--- channel initialized, now running sweep ---")
+        print("--- channel initialized ---")
         print("busy: ", self.busy())
-        self.KeithleyRunSingleChSweep(settings)
-        print("--- Sweep done, i'm happy now ---")
+        data = self.KeithleyRunSingleChSweep(settings)
+        print("data: ", data)
+        self.disconnect()
+        # print("--- Sweep done, i'm happy now ---")
 
         """        
         self.connect()
@@ -254,8 +257,6 @@ class Keithley2612B(QObject):
 
     ## Communication functions
     def safewrite(self, command):
-        print("command: ", command)
-        """        
         try:
             self.k.write(command)
             if self.debug_mode:
@@ -265,13 +266,12 @@ class Keithley2612B(QObject):
         except Exception as e:
             print(f"Exception sending command: {command}\nException: {e}")
         finally:
-            self.self.safewrite("errorqueue.clear()")
-        """
+            self.k.write("errorqueue.clear()")
 
     def connect(self):
         print("Connecting to Keithley 2612B")
         self.k = self.rm.open_resource(pyIVLS_constants.keithley_visa)
-        self.k.query("*IDN?")
+        print(self.k.query("*IDN?"))
         self.k.read_termination = "\n"
         # FIXME: add settings for termination
         # my_instrument.read_termination = '\n'
@@ -282,12 +282,12 @@ class Keithley2612B(QObject):
         self.k.close()
 
     def busy(self) -> bool:
-
         gotten = self.lock.acquire(blocking=False)
-
         if gotten:
+            print("Lock acquired")
             self.lock.release()
-
+        else:
+            print("Lock not acquired")
         return not gotten
 
     def parse_settings_widget(self) -> dict:
@@ -508,126 +508,154 @@ class Keithley2612B(QObject):
 
     def KeithleyRunSingleChSweep(self, s: dict):
         with self.lock:
+            try:
+                print("Measurement started")
+                readsteps = s["steps"]
+                waitDelay = float(s["pulse"]) if s["pulse"] != "off" else 1
 
-            readsteps = s["steps"]
-            waitDelay = float(s["pulse"]) if s["pulse"] != "off" else 1
-
-            self.safewrite(f"{s['source']}.nvbuffer1.clear()")
-            self.safewrite(f"{s['source']}.nvbuffer2.clear()")
-            self.safewrite(f"{s['source']}.trigger.count = {s['steps']}")
-            self.safewrite(f"{s['source']}.trigger.arm.count = {s['repeat']}")
-            self.safewrite(
-                f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})"
-            )
-            # FIXME: Might be a problem with datatypes, since start and end are strings.
-            if s["type"] == "i":
-                if abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5:
-                    self.safewrite(
-                        f"{s['source']}.trigger.source.limitv = {s['limit']}"
-                    )
-                    self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
-                else:
-                    self.safewrite(
-                        f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
-                    )
-                    self.safewrite(
-                        f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
-                    )
-                    self.safewrite(
-                        f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
-                    )
-                    self.safewrite(f"{s['source']}.source.delay = 100e-6")
-                    self.safewrite(
-                        f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF"
-                    )
-                    self.safewrite(f"{s['source']}.source.rangei = 10")
-                    self.safewrite(f"{s['source']}.source.leveli = 0")
-                    self.safewrite(f"{s['source']}.source.limitv = 6")
-                    self.safewrite(f"{s['source']}.trigger.source.limiti = 10")
+                self.safewrite(f"{s['source']}.nvbuffer1.clear()")
+                self.safewrite(f"{s['source']}.nvbuffer2.clear()")
+                self.safewrite(f"{s['source']}.trigger.count = {s['steps']}")
+                self.safewrite(f"{s['source']}.trigger.arm.count = {s['repeat']}")
                 self.safewrite(
-                    f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS"
+                    f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})"
                 )
-            else:
-                if abs(s["limit"]) < 1.5:
+                # FIXME: Might be a problem with datatypes, since start and end are strings.
+                if s["type"] == "i":
+                    if abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5:
+                        self.safewrite(
+                            f"{s['source']}.trigger.source.limitv = {s['limit']}"
+                        )
+                        self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
+                    else:
+                        self.safewrite(
+                            f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
+                        )
+                        self.safewrite(
+                            f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
+                        )
+                        self.safewrite(
+                            f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
+                        )
+                        self.safewrite(f"{s['source']}.source.delay = 100e-6")
+                        self.safewrite(
+                            f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF"
+                        )
+                        self.safewrite(f"{s['source']}.source.rangei = 10")
+                        self.safewrite(f"{s['source']}.source.leveli = 0")
+                        self.safewrite(f"{s['source']}.source.limitv = 6")
+                        self.safewrite(f"{s['source']}.trigger.source.limiti = 10")
                     self.safewrite(
-                        f"{s['source']}.trigger.source.limiti = {s['limit']}"
+                        f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS"
                     )
-                    self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
                 else:
+                    if abs(s["limit"]) < 1.5:
+                        self.safewrite(
+                            f"{s['source']}.trigger.source.limiti = {s['limit']}"
+                        )
+                        self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
+                    else:
+                        self.safewrite(
+                            f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
+                        )
+                        self.safewrite(
+                            f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
+                        )
+                        self.safewrite(
+                            f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
+                        )
+                        self.safewrite(f"{s['source']}.measure.rangei = 10")
+                        self.safewrite(f"{s['source']}.source.delay = 100e-6")
+                        self.safewrite(
+                            f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF"
+                        )
+                        self.safewrite(f"{s['source']}.source.rangev = 6")
+                        self.safewrite(f"{s['source']}.source.levelv = 0")
+                        self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
+                        self.safewrite(
+                            f"{s['source']}.trigger.source.limiti = {s['limit']}"
+                        )
                     self.safewrite(
-                        f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
+                        f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS"
                     )
-                    self.safewrite(
-                        f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
-                    )
-                    self.safewrite(
-                        f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
-                    )
-                    self.safewrite(f"{s['source']}.measure.rangei = 10")
-                    self.safewrite(f"{s['source']}.source.delay = 100e-6")
-                    self.safewrite(
-                        f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF"
-                    )
-                    self.safewrite(f"{s['source']}.source.rangev = 6")
-                    self.safewrite(f"{s['source']}.source.levelv = 0")
-                    self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
-                    self.safewrite(
-                        f"{s['source']}.trigger.source.limiti = {s['limit']}"
-                    )
-                self.safewrite(
-                    f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS"
-                )
 
-            self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
-            self.safewrite(f"{s['source']}.trigger.initiate()")
-            time.sleep(waitDelay)
+                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
+                self.safewrite(f"{s['source']}.trigger.initiate()")
+                time.sleep(waitDelay)
 
-            buffer_prev = 0
-            iv = []
-            while True:
-                if not self.busy():
-                    self.safewrite(f"{s['source']}.abort()")
-                    self.safewrite(
-                        f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF"
-                    )
-                    return iv
-
-                self.safewrite(f"print({s['source']}.nvbuffer2.n)")
-                buffern = int(s["handle"].read())
-
-                if buffern >= s["steps"] * s["repeat"]:
-                    break
-
-                if buffern > buffer_prev:
-                    self.safewrite(
-                        f"printbuffer({buffern}, {buffern}, {s['source']}.nvbuffer1)"
-                    )
-                    i_tmp = float(s["handle"].read())
-                    self.safewrite(
-                        f"printbuffer({buffern}, {buffern}, {s['source']}.nvbuffer2)"
-                    )
-                    v_tmp = float(s["handle"].read())
-                    iv.append((v_tmp, i_tmp))
-
-                    if (s["type"] == "i" and abs(v_tmp) > 0.95 * abs(s["limit"])) or (
-                        s["type"] == "v" and abs(i_tmp) > 0.95 * abs(s["limit"])
-                    ):
+                buffer_prev = 0
+                iv = []
+                while True:
+                    if not self.busy():
+                        print("Not busy, aborting")
                         self.safewrite(f"{s['source']}.abort()")
-                        readsteps = buffern
+                        self.safewrite(
+                            f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF"
+                        )
+                        return iv
+
+                    # Get the number of readings in nvbuffer2
+                    readings = self.k.query_ascii_values(
+                        f"print({s['source']}.nvbuffer2.n)"
+                    )
+                    print(f"Readings: {readings}")
+                    buffern = int(readings[0])
+
+                    if buffern >= s["steps"] * s["repeat"]:
                         break
 
-                    buffer_prev = buffern
+                    if buffern > buffer_prev:
+                        # Read current (nvbuffer1) and voltage (nvbuffer2)
 
-                time.sleep(0.5)
+                        i_values = self.k.query_ascii_values(
+                            f"printbuffer({buffer_prev + 1}, {buffern}, {s['source']}.nvbuffer1)"
+                        )
+                        v_values = self.k.query_ascii_values(
+                            f"printbuffer({buffer_prev + 1}, {buffern}, {s['source']}.nvbuffer2)"
+                        )
 
-            time.sleep(waitDelay * 1.2)
-            self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
-            self.safewrite(f"printbuffer(1, {readsteps}, {s['source']}.nvbuffer1)")
-            iv[:, 0] = [float(x) for x in s["handle"].read().split()]
-            self.safewrite(f"printbuffer(1, {readsteps}, {s['source']}.nvbuffer2)")
-            iv[:, 1] = [float(x) for x in s["handle"].read().split()]
+                        iv.extend(list(zip(v_values, i_values)))
 
-            return iv
+                        # Check for limit condition
+                        if (
+                            s["type"] == "i"
+                            and any(abs(v) > 0.95 * abs(s["limit"]) for v in v_values)
+                        ) or (
+                            s["type"] == "v"
+                            and any(abs(i) > 0.95 * abs(s["limit"]) for i in i_values)
+                        ):
+                            self.safewrite(f"{s['source']}.abort()")
+                            readsteps = buffern
+                            break
+
+                        # Update buffer_prev
+                        buffer_prev = buffern
+
+                    time.sleep(0.5)
+
+                time.sleep(waitDelay * 1.2)
+                self.safewrite(
+                    f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF"
+                )
+
+                # Final buffer read to ensure all data is captured
+                if buffer_prev > 0:
+                    iv = np.array(iv)
+                    readsteps = buffer_prev
+
+                    iv[:, 1] = self.k.query_ascii_values(
+                        f"printbuffer(1, {readsteps}, {s['source']}.nvbuffer1)"
+                    )
+                    iv[:, 0] = self.k.query_ascii_values(
+                        f"printbuffer(1, {readsteps}, {s['source']}.nvbuffer2)"
+                    )
+
+                return iv
+            except:
+                self.safewrite(
+                    f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF"
+                )
+                self.safewrite(f"{s['source']}.abort()")
 
     def KeithleyRunDualChSweep(self, s: dict):
         readsteps = s["steps"]

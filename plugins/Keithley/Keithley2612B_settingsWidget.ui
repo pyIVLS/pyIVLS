@@ -450,7 +450,7 @@
            </size>
           </property>
           <property name="text">
-           <string>0</string>
+           <string>0.1</string>
           </property>
          </widget>
         </item>
@@ -512,7 +512,7 @@
            </size>
           </property>
           <property name="text">
-           <string>1</string>
+           <string>2</string>
           </property>
          </widget>
         </item>
@@ -567,7 +567,7 @@
            </size>
           </property>
           <property name="text">
-           <string>0</string>
+           <string>0.05</string>
           </property>
          </widget>
         </item>
