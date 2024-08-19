@@ -256,13 +256,12 @@ class Keithley2612B(QObject):
                 # How to handle this? Call a separate function to handle this, which provides two copies of the settings?
                 raise NotImplementedError("2 + 4 mode not implemented yet.")
 
-        if legacy_dict["pulse"]:
+        if legacy_dict["pulse"] != "off":
             legacy_dict["start"] = self.s["lineEdit_pulsedStart"]()
             legacy_dict["end"] = self.s["lineEdit_pulsedEnd"]()
             legacy_dict["steps"] = self.s["lineEdit_pulsedPoints"]()
             legacy_dict["limit"] = self.s["lineEdit_pulsedLimit"]()
             legacy_dict["nplc"] = self.s["lineEdit_pulsedNPLC"]()
-            # FIXME: NOT READING PULSE PAUSE
             if self.s["comboBox_pulsedDelayMode"]() == "Auto":
                 legacy_dict["delay"] = "off"
             else:
