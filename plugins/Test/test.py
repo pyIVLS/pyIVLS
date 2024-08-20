@@ -35,10 +35,10 @@ class Test:
         # print(f"hooked Affine coordinates: {ret[0]}")
 
         """
-        if self.pm.hook.mm_move(speed=1, x=200, y=200, z=200):
+        if self.pm.hook.mm_move(x=200, y=200, z=200):
             print("Moved micromanipulator with great success")
 
-        if self.pm.hook.mm_move(speed=1, x=0, y=0, z=0):
+        if self.pm.hook.mm_move(x=0, y=0, z=0):
             print("Moved micromanipulator with great success")
 
         if self.pm.hook.mm_change_active_device(dev_num=2):
@@ -47,7 +47,7 @@ class Test:
         if self.pm.hook.mm_change_active_device(dev_num=1):
             print("Changed active device with great success")
 
-        if self.pm.hook.mm_move(speed=1, x=0, y=100, z=200):
+        if self.pm.hook.mm_move(x=0, y=100, z=200):
             print("Moved micromanipulator with great success")
         """
         statuses = self.pm.hook.open()

@@ -68,7 +68,7 @@ class pyIVLS_Sutter_plugin:
 
     # FIXME: Create a wrapper function for move through settings.
     @hookimpl
-    def mm_move(self, speed, x, y, z):
+    def mm_move(self, x, y, z):
         """Micromanipulator move.
 
         Args:
@@ -82,3 +82,14 @@ class pyIVLS_Sutter_plugin:
     def mm_stop(self):
         """Micromanipulator stop."""
         self.hal.stop()
+
+    @hookimpl(optionalhook=True)
+    def mm_lower(self, z_change):
+
+        (x, y, z) = self.hal.get_current_position()
+        if z + z_change > self.hal._maximum_m or z + z_change < self.hal._minimum_ms:
+            return False
+
+        if self.hal.slow_move_to(x, y, z + z_change, speed=1):
+            return True
+        return False

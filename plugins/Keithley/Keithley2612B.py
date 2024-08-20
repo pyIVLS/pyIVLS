@@ -290,6 +290,7 @@ class Keithley2612B:
         print("Disconnecting from Keithley 2612B")
         self.k.close()
 
+    ## Device functions
     def busy(self) -> bool:
         """Try to acquire the lock. If the lock can be captured, the instrument is not busy.
         If acquired, release the lock and return False.
@@ -305,6 +306,16 @@ class Keithley2612B:
         else:
             print("Lock not acquired")
         return not gotten
+
+    def resistance_measurement(self, channel: str) -> float:
+        """Measure the resistance at the probe.
+
+        Returns:
+            float: resistance
+        """
+        if channel = "smua":
+            
+
 
     def parse_settings_widget(self) -> dict:
         """Parse the settings widget into a form that the legacy code can understand.

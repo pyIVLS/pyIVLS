@@ -84,6 +84,7 @@ class Mpc325:
         if self.ser.is_open:
             self.ser.close()
 
+    # FIXME: add a check that tests if the port is already open
     def open(self):
         # Open port
         try:
@@ -96,7 +97,7 @@ class Mpc325:
                 bytesize=self._databits,
             )
             print(
-                f"Port {self._port} is open: {self.ser.is_open}. Flushing I/O to initialize."
+                f"Port {self._port} is open: {self.ser.is_open}. Flushing I/O to initialize micromanipulators."
             )
             self._flush()
             return True
@@ -246,7 +247,7 @@ class Mpc325:
         output = self.ser.read(1)
         self._validate_and_unpack("B", output)
 
-    def slow_move_to(self, x: np.float64, y: np.float64, z: np.float64):
+    def slow_move_to(self, x: np.float64, y: np.float64, z: np.float64, speed=None):
         """Slower move in straight lines. Less prone to collisions
 
         Args:
@@ -256,9 +257,11 @@ class Mpc325:
             z (np.float64): z in microns
 
         """
+        if speed is None:
+            speed = self.speed
         self._flush()
         # Enforce speed limits
-        speed = max(0, min(self.speed, 15))
+        speed = max(0, min(speed, 15))
 
         # Pack first part of command
         command1 = struct.pack("<2B", 83, speed)

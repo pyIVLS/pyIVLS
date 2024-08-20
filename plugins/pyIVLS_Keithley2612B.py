@@ -44,3 +44,17 @@ class pyIVLS_Keithley2612B_plugin:
         except:
             print("Error in run_sweep")
             return np.array([])
+
+    """
+    This should measure the current resistance at some probe. Prolly needs an arg for the probe.
+    This should also handle changing the mode to resistance measurement and 
+    when the current position is reached, return to normal measurement mode.
+    """
+
+    @hookimpl(optionalhook=True)
+    def measure_resistance(self):
+        """measures resistance
+
+        :return: resistance
+        """
+        raise NotImplementedError("Not implemented yet")
