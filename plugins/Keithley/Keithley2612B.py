@@ -37,7 +37,7 @@ It might not be necessary to use it at all.
 """
 
 
-class Keithley2612B(QObject):
+class Keithley2612B:
 
     ####################################  threads
 
@@ -50,7 +50,6 @@ class Keithley2612B(QObject):
     ########Functions
     def __init__(self):
 
-        QObject.__init__(self)
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
         filename = (
@@ -73,6 +72,9 @@ class Keithley2612B(QObject):
         # Initialize the lock for the measurement
         self.lock = Lock()
         self.debug_mode = False
+
+        # initialize pm?
+        # self.pm = pm?
 
     ## Widget functions
     def debug_button(self):
@@ -268,11 +270,21 @@ class Keithley2612B(QObject):
         finally:
             self.k.write("errorqueue.clear()")
 
-    def connect(self):
-        print("Connecting to Keithley 2612B")
-        self.k = self.rm.open_resource(pyIVLS_constants.keithley_visa)
-        print(self.k.query("*IDN?"))
-        self.k.read_termination = "\n"
+    def connect(self) -> bool:
+        """Connect to the Keithley 2612B.
+
+        Returns:
+            bool: connection succesful or nah
+        """
+        try:
+            print("Connecting to Keithley 2612B")
+            self.k = self.rm.open_resource(pyIVLS_constants.keithley_visa)
+            print(self.k.query("*IDN?"))
+            self.k.read_termination = "\n"
+            return True
+        except:
+            print("Failed to connect to Keithley 2612B")
+            return False
 
     def disconnect(self):
         print("Disconnecting from Keithley 2612B")
@@ -313,7 +325,6 @@ class Keithley2612B(QObject):
 
         # Determine repeat count
         legacy_dict["repeat"] = int(self.s["lineEdit_repeat"]())
-        assert legacy_dict["repeat"] > 0
 
         # set mode
         if self.s["comboBox_mode"]() == "Continuous":
@@ -399,6 +410,7 @@ class Keithley2612B(QObject):
         # FIXME: Change this so that the whole program doesn't have to crash off the cliff if a single value is wrong.
         # Make assertions
         assert legacy_dict["steps"] > 0
+        assert legacy_dict["repeat"] >= 0
         assert (
             legacy_dict["nplc"] >= 0.001 and legacy_dict["nplc"] <= 25
         ), "NPLC value out of range"

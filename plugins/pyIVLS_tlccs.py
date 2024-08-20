@@ -45,7 +45,7 @@ class pyIVLS_tlccs_plugin:
         self.drv.start_scan()
         return self.drv.get_scan_data()
 
-    def open(self, *kwargs) -> tuple[str, bool]:
+    def open(self, **kwargs) -> tuple[str, bool]:
         """Open the connection to the device"""
         if self.drv.open():
             return ("tlccs", True)

@@ -45,7 +45,7 @@ class pyIVLS_Sutter_plugin:
         return {"Sutter": self.hal.settingsWidget}
 
     @hookimpl
-    def open(self, *kwargs) -> tuple[str, bool]:
+    def open(self, **kwargs) -> tuple[str, bool]:
         """Open the device.
 
         Returns:

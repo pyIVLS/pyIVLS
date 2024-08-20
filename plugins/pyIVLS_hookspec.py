@@ -16,7 +16,7 @@ class pyIVLS_hookspec:
         """
 
     @hookspec
-    def open(self, *kwargs) -> tuple[str, bool]:
+    def open(self, **kwargs) -> tuple[str, bool]:
         """Open the device. If type = device, this must be implemented"""
 
     @hookspec

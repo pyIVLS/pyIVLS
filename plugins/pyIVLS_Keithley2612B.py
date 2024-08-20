@@ -20,7 +20,7 @@ class pyIVLS_Keithley2612B_plugin:
         return {"Keithley2612B": self.smu.settingsWidget}
 
     @hookimpl
-    def open(self, *kwargs):
+    def open(self, **kwargs) -> tuple[str, bool]:
         """opens the plugin
 
         :return: None

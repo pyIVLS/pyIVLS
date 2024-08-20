@@ -35,7 +35,7 @@ class pyIVLS_VenusUSB2_plugin:
         return {"VenusUSB2": self.camera.settingsWidget}
 
     @hookimpl
-    def open(self, *kwargs) -> tuple[str, bool]:
+    def open(self, **kwargs) -> tuple[str, bool]:
         """Open the device.
 
         Returns:
