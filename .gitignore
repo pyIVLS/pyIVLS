@@ -3,3 +3,5 @@ __pycache__/
 .vscode/
 /plugins/coordConverter/masks/*
 /plugins/coordConverter/testImages/*
+*.m
+/plugins/Keithley/IVLS_DLT_dummy.m
