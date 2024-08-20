@@ -64,7 +64,7 @@ class Keithley2612B(QObject):
         # Initialize resource manager
         self.rm = pyvisa.ResourceManager("@py")
 
-        # FIXME: DEBUG
+        # FIXME: DEBUG button
         debug_button = self.settingsWidget.findChild(QPushButton, "pushButton")
         debug_button.clicked.connect(self.debug_button)
 
@@ -78,7 +78,7 @@ class Keithley2612B(QObject):
     def debug_button(self):
         settings = self.parse_settings_widget()
         print(settings)
-        self.debug_mode = True
+        """        self.debug_mode = True
         self.connect()
         self.keithley_init(settings)
         print("--- channel initialized ---")
@@ -86,7 +86,7 @@ class Keithley2612B(QObject):
         data = self.KeithleyRunSingleChSweep(settings)
         print("data: ", data)
         self.disconnect()
-        # print("--- Sweep done, i'm happy now ---")
+        # print("--- Sweep done, i'm happy now ---")"""
 
         """        
         self.connect()
@@ -279,6 +279,13 @@ class Keithley2612B(QObject):
         self.k.close()
 
     def busy(self) -> bool:
+        """Try to acquire the lock. If the lock can be captured, the instrument is not busy.
+        If acquired, release the lock and return False.
+        If not acquired, return True.
+
+        Returns:
+            bool: device busy status
+        """
         gotten = self.lock.acquire(blocking=False)
         if gotten:
             print("Lock acquired")
@@ -294,7 +301,7 @@ class Keithley2612B(QObject):
             dict: Parsed settings.
         """
         legacy_dict = {}
-        # FIXME: NPLC value is not converted properly. The instrument expects the value in cycles per power line cycle, but it is provided in ms.
+
         # Determine source channel
         legacy_dict["source"] = (
             "smua" if self.s["comboBox_channel"]() == "smuA" else "smub"
@@ -315,6 +322,9 @@ class Keithley2612B(QObject):
             legacy_dict["pulse"] = self.s["lineEdit_pulsedPause"]()
         else:
             # How to handle this? Call a separate function to handle this?
+            # Idea: return two copies of the settings, one for each mode.
+            # then, in the run_sweep function, change the function to check if there are multiple
+            # settings dicts, and run the sweep for each of them recursively.
             raise NotImplementedError("Mixed mode not implemented yet.")
 
         # Set single channel and drain
@@ -329,16 +339,10 @@ class Keithley2612B(QObject):
             legacy_dict["drainLimit"] = self.s["lineEdit_drainLimit"]()
             legacy_dict["nplc_drain"] = float(
                 float(self.s["lineEdit_drainNPLC"]())
-                * 10e-3
+                * 0.001
                 * pyIVLS_constants.line_freq
             )
-            # Check that the NPLC value is within the allowed range
-            assert (
-                legacy_dict["nplc_drain"] > 0.001 and legacy_dict["nplc_drain"] < 25
-            ), "NPLC value out of range"
-            assert (
-                1 == 0
-            ), "Fix this tomorrow. NPLC is not converted and checked properly"
+
         # Set source sense mode
         source_sense_mode = self.s["comboBox_sourceSenseMode"]()
         if source_sense_mode == "2 wire":
@@ -360,6 +364,7 @@ class Keithley2612B(QObject):
                 # How to handle this? Call a separate function to handle this, which provides two copies of the settings?
                 raise NotImplementedError("2 + 4 mode not implemented yet.")
 
+        # if in pulse mode, read the settings from the pulsed sweep group
         if legacy_dict["pulse"] != "off":
             legacy_dict["start"] = float(self.s["lineEdit_pulsedStart"]())
             legacy_dict["end"] = float(self.s["lineEdit_pulsedEnd"]())
@@ -367,28 +372,39 @@ class Keithley2612B(QObject):
             legacy_dict["limit"] = float(self.s["lineEdit_pulsedLimit"]())
             legacy_dict["nplc"] = float(
                 float(self.s["lineEdit_pulsedNPLC"]())
-                * 10e-3
+                * 0.001
                 * pyIVLS_constants.line_freq
             )
-            assert (
-                legacy_dict["nplc"] > 0.001 and legacy_dict["nplc"] < 25
-            ), "NPLC value out of range"
+
             if self.s["comboBox_pulsedDelayMode"]() == "Auto":
                 legacy_dict["delay"] = "off"
             else:
                 legacy_dict["delay"] = self.s["lineEdit_pulsedDelay"]()
-
+        # else must be in continous mode, read the settings from the continuous sweep group
         else:
             legacy_dict["start"] = float(self.s["lineEdit_continuousStart"]())
             legacy_dict["end"] = float(self.s["lineEdit_continuousEnd"]())
             legacy_dict["steps"] = int(self.s["lineEdit_continuousPoints"]())
             legacy_dict["limit"] = float(self.s["lineEdit_continuousLimit"]())
-            legacy_dict["nplc"] = self.s["lineEdit_continuousNPLC"]()
+            legacy_dict["nplc"] = float(
+                float(self.s["lineEdit_continuousNPLC"]())
+                * 0.001
+                * pyIVLS_constants.line_freq
+            )
             if self.s["comboBox_continuousDelayMode"]() == "Auto":
                 legacy_dict["delay"] = "off"
             else:
                 legacy_dict["delay"] = self.s["lineEdit_continuousDelay"]()
+
+        # FIXME: Change this so that the whole program doesn't have to crash off the cliff if a single value is wrong.
+        # Make assertions
         assert legacy_dict["steps"] > 0
+        assert (
+            legacy_dict["nplc"] >= 0.001 and legacy_dict["nplc"] <= 25
+        ), "NPLC value out of range"
+        assert (
+            legacy_dict["nplc_drain"] >= 0.001 and legacy_dict["nplc_drain"] <= 25
+        ), "NPLC value out of range"
 
         return legacy_dict
 
@@ -540,7 +556,6 @@ class Keithley2612B(QObject):
                 self.safewrite(
                     f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})"
                 )
-                # FIXME: Might be a problem with datatypes, since start and end are strings.
                 if s["type"] == "i":
                     if abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5:
                         self.safewrite(
@@ -679,6 +694,7 @@ class Keithley2612B(QObject):
                 return iv
 
     def KeithleyRunDualChSweep(self, s: dict):
+        raise NotImplementedError("KeithleyRunDualChSweep not implemented yet.")
         with self.lock:
             try:
                 readsteps = s["steps"]
