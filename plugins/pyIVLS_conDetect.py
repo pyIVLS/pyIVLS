@@ -7,7 +7,6 @@ from plugins.conDetect.conDetect import ConDetect
 
 
 class pyIVLS_conDetect_plugin:
-    """template hookspecs"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
@@ -35,7 +34,7 @@ class pyIVLS_conDetect_plugin:
         )
 
         # Connect widget buttons to functions
-        save_button.clicked.connect(self.detector.move_to_contact)
+        save_button.clicked.connect(self.detector.debug)
 
         return {"ConDetect": self.detector.settingsWidget}
 

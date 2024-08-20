@@ -186,8 +186,7 @@ class Mpc325:
         unpacked = self._validate_and_unpack("2B", output)
         if unpacked[0] == 69:  # If error
             return False
-        else:
-            return True
+        return True
 
     def get_current_position(self):
         """Get current position in microns.

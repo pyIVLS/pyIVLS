@@ -84,12 +84,12 @@ class pyIVLS_Sutter_plugin:
         self.hal.stop()
 
     @hookimpl(optionalhook=True)
-    def mm_lower(self, z_change):
+    def mm_lower(self, z_change) -> bool:
 
         (x, y, z) = self.hal.get_current_position()
-        if z + z_change > self.hal._maximum_m or z + z_change < self.hal._minimum_ms:
+        # FIXME: replace the placeholder maximum
+        if z + z_change > 1000 or z + z_change < self.hal._minimum_ms:
             return False
-
-        if self.hal.slow_move_to(x, y, z + z_change, speed=1):
+        else:
+            self.hal.slow_move_to(x, y, z + z_change, speed=0)
             return True
-        return False

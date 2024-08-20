@@ -6,6 +6,7 @@ from PyQt6 import uic
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject
 import matplotlib.pyplot as plt
+import pyftdi.serialext
 
 
 class ConDetect:
@@ -21,8 +22,10 @@ class ConDetect:
         )
         self.settingsWidget = uic.loadUi(self.path + filename)
 
-        # FIXME: Debug
-        self.currPos = 0
+    def connect(self):
+        self.port = pyftdi.serialext.serial_for_url(
+            "ftdi://ftdi:232:UUT1/1", baudrate=400
+        )
 
     def contact(self):
         # FIXME: broky broky
@@ -30,13 +33,18 @@ class ConDetect:
 
     def move_to_contact(self):
         while not self.contact():
-            print(f"Moving to contact: {self.currPos}")
-            if not self.debug_move(3):
+            print(
+                f"Moving to contact until I hit something :DDDDD t: Sutter manipulator"
+            )
+            moveResult = self.pm.hook.mm_lower(z_change=100)
+            print(moveResult)
+            if not moveResult[0]:
+                print("Owie, i hit something")
                 break
 
-    # FIXME: Remove later
-    def debug_move(self, change):
-        if self.currPos + change > 100:
-            return False
-        self.currPos += change
-        return True
+    def debug(self):
+        print("Debugging")
+        print(self.pm.hook.open())
+        print(self.pm.hook.mm_change_active_device(dev_num=4))
+        # self.connect()
+        self.move_to_contact()
