@@ -146,12 +146,12 @@
          </property>
          <item>
           <property name="text">
-           <string>current</string>
+           <string>Current</string>
           </property>
          </item>
          <item>
           <property name="text">
-           <string>voltage</string>
+           <string>Voltage</string>
           </property>
          </item>
         </widget>
@@ -205,6 +205,9 @@
            <width>20</width>
            <height>0</height>
           </size>
+         </property>
+         <property name="text">
+          <string>1</string>
          </property>
         </widget>
        </item>
@@ -384,6 +387,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>0</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -442,6 +448,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0.1</string>
           </property>
          </widget>
         </item>
@@ -502,6 +511,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>2</string>
+          </property>
          </widget>
         </item>
        </layout>
@@ -553,6 +565,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0.05</string>
           </property>
          </widget>
         </item>
@@ -618,6 +633,9 @@
             <width>0</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>1</string>
           </property>
          </widget>
         </item>
@@ -839,6 +857,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>0</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -897,6 +918,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -957,6 +981,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>1</string>
+          </property>
          </widget>
         </item>
        </layout>
@@ -1008,6 +1035,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -1074,6 +1104,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>1</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -1138,6 +1171,9 @@
             <width>0</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>1</string>
           </property>
          </widget>
         </item>
@@ -1359,6 +1395,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>0</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -1417,6 +1456,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -1477,6 +1519,9 @@
             <height>0</height>
            </size>
           </property>
+          <property name="text">
+           <string>0</string>
+          </property>
          </widget>
         </item>
        </layout>
@@ -1528,6 +1573,9 @@
             <width>20</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
@@ -1593,6 +1641,9 @@
             <width>0</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="text">
+           <string>1</string>
           </property>
          </widget>
         </item>
@@ -2033,7 +2084,53 @@
     </widget>
    </widget>
   </widget>
+  <widget class="QPushButton" name="pushButton">
+   <property name="geometry">
+    <rect>
+     <x>60</x>
+     <y>610</y>
+     <width>75</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Debug</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>checkBox_singleChannel</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>groupBox_drain</receiver>
+   <slot>setHidden(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>128</x>
+     <y>95</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>440</x>
+     <y>230</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>checkBox_singleChannel</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>groupBox_drainSweep</receiver>
+   <slot>setHidden(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>128</x>
+     <y>95</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>440</x>
+     <y>545</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>
