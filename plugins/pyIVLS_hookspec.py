@@ -16,6 +16,10 @@ class pyIVLS_hookspec:
         """
 
     @hookspec
+    def open(self, *kwargs) -> tuple[str, bool]:
+        """Open the device. If type = device, this must be implemented"""
+
+    @hookspec
     def camera_get_image(self) -> cv2.typing.MatLike:
         """returns the image from the camera. If function = camera, this must be implemented
 
@@ -44,14 +48,6 @@ class pyIVLS_hookspec:
     def mm_stop(self):
         """Micromanipulator stop.
         if function = micromanipulator, this must be implemented
-        """
-
-    @hookspec
-    def get_functions(self, *args):
-        """Returns available functions for a plugin. FIXME: Deprecated, use specific hooks instead.
-
-        Returns:
-            dict: _description_
         """
 
     @hookspec

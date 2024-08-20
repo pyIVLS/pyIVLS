@@ -15,7 +15,7 @@ class pyIVLS_Sutter_plugin:
 
     @hookimpl
     def get_setup_interface(self, pm) -> dict:
-        """Sets up camera, preview, and save buttons for VenusUSB2 camera plugin
+        """Sets up camera, preview, and save buttons for sutter plugin
 
         Returns:
             dict: name, widget
@@ -43,6 +43,17 @@ class pyIVLS_Sutter_plugin:
         status_button.clicked.connect(self.hal.status_button)
 
         return {"Sutter": self.hal.settingsWidget}
+
+    @hookimpl
+    def open(self, *kwargs) -> tuple[str, bool]:
+        """Open the device.
+
+        Returns:
+            bool: True if open
+        """
+        if self.hal.open():
+            return ("Sutter", True)
+        return ("Sutter", False)
 
     @hookimpl
     def mm_change_active_device(self, dev_num):

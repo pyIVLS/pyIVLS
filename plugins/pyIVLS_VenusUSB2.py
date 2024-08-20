@@ -32,10 +32,18 @@ class pyIVLS_VenusUSB2_plugin:
         preview_button.clicked.connect(self.camera.preview_button)
         save_button.clicked.connect(self.camera.save_button)
 
-        # FIXME: Make executive decision on to remove or not.
-        # self.camera.pm = pm
-
         return {"VenusUSB2": self.camera.settingsWidget}
+
+    @hookimpl
+    def open(self, *kwargs) -> tuple[str, bool]:
+        """Open the device.
+
+        Returns:
+            bool: True if open
+        """
+        if self.camera.open_camera():
+            return ("VenusUSB2", True)
+        return ("VenusUSB2", False)
 
     @hookimpl
     def camera_get_image(self) -> cv2.typing.MatLike:
