@@ -14,10 +14,14 @@ plugin_address = 4
 """
 
 ### Keithley constants
-keithley_visa = "TCPIP::192.168.1.5::INSTR"
-line_freq = 50  # Hz
+KEITHLEY_VISA = "TCPIP::192.168.1.5::INSTR"
+LINE_FREQ = 50  # Hz
 
 ### Sutter constants
 SUTTER_DEFAULT_PORT = (
     "/dev/serial/by-id/usb-Sutter_Sutter_Instrument_ROE-200_SI9NGJEQ-if00-port0"
 )
+
+### Thorspec constants
+THORSPEC_PID = 0x1551
+THORSPEC_VID = 0x1000

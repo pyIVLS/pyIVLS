@@ -2,6 +2,7 @@ from array import array
 import usb.core
 import usb.util
 import plugins.Thorspec.const as const
+import pyIVLS_constants as ivls_const
 
 
 class LLIO:
@@ -10,7 +11,7 @@ class LLIO:
     Includes control IN/OUT transfers and raw (bulk) read.
     """
 
-    def __init__(self, vid=0x1313, pid=0x8087):
+    def __init__(self, vid=ivls_const.THORSPEC_VID, pid=ivls_const.THORSPEC_PID):
         self.vid = vid
         self.pid = pid
         self.bulk_in_pipe = None

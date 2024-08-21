@@ -282,7 +282,7 @@ class Keithley2612B:
         """
         try:
             print("Connecting to Keithley 2612B")
-            self.k = self.rm.open_resource(pyIVLS_constants.keithley_visa)
+            self.k = self.rm.open_resource(pyIVLS_constants.KEITHLEY_VISA)
             print(self.k.query("*IDN?"))
             self.k.read_termination = "\n"
             return True
@@ -392,7 +392,7 @@ class Keithley2612B:
             legacy_dict["nplc_drain"] = float(
                 float(self.s["lineEdit_drainNPLC"]())
                 * 0.001
-                * pyIVLS_constants.line_freq
+                * pyIVLS_constants.LINE_FREQ
             )
 
         # Set source sense mode
@@ -425,7 +425,7 @@ class Keithley2612B:
             legacy_dict["nplc"] = float(
                 float(self.s["lineEdit_pulsedNPLC"]())
                 * 0.001
-                * pyIVLS_constants.line_freq
+                * pyIVLS_constants.LINE_FREQ
             )
 
             if self.s["comboBox_pulsedDelayMode"]() == "Auto":
@@ -441,7 +441,7 @@ class Keithley2612B:
             legacy_dict["nplc"] = float(
                 float(self.s["lineEdit_continuousNPLC"]())
                 * 0.001
-                * pyIVLS_constants.line_freq
+                * pyIVLS_constants.LINE_FREQ
             )
             if self.s["comboBox_continuousDelayMode"]() == "Auto":
                 legacy_dict["delay"] = "off"
