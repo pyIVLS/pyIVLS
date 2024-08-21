@@ -13,10 +13,7 @@ import os
 from PyQt6 import uic
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject
-
-DEFAULT_PORT = (
-    "/dev/serial/by-id/usb-Sutter_Sutter_Instrument_ROE-200_SI9NGJEQ-if00-port0"
-)
+import pyIVLS_constants as const
 
 
 class Mpc325:
@@ -24,42 +21,41 @@ class Mpc325:
     Methods are named after the commands in the manual.
     """
 
-    def __init__(self):
-        self._port = DEFAULT_PORT
-        # constants from the manual.
-        self._baudrate: Final = 128000
-        self._timeout = 30  # seconds
-        self._databits: Final = serial.EIGHTBITS
-        self._stopbits: Final = serial.STOPBITS_ONE
-        self._parity: Final = serial.PARITY_NONE
-        self._s2mconv: Final = np.float64(0.0625)
-        self._m2sconv: Final = np.float64(16.0)
-        self._minimum_ms: Final = 0
-        self._maximum_m: Final = 25000
-        self._maximum_s: Final = (
-            400000  # Manual says 266667, this is the actual maximum.
-        )
-        self.ser = serial.Serial()  # init a closed port
+    # constants from the manual. These the the same for the whole class
+    # move speeds in micrometers per second
+    _MOVE_SPEEDS: Final = {
+        15: 1300,
+        14: 1218.75,
+        13: 1137.5,
+        12: 1056.25,
+        11: 975,
+        10: 893.75,
+        9: 812.5,
+        8: 731.25,
+        7: 650,
+        6: 568.75,
+        5: 487.5,
+        4: 406.25,
+        3: 325,
+        2: 243.75,
+        1: 162.5,
+        0: 81.25,
+    }
+    _BAUDRATE: Final = 128000
+    _TIMEOUT = 30  # seconds
+    _DATABITS: Final = serial.EIGHTBITS
+    _STOPBITS: Final = serial.STOPBITS_ONE
+    _PARITY: Final = serial.PARITY_NONE
+    _S2MCONV: Final = np.float64(0.0625)
+    _M2SCONV: Final = np.float64(16.0)
+    _MINIMUM_MS: Final = 0
+    _MAXIMUM_M: Final = 25000
+    _MAXIMUM_S: Final = 400000  # Manual says 266667, this is the actual maximum.
 
-        # Move speeds in micometer/second
-        self.move_speeds = {
-            15: 1300,
-            14: 1218.75,
-            13: 1137.5,
-            12: 1056.25,
-            11: 975,
-            10: 893.75,
-            9: 812.5,
-            8: 731.25,
-            7: 650,
-            6: 568.75,
-            5: 487.5,
-            4: 406.25,
-            3: 325,
-            2: 243.75,
-            1: 162.5,
-            0: 81.25,
-        }
+    def __init__(self):
+        # vars for a single instance
+        self.port = const.SUTTER_DEFAULT_PORT
+        self.ser = serial.Serial()  # init a closed port
         # Initialize settings:
         self.quick_move = False
         self.speed = 1
@@ -89,15 +85,15 @@ class Mpc325:
         # Open port
         try:
             self.ser = serial.Serial(
-                port=self._port,
-                baudrate=self._baudrate,
-                stopbits=self._stopbits,
-                parity=self._parity,
-                timeout=self._timeout,
-                bytesize=self._databits,
+                port=self.port,
+                baudrate=self._BAUDRATE,
+                stopbits=self._STOPBITS,
+                parity=self._PARITY,
+                timeout=self._TIMEOUT,
+                bytesize=self._DATABITS,
             )
             print(
-                f"Port {self._port} is open: {self.ser.is_open}. Flushing I/O to initialize micromanipulators."
+                f"Port {self.port} is open: {self.ser.is_open}. Flushing I/O to initialize micromanipulators."
             )
             self._flush()
             return True
@@ -107,7 +103,7 @@ class Mpc325:
     def close(self):
         if self.ser.is_open:
             self.ser.close()
-            print(f"Port {self._port} is closed: {self.ser.is_open}")
+            print(f"Port {self.port} is closed: {self.ser.is_open}")
 
     def _validate_and_unpack(self, format_str, output):
         """Takes in a struct of bytes, validates end marker and unpacks the data.
@@ -247,7 +243,7 @@ class Mpc325:
         self._validate_and_unpack("B", output)
 
     def slow_move_to(self, x: np.float64, y: np.float64, z: np.float64, speed=None):
-        """Slower move in straight lines. Less prone to collisions
+        """Slower move in straight lines. Speed is set as a class variable. (Or given as an argument)
 
         Args:
             speed (int): speed in range 0-15. Enforced in the code.
@@ -344,18 +340,18 @@ class Mpc325:
 
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
     def _handrail_micron(self, microns) -> np.uint32:
-        return max(self._minimum_ms, min(microns, self._maximum_m))
+        return max(self._MINIMUM_MS, min(microns, self._MAXIMUM_M))
 
     def _handrail_step(self, steps) -> np.uint32:
-        return max(self._minimum_ms, min(steps, self._maximum_s))
+        return max(self._MINIMUM_MS, min(steps, self._MAXIMUM_S))
 
     # Function to convert microns to microsteps.
     def _m2s(self, microns: np.float64) -> np.uint32:
-        return np.uint32(microns * self._m2sconv)
+        return np.uint32(microns * self._M2SCONV)
 
     # Function to convert microsteps to microns.
     def _s2m(self, steps: np.uint32) -> np.float64:
-        return np.float64(steps * self._s2mconv)
+        return np.float64(steps * self._S2MCONV)
 
     def _calculate_wait_time(self, speed, x, y, z):
         """Approximates time of travel. NOTE: make sure to pass microns, not microsteps to this
@@ -376,5 +372,5 @@ class Mpc325:
 
         total_diff = x_diff + y_diff + z_diff
 
-        time = total_diff / self.move_speeds[speed]
+        time = total_diff / self._MOVE_SPEEDS[speed]
         return time

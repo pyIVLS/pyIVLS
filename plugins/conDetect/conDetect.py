@@ -45,6 +45,9 @@ class ConDetect:
     def debug(self):
         print("Debugging")
         print(self.pm.hook.open())
-        print(self.pm.hook.mm_change_active_device(dev_num=4))
+        try:
+            print(self.pm.hook.mm_change_active_device(dev_num=4))
+        except Exception as e:
+            print(e)
         # self.connect()
         self.move_to_contact()

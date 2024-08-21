@@ -73,13 +73,17 @@ class Keithley2612B:
         self.lock = Lock()
         self.debug_mode = False
 
-        # initialize pm?
+        # initialize pm?x
         # self.pm = pm?
 
     ## Widget functions
     def debug_button(self):
-        settings = self.parse_settings_widget()
-        print(settings)
+        try:
+            settings = self.parse_settings_widget()
+            print(settings)
+        except Exception as e:
+            print(f"Exception in debug_button: {e}")
+
         """        self.debug_mode = True
         self.connect()
         self.keithley_init(settings)
@@ -307,21 +311,47 @@ class Keithley2612B:
             print("Lock not acquired")
         return not gotten
 
-    def resistance_measurement(self, channel: str) -> float:
+    def resistance_measurement(self, channel) -> float:
         """Measure the resistance at the probe.
 
         Returns:
             float: resistance
         """
-        if channel = "smua":
-            
-
+        if channel == "smua" or channel == "smub":
+            # Restore Series 2600B defaults.
+            self.safewrite(f"{channel}.reset()")
+            # Select current source function.
+            self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
+            # Set source range to 10 mA.
+            self.safewrite(f"{channel}.source.rangei = 10e-3")
+            # Set current source to 10 mA.
+            self.safewrite(f"{channel}.source.leveli = 10e-3")
+            # Set voltage limit to 10 V. FIXME: Value of 1 v is arbitrary.
+            self.safewrite(f"{channel}.source.limitv = 1")
+            # Enable 4-wire ohms.
+            self.safewrite(f"{channel}.sense = {channel}.SENSE_REMOTE")
+            # Set voltage range to auto.
+            self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
+            # Turn on output.
+            self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
+            # Get resistance reading.
+            resistance = float(self.k.query_ascii_values(f"{channel}.measure.r()"))
+            # Turn off output.
+            self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
+            return resistance
+        else:
+            raise ValueError("Invalid channel")
 
     def parse_settings_widget(self) -> dict:
-        """Parse the settings widget into a form that the legacy code can understand.
+        """Parses the settings widget into a dictionary that can be used by the Keithley 2612B.
+
+        Raises:
+            NotImplementedError: mixed mode
+            NotImplementedError: 2+4wire mode
+            NotImplementedError: 2+4wire mode
 
         Returns:
-            dict: Parsed settings.
+            dict: name -> value of settings
         """
         legacy_dict = {}
 
@@ -420,8 +450,10 @@ class Keithley2612B:
 
         # FIXME: Change this so that the whole program doesn't have to crash off the cliff if a single value is wrong.
         # Make assertions
-        assert legacy_dict["steps"] > 0
-        assert legacy_dict["repeat"] >= 0
+        assert legacy_dict["steps"] > 0, "Steps have to be greater than 0"
+        assert (
+            legacy_dict["repeat"] >= 0
+        ), "Repeat count has to be greater than or equal to 0"
         assert (
             legacy_dict["nplc"] >= 0.001 and legacy_dict["nplc"] <= 25
         ), "NPLC value out of range"
@@ -437,6 +469,7 @@ class Keithley2612B:
         Args:
             s (dict): Configuration dictionary.
         """
+
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
         self.safewrite(f"{s['source']}.reset()")
