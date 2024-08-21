@@ -592,6 +592,7 @@ class Keithley2612B:
 
     def keithley_run_single_ch_sweep(self, s: dict) -> np.ndarray:
         """Runs a single channel sweep on. Handles locking the instrument and releasing it after the sweep is done.
+        This method sets the start, end, steps, type of injection and the limit.
 
         Args:
             s (dict): settings dictionary
@@ -750,7 +751,6 @@ class Keithley2612B:
                 return iv
 
     def KeithleyRunDualChSweep(self, s: dict):
-        raise NotImplementedError("KeithleyRunDualChSweep not implemented yet.")
         with self.lock:
             try:
                 readsteps = s["steps"]
