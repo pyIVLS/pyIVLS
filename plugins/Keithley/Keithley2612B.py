@@ -342,6 +342,8 @@ class Keithley2612B:
         else:
             raise ValueError("Invalid channel")
 
+    def read_buffer(self, channel, buffer_number, start, end) -> np.ndarray:
+
     def parse_settings_widget(self) -> dict:
         """Parses the settings widget into a dictionary that can be used by the Keithley 2612B.
 
@@ -452,8 +454,8 @@ class Keithley2612B:
         # Make assertions
         assert legacy_dict["steps"] > 0, "Steps have to be greater than 0"
         assert (
-            legacy_dict["repeat"] >= 0
-        ), "Repeat count has to be greater than or equal to 0"
+            legacy_dict["repeat"] > 0
+        ), "Repeat count has to be greater than 0"
         assert (
             legacy_dict["nplc"] >= 0.001 and legacy_dict["nplc"] <= 25
         ), "NPLC value out of range"
@@ -482,20 +484,22 @@ class Keithley2612B:
             self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
 
         if not s["single_ch"]:
-            if s["sense_drain"] and s["sense"]:
+            if s["sense_drain"] and s['sense']:
                 self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_REMOTE")
             else:
                 self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_LOCAL")
-
+        # Set filter for source
         self.safewrite(f"{s['source']}.measure.filter.count = 4")
         self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
         self.safewrite(
             f"{s['source']}.measure.filter.type = {s['source']}.FILTER_REPEAT_AVG"
         )
+        # set autoranges on for source
         self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_ON")
         self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_ON")
 
         if not s["single_ch"]:
+            # If dual channel, set filter and autoranges for drain
             self.safewrite(f"{s['drain']}.measure.filter.count = 4")
             self.safewrite(
                 f"{s['drain']}.measure.filter.enable = {s['drain']}.FILTER_ON"
@@ -509,7 +513,8 @@ class Keithley2612B:
             self.safewrite(
                 f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_ON"
             )
-
+        # If pulse is off, set to continuous. FIXME: Should this be set on the drain as well?
+        # HACK: This whole thing is copied from the old code. Hopefully no problems.
         if s["pulse"] == "off":
             self.safewrite(
                 f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_HOLD"
@@ -585,6 +590,7 @@ class Keithley2612B:
                 f"{s['source']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID"
             )
 
+        # FIXME: Should highC be the same for both channels?
         if s["highC"]:
             self.safewrite(f"{s['source']}.source.highc = {s['source']}.ENABLE")
             if not s["single_ch"] and s["highC_drain"]:
@@ -606,6 +612,7 @@ class Keithley2612B:
                 readsteps = s["steps"]
                 waitDelay = float(s["pulse"]) if s["pulse"] != "off" else 1
 
+                # Clear buffers, set repeats and steps, set sweep range.
                 self.safewrite(f"{s['source']}.nvbuffer1.clear()")
                 self.safewrite(f"{s['source']}.nvbuffer2.clear()")
                 self.safewrite(f"{s['source']}.trigger.count = {s['steps']}")
@@ -613,13 +620,17 @@ class Keithley2612B:
                 self.safewrite(
                     f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})"
                 )
+                # if current injection
                 if s["type"] == "i":
                     if abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5:
+                        # if the sweep maximum is under 1.5 A, set the limit from the GUI.
                         self.safewrite(
                             f"{s['source']}.trigger.source.limitv = {s['limit']}"
                         )
                         self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
                     else:
+                        # If the sweep maximum is over 1.5 A:
+                        # HACK: do some stuff, this is from the old code.
                         self.safewrite(
                             f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
                         )
@@ -640,13 +651,17 @@ class Keithley2612B:
                     self.safewrite(
                         f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS"
                     )
+                # if voltage injection
                 else:
                     if abs(s["limit"]) < 1.5:
+                        # if the current limit is under 1.5 A, set the limit from the GUI.
                         self.safewrite(
                             f"{s['source']}.trigger.source.limiti = {s['limit']}"
                         )
                         self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
                     else:
+                        # If the current limit is over 1.5 A:
+                        # HACK: Do some stuff, this is from the old code.
                         self.safewrite(
                             f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
                         )
@@ -670,15 +685,18 @@ class Keithley2612B:
                     self.safewrite(
                         f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS"
                     )
-
+                # Turn on the source and trigger the sweep.
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
                 self.safewrite(f"{s['source']}.trigger.initiate()")
                 time.sleep(waitDelay)
 
+                # Read the buffer until the sweep is done.
+                # FIXME: This should probably be encapsulated in a separate function
                 buffer_prev = 0
                 iv = np.array([])
                 while True:
                     if not self.busy():
+                        # From the old code, this aborts if the scan has not properly started.
                         print("Not busy, aborting")
                         self.safewrite(f"{s['source']}.abort()")
                         self.safewrite(
@@ -692,6 +710,7 @@ class Keithley2612B:
                     )
                     buffern = int(readings[0])
 
+                    # If there are enough readings to cover the whole sweep, break
                     if buffern >= s["steps"] * s["repeat"]:
                         break
 
@@ -705,6 +724,7 @@ class Keithley2612B:
                             f"printbuffer({buffer_prev + 1}, {buffern}, {s['source']}.nvbuffer2)"
                         )
 
+                        # Add to the iv array
                         iv.extend(list(zip(v_values, i_values)))
 
                         # Check for limit condition
@@ -715,6 +735,7 @@ class Keithley2612B:
                             s["type"] == "v"
                             and any(abs(i) > 0.95 * abs(s["limit"]) for i in i_values)
                         ):
+                            # kill if limits exceeded
                             self.safewrite(f"{s['source']}.abort()")
                             readsteps = buffern
                             break
@@ -730,6 +751,7 @@ class Keithley2612B:
                 )
 
                 # Final buffer read to ensure all data is captured
+                # FIXME: absolutely something wrong with this :DDDDD
                 if buffer_prev > 0:
                     iv = np.array(iv)
                     readsteps = buffer_prev
