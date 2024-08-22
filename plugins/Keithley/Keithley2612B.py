@@ -343,6 +343,7 @@ class Keithley2612B:
             raise ValueError("Invalid channel")
 
     def read_buffer(self, channel, buffer_number, start, end) -> np.ndarray:
+        raise NotImplementedError("This function is not implemented yet.")
 
     def parse_settings_widget(self) -> dict:
         """Parses the settings widget into a dictionary that can be used by the Keithley 2612B.
@@ -453,9 +454,7 @@ class Keithley2612B:
         # FIXME: Change this so that the whole program doesn't have to crash off the cliff if a single value is wrong.
         # Make assertions
         assert legacy_dict["steps"] > 0, "Steps have to be greater than 0"
-        assert (
-            legacy_dict["repeat"] > 0
-        ), "Repeat count has to be greater than 0"
+        assert legacy_dict["repeat"] > 0, "Repeat count has to be greater than 0"
         assert (
             legacy_dict["nplc"] >= 0.001 and legacy_dict["nplc"] <= 25
         ), "NPLC value out of range"
@@ -484,7 +483,7 @@ class Keithley2612B:
             self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
 
         if not s["single_ch"]:
-            if s["sense_drain"] and s['sense']:
+            if s["sense_drain"] and s["sense"]:
                 self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_REMOTE")
             else:
                 self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_LOCAL")
@@ -606,6 +605,7 @@ class Keithley2612B:
         Returns:
             list(or np.ndarray): I-V data
         """
+        # Try and acquire the lock to make sure nothing else is running
         with self.lock:
             try:
                 print("Measurement started")

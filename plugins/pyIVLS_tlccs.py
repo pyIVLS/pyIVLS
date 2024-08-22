@@ -35,7 +35,14 @@ class pyIVLS_tlccs_plugin:
         # Replace name here with the name of the plugin
         return {"tlccs": self.drv.settingsWidget}
 
-    @hookimpl(optionalhook=True)
+    @hookimpl
+    def get_functions(self, args):
+        if args.get("function") == "spectrometer":
+            return {
+                "open": self.open,
+                "run_scan": self.run_scan,
+            }
+
     def run_scan(self):
         """Currently open needs to be called separatedly
 

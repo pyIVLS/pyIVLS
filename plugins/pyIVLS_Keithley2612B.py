@@ -20,6 +20,20 @@ class pyIVLS_Keithley2612B_plugin:
         return {"Keithley2612B": self.smu.settingsWidget}
 
     @hookimpl
+    def get_functions(self, args) -> dict[str, callable]:
+        """returns a dict of publicly accessible functions.
+
+        :return: dict of functions
+        """
+
+        if args.get("device") == "smu":
+            return {
+                "open": self.smu.connect,
+                "run_sweep": self.run_sweep,
+                "measure_resistance": self.measure_resistance,
+            }
+
+    # DEPRECATED - REMOVE
     def open(self, **kwargs) -> tuple[str, bool]:
         """opens the plugin
 
@@ -27,7 +41,6 @@ class pyIVLS_Keithley2612B_plugin:
         """
         self.smu.connect()
 
-    @hookimpl(optionalhook=True)
     def run_sweep(self) -> np.ndarray:
         """runs a sweep
 
@@ -51,7 +64,6 @@ class pyIVLS_Keithley2612B_plugin:
     when the current position is reached, return to normal measurement mode.
     """
 
-    @hookimpl(optionalhook=True)
     def measure_resistance(self):
         """measures resistance
 

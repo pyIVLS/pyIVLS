@@ -16,45 +16,8 @@ class pyIVLS_hookspec:
         """
 
     @hookspec
-    def open(self, **kwargs) -> tuple[str, bool]:
-        """Open the device. If type = device, this must be implemented"""
-
-    @hookspec
-    def camera_get_image(self) -> cv2.typing.MatLike:
-        """returns the image from the camera. If function = camera, this must be implemented
-
-        :return: image from the camera
-        """
-
-    @hookspec
-    def mm_change_active_device(self, dev_num):
-        """Micromanipulator active device change.
-        if function = micromanipulator, this must be implemented
-
-        Args:
-            *args: device number
-        """
-
-    @hookspec
-    def mm_move(self, speed, x, y, z):
-        """Micromanipulator move.
-        if function = micromanipulator, this must be implemented
-
-        Args:
-            *args: x, y, z
-        """
-
-    @hookspec
-    def mm_stop(self):
-        """Micromanipulator stop.
-        if function = micromanipulator, this must be implemented
-        """
-
-    @hookspec
-    def affine_coords(self, point):
-        """Affine coordinates.
-
-        Args:
-            x (float): x coordinate
-            y (float): y coordinate
+    def get_function(self, args: dict):
+        """returns a dict of publicly accessible functions.¨
+        kwargs can be used to specify which functions are needed based on
+        type, function. If passed with open = True, the open function should be called
         """

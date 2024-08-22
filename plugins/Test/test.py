@@ -27,48 +27,8 @@ class Test:
 
     def run_button(self):
         """Run the test function"""
-        image = self.pm.hook.camera_get_image()
-        print("I got an image")
-
-        # ret = self.pm.hook.affine_coords(point=(0, 0))
-
-        # print(f"hooked Affine coordinates: {ret[0]}")
-
-        """
-        if self.pm.hook.mm_move(x=200, y=200, z=200):
-            print("Moved micromanipulator with great success")
-
-        if self.pm.hook.mm_move(x=0, y=0, z=0):
-            print("Moved micromanipulator with great success")
-
-        if self.pm.hook.mm_change_active_device(dev_num=2):
-            print("Changed active device with great success")
-
-        if self.pm.hook.mm_change_active_device(dev_num=1):
-            print("Changed active device with great success")
-
-        if self.pm.hook.mm_move(x=0, y=100, z=200):
-            print("Moved micromanipulator with great success")
-        """
-        statuses = self.pm.hook.open()
-        for status in statuses:
-            print(f"Connected to plugin {status[0]}: {status[1]}")
-            if not status[1]:
-                flag = False
-        if flag:
-            # discard one scan:
-            self.pm.hook.run_scan()
-            data = self.pm.hook.run_scan()
-            data = data[0]
-            # Print the first 10 values of data
-            print(data[:10])
-
-            # Plot the data
-            plt.plot(data)
-            plt.xlabel("Index")
-            plt.ylabel("Value")
-            plt.title("Scan Data")
-            plt.show()
-            self.statusLabel.setText("Test function complete")
-        else:
-            self.statusLabel.setText("Test function failed")
+        self.statusLabel.setText("Running test function")
+        mm_functions = self.pm.hook.get_functions(args={"function": "micromanipulator"})
+        print(mm_functions)
+        no_functions = self.pm.hook.get_functions(args={"function": "aint"})
+        print(no_functions)

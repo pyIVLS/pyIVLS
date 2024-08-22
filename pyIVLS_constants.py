@@ -25,3 +25,6 @@ SUTTER_DEFAULT_PORT = (
 ### Thorspec constants
 THORSPEC_PID = 0x1551
 THORSPEC_VID = 0x1000
+
+### Plugin constants
+HOOKS = ["get_setup_interface", "get_functions"]

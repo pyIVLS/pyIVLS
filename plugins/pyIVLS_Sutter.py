@@ -45,7 +45,24 @@ class pyIVLS_Sutter_plugin:
         return {"Sutter": self.hal.settingsWidget}
 
     @hookimpl
-    def open(self, **kwargs) -> tuple[str, bool]:
+    def get_functions(self, args):
+        """Get functions for the Sutter micromanipulator plugin.
+
+        Returns:
+            dict: functions
+        """
+        if args.get("function") == "micromanipulator":
+            return {
+                "mm_open": self.hal.open,
+                "mm_change_active_device": self.hal.change_active_device,
+                "mm_move": self.hal.move,
+                "mm_stop": self.hal.stop,
+                "mm_lower": self.mm_lower,
+            }
+
+    # DEPRECATED - REMOVE
+
+    def open(self) -> tuple[str, bool]:
         """Open the device.
 
         Returns:
@@ -55,7 +72,6 @@ class pyIVLS_Sutter_plugin:
             return ("Sutter", True)
         return ("Sutter", False)
 
-    @hookimpl
     def mm_change_active_device(self, dev_num):
         """Micromanipulator active device change.
 
@@ -66,8 +82,6 @@ class pyIVLS_Sutter_plugin:
             return True
         return False
 
-    # FIXME: Create a wrapper function for move through settings.
-    @hookimpl
     def mm_move(self, x, y, z):
         """Micromanipulator move.
 
@@ -78,12 +92,10 @@ class pyIVLS_Sutter_plugin:
             return True
         return False
 
-    @hookimpl
     def mm_stop(self):
         """Micromanipulator stop."""
         self.hal.stop()
 
-    @hookimpl(optionalhook=True)
     def mm_lower(self, z_change) -> bool:
 
         (x, y, z) = self.hal.get_current_position()

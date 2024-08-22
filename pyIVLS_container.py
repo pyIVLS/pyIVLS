@@ -13,9 +13,6 @@ from plugins.pyIVLS_hookspec import pyIVLS_hookspec
 import pyIVLS_constants
 
 
-# please stop yelling at me pylint :(
-
-
 class pyIVLS_container(QObject):
     """Container to handle pluggy module loading"""
 

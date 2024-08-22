@@ -2,7 +2,8 @@
 import pluggy
 from PyQt6 import QtWidgets
 
-from plugins.VenusUSB2.camera import VenusUSB2
+from plugins.plugin import Plugin
+from plugins.VenusUSB2.venusUSB2 import VenusUSB2
 import cv2
 
 
@@ -21,7 +22,6 @@ class pyIVLS_VenusUSB2_plugin:
         Returns:
             dict: name, widget
         """
-
         preview_button = self.camera.settingsWidget.findChild(
             QtWidgets.QPushButton, "cameraPreview"
         )
@@ -34,7 +34,6 @@ class pyIVLS_VenusUSB2_plugin:
 
         return {"VenusUSB2": self.camera.settingsWidget}
 
-    @hookimpl
     def open(self, **kwargs) -> tuple[str, bool]:
         """Open the device.
 
@@ -45,7 +44,6 @@ class pyIVLS_VenusUSB2_plugin:
             return ("VenusUSB2", True)
         return ("VenusUSB2", False)
 
-    @hookimpl
     def camera_get_image(self) -> cv2.typing.MatLike:
         """returns the image from the camera
 
@@ -55,6 +53,9 @@ class pyIVLS_VenusUSB2_plugin:
         return self.camera.capture_image()
 
     @hookimpl
-    def get_functions(self, *args):
-        if "camera" in args:
-            return {"camera_get_image": self.camera.capture_image}
+    def get_functions(self, args):
+        if args.get("function") == "camera":
+            return {
+                "camera_get_image": self.camera.capture_image,
+                "camera_open": self.open,
+            }

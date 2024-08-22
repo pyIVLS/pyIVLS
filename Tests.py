@@ -1,10 +1,29 @@
 from pyftdi.ftdi import Ftdi
 import pyftdi.serialext
+import pluggy
+import inspect
+
+
+class tester:
+
+    hookimpl = pluggy.HookimplMarker("pyIVLS")
+
+    @hookimpl
+    def imma_hook(self):
+        print("Hookin'")
+
+    def get_a_load(self):
+        print("griftin'")
+
+    def of_this_guy(self):
+        print("griftin' people")
+
 
 if __name__ == "__main__":
-    print("Hello, World!")
-    Ftdi.show_devices()
-    port = pyftdi.serialext.serial_for_url("ftdi://ftdi:232:UUT1/1", baudrate=400)
-    print(port)
-    port.rts = False
-    port.dtr = False
+    t = tester()
+
+    methods_list = [
+        method[0] for method in inspect.getmembers(t, predicate=inspect.ismethod)
+    ]
+
+    print(methods_list)
