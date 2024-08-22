@@ -7,6 +7,7 @@
 6. In the hook implementation file, make a class pyIVLS_{plugin name}_plugin that inherits from the base class plugin.
 
 See current plugins for a template. Consistent naming is the key to get the plugins to show up and register properly.
+If you want methods to be private and not passed on hookcalls, add "_" to the beginning of the method name.
 
 
 # On writing hooks
