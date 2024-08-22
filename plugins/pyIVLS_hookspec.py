@@ -1,60 +1,24 @@
 #!/usr/bin/python3.8
 import pluggy
-import cv2
 
 
 class pyIVLS_hookspec:
     hookspec = pluggy.HookspecMarker("pyIVLS")
 
     @hookspec
-    def get_setup_interface(self, pm: pluggy.PluginManager) -> dict:
+    def get_setup_interface(self, pm: pluggy.PluginManager, plugin_data: dict) -> dict:
         """returns a widget for a tab in setup, and probably data for the setup structure
 
         :plugin_type: as all the plugins will be rolled in one loop, but plugins will be of different types, not all of them should return smth.
         This argument will allow the specific implementation of the hook to identify if any response is needed or not.
         :return: dict containing widget and setup structure
+
+        NOTE: Might be good to separate initializing the the plugin and getting the setup interface. Would reduce a bit of overhead.
         """
 
     @hookspec
-    def open(self, *kwargs) -> tuple[str, bool]:
-        """Open the device. If type = device, this must be implemented"""
-
-    @hookspec
-    def camera_get_image(self) -> cv2.typing.MatLike:
-        """returns the image from the camera. If function = camera, this must be implemented
-
-        :return: image from the camera
-        """
-
-    @hookspec
-    def mm_change_active_device(self, dev_num):
-        """Micromanipulator active device change.
-        if function = micromanipulator, this must be implemented
-
-        Args:
-            *args: device number
-        """
-
-    @hookspec
-    def mm_move(self, speed, x, y, z):
-        """Micromanipulator move.
-        if function = micromanipulator, this must be implemented
-
-        Args:
-            *args: x, y, z
-        """
-
-    @hookspec
-    def mm_stop(self):
-        """Micromanipulator stop.
-        if function = micromanipulator, this must be implemented
-        """
-
-    @hookspec
-    def affine_coords(self, point):
-        """Affine coordinates.
-
-        Args:
-            x (float): x coordinate
-            y (float): y coordinate
+    def get_function(self, args: dict):
+        """returns a dict of publicly accessible functions.¨
+        kwargs can be used to specify which functions are needed based on
+        type, function. If passed with open = True, the open function should be called
         """

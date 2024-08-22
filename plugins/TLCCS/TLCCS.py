@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 
 
 import usb
-from plugins.Thorspec.lowLevel import LLIO
-import plugins.Thorspec.const as const
+from plugins.TLCCS.lowLevel import LLIO
+import plugins.TLCCS.const as const
 import numpy as np
 import struct
 import time

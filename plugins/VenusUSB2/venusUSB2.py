@@ -8,38 +8,14 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QImage, QPixmap
 
 from typing import Optional
-import pluggy
-
-"""
-    User Controls
-
-                        brightness 0x00980900 (int)    : min=0 max=255 step=1 default=128 value=128
-                        contrast 0x00980901 (int)    : min=0 max=255 step=1 default=128 value=128
-                        saturation 0x00980902 (int)    : min=0 max=255 step=1 default=64 value=64
-        white_balance_automatic 0x0098090c (bool)   : default=1 value=1
-        white_balance_temperature 0x0098091a (int)    : min=1 max=5 step=1 default=1 value=1 flags=inactive
-                        sharpness 0x0098091b (int)    : min=0 max=255 step=1 default=128 value=128
-
-    Camera Controls
-
-                    auto_exposure 0x009a0901 (menu)   : min=0 max=3 default=3 value=1 (Manual Mode)
-                1: Manual Mode
-            exposure_time_absolute 0x009a0902 (int)    : min=0 max=320 step=1 default=20 value=10
-        focus_automatic_continuous 0x009a090c (bool)   : default=0 value=0
-"""
 
 
 class VenusUSB2:
-    """Handles communication with the VenusUSB2 camera
+    """Handles communication with the VenusUSB2 camera"""
 
-    Args:
-        QObject (QObject): Inherits from QObject
-    """
+    exposures = [1, 1, 2, 5, 10, 20, 39, 78, 156, 312]
 
     def __init__(self):
-        # FIXME check the exposures
-        self.exposures = [1, 1, 2, 5, 10, 20, 39, 78, 156, 312]
-        self.pm: Optional[pluggy.PluginManager] = None
 
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
@@ -57,7 +33,6 @@ class VenusUSB2:
             QtWidgets.QLabel, "previewLabel"
         )
 
-        self.pm = None
         # Initialize cap as empty capture
         self.cap = cv.VideoCapture()
         self.save_button()

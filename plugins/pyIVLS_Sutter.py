@@ -2,50 +2,51 @@
 import pluggy
 from PyQt6 import QtWidgets
 
-from plugins.Sutter.sutter import Mpc325
+from plugins.Sutter.Sutter import Mpc325
+from plugins.plugin import Plugin
 
 
-class pyIVLS_Sutter_plugin:
+class pyIVLS_Sutter_plugin(Plugin):
     """Hooks for Sutter micromanipulator plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
         self.hal = Mpc325()
+        super().__init__()
 
     @hookimpl
-    def get_setup_interface(self, pm) -> dict:
-        """Sets up camera, preview, and save buttons for sutter plugin
+    def get_setup_interface(self, pm, plugin_data) -> dict:
+        """Get the setup interface for the Sutter micromanipulator plugin."""
+        self.setup(pm, plugin_data)
 
-        Returns:
-            dict: name, widget
-        """
-        # FIXME: Check buttons, see below.
+        return {self.plugin_name: self._connect_buttons(self.hal.settingsWidget)}
 
-        calibrate_button = self.hal.settingsWidget.findChild(
+    @hookimpl
+    def get_functions(self, args):
+        """Returns a dictionary of publicly accessible functions."""
+        if args.get("function") == self.plugin_info["function"]:
+            return self.get_public_methods()
+
+    def _connect_buttons(self, settingsWidget):
+        calibrate_button = settingsWidget.findChild(
             QtWidgets.QPushButton, "calibrateButton"
         )
 
-        connect_button = self.hal.settingsWidget.findChild(
+        connect_button = settingsWidget.findChild(
             QtWidgets.QPushButton, "connectButton"
         )
 
-        status_button = self.hal.settingsWidget.findChild(
-            QtWidgets.QPushButton, "statusButton"
-        )
-        save_button = self.hal.settingsWidget.findChild(
-            QtWidgets.QPushButton, "saveButton"
-        )
+        status_button = settingsWidget.findChild(QtWidgets.QPushButton, "statusButton")
+        save_button = settingsWidget.findChild(QtWidgets.QPushButton, "saveButton")
 
         save_button.clicked.connect(self.hal.save_button)
         connect_button.clicked.connect(self.hal.connect_button)
         calibrate_button.clicked.connect(self.hal.calibrate)
         status_button.clicked.connect(self.hal.status_button)
+        return settingsWidget
 
-        return {"Sutter": self.hal.settingsWidget}
-
-    @hookimpl
-    def open(self, *kwargs) -> tuple[str, bool]:
+    def open(self) -> tuple[str, bool]:
         """Open the device.
 
         Returns:
@@ -55,7 +56,6 @@ class pyIVLS_Sutter_plugin:
             return ("Sutter", True)
         return ("Sutter", False)
 
-    @hookimpl
     def mm_change_active_device(self, dev_num):
         """Micromanipulator active device change.
 
@@ -66,9 +66,7 @@ class pyIVLS_Sutter_plugin:
             return True
         return False
 
-    # FIXME: Create a wrapper function for move through settings.
-    @hookimpl
-    def mm_move(self, speed, x, y, z):
+    def mm_move(self, x, y, z):
         """Micromanipulator move.
 
         Args:
@@ -78,7 +76,16 @@ class pyIVLS_Sutter_plugin:
             return True
         return False
 
-    @hookimpl
     def mm_stop(self):
         """Micromanipulator stop."""
         self.hal.stop()
+
+    def mm_lower(self, z_change) -> bool:
+
+        (x, y, z) = self.hal.get_current_position()
+        # FIXME: replace the placeholder maximum
+        if z + z_change > 1000 or z + z_change < self.hal._minimum_ms:
+            return False
+        else:
+            self.hal.slow_move_to(x, y, z + z_change, speed=0)
+            return True

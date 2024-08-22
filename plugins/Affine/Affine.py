@@ -21,24 +21,17 @@ class Affine:
     - When transformation is found, use coords() to get the transformed coordinates of a point.
     """
 
-    def __init__(self):
-        """
-        Initializes the Affine class.
+    _MIN_MATCH_COUNT = (
+        15  # Minimum number of matches required to find affine transformation.
+    )
 
-        Attributes:
-        - MIN_MATCH_COUNT (int): Minimum number of matches required to find affine transformation.
-        - imgW (np.ndarray): Image that produced the result.
-        - maskW (np.ndarray): Mask that produced the result.
-        - A (np.ndarray): Affine transformation matrix
-        """
-        self._MIN_MATCH_COUNT = (
-            15  # Minimum number of matches required to find affine transformation.
-        )
+    def __init__(self):
+        """Initializes an instance of Affine."""
+
         self.result = dict()
         self.A = None  # Affine transformation matrix
         self.internal_img = None  # Internal image
         self.internal_mask = None  # Internal mask
-        self.pm = None
 
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
@@ -215,8 +208,6 @@ class Affine:
         Returns:
             bool: Affine found or not
         """
-        self.update_img()
-
         if self.internal_mask is None:
             self.affine_label.setText("No mask loaded. Please load a mask.")
             return False
@@ -237,18 +228,13 @@ class Affine:
         visu.show()
 
     # FIXME: add something to check the state of the camera return, and notify user.
-    def update_img(self):
-        """Calls the camera through a hook and updates the internal image."""
-        return_img = self.pm.hook.camera_get_image()
-        print(f"Return image list length: {len(return_img)}")
-        if return_img[0] is np.zeros((480, 640, 3), np.uint8):
-            self.affine_label.setText("Camera not connected or invalid image format.")
-            print("Camera not connected or invalid image format.")
+    def update_img(self, img):
+        """Just updates the internal image.
 
-        # HACK: self.pm.hook.camera_get_image() returns a list, take first.
-        if isinstance(return_img, list):
-            self.internal_img = return_img[0]
-            print("Affine image updated.")
+        Args:
+            img (_type_): _description_
+        """
+        self.internal_img = img
 
     def check_mask_button(self):
         """Interface to check the mask image. Displays the mask image in a window."""

@@ -37,7 +37,7 @@ It might not be necessary to use it at all.
 """
 
 
-class Keithley2612B(QObject):
+class Keithley2612B:
 
     ####################################  threads
 
@@ -50,7 +50,6 @@ class Keithley2612B(QObject):
     ########Functions
     def __init__(self):
 
-        QObject.__init__(self)
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
         filename = (
@@ -74,10 +73,17 @@ class Keithley2612B(QObject):
         self.lock = Lock()
         self.debug_mode = False
 
+        # initialize pm?x
+        # self.pm = pm?
+
     ## Widget functions
     def debug_button(self):
-        settings = self.parse_settings_widget()
-        print(settings)
+        try:
+            settings = self.parse_settings_widget()
+            print(settings)
+        except Exception as e:
+            print(f"Exception in debug_button: {e}")
+
         """        self.debug_mode = True
         self.connect()
         self.keithley_init(settings)
@@ -268,16 +274,27 @@ class Keithley2612B(QObject):
         finally:
             self.k.write("errorqueue.clear()")
 
-    def connect(self):
-        print("Connecting to Keithley 2612B")
-        self.k = self.rm.open_resource(pyIVLS_constants.keithley_visa)
-        print(self.k.query("*IDN?"))
-        self.k.read_termination = "\n"
+    def connect(self) -> bool:
+        """Connect to the Keithley 2612B.
+
+        Returns:
+            bool: connection succesful or nah
+        """
+        try:
+            print("Connecting to Keithley 2612B")
+            self.k = self.rm.open_resource(pyIVLS_constants.KEITHLEY_VISA)
+            print(self.k.query("*IDN?"))
+            self.k.read_termination = "\n"
+            return True
+        except:
+            print("Failed to connect to Keithley 2612B")
+            return False
 
     def disconnect(self):
         print("Disconnecting from Keithley 2612B")
         self.k.close()
 
+    ## Device functions
     def busy(self) -> bool:
         """Try to acquire the lock. If the lock can be captured, the instrument is not busy.
         If acquired, release the lock and return False.
@@ -294,11 +311,50 @@ class Keithley2612B(QObject):
             print("Lock not acquired")
         return not gotten
 
-    def parse_settings_widget(self) -> dict:
-        """Parse the settings widget into a form that the legacy code can understand.
+    def resistance_measurement(self, channel) -> float:
+        """Measure the resistance at the probe.
 
         Returns:
-            dict: Parsed settings.
+            float: resistance
+        """
+        if channel == "smua" or channel == "smub":
+            # Restore Series 2600B defaults.
+            self.safewrite(f"{channel}.reset()")
+            # Select current source function.
+            self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
+            # Set source range to 10 mA.
+            self.safewrite(f"{channel}.source.rangei = 10e-3")
+            # Set current source to 10 mA.
+            self.safewrite(f"{channel}.source.leveli = 10e-3")
+            # Set voltage limit to 10 V. FIXME: Value of 1 v is arbitrary.
+            self.safewrite(f"{channel}.source.limitv = 1")
+            # Enable 4-wire ohms.
+            self.safewrite(f"{channel}.sense = {channel}.SENSE_REMOTE")
+            # Set voltage range to auto.
+            self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
+            # Turn on output.
+            self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
+            # Get resistance reading.
+            resistance = float(self.k.query_ascii_values(f"{channel}.measure.r()"))
+            # Turn off output.
+            self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
+            return resistance
+        else:
+            raise ValueError("Invalid channel")
+
+    def read_buffer(self, channel, buffer_number, start, end) -> np.ndarray:
+        raise NotImplementedError("This function is not implemented yet.")
+
+    def parse_settings_widget(self) -> dict:
+        """Parses the settings widget into a dictionary that can be used by the Keithley 2612B.
+
+        Raises:
+            NotImplementedError: mixed mode
+            NotImplementedError: 2+4wire mode
+            NotImplementedError: 2+4wire mode
+
+        Returns:
+            dict: name -> value of settings
         """
         legacy_dict = {}
 
@@ -313,7 +369,6 @@ class Keithley2612B(QObject):
 
         # Determine repeat count
         legacy_dict["repeat"] = int(self.s["lineEdit_repeat"]())
-        assert legacy_dict["repeat"] > 0
 
         # set mode
         if self.s["comboBox_mode"]() == "Continuous":
@@ -340,7 +395,7 @@ class Keithley2612B(QObject):
             legacy_dict["nplc_drain"] = float(
                 float(self.s["lineEdit_drainNPLC"]())
                 * 0.001
-                * pyIVLS_constants.line_freq
+                * pyIVLS_constants.LINE_FREQ
             )
 
         # Set source sense mode
@@ -373,7 +428,7 @@ class Keithley2612B(QObject):
             legacy_dict["nplc"] = float(
                 float(self.s["lineEdit_pulsedNPLC"]())
                 * 0.001
-                * pyIVLS_constants.line_freq
+                * pyIVLS_constants.LINE_FREQ
             )
 
             if self.s["comboBox_pulsedDelayMode"]() == "Auto":
@@ -389,7 +444,7 @@ class Keithley2612B(QObject):
             legacy_dict["nplc"] = float(
                 float(self.s["lineEdit_continuousNPLC"]())
                 * 0.001
-                * pyIVLS_constants.line_freq
+                * pyIVLS_constants.LINE_FREQ
             )
             if self.s["comboBox_continuousDelayMode"]() == "Auto":
                 legacy_dict["delay"] = "off"
@@ -398,7 +453,8 @@ class Keithley2612B(QObject):
 
         # FIXME: Change this so that the whole program doesn't have to crash off the cliff if a single value is wrong.
         # Make assertions
-        assert legacy_dict["steps"] > 0
+        assert legacy_dict["steps"] > 0, "Steps have to be greater than 0"
+        assert legacy_dict["repeat"] > 0, "Repeat count has to be greater than 0"
         assert (
             legacy_dict["nplc"] >= 0.001 and legacy_dict["nplc"] <= 25
         ), "NPLC value out of range"
@@ -414,6 +470,7 @@ class Keithley2612B(QObject):
         Args:
             s (dict): Configuration dictionary.
         """
+
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
         self.safewrite(f"{s['source']}.reset()")
@@ -430,16 +487,18 @@ class Keithley2612B(QObject):
                 self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_REMOTE")
             else:
                 self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_LOCAL")
-
+        # Set filter for source
         self.safewrite(f"{s['source']}.measure.filter.count = 4")
         self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
         self.safewrite(
             f"{s['source']}.measure.filter.type = {s['source']}.FILTER_REPEAT_AVG"
         )
+        # set autoranges on for source
         self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_ON")
         self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_ON")
 
         if not s["single_ch"]:
+            # If dual channel, set filter and autoranges for drain
             self.safewrite(f"{s['drain']}.measure.filter.count = 4")
             self.safewrite(
                 f"{s['drain']}.measure.filter.enable = {s['drain']}.FILTER_ON"
@@ -453,7 +512,8 @@ class Keithley2612B(QObject):
             self.safewrite(
                 f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_ON"
             )
-
+        # If pulse is off, set to continuous. FIXME: Should this be set on the drain as well?
+        # HACK: This whole thing is copied from the old code. Hopefully no problems.
         if s["pulse"] == "off":
             self.safewrite(
                 f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_HOLD"
@@ -529,6 +589,7 @@ class Keithley2612B(QObject):
                 f"{s['source']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID"
             )
 
+        # FIXME: Should highC be the same for both channels?
         if s["highC"]:
             self.safewrite(f"{s['source']}.source.highc = {s['source']}.ENABLE")
             if not s["single_ch"] and s["highC_drain"]:
@@ -536,6 +597,7 @@ class Keithley2612B(QObject):
 
     def keithley_run_single_ch_sweep(self, s: dict) -> np.ndarray:
         """Runs a single channel sweep on. Handles locking the instrument and releasing it after the sweep is done.
+        This method sets the start, end, steps, type of injection and the limit.
 
         Args:
             s (dict): settings dictionary
@@ -543,12 +605,14 @@ class Keithley2612B(QObject):
         Returns:
             list(or np.ndarray): I-V data
         """
+        # Try and acquire the lock to make sure nothing else is running
         with self.lock:
             try:
                 print("Measurement started")
                 readsteps = s["steps"]
                 waitDelay = float(s["pulse"]) if s["pulse"] != "off" else 1
 
+                # Clear buffers, set repeats and steps, set sweep range.
                 self.safewrite(f"{s['source']}.nvbuffer1.clear()")
                 self.safewrite(f"{s['source']}.nvbuffer2.clear()")
                 self.safewrite(f"{s['source']}.trigger.count = {s['steps']}")
@@ -556,13 +620,17 @@ class Keithley2612B(QObject):
                 self.safewrite(
                     f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})"
                 )
+                # if current injection
                 if s["type"] == "i":
                     if abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5:
+                        # if the sweep maximum is under 1.5 A, set the limit from the GUI.
                         self.safewrite(
                             f"{s['source']}.trigger.source.limitv = {s['limit']}"
                         )
                         self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
                     else:
+                        # If the sweep maximum is over 1.5 A:
+                        # HACK: do some stuff, this is from the old code.
                         self.safewrite(
                             f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
                         )
@@ -583,13 +651,17 @@ class Keithley2612B(QObject):
                     self.safewrite(
                         f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS"
                     )
+                # if voltage injection
                 else:
                     if abs(s["limit"]) < 1.5:
+                        # if the current limit is under 1.5 A, set the limit from the GUI.
                         self.safewrite(
                             f"{s['source']}.trigger.source.limiti = {s['limit']}"
                         )
                         self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
                     else:
+                        # If the current limit is over 1.5 A:
+                        # HACK: Do some stuff, this is from the old code.
                         self.safewrite(
                             f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
                         )
@@ -613,15 +685,18 @@ class Keithley2612B(QObject):
                     self.safewrite(
                         f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS"
                     )
-
+                # Turn on the source and trigger the sweep.
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
                 self.safewrite(f"{s['source']}.trigger.initiate()")
                 time.sleep(waitDelay)
 
+                # Read the buffer until the sweep is done.
+                # FIXME: This should probably be encapsulated in a separate function
                 buffer_prev = 0
                 iv = np.array([])
                 while True:
                     if not self.busy():
+                        # From the old code, this aborts if the scan has not properly started.
                         print("Not busy, aborting")
                         self.safewrite(f"{s['source']}.abort()")
                         self.safewrite(
@@ -635,6 +710,7 @@ class Keithley2612B(QObject):
                     )
                     buffern = int(readings[0])
 
+                    # If there are enough readings to cover the whole sweep, break
                     if buffern >= s["steps"] * s["repeat"]:
                         break
 
@@ -648,6 +724,7 @@ class Keithley2612B(QObject):
                             f"printbuffer({buffer_prev + 1}, {buffern}, {s['source']}.nvbuffer2)"
                         )
 
+                        # Add to the iv array
                         iv.extend(list(zip(v_values, i_values)))
 
                         # Check for limit condition
@@ -658,6 +735,7 @@ class Keithley2612B(QObject):
                             s["type"] == "v"
                             and any(abs(i) > 0.95 * abs(s["limit"]) for i in i_values)
                         ):
+                            # kill if limits exceeded
                             self.safewrite(f"{s['source']}.abort()")
                             readsteps = buffern
                             break
@@ -673,6 +751,7 @@ class Keithley2612B(QObject):
                 )
 
                 # Final buffer read to ensure all data is captured
+                # FIXME: absolutely something wrong with this :DDDDD
                 if buffer_prev > 0:
                     iv = np.array(iv)
                     readsteps = buffer_prev
@@ -694,7 +773,6 @@ class Keithley2612B(QObject):
                 return iv
 
     def KeithleyRunDualChSweep(self, s: dict):
-        raise NotImplementedError("KeithleyRunDualChSweep not implemented yet.")
         with self.lock:
             try:
                 readsteps = s["steps"]
