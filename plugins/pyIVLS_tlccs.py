@@ -4,9 +4,10 @@ from PyQt6 import QtWidgets
 
 
 from plugins.TLCCS.TLCCS import CCSDRV
+from plugins.plugin import Plugin
 
 
-class pyIVLS_TLCCS_plugin:
+class pyIVLS_TLCCS_plugin(Plugin):
     """Thorlabs ccs plugin for pyIVLS"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
@@ -14,9 +15,10 @@ class pyIVLS_TLCCS_plugin:
     def __init__(self):
         # crete the driver
         self.drv = CCSDRV()
+        super().__init__()
 
     @hookimpl
-    def get_setup_interface(self, pm) -> dict:
+    def get_setup_interface(self, pm, plugin_data) -> dict:
         """Template get_setup_interface hook implementation
 
         Args:
@@ -25,6 +27,7 @@ class pyIVLS_TLCCS_plugin:
         Returns:
             dict: name : widget
         """
+        self.setup(pm, plugin_data)
 
         # Find buttons from the settings widget
         button = self.drv.settingsWidget.findChild(QtWidgets.QPushButton, "pushButton")
@@ -32,16 +35,12 @@ class pyIVLS_TLCCS_plugin:
         # Connect widget buttons to functions
         button.clicked.connect(self.drv.read_integration_time_GUI)
 
-        # Replace name here with the name of the plugin
-        return {"tlccs": self.drv.settingsWidget}
+        return {self.plugin_name: self.drv.settingsWidget}
 
     @hookimpl
     def get_functions(self, args):
-        if args.get("function") == "spectrometer":
-            return {
-                "open": self.open,
-                "run_scan": self.run_scan,
-            }
+        if args.get("function") == self.plugin_info["function"]:
+            return self.get_public_methods()
 
     def run_scan(self):
         """Currently open needs to be called separatedly

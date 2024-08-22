@@ -13,9 +13,10 @@ class pyIVLS_ConDetect_plugin(Plugin):
 
     def __init__(self):
         self.detector = ConDetect()
+        super().__init__()
 
     @hookimpl
-    def get_setup_interface(self, pm):
+    def get_setup_interface(self, pm, plugin_data) -> dict:
         """Template get_setup_interface hook implementation
 
         Args:
@@ -25,9 +26,7 @@ class pyIVLS_ConDetect_plugin(Plugin):
             dict: name : widget
         """
 
-        # Set the pm
-        if self.detector.pm is None:
-            self.detector.pm = pm
+        self.setup(pm, plugin_data)
 
         # Find buttons from the settings widget
         save_button = self.detector.settingsWidget.findChild(
@@ -37,6 +36,11 @@ class pyIVLS_ConDetect_plugin(Plugin):
         # Connect widget buttons to functions
         save_button.clicked.connect(self.detector.debug)
 
-        return {"ConDetect": self.detector.settingsWidget}
+        return {self.plugin_name: self.detector.settingsWidget}
 
     # The rest of the hooks go here
+    @hookimpl
+    def get_functions(self, args):
+        """Returns a dictionary of publicly accessible functions."""
+        if args.get("function") == self.plugin_info["function"]:
+            return self.get_public_methods()

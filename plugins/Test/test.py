@@ -29,6 +29,27 @@ class Test:
         """Run the test function"""
         self.statusLabel.setText("Running test function")
         mm_functions = self.pm.hook.get_functions(args={"function": "micromanipulator"})
-        print(mm_functions)
+        mm_functions = mm_functions[0]
+        mm_functions = mm_functions["Sutter"]
+        print(mm_functions.keys())
+
         no_functions = self.pm.hook.get_functions(args={"function": "aint"})
         print(no_functions)
+
+        mm_functions = self.pm.hook.get_functions(args={"function": "camera"})
+        mm_functions = mm_functions[0]
+        mm_functions = mm_functions["VenusUSB2"]
+        print(mm_functions.keys())
+
+        mm_functions = self.pm.hook.get_functions(
+            args={"function": "coordinate conversion"}
+        )
+        mm_functions = mm_functions[0]
+        mm_functions = mm_functions["Affine"]
+        print(mm_functions.keys())
+        try:
+            print(mm_functions["coords"]((1, 2)))
+        except Exception as e:
+            print(e)
+
+        self.statusLabel.setText("Test function complete")

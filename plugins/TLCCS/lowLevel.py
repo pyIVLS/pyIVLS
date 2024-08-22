@@ -1,7 +1,7 @@
 from array import array
 import usb.core
 import usb.util
-import plugins.Thorspec.const as const
+import plugins.TLCCS.const as const
 import pyIVLS_constants as ivls_const
 
 

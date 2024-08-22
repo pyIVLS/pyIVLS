@@ -66,3 +66,6 @@ class pyIVLS_Affine_plugin(Plugin):
         img = camera_funcs["VenusUSB2"]["camera_get_image"]()
         self.affine.update_img(img)
         self.affine.find_button()
+
+    def coords(self, point: tuple[float, float]) -> tuple[float, float]:
+        self.affine.coords(point)

@@ -46,7 +46,7 @@ class Plugin:
 
         # Set internal variables
         self.plugin_info = plugin_info.get(plugin_name)
-        if self.plugin_info["dependencies"] != "":
+        if self.plugin_info["dependencies"] != "" and self.pm is None:
             self.pm = pm
         self.plugin_name = plugin_name
 
