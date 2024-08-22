@@ -3,10 +3,11 @@ import pluggy
 from PyQt6 import QtWidgets
 
 
-from plugins.conDetect.conDetect import ConDetect
+from plugins.ConDetect.ConDetect import ConDetect
+from plugins.plugin import Plugin
 
 
-class pyIVLS_conDetect_plugin:
+class pyIVLS_ConDetect_plugin(Plugin):
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 

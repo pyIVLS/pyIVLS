@@ -1,6 +1,6 @@
 #!/usr/bin/python3.8
 import pluggy
-from plugins.Keithley.Keithley2612B import Keithley2612B
+from plugins.Keithley2612B.Keithley2612B import Keithley2612B
 import numpy as np
 
 

@@ -2,7 +2,7 @@
 import pluggy
 from PyQt6 import QtWidgets
 
-from plugins.Sutter.sutter import Mpc325
+from plugins.Sutter.Sutter import Mpc325
 
 
 class pyIVLS_Sutter_plugin:

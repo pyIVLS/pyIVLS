@@ -4,24 +4,27 @@ from PyQt6 import uic
 import pyIVLS_constants as const
 
 
-# NOTE: Work in progress. PLuggy wont register inherited hooks
 class Plugin:
     # Classwide variables
-    non_public_methods = ["load_settings_widget", "get_public_methods"]
+    non_public_methods = ["setup", "get_public_methods", "hookimpl"]
     non_public_methods.extend(const.HOOKS)
 
-
     def __init__(self):
-        self.settingsWidget, self.plugin_name = self.load_settings_widget()
-        settingsWidget = None
-        plugin_name = None
-        plugin_info = None
+        self.plugin_name = None
+        self.plugin_info = None
+        self.pm = None
 
-    def load_settings_widget(self, pm, plugin_info):
+    # NOTE: currently creates quite a bit of overhead since the vars
+    # are updated every time the plugin list is updated.
+    # On the other hand, This will probably not be a bottleneck.
+    def setup(self, pm, plugin_info):
         """
-        Loads the settings widget UI file
+        Loads the plugin info
         """
-        # Get the name of the subclass
+        # Currently commented out, since I don't want to rewrite the entire plugin system
+        # To store the settings widget in the plugin class
+        """
+        # Get the name of the subclass from the stack
         stack = inspect.stack()
         calling_class = stack[1].frame.f_locals["self"].__class__.__name__
         plugin_name = calling_class.removeprefix("pyIVLS_").removesuffix("_plugin")
@@ -33,18 +36,32 @@ class Plugin:
 
         if os.path.exists(ui_file_path):
             print(f"Loading UI file {ui_file_path}")
-            return uic.loadUi(ui_file_path), plugin_name
+            settingsWidget = uic.loadUi(ui_file_path)
         else:
             raise FileNotFoundError(f"UI file {ui_file_path} not found.")
+        """
+        stack = inspect.stack()
+        calling_class = stack[1].frame.f_locals["self"].__class__.__name__
+        plugin_name = calling_class.removeprefix("pyIVLS_").removesuffix("_plugin")
+
+        # Set internal variables
+        self.plugin_info = plugin_info.get(plugin_name)
+        if self.plugin_info["dependencies"] != "":
+            self.pm = pm
+        self.plugin_name = plugin_name
 
     def get_public_methods(self):
         """
-        Returns a list of public methods for the plugin
+        Returns a nested dictionary of public methods for the plugin
         """
-        return [
-            method
+        # if the plugin type matches the requested type, return the functions
+
+        methods = {
+            method: getattr(self, method)
             for method in dir(self)
             if callable(getattr(self, method))
             and not method.startswith("__")
+            and not method.startswith("_")
             and method not in self.non_public_methods
-        ]
+        }
+        return {self.plugin_name: methods}

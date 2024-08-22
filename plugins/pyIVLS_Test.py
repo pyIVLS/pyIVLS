@@ -2,7 +2,7 @@
 import pluggy
 from PyQt6 import QtWidgets
 
-from plugins.Test.test import Test
+from plugins.Test.Test import Test
 
 
 class pyIVLS_Test_plugin:

@@ -64,7 +64,10 @@ class pyIVLS_container(QObject):
             dict: plugin name -> plugin widget
         """
         plugin_manager = self.pm
-        single_element_dicts = self.pm.hook.get_setup_interface(pm=plugin_manager)
+        print("I REALLY NEED THIS PLUGIN INFO SAYS THE CONTAINER")
+        single_element_dicts = self.pm.hook.get_setup_interface(
+            pm=plugin_manager, plugin_data=self.get_plugin_dict()
+        )
         combined_dict = {}
         for d in single_element_dicts:
             combined_dict.update(d)

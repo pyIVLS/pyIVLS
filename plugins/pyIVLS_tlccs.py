@@ -3,10 +3,10 @@ import pluggy
 from PyQt6 import QtWidgets
 
 
-from plugins.Thorspec.tlccs import CCSDRV
+from plugins.TLCCS.TLCCS import CCSDRV
 
 
-class pyIVLS_tlccs_plugin:
+class pyIVLS_TLCCS_plugin:
     """Thorlabs ccs plugin for pyIVLS"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")

@@ -3,36 +3,53 @@ import pluggy
 from PyQt6 import QtWidgets
 
 from plugins.plugin import Plugin
-from plugins.VenusUSB2.venusUSB2 import VenusUSB2
+from plugins.VenusUSB2.VenusUSB2 import VenusUSB2
 import cv2
 
 
-class pyIVLS_VenusUSB2_plugin:
+class pyIVLS_VenusUSB2_plugin(Plugin):
     """Hooks for VenusUSB2 camera plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
         self.camera = VenusUSB2()
+        super().__init__()
 
     @hookimpl
-    def get_setup_interface(self, pm) -> dict:
+    def get_setup_interface(self, pm, plugin_data) -> dict:
         """Sets up camera, preview, and save buttons for VenusUSB2 camera plugin
 
         Returns:
             dict: name, widget
         """
-        preview_button = self.camera.settingsWidget.findChild(
+        self.setup(pm, plugin_data)
+
+        return {self.plugin_name: self._connect_buttons(self.camera.settingsWidget)}
+
+    @hookimpl
+    def get_functions(self, args):
+        """Returns a dictionary of publicly accessible functions.
+
+        Args:
+            args (dict): function
+
+        Returns:
+            dict: functions
+        """
+
+        if args.get("function") == self.plugin_info["function"]:
+            return self.get_public_methods()
+
+    def _connect_buttons(self, settingsWidget):
+        preview_button = settingsWidget.findChild(
             QtWidgets.QPushButton, "cameraPreview"
         )
-        save_button = self.camera.settingsWidget.findChild(
-            QtWidgets.QPushButton, "cameraSave"
-        )
+        save_button = settingsWidget.findChild(QtWidgets.QPushButton, "cameraSave")
         # Connect widget buttons to functions
         preview_button.clicked.connect(self.camera.preview_button)
         save_button.clicked.connect(self.camera.save_button)
-
-        return {"VenusUSB2": self.camera.settingsWidget}
+        return settingsWidget
 
     def open(self, **kwargs) -> tuple[str, bool]:
         """Open the device.
@@ -51,11 +68,3 @@ class pyIVLS_VenusUSB2_plugin:
         """
         print("Camera hookcall")
         return self.camera.capture_image()
-
-    @hookimpl
-    def get_functions(self, args):
-        if args.get("function") == "camera":
-            return {
-                "camera_get_image": self.camera.capture_image,
-                "camera_open": self.open,
-            }
