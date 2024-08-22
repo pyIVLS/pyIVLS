@@ -39,7 +39,7 @@ class ConDetect:
             moveResult = self.pm.hook.mm_lower(z_change=100)
             print(moveResult)
             if not moveResult[0]:
-                print("Owie, i hit something")
+                print("Ouch, i hit something")
                 break
 
     def debug(self):
