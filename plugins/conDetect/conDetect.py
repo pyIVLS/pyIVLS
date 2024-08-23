@@ -7,6 +7,7 @@ from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject
 import matplotlib.pyplot as plt
 import pyftdi.serialext
+import pyIVLS_constants as const
 
 
 class ConDetect:
@@ -15,6 +16,7 @@ class ConDetect:
 
         # Initialize the pluginmanager as empty
         self.pm = None
+        self.mm_func = None
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
         filename = (
@@ -23,9 +25,11 @@ class ConDetect:
         self.settingsWidget = uic.loadUi(self.path + filename)
 
     def connect(self):
-        self.port = pyftdi.serialext.serial_for_url(
-            "ftdi://ftdi:232:UUT1/1", baudrate=400
-        )
+        self.port = pyftdi.serialext.serial_for_url(const.CONDETECT_PORT, baudrate=400)
+        if self.mm_func is None:
+            self.mm_func = self.pm.hook.get_functions(
+                args={"function": "micromanipulator"}
+            )[0]
 
     def contact(self):
         # FIXME: broky broky
@@ -36,7 +40,7 @@ class ConDetect:
             print(
                 f"Moving to contact until I hit something :DDDDD t: Sutter manipulator"
             )
-            moveResult = self.pm.hook.mm_lower(z_change=100)
+            moveResult = self.mm_func["Sutter"]["mm_lower"](z_change=100)
             print(moveResult)
             if not moveResult[0]:
                 print("Ouch, i hit something")
@@ -44,9 +48,9 @@ class ConDetect:
 
     def debug(self):
         print("Debugging")
-        print(self.pm.hook.open())
+        self.mm_func["Sutter"]["open"]()
         try:
-            print(self.pm.hook.mm_change_active_device(dev_num=4))
+            print(self.mm_func["Sutter"]["mm_change_active_device"](dev_num=4))
         except Exception as e:
             print(e)
         # self.connect()

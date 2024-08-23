@@ -73,14 +73,15 @@ class Keithley2612B:
         self.lock = Lock()
         self.debug_mode = False
 
-        # initialize pm?x
-        # self.pm = pm?
+        assert self.settingsWidget is not None, "Settings widget not found"
+        assert self.rm is not None, "Resource manager not found"
 
     ## Widget functions
     def debug_button(self):
         try:
             settings = self.parse_settings_widget()
             print(settings)
+            print("--------------------------------")
         except Exception as e:
             print(f"Exception in debug_button: {e}")
 
@@ -128,14 +129,29 @@ class Keithley2612B:
         return settings
 
     def _connect_signals(self):
+        # Connect the channel combobox
         mode_box = self.settingsWidget.findChild(QComboBox, "comboBox_mode")
         mode_box.activated.connect(self._mode_changed)
         # call mode changed to update to the correct mode
         self._mode_changed()
 
+        # Connect the inject type combobox
         inject_box = self.settingsWidget.findChild(QComboBox, "comboBox_inject")
         inject_box.activated.connect(self._inject_changed)
         self._inject_changed()
+
+        # Connect the drain follows source checkbox
+        drain_follows_source = self.settingsWidget.findChild(
+            QCheckBox, "checkBox_drainFollowSource"
+        )
+        source_highC = self.settingsWidget.findChild(QCheckBox, "checkBox_sourceHighC")
+        source_sense_mode = self.settingsWidget.findChild(
+            QComboBox, "comboBox_sourceSenseMode"
+        )
+        source_highC.stateChanged.connect(self._drain_follows_source_changed)
+        source_sense_mode.activated.connect(self._drain_follows_source_changed)
+        drain_follows_source.stateChanged.connect(self._drain_follows_source_changed)
+        self._drain_follows_source_changed()
 
         # FIXME: This does not currently work, as QHBoxLayout cannot be shown or hidden as a group.
         """
@@ -155,6 +171,17 @@ class Keithley2612B:
         # call delay mode changed to update to the correct mode
         self._delay_mode_changed()
         """
+
+    def _drain_follows_source_changed(self):
+        if self.s["checkBox_drainFollowSource"]():
+            drain_highC = self.settingsWidget.findChild(
+                QCheckBox, "checkBox_drainHighC"
+            )
+            drain_sense_mode = self.settingsWidget.findChild(
+                QComboBox, "comboBox_drainSenseMode"
+            )
+            drain_highC.setChecked(self.s["checkBox_sourceHighC"]())
+            drain_sense_mode.setCurrentText(self.s["comboBox_sourceSenseMode"]())
 
     def _mode_changed(self):
         """Handles the visibility of the mode input fields based on the selected mode."""
@@ -292,7 +319,8 @@ class Keithley2612B:
 
     def disconnect(self):
         print("Disconnecting from Keithley 2612B")
-        self.k.close()
+        if self.k is not None:
+            self.k.close()
 
     ## Device functions
     def busy(self) -> bool:
@@ -305,10 +333,8 @@ class Keithley2612B:
         """
         gotten = self.lock.acquire(blocking=False)
         if gotten:
-            print("Lock acquired")
             self.lock.release()
-        else:
-            print("Lock not acquired")
+
         return not gotten
 
     def resistance_measurement(self, channel) -> float:
@@ -340,23 +366,23 @@ class Keithley2612B:
             self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
             return resistance
         else:
-            raise ValueError("Invalid channel")
+            raise ValueError(f"Invalid channel {channel}")
 
     def read_buffer(self, channel, buffer_number, start, end) -> np.ndarray:
         raise NotImplementedError("This function is not implemented yet.")
 
-    def parse_settings_widget(self) -> dict:
-        """Parses the settings widget into a dictionary that can be used by the Keithley 2612B.
-
-        Raises:
-            NotImplementedError: mixed mode
-            NotImplementedError: 2+4wire mode
-            NotImplementedError: 2+4wire mode
+    def parse_settings_widget(self) -> list[dict]:
+        """Parses the settings widget and extracts a dict of settings. If the settings are invalid, an AssertionError is raised.
+        Provides multiple dicts if necessary for 2+4 wire mode and mixed mode.
 
         Returns:
-            dict: name -> value of settings
+            list[dict]: A list of settings dictionaries.
         """
+
         legacy_dict = {}
+        mixed_mode_flag = False
+        double_sense_mode_flag = False
+        ret_list = []
 
         # Determine source channel
         legacy_dict["source"] = (
@@ -370,18 +396,6 @@ class Keithley2612B:
         # Determine repeat count
         legacy_dict["repeat"] = int(self.s["lineEdit_repeat"]())
 
-        # set mode
-        if self.s["comboBox_mode"]() == "Continuous":
-            legacy_dict["pulse"] = "off"
-        elif self.s["comboBox_mode"]() == "Pulsed":
-            legacy_dict["pulse"] = self.s["lineEdit_pulsedPause"]()
-        else:
-            # How to handle this? Call a separate function to handle this?
-            # Idea: return two copies of the settings, one for each mode.
-            # then, in the run_sweep function, change the function to check if there are multiple
-            # settings dicts, and run the sweep for each of them recursively.
-            raise NotImplementedError("Mixed mode not implemented yet.")
-
         # Set single channel and drain
         legacy_dict["single_ch"] = self.s["checkBox_singleChannel"]()
         legacy_dict["highC"] = self.s["checkBox_sourceHighC"]()
@@ -389,6 +403,7 @@ class Keithley2612B:
             legacy_dict["drain"] = "smub" if legacy_dict["source"] == "smua" else "smua"
 
             # FIXME: Check what the data should contain, the old code expects to have standard value "off" for drainVoltage.
+            # FIXME: Add drain delay mode reading.
             legacy_dict["highC_drain"] = self.s["checkBox_drainHighC"]()
             legacy_dict["drainVoltage"] = self.s["lineEdit_drainStart"]()
             legacy_dict["drainLimit"] = self.s["lineEdit_drainLimit"]()
@@ -397,72 +412,112 @@ class Keithley2612B:
                 * 0.001
                 * pyIVLS_constants.LINE_FREQ
             )
+            if self.s["comboBox_drainDelayMode"]() == "Auto":
+                legacy_dict["delay_drain"] = "off"
+            else:
+                legacy_dict["delay_drain"] = self.s["lineEdit_drainDelay"]()
 
-        # Set source sense mode
+        # Set sense mode
         source_sense_mode = self.s["comboBox_sourceSenseMode"]()
         if source_sense_mode == "2 wire":
             legacy_dict["sense"] = False
         elif source_sense_mode == "4 wire":
             legacy_dict["sense"] = True
         else:
-            # How to handle this? Call a separate function to handle this?
-            raise NotImplementedError("2 + 4 mode not implemented yet.")
+            double_sense_mode_flag = True
 
-        # set drain sense mode in case it is needed.
-        drain_sense_mode = self.s["comboBox_drainSenseMode"]()
-        if not legacy_dict["single_ch"]:
-            if drain_sense_mode == "2 wire":
-                legacy_dict["sense_drain"] = False
-            elif drain_sense_mode == "4 wire":
-                legacy_dict["sense_drain"] = True
-            else:
-                # How to handle this? Call a separate function to handle this, which provides two copies of the settings?
-                raise NotImplementedError("2 + 4 mode not implemented yet.")
-
-        # if in pulse mode, read the settings from the pulsed sweep group
-        if legacy_dict["pulse"] != "off":
-            legacy_dict["start"] = float(self.s["lineEdit_pulsedStart"]())
-            legacy_dict["end"] = float(self.s["lineEdit_pulsedEnd"]())
-            legacy_dict["steps"] = int(self.s["lineEdit_pulsedPoints"]())
-            legacy_dict["limit"] = float(self.s["lineEdit_pulsedLimit"]())
-            legacy_dict["nplc"] = float(
-                float(self.s["lineEdit_pulsedNPLC"]())
-                * 0.001
-                * pyIVLS_constants.LINE_FREQ
-            )
-
-            if self.s["comboBox_pulsedDelayMode"]() == "Auto":
-                legacy_dict["delay"] = "off"
-            else:
-                legacy_dict["delay"] = self.s["lineEdit_pulsedDelay"]()
-        # else must be in continous mode, read the settings from the continuous sweep group
+        # set pulse mode
+        if self.s["comboBox_mode"]() == "Continuous":
+            legacy_dict["pulse"] = "off"
+        elif self.s["comboBox_mode"]() == "Pulsed":
+            legacy_dict["pulse"] = self.s["lineEdit_pulsedPause"]()
         else:
-            legacy_dict["start"] = float(self.s["lineEdit_continuousStart"]())
-            legacy_dict["end"] = float(self.s["lineEdit_continuousEnd"]())
-            legacy_dict["steps"] = int(self.s["lineEdit_continuousPoints"]())
-            legacy_dict["limit"] = float(self.s["lineEdit_continuousLimit"]())
-            legacy_dict["nplc"] = float(
-                float(self.s["lineEdit_continuousNPLC"]())
-                * 0.001
-                * pyIVLS_constants.LINE_FREQ
-            )
-            if self.s["comboBox_continuousDelayMode"]() == "Auto":
-                legacy_dict["delay"] = "off"
+            mixed_mode_flag = True
+
+        # If 2+4wire mode, create two dicts, one for each mode
+        if double_sense_mode_flag:
+            legacy_dict["sense"] = False
+            ret_list.append(legacy_dict.copy())
+            legacy_dict["sense"] = True
+            ret_list.append(legacy_dict)
+        else:
+            ret_list.append(legacy_dict)
+
+        # Set the pulse mode in mixed mode for all dicts:
+        # NOTE: iterating over a copy of the list to avoid an infinite loop.
+        for legacy_dict in ret_list[:]:
+            if mixed_mode_flag:
+                legacy_dict["pulse"] = self.s["lineEdit_pulsedPause"]()
+                dict_copy = legacy_dict.copy()
+                dict_copy["pulse"] = "off"
+                ret_list.append(dict_copy)
+
+        return self._read_and_validate_settings(ret_list)
+
+    def _read_and_validate_settings(self, settings: list[dict]) -> list[dict]:
+        """Reads start, end, limit, steps, nplc and delay settings from the GUI and validates them.
+        This method is for internal use only
+
+        Args:
+            settings (list[dict]): A list of settings dictrionaries.
+
+        Returns:
+            list[dict]: A list of validated settings dictionaries.
+        """
+        # if in pulse mode, read the settings from the pulsed sweep group
+        for legacy_dict in settings:
+            if legacy_dict["pulse"] != "off":
+                legacy_dict["start"] = float(self.s["lineEdit_pulsedStart"]())
+                legacy_dict["end"] = float(self.s["lineEdit_pulsedEnd"]())
+                legacy_dict["steps"] = int(self.s["lineEdit_pulsedPoints"]())
+                legacy_dict["limit"] = float(self.s["lineEdit_pulsedLimit"]())
+                legacy_dict["nplc"] = float(
+                    float(self.s["lineEdit_pulsedNPLC"]())
+                    * 0.001
+                    * pyIVLS_constants.LINE_FREQ
+                )
+
+                if self.s["comboBox_pulsedDelayMode"]() == "Auto":
+                    legacy_dict["delay"] = "off"
+                else:
+                    legacy_dict["delay"] = self.s["lineEdit_pulsedDelay"]()
+            # else must be in continous mode, read the settings from the continuous sweep group
             else:
-                legacy_dict["delay"] = self.s["lineEdit_continuousDelay"]()
+                legacy_dict["start"] = float(self.s["lineEdit_continuousStart"]())
+                legacy_dict["end"] = float(self.s["lineEdit_continuousEnd"]())
+                legacy_dict["steps"] = int(self.s["lineEdit_continuousPoints"]())
+                legacy_dict["limit"] = float(self.s["lineEdit_continuousLimit"]())
+                legacy_dict["nplc"] = float(
+                    float(self.s["lineEdit_continuousNPLC"]())
+                    * 0.001
+                    * pyIVLS_constants.LINE_FREQ
+                )
+                if self.s["comboBox_continuousDelayMode"]() == "Auto":
+                    legacy_dict["delay"] = "off"
+                else:
+                    legacy_dict["delay"] = self.s["lineEdit_continuousDelay"]()
 
-        # FIXME: Change this so that the whole program doesn't have to crash off the cliff if a single value is wrong.
-        # Make assertions
-        assert legacy_dict["steps"] > 0, "Steps have to be greater than 0"
-        assert legacy_dict["repeat"] > 0, "Repeat count has to be greater than 0"
-        assert (
-            legacy_dict["nplc"] >= 0.001 and legacy_dict["nplc"] <= 25
-        ), "NPLC value out of range"
-        assert (
-            legacy_dict["nplc_drain"] >= 0.001 and legacy_dict["nplc_drain"] <= 25
-        ), "NPLC value out of range"
+            # Make assertions
+            assert legacy_dict["steps"] > 0, "Steps have to be greater than 0"
+            assert legacy_dict["repeat"] > 0, "Repeat count has to be greater than 0"
+            assert (
+                legacy_dict["nplc"] >= 0.001 and legacy_dict["nplc"] <= 25
+            ), "NPLC value out of range"
+            assert legacy_dict["delay"] == "off" or (
+                float(legacy_dict["delay"]) >= 0.0001
+                and float(legacy_dict["delay"]) <= 999.9999
+            ), "Delay value out of range"
+            if not legacy_dict["single_ch"]:
+                assert (
+                    legacy_dict["nplc_drain"] >= 0.001
+                    and legacy_dict["nplc_drain"] <= 25
+                ), "NPLC value out of range"
+                assert legacy_dict["delay_drain"] == "off" or (
+                    float(legacy_dict["delay_drain"]) >= 0.0001
+                    and float(legacy_dict["delay_drain"]) <= 999.9999
+                ), "Delay for drain value out of range"
 
-        return legacy_dict
+        return settings
 
     def keithley_init(self, s: dict):
         """Initialize Keithley SMU for single or dual channel operation.
@@ -592,7 +647,7 @@ class Keithley2612B:
         # FIXME: Should highC be the same for both channels?
         if s["highC"]:
             self.safewrite(f"{s['source']}.source.highc = {s['source']}.ENABLE")
-            if not s["single_ch"] and s["highC_drain"]:
+            if not s["single_ch"] and s["highC"]:
                 self.safewrite(f"{s['drain']}.source.highc = {s['drain']}.ENABLE")
 
     def keithley_run_single_ch_sweep(self, s: dict) -> np.ndarray:

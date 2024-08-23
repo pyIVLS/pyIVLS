@@ -45,6 +45,7 @@ class Affine:
             QtWidgets.QLabel, "affineLabel"
         )
         self.mask_label = self.settingsWidget.findChild(QtWidgets.QLabel, "maskLabel")
+        assert self.settingsWidget is not None, "SettingsWidget not found."
 
     @staticmethod
     def _preprocess_img(img):
@@ -227,7 +228,6 @@ class Affine:
         visu.queue_affine()
         visu.show()
 
-    # FIXME: add something to check the state of the camera return, and notify user.
     def update_img(self, img):
         """Just updates the internal image.
 
@@ -236,6 +236,7 @@ class Affine:
         """
         self.internal_img = img
 
+    # FIXME: Don't use matplotlib. Use functions provided by the GUI to avoid conflicts.
     def check_mask_button(self):
         """Interface to check the mask image. Displays the mask image in a window."""
         if self.internal_mask is not None:

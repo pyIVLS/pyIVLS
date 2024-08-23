@@ -14,6 +14,7 @@ import plugins.TLCCS.const as const
 import numpy as np
 import struct
 import time
+import pyIVLS_constants as IVLS_const
 
 
 class CCSDRV:
@@ -50,7 +51,12 @@ class CCSDRV:
             print("Integration time from GUI: ", input)
             return float(input) * 1e-3
 
-    def open(self, vid=0x1313, pid=0x8087, integration_time=None):
+    def open(
+        self,
+        vid=IVLS_const.THORSPEC_VID,
+        pid=IVLS_const.THORSPEC_PID,
+        integration_time=None,
+    ):
         """Opens a connection through LLIO.
 
         Args:
@@ -67,7 +73,7 @@ class CCSDRV:
                 integration_time = self.read_integration_time_GUI()
 
             # Set default integration time
-            assert self.set_integration_time(integration_time)
+            assert self.set_integration_time(integration_time), "Integration time not set"
             state = self.get_device_status()
             self.integration_time = const.CCS_SERIES_DEF_INT_TIME
 
