@@ -33,23 +33,21 @@ class Test:
         mm_functions = mm_functions["Sutter"]
         print(mm_functions.keys())
 
-        no_functions = self.pm.hook.get_functions(args={"function": "aint"})
-        print(no_functions)
+        cam_functions = self.pm.hook.get_functions(args={"function": "camera"})
+        cam_functions = cam_functions[0]
+        cam_functions = cam_functions["VenusUSB2"]
+        print(cam_functions.keys())
 
-        mm_functions = self.pm.hook.get_functions(args={"function": "camera"})
-        mm_functions = mm_functions[0]
-        mm_functions = mm_functions["VenusUSB2"]
-        print(mm_functions.keys())
+        aff_functions = self.pm.hook.get_functions(args={"function": "coordinate conversion"})
+        aff_functions = aff_functions[0]
+        aff_functions = aff_functions["Affine"]
+        print(aff_functions.keys())
 
-        mm_functions = self.pm.hook.get_functions(
-            args={"function": "coordinate conversion"}
-        )
-        mm_functions = mm_functions[0]
-        mm_functions = mm_functions["Affine"]
-        print(mm_functions.keys())
-        try:
-            print(mm_functions["coords"]((1, 2)))
-        except Exception as e:
-            print(e)
+
+        TLCCS_functions = self.pm.hook.get_functions(args={"function": "spectrometer"})
+        TLCCS_functions = TLCCS_functions[0]
+        TLCCS_functions = TLCCS_functions["TLCCS"]
+        print(TLCCS_functions.keys())
+
 
         self.statusLabel.setText("Test function complete")
