@@ -368,8 +368,29 @@ class Keithley2612B:
         else:
             raise ValueError(f"Invalid channel {channel}")
 
-    def read_buffer(self, channel, buffer_number, start, end) -> np.ndarray:
-        raise NotImplementedError("This function is not implemented yet.")
+    def read_buffers(self, channel) -> np.ndarray:
+        """The maximum this can read is 60000 points. This method waits for the scan to be done before reading.
+        Args:
+            channel (str): smua or smub
+
+        Returns:
+            np.ndarray: i-v data
+        """
+
+        iv = []
+        # Get the number of readings in nvbuffer2
+        readings = self.k.query_ascii_values(f"print({channel}.nvbuffer2.n)")
+        readings_count = int(readings[0])
+        i_values = self.k.query_ascii_values(
+            f"printbuffer({0}, {readings_count}, {channel}.nvbuffer1)"
+        )
+        v_values = self.k.query_ascii_values(
+            f"printbuffer({0}, {readings_count}, {channel}.nvbuffer2)"
+        )
+
+        # Add to the iv array
+        iv.extend(list(zip(v_values, i_values)))
+        return np.array(iv)
 
     def parse_settings_widget(self) -> list[dict]:
         """Parses the settings widget and extracts a dict of settings. If the settings are invalid, an AssertionError is raised.
@@ -401,12 +422,12 @@ class Keithley2612B:
         legacy_dict["highC"] = self.s["checkBox_sourceHighC"]()
         if not legacy_dict["single_ch"]:
             legacy_dict["drain"] = "smub" if legacy_dict["source"] == "smua" else "smua"
-
-            # FIXME: Check what the data should contain, the old code expects to have standard value "off" for drainVoltage.
-            # FIXME: Add drain delay mode reading.
+            # Read all drain sweep settings
             legacy_dict["highC_drain"] = self.s["checkBox_drainHighC"]()
-            legacy_dict["drainVoltage"] = self.s["lineEdit_drainStart"]()
-            legacy_dict["drainLimit"] = self.s["lineEdit_drainLimit"]()
+            legacy_dict["drainStart"] = float(self.s["lineEdit_drainStart"]())
+            legacy_dict["drainLimit"] = float(self.s["lineEdit_drainLimit"]())
+            legacy_dict["drainEnd "] = float(self.s["lineEdit_drainEnd"]())
+            legacy_dict["drainPoints"] = int(self.s["lineEdit_drainPoints"]())
             legacy_dict["nplc_drain"] = float(
                 float(self.s["lineEdit_drainNPLC"]())
                 * 0.001
@@ -456,7 +477,8 @@ class Keithley2612B:
 
     def _read_and_validate_settings(self, settings: list[dict]) -> list[dict]:
         """Reads start, end, limit, steps, nplc and delay settings from the GUI and validates them.
-        This method is for internal use only
+        This method is for internal use only. 
+        Raises an AssertionError if the settings are invalid.
 
         Args:
             settings (list[dict]): A list of settings dictrionaries.
@@ -516,7 +538,7 @@ class Keithley2612B:
                     float(legacy_dict["delay_drain"]) >= 0.0001
                     and float(legacy_dict["delay_drain"]) <= 999.9999
                 ), "Delay for drain value out of range"
-
+                assert legacy_dict["drainPoints"] > 0, "Drain points have to be greater than 0"
         return settings
 
     def keithley_init(self, s: dict):
@@ -633,6 +655,7 @@ class Keithley2612B:
             self.safewrite(
                 f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
             )
+            """            
             self.safewrite("trigger.blender[2].orenable = false")
             self.safewrite(
                 f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID"
@@ -643,6 +666,7 @@ class Keithley2612B:
             self.safewrite(
                 f"{s['source']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID"
             )
+            """
 
         # FIXME: Should highC be the same for both channels?
         if s["highC"]:
@@ -650,7 +674,9 @@ class Keithley2612B:
             if not s["single_ch"] and s["highC"]:
                 self.safewrite(f"{s['drain']}.source.highc = {s['drain']}.ENABLE")
 
-    def keithley_run_single_ch_sweep(self, s: dict) -> np.ndarray:
+
+
+    def run_singlech_sweep(self, s: dict) -> np.ndarray:
         """Runs a single channel sweep on. Handles locking the instrument and releasing it after the sweep is done.
         This method sets the start, end, steps, type of injection and the limit.
 
@@ -664,7 +690,6 @@ class Keithley2612B:
         with self.lock:
             try:
                 print("Measurement started")
-                readsteps = s["steps"]
                 waitDelay = float(s["pulse"]) if s["pulse"] != "off" else 1
 
                 # Clear buffers, set repeats and steps, set sweep range.
@@ -743,270 +768,109 @@ class Keithley2612B:
                 # Turn on the source and trigger the sweep.
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
                 self.safewrite(f"{s['source']}.trigger.initiate()")
-                time.sleep(waitDelay)
 
-                # Read the buffer until the sweep is done.
-                # FIXME: This should probably be encapsulated in a separate function
-                buffer_prev = 0
-                iv = np.array([])
-                while True:
-                    if not self.busy():
-                        # From the old code, this aborts if the scan has not properly started.
-                        print("Not busy, aborting")
-                        self.safewrite(f"{s['source']}.abort()")
-                        self.safewrite(
-                            f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF"
-                        )
-                        return iv
-
-                    # Get the number of readings in nvbuffer2
-                    readings = self.k.query_ascii_values(
-                        f"print({s['source']}.nvbuffer2.n)"
+                # Wait until loop starts
+                while (
+                    self.k.query_ascii_values(
+                        f"status.operation.sweeping.{s['source']}"
                     )
-                    buffern = int(readings[0])
+                    == 0
+                ):
+                    time.sleep(0.2)
 
-                    # If there are enough readings to cover the whole sweep, break
-                    if buffern >= s["steps"] * s["repeat"]:
-                        break
+                # Wait until loop ends
+                while (
+                    self.k.query_ascii_values(
+                        f"status.operation.sweeping.{s['source']}"
+                    )
+                    > 0
+                ):
+                    time.sleep(0.2)
 
-                    if buffern > buffer_prev:
-                        # Read current (nvbuffer1) and voltage (nvbuffer2)
-
-                        i_values = self.k.query_ascii_values(
-                            f"printbuffer({buffer_prev + 1}, {buffern}, {s['source']}.nvbuffer1)"
-                        )
-                        v_values = self.k.query_ascii_values(
-                            f"printbuffer({buffer_prev + 1}, {buffern}, {s['source']}.nvbuffer2)"
-                        )
-
-                        # Add to the iv array
-                        iv.extend(list(zip(v_values, i_values)))
-
-                        # Check for limit condition
-                        if (
-                            s["type"] == "i"
-                            and any(abs(v) > 0.95 * abs(s["limit"]) for v in v_values)
-                        ) or (
-                            s["type"] == "v"
-                            and any(abs(i) > 0.95 * abs(s["limit"]) for i in i_values)
-                        ):
-                            # kill if limits exceeded
-                            self.safewrite(f"{s['source']}.abort()")
-                            readsteps = buffern
-                            break
-
-                        # Update buffer_prev
-                        buffer_prev = buffern
-
-                    time.sleep(0.5)
-
-                time.sleep(waitDelay * 1.2)
+                # Turn off the source
                 self.safewrite(
                     f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF"
                 )
+                return self.read_buffers(s["source"])
 
-                # Final buffer read to ensure all data is captured
-                # FIXME: absolutely something wrong with this :DDDDD
-                if buffer_prev > 0:
-                    iv = np.array(iv)
-                    readsteps = buffer_prev
-
-                    iv[:, 1] = self.k.query_ascii_values(
-                        f"printbuffer(1, {readsteps}, {s['source']}.nvbuffer1)"
-                    )
-                    iv[:, 0] = self.k.query_ascii_values(
-                        f"printbuffer(1, {readsteps}, {s['source']}.nvbuffer2)"
-                    )
-
-                return iv
             except:
-                # if something fails, abort the measurement and turn off the source. return whatever has been collected so far.
+                # if something fails, abort the measurement and turn off the source.
                 self.safewrite(
                     f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF"
                 )
                 self.safewrite(f"{s['source']}.abort()")
-                return iv
+                return self.read_buffers(s["source"])
 
-    def KeithleyRunDualChSweep(self, s: dict):
+    def run_dualch_sweep(self, s: dict):
+        # NOTE: this probably needs to be implemented as a low level function
+        # meaning that it should not use triggers, but just set the voltages manually
+        # and sweep manually. 
+        # This is because I can't find a function to run two simultaneous sweeps. 
+        # Well actually, one sweep can be run automatically but one of the sweeps
+        # has to be manual. 
+
         with self.lock:
             try:
-                readsteps = s["steps"]
-                waitDelay = float(s["pulse"]) if s["pulse"] != "off" else 1
-
+                
+                
                 self.safewrite(f"{s['source']}.nvbuffer1.clear()")
                 self.safewrite(f"{s['source']}.nvbuffer2.clear()")
                 self.safewrite(f"{s['drain']}.nvbuffer1.clear()")
                 self.safewrite(f"{s['drain']}.nvbuffer2.clear()")
-                self.safewrite(f"{s['source']}.trigger.count = {s['steps']}")
-                self.safewrite(f"{s['source']}.trigger.arm.count = {s['repeat']}")
-                self.safewrite(f"{s['drain']}.trigger.count = {s['steps']}")
-                self.safewrite(f"{s['drain']}.trigger.arm.count = {s['repeat']}")
-                self.safewrite(
-                    f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS"
-                )
-                self.safewrite(
-                    f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})"
-                )
 
-                if s["type"] == "i":
-                    if s["pulse"] == "off" or (
-                        abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5
-                    ):
-                        self.safewrite(
-                            f"{s['source']}.trigger.source.limitv = {s['limit']}"
-                        )
-                        self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
-                    else:
-                        self.safewrite("smua.measure.filter.enable = smua.FILTER_OFF")
-                        self.safewrite("smub.measure.filter.enable = smub.FILTER_OFF")
-                        self.safewrite(
-                            f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
-                        )
-                        self.safewrite(
-                            f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
-                        )
-                        self.safewrite(
-                            f"{s['drain']}.source.autorangei = {s['drain']}.AUTORANGE_OFF"
-                        )
-                        self.safewrite(
-                            f"{s['drain']}.source.autorangev = {s['drain']}.AUTORANGE_OFF"
-                        )
-                        self.safewrite(f"{s['source']}.measure.rangei = 10")
-                        self.safewrite(f"{s['drain']}.measure.rangei = 10")
-                        self.safewrite(f"{s['source']}.source.delay = 100e-6")
-                        self.safewrite(
-                            f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF"
-                        )
-                        self.safewrite(f"{s['source']}.source.rangei = 10")
-                        self.safewrite(f"{s['source']}.source.leveli = 0")
-                        self.safewrite(f"{s['source']}.source.limitv = 6")
-                        self.safewrite(f"{s['source']}.trigger.source.limiti = 10")
-                    self.safewrite(
-                        f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS"
+                # if voltage injection
+                if s["type"] == "v":
+                    # Setup source
+                    self.safewrite(f"{s['source']}.source.func = {s['source']}.OUTPUT_DCVOLTS")
+                    # FIXME: old code has a weird workaround for this
+                    self.safewrite(f"{s['source']}.source.limiti = s['limit']")
+                    self.safewrite(f"{s['source']}.trigger.source.linearv({s['start']},{s['end']},{s['steps']})")
+                    self.safewrite(f"{s['source']}.trigger.count = {s['repeat']}")
+                    self.safewrite(f"{s['source']}.measure.nplc = {s['nplc']}")
+                    # FIXME: This might be already set.
+                    # self.safewrite(f"{s['source']}.measure.delay = {s['delay']}")
+                    self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE")
+                    self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_HOLD")
+
+                    # Setup drain
+                    self.safewrite(f"{s['drain']}.source.func = {s['drain']}.OUTPUT_DCVOLTS")
+                    self.safewrite(f"{s['drain']}.source.limiti = s['limit']")
+                    self.safewrite(f"{s['drain']}.trigger.source.linearv({s['drainStart']},{s['drainEnd']},{s['drainPoints']})")
+                    self.safewrite(f"{s['drain']}.trigger.count = {s['repeat'] * s['steps'] }")
+                    self.safewrite(f"{s['drain']}.measure.nplc = {s['nplc_drain']}")
+                    self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE")
+                    self.safewrite(f"{s['drain']}.trigger.endpulse.action = {s['drain']}.SOURCE_HOLD")
+
+                
+
+                # Wait until loop starts
+                while (
+                    self.k.query_ascii_values(
+                        f"status.operation.sweeping.{s['source']}"
                     )
-                else:
-                    if s["pulse"] == "off" or abs(s["limit"]) < 1.5:
-                        self.safewrite(
-                            f"{s['source']}.trigger.source.limiti = {s['limit']}"
-                        )
-                        self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
-                    else:
-                        self.safewrite("smua.measure.filter.enable = smua.FILTER_OFF")
-                        self.safewrite("smub.measure.filter.enable = smub.FILTER_OFF")
-                        self.safewrite(
-                            f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
-                        )
-                        self.safewrite(
-                            f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
-                        )
-                        self.safewrite(
-                            f"{s['drain']}.source.autorangei = {s['drain']}.AUTORANGE_OFF"
-                        )
-                        self.safewrite(
-                            f"{s['drain']}.source.autorangev = {s['drain']}.AUTORANGE_OFF"
-                        )
-                        self.safewrite(f"{s['source']}.measure.rangei = 10")
-                        self.safewrite(f"{s['drain']}.measure.rangei = 10")
-                        self.safewrite(f"{s['source']}.source.delay = 100e-6")
-                        self.safewrite(
-                            f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF"
-                        )
-                        self.safewrite(f"{s['source']}.source.rangev = 6")
-                        self.safewrite(f"{s['source']}.source.levelv = 0")
-                        self.safewrite(f"{s['source']}.source.limiti = 0.1")
-                        self.safewrite(f"{s['source']}.trigger.source.limiti = 10")
-                    self.safewrite(
-                        f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS"
+                    == 0
+                ):
+                    time.sleep(0.2)
+
+                # Wait until loop ends
+                while (
+                    self.k.query_ascii_values(
+                        f"status.operation.sweeping.{s['source']}"
                     )
-                # FIXME: check the what value is read into this value
-                if s["drainVoltage"] != "off":
-                    self.safewrite(
-                        f"{s['drain']}.source.func = {s['drain']}.OUTPUT_DCVOLTS"
-                    )
-                    self.safewrite(f"{s['drain']}.source.levelv = {s['drainVoltage']}")
-                    self.safewrite(f"{s['drain']}.source.limiti = {s['drainLimit']}")
-                    drainLimitVoltage = float(s["drainLimit"])
-                else:
-                    self.safewrite(
-                        f"{s['drain']}.source.func = {s['drain']}.OUTPUT_DCVOLTS"
-                    )
-                    self.safewrite(f"{s['drain']}.source.levelv = 0")
-                    if s["type"] == "v" and s["limit"] > 1.5:
-                        self.safewrite(f"{s['drain']}.source.limiti = 1.5")
-                        drainLimitVoltage = 1.5
-                    else:
-                        self.safewrite(f"{s['drain']}.source.limiti = {s['limit']}")
-                        drainLimitVoltage = s["limit"]
-                    if s["type"] == "i":
-                        self.safewrite(f"{s['drain']}.source.limiti = {s['end']}")
-                        drainLimitVoltage = s["end"]
+                    > 0
+                ):
+                    time.sleep(0.2)
 
-                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
-                self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_ON")
-                self.safewrite(f"{s['drain']}.trigger.initiate()")
-                self.safewrite(f"{s['source']}.trigger.initiate()")
-                time.sleep(waitDelay)
-
-                # Buffer reading starts here.
-                buffer_prev = 0
-                iv = np.array([])
-
-                while True:
-                    if not self.busy():
-                        self.safewrite(f'{s["source"]}.abort()')
-                        self.safewrite(f'{s["drain"]}.abort()')
-                        iv = []
-                        time.sleep(0.5)
-                        self.safewrite(
-                            f'{s["source"]}.source.output = {s["source"]}.OUTPUT_OFF'
-                        )
-                        self.safewrite(
-                            f'{s["drain"]}.source.output = {s["drain"]}.OUTPUT_OFF'
-                        )
-                        break
-
-                    # Get the number of readings in nvbuffer2
-                    readings = self.k.query_ascii_values(
-                        f"print({s['source']}.nvbuffer2.n)"
-                    )
-                    buffern = int(readings[0])
-
-                    if buffern >= s["steps"] * s["repeat"]:
-                        break
-
-                    if buffern > buffer_prev:
-                        # Read currents (nvbuffer1) and voltages (nvbuffer2)
-
-                        i_values_source = self.k.query_ascii_values(
-                            f"printbuffer({buffer_prev + 1}, {buffern}, {s['source']}.nvbuffer1)"
-                        )
-                        v_values_source = self.k.query_ascii_values(
-                            f"printbuffer({buffer_prev + 1}, {buffern}, {s['source']}.nvbuffer2)"
-                        )
-                        i_values_drain = self.k.query_ascii_values(
-                            f"printbuffer({buffer_prev + 1}, {buffern}, {s['drain']}.nvbuffer1)"
-                        )
-                        v_values_drain = self.k.query_ascii_values(
-                            f"printbuffer({buffer_prev + 1}, {buffern}, {s['drain']}.nvbuffer2)"
-                        )
-
-                        buffer_prev = buffern
-                    time.sleep(0.5)
-
-                time.sleep(waitDelay * 1.2)
-                # Loop over, stop outputs.
-                self.safewrite(
-                    f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF"
-                )
+                # Turn off the source(s)  
+                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
                 self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
 
+                return (self.read_buffers(s["source"]), self.read_buffers(s["drain"]))
             except:
                 # if something fails, abort the measurement and turn off the source. return whatever has been collected so far.
-                self.safewrite(
-                    f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF"
-                )
+                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
                 self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
                 self.safewrite(f"{s['source']}.abort()")
                 self.safewrite(f"{s['drain']}.abort()")
 
-                return iv
+                return "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
