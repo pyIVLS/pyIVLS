@@ -27,6 +27,7 @@ class Test:
 
     def run_button(self):
         """Run the test function"""
+        print("Test starting")
         self.statusLabel.setText("Running test function")
         mm_functions = self.pm.hook.get_functions(args={"function": "micromanipulator"})
         mm_functions = mm_functions[0]
@@ -48,6 +49,22 @@ class Test:
         TLCCS_functions = TLCCS_functions[0]
         TLCCS_functions = TLCCS_functions["TLCCS"]
         print(TLCCS_functions.keys())
+
+        try:
+            assert mm_functions["open"](), "Sutter failed to open"
+
+            assert cam_functions["open"](), "Camera failed to open"
+
+            assert TLCCS_functions["open"](), "Spec failed to open"
+
+            aff_functions["coords"]((0,0))
+
+        except Exception as e:
+            print(e)
+            self.statusLabel.setText("Test failed")
+            return
+        
+        print("Test complete")
 
 
         self.statusLabel.setText("Test function complete")
