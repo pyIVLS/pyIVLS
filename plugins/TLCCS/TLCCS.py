@@ -64,7 +64,7 @@ class CCSDRV:
             pid (hexadecimal, optional): product ID. Defaults to 0x8087 (CCS175).
         """
         # Set class vars
-        self.io = LLIO(vid, pid)
+        self.io = LLIO()
         if self.io.open():
             self.dev = self.io.dev
 
@@ -73,7 +73,9 @@ class CCSDRV:
                 integration_time = self.read_integration_time_GUI()
 
             # Set default integration time
-            assert self.set_integration_time(integration_time), "Integration time not set"
+            assert self.set_integration_time(
+                integration_time
+            ), "Integration time not set"
             state = self.get_device_status()
             self.integration_time = const.CCS_SERIES_DEF_INT_TIME
 
@@ -88,6 +90,8 @@ class CCSDRV:
                 self.get_scan_data()
 
             self.status_label.setText("Connected")
+            return True
+        return False
 
     def close(self):
         """Closes the connection through LLIO."""
