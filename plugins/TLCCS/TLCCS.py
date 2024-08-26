@@ -4,8 +4,7 @@ import os
 
 from PyQt6 import uic
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject
-import matplotlib.pyplot as plt
+
 
 
 import usb
@@ -14,7 +13,6 @@ import plugins.TLCCS.const as const
 import numpy as np
 import struct
 import time
-import pyIVLS_constants as IVLS_const
 
 
 class CCSDRV:
@@ -53,8 +51,6 @@ class CCSDRV:
 
     def open(
         self,
-        vid=IVLS_const.THORSPEC_VID,
-        pid=IVLS_const.THORSPEC_PID,
         integration_time=None,
     ):
         """Opens a connection through LLIO.
