@@ -11,9 +11,9 @@ class LLIO:
     Includes control IN/OUT transfers and raw (bulk) read.
     """
 
-    def __init__(self, vid=ivls_const.THORSPEC_VID, pid=ivls_const.THORSPEC_PID):
-        self.vid = vid
-        self.pid = pid
+    def __init__(self):
+        self.vid = ivls_const.THORSPEC_VID
+        self.pid = ivls_const.THORSPEC_PID
         self.bulk_in_pipe = None
         self.timeout = None
         self.dev = None

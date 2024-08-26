@@ -38,16 +38,25 @@ class Test:
         cam_functions = cam_functions["VenusUSB2"]
         print(cam_functions.keys())
 
-        aff_functions = self.pm.hook.get_functions(args={"function": "coordinate conversion"})
+        aff_functions = self.pm.hook.get_functions(
+            args={"function": "coordinate conversion"}
+        )
         aff_functions = aff_functions[0]
         aff_functions = aff_functions["Affine"]
         print(aff_functions.keys())
-
 
         TLCCS_functions = self.pm.hook.get_functions(args={"function": "spectrometer"})
         TLCCS_functions = TLCCS_functions[0]
         TLCCS_functions = TLCCS_functions["TLCCS"]
         print(TLCCS_functions.keys())
 
-
+        try:
+            print(cam_functions["open"]())
+            pic = cam_functions["camera_get_image"]()
+            cv.imshow("Test", pic)
+            print(TLCCS_functions["open"]())
+            data = TLCCS_functions["run_scan"]()
+            print(data)
+        except Exception as e:
+            print(f"exception: {e}")
         self.statusLabel.setText("Test function complete")
