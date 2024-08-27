@@ -80,29 +80,17 @@ class Keithley2612B:
     def debug_button(self):
         try:
             settings = self.parse_settings_widget()
-            print(settings)
-            print("--------------------------------")
+            self.debug_mode = True
+            self.keithley_init(settings[0])
+            print("--- channel initialized ---")
+            print("busy: ", self.busy())
+            data = self.KeithleyRunDualChSweep(settings[0])
+            print("data: ", data)
+
         except Exception as e:
             print(f"Exception in debug_button: {e}")
 
-        """        self.debug_mode = True
-        self.connect()
-        self.keithley_init(settings)
-        print("--- channel initialized ---")
-        print("busy: ", self.busy())
-        data = self.KeithleyRunSingleChSweep(settings)
-        print("data: ", data)
-        self.disconnect()
-        # print("--- Sweep done, i'm happy now ---")"""
-
-        """        
-        self.connect()
-        if settings["single_ch"]:
-            self.KeithleyInitSingleCh(settings, self.k)
-        else:
-            self.keithley_init_dual_ch(settings, self.k)
-        self.disconnect()
-        """
+ 
 
     def _get_settings_dict(self):
         """Generates a dict of the settings. Returned as lambda functions so that the latest values
@@ -291,15 +279,19 @@ class Keithley2612B:
     ## Communication functions
     def safewrite(self, command):
         try:
+            print(f"Sending simCommand: {command}")
+            """
             self.k.write(command)
             if self.debug_mode:
                 error_code = self.k.query("print(errorqueue.next())")
                 if "Queue Is Empty" not in error_code:
                     print(f"Error sending command: {command}\nError code: {error_code}")
+            """
         except Exception as e:
             print(f"Exception sending command: {command}\nException: {e}")
         finally:
-            self.k.write("errorqueue.clear()")
+            time.sleep(0.1)
+            # self.k.write("errorqueue.clear()")
 
     def connect(self) -> bool:
         """Connect to the Keithley 2612B.
@@ -376,21 +368,24 @@ class Keithley2612B:
         Returns:
             np.ndarray: i-v data
         """
+        if not self.debug_mode:
+            iv = []
+            # Get the number of readings in nvbuffer2
+            readings = self.k.query_ascii_values(f"print({channel}.nvbuffer2.n)")
+            readings_count = int(readings[0])
+            i_values = self.k.query_ascii_values(
+                f"printbuffer({0}, {readings_count}, {channel}.nvbuffer1)"
+            )
+            v_values = self.k.query_ascii_values(
+                f"printbuffer({0}, {readings_count}, {channel}.nvbuffer2)"
+            )
 
-        iv = []
-        # Get the number of readings in nvbuffer2
-        readings = self.k.query_ascii_values(f"print({channel}.nvbuffer2.n)")
-        readings_count = int(readings[0])
-        i_values = self.k.query_ascii_values(
-            f"printbuffer({0}, {readings_count}, {channel}.nvbuffer1)"
-        )
-        v_values = self.k.query_ascii_values(
-            f"printbuffer({0}, {readings_count}, {channel}.nvbuffer2)"
-        )
-
-        # Add to the iv array
-        iv.extend(list(zip(v_values, i_values)))
-        return np.array(iv)
+            # Add to the iv array
+            iv.extend(list(zip(v_values, i_values)))
+            return np.array(iv)
+        else:
+            print("Simulated buffer read")
+            return np.array([[1, 1], [2, 2], [3, 3], [4, 4], [5, 5]])
 
     def parse_settings_widget(self) -> list[dict]:
         """Parses the settings widget and extracts a dict of settings. If the settings are invalid, an AssertionError is raised.
@@ -560,7 +555,7 @@ class Keithley2612B:
             self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
 
         if not s["single_ch"]:
-            if s["sense_drain"] and s["sense"]:
+            if s["sense"]:
                 self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_REMOTE")
             else:
                 self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_LOCAL")
@@ -673,8 +668,6 @@ class Keithley2612B:
             self.safewrite(f"{s['source']}.source.highc = {s['source']}.ENABLE")
             if not s["single_ch"] and s["highC"]:
                 self.safewrite(f"{s['drain']}.source.highc = {s['drain']}.ENABLE")
-
-
 
     def run_singlech_sweep(self, s: dict) -> np.ndarray:
         """Runs a single channel sweep on. Handles locking the instrument and releasing it after the sweep is done.
@@ -841,6 +834,12 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE")
                     self.safewrite(f"{s['drain']}.trigger.endpulse.action = {s['drain']}.SOURCE_HOLD")
 
+                    # Setup events
+                    self.safewrite("trigger.blender[1].orenable = false") # AND
+                    self.safewrite(f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.PULSE_COMPLETE_EVENT_ID")
+                    self.safewrite(f"trigger.blender[1].stimulus[2] = {s['drain']}.trigger.ARMED_EVENT_ID")
+                    self.safewrite(f"{s['drain']}.trigger.arm.stimulus = trigger.blender[1].EVENT_ID")
+
                 
 
                 # Wait until loop starts
@@ -874,3 +873,107 @@ class Keithley2612B:
                 self.safewrite(f"{s['drain']}.abort()")
 
                 return "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
+    def KeithleyRunDualChSweep(self, s):
+        with self.lock:
+            try:
+                waitDelay = float(s['pulse']) if s['pulse'] != 'off' else 1
+
+                # Clear buffers
+                self.safewrite(f"{s['source']}.nvbuffer1.clear()")
+                self.safewrite(f"{s['source']}.nvbuffer2.clear()")
+                self.safewrite(f"{s['drain']}.nvbuffer1.clear()")
+                self.safewrite(f"{s['drain']}.nvbuffer2.clear()")
+
+                # Set trigger counts
+                self.safewrite(f"{s['source']}.trigger.count = {s['steps']}")
+                self.safewrite(f"{s['source']}.trigger.arm.count = {s['repeat']}")
+                self.safewrite(f"{s['drain']}.trigger.count = {s['drain_steps']}")
+                self.safewrite(f"{s['drain']}.trigger.arm.count = {s['repeat'] * s['steps']}")  # Adjusted to sweep for each source step
+
+                self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
+                self.safewrite(f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})")
+
+                if s['type'] == 'i':
+                    if s['pulse'] == 'off' or (abs(s['start']) < 1.5 and abs(s['end']) < 1.5):
+                        self.safewrite(f"{s['source']}.trigger.source.limitv = {s['limit']}")
+                        self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
+                    else:
+                        self.safewrite("smua.measure.filter.enable = smua.FILTER_OFF")
+                        self.safewrite("smub.measure.filter.enable = smub.FILTER_OFF")
+                        self.safewrite(f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['drain']}.source.autorangei = {s['drain']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['drain']}.source.autorangev = {s['drain']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['source']}.measure.rangei = 10")
+                        self.safewrite(f"{s['drain']}.measure.rangei = 10")
+                        self.safewrite(f"{s['source']}.source.delay = 100e-6")
+                        self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
+                        self.safewrite(f"{s['source']}.source.rangei = 10")
+                        self.safewrite(f"{s['source']}.source.leveli = 0")
+                        self.safewrite(f"{s['source']}.source.limitv = 6")
+                        self.safewrite(f"{s['source']}.trigger.source.limiti = 10")
+                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
+                else:
+                    if s['pulse'] == 'off' or abs(s['limit']) < 1.5:
+                        self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
+                        self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
+                    else:
+                        self.safewrite("smua.measure.filter.enable = smua.FILTER_OFF")
+                        self.safewrite("smub.measure.filter.enable = smub.FILTER_OFF")
+                        self.safewrite(f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['drain']}.source.autorangei = {s['drain']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['drain']}.source.autorangev = {s['drain']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['source']}.measure.rangei = 10")
+                        self.safewrite(f"{s['drain']}.measure.rangei = 10")
+                        self.safewrite(f"{s['source']}.source.delay = 100e-6")
+                        self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
+                        self.safewrite(f"{s['source']}.source.rangev = 6")
+                        self.safewrite(f"{s['source']}.source.levelv = 0")
+                        self.safewrite(f"{s['source']}.source.limiti = 0.1")
+                        self.safewrite(f"{s['source']}.trigger.source.limiti = 10")
+                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
+
+                #if s['drainVoltage'] != 'off':
+                # Drain sweep setup
+                if 'drainVoltage' in s and s['drainVoltage'] != 'off':
+                    self.safewrite(f"{s['drain']}.trigger.source.linearv({s['drain_start']},{s['drain_end']},{s['drain_steps']})")
+                    # FIXME: This has not been tested, but it should trigger a sweep on the drain for each source step.
+                    self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")                
+
+                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
+                self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_ON")
+                self.safewrite(f"{s['source']}.trigger.initiate()")
+                time.sleep(waitDelay)
+                """
+                # Wait until loop starts
+                while (
+                    self.k.query_ascii_values(
+                        f"status.operation.sweeping.{s['source']}"
+                    )
+                    == 0
+                ):
+                    time.sleep(0.2)
+
+                # Wait until loop ends
+                while (
+                    self.k.query_ascii_values(
+                        f"status.operation.sweeping.{s['source']}"
+                    )
+                    > 0
+                ):
+                    time.sleep(0.2)
+                """
+                # Turn off the source(s)  
+                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
+                self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
+
+                return (self.read_buffers(s["source"]), self.read_buffers(s["drain"]))
+            except Exception as e:
+                # if something fails, abort the measurement and turn off the source. return whatever has been collected so far.
+                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
+                self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
+                self.safewrite(f"{s['source']}.abort()")
+                self.safewrite(f"{s['drain']}.abort()")
+                print(f"I have failed in spectacular fashion: {e}")
