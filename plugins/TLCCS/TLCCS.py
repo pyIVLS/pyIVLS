@@ -4,8 +4,7 @@ import os
 
 from PyQt6 import uic
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject
-import matplotlib.pyplot as plt
+
 
 
 import usb
@@ -50,7 +49,10 @@ class CCSDRV:
             print("Integration time from GUI: ", input)
             return float(input) * 1e-3
 
-    def open(self, vid=0x1313, pid=0x8087, integration_time=None):
+    def open(
+        self,
+        integration_time=None,
+    ):
         """Opens a connection through LLIO.
 
         Args:
@@ -58,7 +60,7 @@ class CCSDRV:
             pid (hexadecimal, optional): product ID. Defaults to 0x8087 (CCS175).
         """
         # Set class vars
-        self.io = LLIO(vid, pid)
+        self.io = LLIO()
         if self.io.open():
             self.dev = self.io.dev
 
@@ -67,7 +69,9 @@ class CCSDRV:
                 integration_time = self.read_integration_time_GUI()
 
             # Set default integration time
-            assert self.set_integration_time(integration_time)
+            assert self.set_integration_time(
+                integration_time
+            ), "Integration time not set"
             state = self.get_device_status()
             self.integration_time = const.CCS_SERIES_DEF_INT_TIME
 
@@ -82,6 +86,8 @@ class CCSDRV:
                 self.get_scan_data()
 
             self.status_label.setText("Connected")
+            return True
+        return False
 
     def close(self):
         """Closes the connection through LLIO."""

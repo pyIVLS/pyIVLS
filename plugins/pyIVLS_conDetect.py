@@ -3,7 +3,7 @@ import pluggy
 from PyQt6 import QtWidgets
 
 
-from plugins.ConDetect.ConDetect import ConDetect
+from plugins.conDetect.conDetect import ConDetect
 from plugins.plugin import Plugin
 
 

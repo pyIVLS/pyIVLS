@@ -4,7 +4,7 @@
 3. Place the source files in the folder, name it {plugin name}.py
 4. Add an .ui file with the name {plugin name}_settings widget.ui under the same directory
 5. Add hook implementation file in /plugins with the name pyIVLS_{plugin name}.py
-6. In the hook implementation file, make a class pyIVLS_{plugin name}_plugin that inherits from the base class plugin.
+6. In the hook implementation file, make a class pyIVLS_{plugin name}_plugin that inherits from the base class plugin. (defined in plugin.py)
 
 See current plugins for a template. Consistent naming is the key to get the plugins to show up and register properly.
 If you want methods to be private and not passed on hookcalls, add "_" to the beginning of the method name.
@@ -19,3 +19,9 @@ pm.hook.mm_move(speed=1, x=0, y=0, z=0) works
 
 # ini file:
 Write dependencies with no spaces and comma separated values.
+
+
+# Base class Plugin
+Contains some common logic for all plugins. This class also provides a method that dynamically get all public methods. 
+When adding additional hooks to all plugins, check pyIVLS_constants.py and add the name of the new hook to the HOOKS constant. 
+This prevents it from being passed around unnecessarily.

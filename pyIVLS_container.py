@@ -64,7 +64,6 @@ class pyIVLS_container(QObject):
             dict: plugin name -> plugin widget
         """
         plugin_manager = self.pm
-        print("I REALLY NEED THIS PLUGIN INFO SAYS THE CONTAINER")
         single_element_dicts = self.pm.hook.get_setup_interface(
             pm=plugin_manager, plugin_data=self.get_plugin_dict()
         )
@@ -164,11 +163,12 @@ class pyIVLS_container(QObject):
 
     def register_start_up(self):
         """Checks the .ini file for saved settings and registers all plugins that are set to load on startup."""
+        # FIXME: Naive implementation. If a pluginload fails on startup, it's not retried. This makes it possible for the user™ to break something.
         for plugin in self.config.sections():
             if self.config[plugin]["load"] == "True":
                 self._register(plugin)
 
-    # NOTE: This function might fail with more complex circular dependencies. Plugins might be loaded multiple times, but _register() should handle this.
+    # NOTE: This function *might* fail with circular dependencies. Plugins might be loaded multiple times, but _register should make sure that only one instance is registered.
     def _check_dependencies_register(self, plugins_to_activate: list) -> list:
         """Checks the dependencies of the plugins to activate and adds them to the list of plugins to activate.
 

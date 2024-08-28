@@ -3,15 +3,6 @@
 ### main config name
 configFileName = "pyIVLS.ini"
 
-### dictionary for plugin data
-
-"""
-plugin_num = 0
-plugin_name = 1
-plugin_type = 2
-plugin_function = 3
-plugin_address = 4
-"""
 
 ### Keithley constants
 KEITHLEY_VISA = "TCPIP::192.168.1.5::INSTR"
@@ -23,8 +14,13 @@ SUTTER_DEFAULT_PORT = (
 )
 
 ### Thorspec constants
-THORSPEC_PID = 0x1551
-THORSPEC_VID = 0x1000
+THORSPEC_VID = 0x1313
+THORSPEC_PID = 0x8087
 
-### Plugin constants
+### Base class Plugin constants
 HOOKS = ["get_setup_interface", "get_functions"]
+
+### conDetect
+CONDETECT_PORT = "ftdi://ftdi:232:UUT1/1"
+
+
