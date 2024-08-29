@@ -64,9 +64,11 @@ class pyIVLS_Keithley2612B_plugin(Plugin):
     when the current position is reached, return to normal measurement mode.
     """
 
-    def measure_resistance(self):
+    def measure_resistance(self, channel):
         """measures resistance
 
         :return: resistance
         """
-        raise NotImplementedError("Not implemented yet")
+        if self.smu.k is None:
+            self.smu.connect()
+        return self.smu.resistance_measurement(channel)
