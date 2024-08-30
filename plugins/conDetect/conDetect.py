@@ -29,17 +29,17 @@ class ConDetect:
 
     def connect(self, pm):
         self.port = pyftdi.serialext.serial_for_url(const.CONDETECT_PORT, baudrate=400)
-        """
+
         if self.mm_func is None:
-            self.mm_func = pm.hook.get_functions(
-                args={"function": "micromanipulator"}
-            )[0]
+            self.mm_func = pm.hook.get_functions(args={"function": "micromanipulator"})[
+                0
+            ]
             if self.mm_func.get("Sutter"):
                 self.mm_func = self.mm_func.get("Sutter")
                 self.mm_func["open"]()
             else:
                 raise Exception("Can't access sutter functions")
-        """
+
         if self.smu_func is None:
             self.smu_func = pm.hook.get_functions(args={"function": "smu"})[0]
             if self.smu_func.get("Keithley2612B"):
@@ -61,18 +61,33 @@ class ConDetect:
         else:
             raise Exception("Invalid channel number")
 
-    def contact(self):
-        # FIXME: broky broky
+    def contact(self, manipulator):
+        if manipulator == 1:
+            self.measurement_mode(2)
+            res = self.smu_func["measure_resistance"](channel="smua")
+        elif manipulator == 2:
+            self.measurement_mode(1)
+            res = self.smu_func["measure_resistance"](channel="smua")
+        else:
+            raise ValueError("Give a proper channel")
+
+        if res[0] < 1000:
+            return True
+        # dtr punainen
+        # rts sininen
+
         return False
 
-    def move_to_contact(self):
-        while not self.contact():
+    def move_to_contact(self, manipulator):
+        assert self.mm_func["mm_change_active_device"](dev_num=manipulator)
+        while not self.contact(manipulator):
             print(
                 f"Moving to contact until I hit something :DDDDD t: Sutter manipulator"
             )
-            moveResult = self.mm_func["mm_lower"](z_change=10)
-            print(moveResult)
-            if not moveResult[0]:
+            time.sleep(0.5)
+            move_result = self.mm_func["mm_lower"](z_change=10)
+            print(move_result)
+            if not move_result:
                 print("Ouch, i hit something")
                 break
 
@@ -81,21 +96,9 @@ class ConDetect:
         if self.port is None:
             self.connect(pm)  # Connect to the serial port
         try:
-            self.measurement_mode(0)
-            print(self.smu_func["measure_resistance"](channel="smub"))
-            time.sleep(2)
+            self.move_to_contact(2)
 
-            self.measurement_mode(1)
-            print(self.smu_func["measure_resistance"](channel="smub"))
-            time.sleep(2)
-
-            self.measurement_mode(2)
-            print(self.smu_func["measure_resistance"](channel="smub"))
-            time.sleep(2)
-
-            self.measurement_mode(0)
         except Exception as e:
             print(f"Haha stupid code go brrrrr: {e}")
         finally:
             print("Yep yep done debugging")
-  
