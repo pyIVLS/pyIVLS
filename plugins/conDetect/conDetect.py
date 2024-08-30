@@ -96,3 +96,6 @@ class ConDetect:
             self.measurement_mode(0)
         except Exception as e:
             print(f"Haha stupid code go brrrrr: {e}")
+        finally:
+            print("Yep yep done debugging")
+  
