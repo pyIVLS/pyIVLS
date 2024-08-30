@@ -91,7 +91,7 @@ class pyIVLS_Sutter_plugin(Plugin):
         """
 
         (x, y, z) = self.hal.get_current_position()
-        if z + z_change > self.hal._MAXIMUM_M or z + z_change < self.hal._minimum_ms:
+        if z + z_change > self.hal._MAXIMUM_M or z + z_change < self.hal._MINIMUM_MS:
             return False
         else:
             self.hal.slow_move_to(x, y, z + z_change, speed=0)
