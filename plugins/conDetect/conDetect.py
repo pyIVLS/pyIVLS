@@ -48,54 +48,53 @@ class ConDetect:
             else:
                 raise Exception("Can't access Keithley2612B functions")
 
-    def measurement_mode(self, channel):
-        if channel == 0:
-            self.port.rts = False
-            self.port.dtr = False
-        elif channel == 1:
-            self.port.rts = True
-            self.port.dtr = False
-        elif channel == 2:
-            self.port.rts = False
-            self.port.dtr = True
-        else:
-            raise Exception("Invalid channel number")
+    def measurement_mode(self, rts, dtr):
+        """Sets the pins to send 5v
 
-    def contact(self, manipulator):
-        if manipulator == 1:
-            self.measurement_mode(2)
-            res = self.smu_func["measure_resistance"](channel="smua")
-        elif manipulator == 2:
-            self.measurement_mode(1)
-            res = self.smu_func["measure_resistance"](channel="smua")
-        else:
-            raise ValueError("Give a proper channel")
+        Args:
+            rts (bool): rts on/off
+            dtr (bool): dtr on/off
+        """
+        # rts seems to act in reverse so correct for that
+        self.port.rts = not rts
+        # dtr seems to act in reverse so correct for that
+        self.port.dtr = not dtr
 
+    def contact(self):
+        res = self.smu_func["measure_resistance"](channel="smua")
+        # NOTE: Just a random guess at a good value
         if res[0] < 1000:
             return True
-        # dtr punainen
-        # rts sininen
+        # dtr sinen
+        # rts punane
 
         return False
 
     def move_to_contact(self, manipulator):
         assert self.mm_func["mm_change_active_device"](dev_num=manipulator)
-        while not self.contact(manipulator):
-            print(
-                f"Moving to contact until I hit something :DDDDD t: Sutter manipulator"
-            )
-            time.sleep(0.5)
-            move_result = self.mm_func["mm_lower"](z_change=10)
-            print(move_result)
+
+        # FIXME: Current implementation relies on the wires being corrected to the same manipulators.
+        # only supports two manipulators moving
+        if manipulator == 1:
+            self.measurement_mode(False, True)
+        elif manipulator == 2:
+            self.measurement_mode(True, False)
+
+        while not self.contact():
+            move_result = self.mm_func["mm_lower"](z_change=50)
             if not move_result:
-                print("Ouch, i hit something")
-                break
+                print(f"manipulator {manipulator} reached end of travel")
+                return False
+        self.measurement_mode(False, False)
+        return True
 
     def debug(self, pm):
         print("Debugging")
         if self.port is None:
             self.connect(pm)  # Connect to the serial port
         try:
+            self.move_to_contact(1)
+
             self.move_to_contact(2)
 
         except Exception as e:
