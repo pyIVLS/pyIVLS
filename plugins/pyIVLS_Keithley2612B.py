@@ -1,4 +1,3 @@
-#!/usr/bin/python3.8
 import pluggy
 from plugins.Keithley2612B.Keithley2612B import Keithley2612B
 from plugins.plugin import Plugin
@@ -33,40 +32,43 @@ class pyIVLS_Keithley2612B_plugin(Plugin):
         if args.get("function") == self.plugin_info["function"]:
             return self.get_public_methods()
 
-    # DEPRECATED - REMOVE
-    def open(self, **kwargs) -> tuple[str, bool]:
-        """opens the plugin
+    def open(self) -> tuple:
+        """opens the plugin. If already open, returns True.
 
-        :return: None
+        :return: Tuple with plugin name and success
         """
-        self.smu.connect()
+        if self.smu.connect():
+            return (self.plugin_name, True)
+        return (self.plugin_name, False)
 
-    def run_sweep(self) -> np.ndarray:
+    def run_sweep(self) -> list(np.ndarray):
         """runs a sweep
 
         :return: list of data
         """
         try:
+            ret_list = []
             settings = self.smu.parse_settings_widget()
-            if settings["single_ch"]:
-                self.smu.keithley_init(settings)
-                data = self.smu.keithley_run_single_ch_sweep(settings)
-                return data
-            else:
-                raise NotImplementedError("Two channel mode not implemented yet")
-        except:
-            print("Error in run_sweep")
-            return np.array([])
+            for setting in settings:
+                if setting["single_ch"]:
+                    self.smu.keithley_init(setting)
+                    data = self.smu.run_singlech_sweep(setting)
+                    ret_list.append(data)
+                else:
+                    raise NotImplementedError("Two channel mode not implemented yet")
+        except Exception as e:
+            print(f"Error in run_sweep: {e}")
+        finally:
+            return ret_list
 
-    """
-    This should measure the current resistance at some probe. Prolly needs an arg for the probe.
-    This should also handle changing the mode to resistance measurement and 
-    when the current position is reached, return to normal measurement mode.
-    """
 
-    def measure_resistance(self):
+
+    def measure_resistance(self, channel):
         """measures resistance
 
         :return: resistance
         """
-        raise NotImplementedError("Not implemented yet")
+        # placeholder. Open the connection if it is not open.
+        if self.smu.k is None:
+            self.smu.connect()
+        return self.smu.resistance_measurement(channel)

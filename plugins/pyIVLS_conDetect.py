@@ -7,7 +7,7 @@ from plugins.conDetect.conDetect import ConDetect
 from plugins.plugin import Plugin
 
 
-class pyIVLS_ConDetect_plugin(Plugin):
+class pyIVLS_conDetect_plugin(Plugin):
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
@@ -34,7 +34,7 @@ class pyIVLS_ConDetect_plugin(Plugin):
         )
 
         # Connect widget buttons to functions
-        save_button.clicked.connect(self.detector.debug)
+        save_button.clicked.connect(self._debug_button)
 
         return {self.plugin_name: self.detector.settingsWidget}
 
@@ -44,3 +44,6 @@ class pyIVLS_ConDetect_plugin(Plugin):
         """Returns a dictionary of publicly accessible functions."""
         if args.get("function") == self.plugin_info["function"]:
             return self.get_public_methods()
+
+    def _debug_button(self):
+        self.detector.debug(self.pm)

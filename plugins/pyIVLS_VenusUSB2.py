@@ -51,20 +51,19 @@ class pyIVLS_VenusUSB2_plugin(Plugin):
         save_button.clicked.connect(self.camera.save_button)
         return settingsWidget
 
-    def open(self, **kwargs) -> tuple[str, bool]:
+    def open(self) -> tuple:
         """Open the device.
 
         Returns:
-            bool: True if open
+            tuple: name, success
         """
         if self.camera.open_camera():
-            return ("VenusUSB2", True)
-        return ("VenusUSB2", False)
+            return (self.plugin_name, True)
+        return (self.plugin_name, False)
 
     def camera_get_image(self) -> cv2.typing.MatLike:
         """returns the image from the camera
 
         :return: image from the camera
         """
-        print("Camera hookcall")
         return self.camera.capture_image()

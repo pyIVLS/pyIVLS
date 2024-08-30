@@ -293,11 +293,14 @@ class Keithley2612B:
             bool: connection succesful or nah
         """
         try:
-            print("Connecting to Keithley 2612B")
-            self.k = self.rm.open_resource(pyIVLS_constants.KEITHLEY_VISA)
-            print(self.k.query("*IDN?"))
-            self.k.read_termination = "\n"
+            if self.k is None:
+                print("Connecting to Keithley 2612B")
+                self.k = self.rm.open_resource(pyIVLS_constants.KEITHLEY_VISA)
+                print(self.k.query("*IDN?"))
+                self.k.read_termination = "\n"
+                self.k.write_termination = "\n"
             return True
+
         except:
             print("Failed to connect to Keithley 2612B")
             return False
@@ -329,27 +332,32 @@ class Keithley2612B:
             float: resistance
         """
         if channel == "smua" or channel == "smub":
-            # Restore Series 2600B defaults.
-            self.safewrite(f"{channel}.reset()")
-            # Select current source function.
-            self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
-            # Set source range to 10 mA.
-            self.safewrite(f"{channel}.source.rangei = 10e-3")
-            # Set current source to 10 mA.
-            self.safewrite(f"{channel}.source.leveli = 10e-3")
-            # Set voltage limit to 10 V. FIXME: Value of 1 v is arbitrary.
-            self.safewrite(f"{channel}.source.limitv = 1")
-            # Enable 4-wire ohms.
-            self.safewrite(f"{channel}.sense = {channel}.SENSE_REMOTE")
-            # Set voltage range to auto.
-            self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
-            # Turn on output.
-            self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
-            # Get resistance reading.
-            resistance = float(self.safequery(f"{channel}.measure.r()"))
-            # Turn off output.
-            self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
-            return resistance
+            try:
+                # Restore Series 2600B defaults.
+                self.safewrite(f"{channel}.reset()")
+                # Select current source function.
+                self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
+                # Set source range to 10 mA.
+                self.safewrite(f"{channel}.source.rangei = 10e-3")
+                # Set current source to 10 mA.
+                self.safewrite(f"{channel}.source.leveli = 10e-3")
+                # Set voltage limit to 10 V. FIXME: Value of 1 v is arbitrary.
+                self.safewrite(f"{channel}.source.limitv = 1")
+                # Enable 2-wire ohms. FIXME: Check this
+                self.safewrite(f"{channel}.sense = {channel}.SENSE_LOCAL")
+                # Set voltage range to auto.
+                self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
+                # Turn on output.
+                self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
+                # Get resistance reading.
+                res = self.safequery(f"print({channel}.measure.r())")
+                return res
+            except Exception as e:
+                print(f"Error measuring resistance: {e}")
+                return -1
+            finally:
+                self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
+                self.safewrite(f"{channel}.source.leveli = 0")
         else:
             raise ValueError(f"Invalid channel {channel}")
 
@@ -872,7 +880,6 @@ class Keithley2612B:
                     self.safewrite(
                         f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS"
                     )
-
 
                 # Drain sweep setup
                 if s["drain_start"] != s["drain_end"] and s["drain_steps"] > 1:
