@@ -46,15 +46,15 @@ class pyIVLS_Sutter_plugin(Plugin):
         status_button.clicked.connect(self.hal.status_button)
         return settingsWidget
 
-    def open(self) -> tuple[str, bool]:
+    def open(self) -> tuple:
         """Open the device.
 
         Returns:
-            bool: True if open
+            tuple: name, success
         """
         if self.hal.open():
-            return ("Sutter", True)
-        return ("Sutter", False)
+            return (self.plugin_name, True)
+        return (self.plugin_name, False)
 
     def mm_change_active_device(self, dev_num):
         """Micromanipulator active device change.
@@ -81,10 +81,17 @@ class pyIVLS_Sutter_plugin(Plugin):
         self.hal.stop()
 
     def mm_lower(self, z_change) -> bool:
+        """Moves the micromanipulator in the z axis. If the move is out of bounds, it will return False.
+
+        Args:
+            z_change (float): change in z axis in micron
+
+        Returns:
+            bool: Moved or not
+        """
 
         (x, y, z) = self.hal.get_current_position()
-        # FIXME: replace the placeholder maximum
-        if z + z_change > 1000 or z + z_change < self.hal._minimum_ms:
+        if z + z_change > self.hal._MAXIMUM_M or z + z_change < self.hal._minimum_ms:
             return False
         else:
             self.hal.slow_move_to(x, y, z + z_change, speed=0)
