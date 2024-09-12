@@ -42,6 +42,8 @@ class Plugin:
         """
         stack = inspect.stack()
         calling_class = stack[1].frame.f_locals["self"].__class__.__name__
+        ## Maybe not the optimum solution, as the plugin name is derived form the calling class. It imposes the naming scheme that should be followed. 
+        ## On the other hand, I am not sure if there is a simle workaround
         plugin_name = calling_class.removeprefix("pyIVLS_").removesuffix("_plugin")
 
         # Set internal variables

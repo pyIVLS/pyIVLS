@@ -5,3 +5,4 @@ __pycache__/
 /plugins/coordConverter/testImages/*
 *.m
 /plugins/Keithley/IVLS_DLT_dummy.m
+pyIVLS.ini.old

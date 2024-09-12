@@ -1,6 +1,6 @@
 #!/usr/bin/python3.8
 from os.path import dirname, sep
-
+import sys
 
 import importlib
 from configparser import SafeConfigParser
@@ -82,13 +82,22 @@ class pyIVLS_container(QObject):
         section_dict = {}
 
         # Iterate through all sections in the parser
-        for section in self.config.sections():
+        plugin_num = (int)(self.config.get('plugins_available', 'num').lstrip())
+        plugin_cnt = 1
+        while plugin_cnt <= plugin_num:
             # Create a dictionary with the section name as the key and the section items as the value
-            section_dict[section] = dict(self.config.items(section))
+            option_dict = {}
+            for option in ['type','function','load', 'dependencies', 'address']:
+               if self.config.has_option('plugins_available', f"plugin{plugin_cnt}_{option}"):
+                 option_dict[option] = self.config['plugins_available'][f"plugin{plugin_cnt}_{option}"]
+               else:
+                 option_dict[option] = '' 
+            section_dict[self.config['plugins_available'][f"plugin{plugin_cnt}_name"]] = option_dict
+            plugin_cnt = plugin_cnt + 1
 
         return section_dict
 
-    def _register(self, plugin: str) -> bool:
+    def _register(self, plugin_cnt: int) -> bool:
         """Registers a plugin with the plugin manager. Dynamically imports the plugin and creates an instance of the plugin class.
         Handles errors, checks if the plugin is already registered and if it is a dependency for another plugin.
 
@@ -98,27 +107,31 @@ class pyIVLS_container(QObject):
         Returns:
             bool: registered or not
         """
-        module_name = f"plugins.pyIVLS_{plugin}"
-        class_name = f"pyIVLS_{plugin}_plugin"
-
+        plugin_name = self.config['plugins_available'][f"plugin{plugin_cnt}_name"]
+        
+        module_name = f"plugins.pyIVLS_{plugin_name}"
+        class_name = f"pyIVLS_{plugin_name}_plugin"
+        sys.path.append(self.path + 'plugins' + sep + self.config['plugins_available'][f"plugin{plugin_cnt}_address"])
         try:
             # Dynamic import using importlib
             module = importlib.import_module(module_name)
             plugin_class = getattr(module, class_name)
             plugin_instance = plugin_class()
             # Check if the plugin is already registered
-            if self.pm.get_plugin(plugin) is None:
+            if self.pm.get_plugin(plugin_name) is None:
                 # Register the plugin with the standard name to prevent multiple instances
-                self.pm.register(plugin_instance, name=plugin)
-                self.config[plugin]["load"] = "True"
+                self.pm.register(plugin_instance, name=plugin_name)
+                self.config['plugins_available'][f"plugin{plugin_cnt}_load"] = "True"
                 # FIXME: remove debug print
-                print(f"Plugin {plugin} loaded")
+                print(f"Plugin {plugin_name} loaded")
                 return True
             else:
+                sys.path.remove(self.path + 'plugins' + sep + self.config['plugins_available'][f"plugin{plugin_cnt}_address"])
                 return False
         except (ImportError, AttributeError) as e:
-            print(f"Failed to load plugin {plugin}: {e}")
-            self.config[plugin]["load"] = "False"
+            print(f"Failed to load plugin {plugin_name}: {e}")
+            self.config['plugins_available'][f"plugin{plugin_cnt}_load"] = "False"
+            sys.path.remove(self.path + 'plugins' + sep + self.config['plugins_available'][f"plugin{plugin_cnt}_address"])
             return False
 
     def _unregister(self, plugin: str) -> bool:
@@ -164,9 +177,12 @@ class pyIVLS_container(QObject):
     def register_start_up(self):
         """Checks the .ini file for saved settings and registers all plugins that are set to load on startup."""
         # FIXME: Naive implementation. If a pluginload fails on startup, it's not retried. This makes it possible for the user™ to break something.
-        for plugin in self.config.sections():
-            if self.config[plugin]["load"] == "True":
-                self._register(plugin)
+        plugin_num = (int)(self.config.get('plugins_available', 'num').lstrip())
+        plugin_cnt = 1
+        while plugin_cnt <= plugin_num:
+           if self.config['plugins_available'][f"plugin{plugin_cnt}_load"] == "True":
+                self._register(plugin_cnt)
+           plugin_cnt = plugin_cnt + 1     
 
     # NOTE: This function *might* fail with circular dependencies. Plugins might be loaded multiple times, but _register should make sure that only one instance is registered.
     def _check_dependencies_register(self, plugins_to_activate: list) -> list:
@@ -223,7 +239,7 @@ class pyIVLS_container(QObject):
         """initializes the container and the plugin manager. Reads the config file and registers all plugins set to load on startup."""
         super().__init__()
         self.path = dirname(__file__) + sep
-
+        sys.path.append(self.path + 'plugins'+ sep)
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
 

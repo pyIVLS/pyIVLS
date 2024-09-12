@@ -1,19 +1,56 @@
-import cv2 as cv
 import os
 
 import numpy as np
+from PyQt6 import uic
+from PyQt6 import QtWidgets
+from PyQt6.QtCore import QTimer
+from PyQt6.QtGui import QImage, QPixmap
+from VenusUSB2 import VenusUSB2
+
+import cv2 as cv
 from typing import Optional
 
 
-class VenusUSB2:
+class VenusUSB2GUI:
     """Handles communication with the VenusUSB2 camera"""
-
-    exposures = [1, 1, 2, 5, 10, 20, 39, 78, 156, 312]
 
     def __init__(self):
 
+        # Load the settings based on the name of this file.
+        self.path = os.path.dirname(__file__) + os.path.sep
+        filename = (
+            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
+        )
+        self.settingsWidget = uic.loadUi(self.path + filename)
+
+        # Initialize labels that might be modified:
+        ######## ?????? why this is needed ?????
+        self.source_label = self.settingsWidget.findChild(
+            QtWidgets.QLabel, "sourceLabel"
+        )
+
+        self.preview_label = self.settingsWidget.findChild(
+            QtWidgets.QLabel, "previewLabel"
+        )
+
         # Initialize cap as empty capture
-        self.cap = cv.VideoCapture()
+        self.camera = VenusUSB2()
+        # Load settings from ini file or from default
+        self.settings = self.parse_settings_widget()
+
+        # Connect widget buttons to functions
+        GUI_preview_button = settingsWidget.findChild(
+            QtWidgets.QPushButton, "cameraPreview"
+        )
+        GUI_save_button = settingsWidget.findChild(QtWidgets.QPushButton, "cameraSave")
+        GUI_preview_button.clicked.connect(self.previewButtonAction)
+        GUI_save_button.clicked.connect(self.saveButtonAction)
+
+
+        # Set a timer for the camera feed
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_frame)
+        self.preview_running = False
 
     def open_camera(self, source=None, exposure=None) -> bool:
         """Opens the camera using current settings.
@@ -38,7 +75,7 @@ class VenusUSB2:
 
     def close_camera(self):
         """Pretty self explanatory"""
-        self.cap.release()
+        self.camera.cap.release()
 
     # FIXME: Maybe this should send more info if an error is encountered.
     # Info could be used in AFFINE to display a message to the user.
@@ -113,7 +150,7 @@ class VenusUSB2:
         sourceInput = self.settingsWidget.findChild(QtWidgets.QLineEdit, "cameraSource")
         exposure_value = exposureSlider.value()
         source_input = sourceInput.text()
-
+	##IRtodo######### add here checks that the values are allowed
         return {"exposure": exposure_value, "source": source_input}
 
     def preview_button(self):
@@ -129,11 +166,12 @@ class VenusUSB2:
             self.timer.start(30)
             self.preview_running = True
 
-    def save_button(self) -> None:
+    def saveButtonAction(self) -> None:
         """interface for the save button. Updates the settings and saves them to internal dict.
 
         Returns:
             bool: pass/fail
         """
         self.settings = self.parse_settings_widget()
+        ##IRtodo#### should be something different, e.g. check if the camera is open then restart with new settings, else do nothing
         self.close_camera()
