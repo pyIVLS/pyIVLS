@@ -14,6 +14,19 @@ class pyIVLS_hookspec:
         :return: dict containing widget and setup structure
 
         NOTE: Might be good to separate initializing the the plugin and getting the setup interface. Would reduce a bit of overhead.
+	IR_NOTE: plugin is initialized by calling plugin_instance = plugin_class() in _register from pyIVLS_container. During initialization all the plugin objects are created (e.g. device objects, GUI,
+	        etc.). This hook initializes GUI with data from settings and returns the widget.
+        """
+
+    @hookspec
+    def get_MDI_interface(self, args = None) -> dict:
+        """returns a widget for a tab in setup, and probably data for the setup structure
+
+	args may include
+        :plugin_type: as all the plugins will be rolled in one loop, but plugins will be of different types, not all of them should return smth.
+        This argument will allow the specific implementation of the hook to identify if any response is needed or not.
+        :return: dict containing widget and setup structure
+
         """
 
     @hookspec

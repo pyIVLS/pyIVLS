@@ -48,8 +48,10 @@ if __name__ == "__main__":
     )
 
     ### init interfaces
-    whatAmI = pluginsContainer.get_plugin_info_from_settings()
+    whatAmI = pluginsContainer.get_plugin_info_for_settingsGUI()
     GUI_mainWindow.setSettingsWidget(whatAmI)
+    GUI_mainWindow.setMDIArea(pluginsContainer.get_plugin_info_for_MDIarea())
+    
     GUI_mainWindow.window.show()
 
     pluginsContainer.cleanup()

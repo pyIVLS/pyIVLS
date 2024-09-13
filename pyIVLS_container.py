@@ -57,7 +57,7 @@ class pyIVLS_container(QObject):
             self.plugins_updated_signal.emit()
             self.cleanup()
 
-    def get_plugin_info_from_settings(self) -> dict:
+    def get_plugin_info_for_settingsGUI(self) -> dict:
         """Returns a dictionary with the plugin info for the settings widget.
 
         Returns:
@@ -69,8 +69,21 @@ class pyIVLS_container(QObject):
         )
         combined_dict = {}
         for d in single_element_dicts:
-            combined_dict.update(d)
+            combined_dict.update(d)    
         return combined_dict
+        
+    def get_plugin_info_for_MDIarea(self) -> dict:
+        """Returns a dictionary with the plugin info for the settings widget.
+
+        Returns:
+            dict: plugin name -> plugin widget
+        """
+        single_element_dicts = self.pm.hook.get_MDI_interface()
+        combined_dict = {}
+        for d in single_element_dicts:
+            combined_dict.update(d)    
+        return combined_dict    
+        
 
     def get_plugin_dict(self) -> dict:
         """Returns a dictionary with all plugins and their properties.
@@ -82,17 +95,21 @@ class pyIVLS_container(QObject):
         section_dict = {}
 
         # Iterate through all sections in the parser
-        plugin_num = (int)(self.config.get('plugins_available', 'num').lstrip())
+        plugin_num = (int)(self.config.get("plugins_available", "num").lstrip())
         plugin_cnt = 1
         while plugin_cnt <= plugin_num:
             # Create a dictionary with the section name as the key and the section items as the value
             option_dict = {}
-            for option in ['type','function','load', 'dependencies', 'address']:
-               if self.config.has_option('plugins_available', f"plugin{plugin_cnt}_{option}"):
-                 option_dict[option] = self.config['plugins_available'][f"plugin{plugin_cnt}_{option}"]
+            for option in ["type","function","load", "dependencies", "address"]:
+               if self.config.has_option("plugins_available", f"plugin{plugin_cnt}_{option}"):
+                 option_dict[option] = self.config["plugins_available"][f"plugin{plugin_cnt}_{option}"]
                else:
-                 option_dict[option] = '' 
-            section_dict[self.config['plugins_available'][f"plugin{plugin_cnt}_name"]] = option_dict
+                 option_dict[option] = "" 
+               if self.config.has_section(self.config["plugins_available"][f"plugin{plugin_cnt}_name"]):
+                 option_dict["settings"] = dict(self.config.items(self.config["plugins_available"][f"plugin{plugin_cnt}_name"]))  
+               else:
+                 option_dict["settings"] = {}
+            section_dict[self.config["plugins_available"][f"plugin{plugin_cnt}_name"]] = option_dict
             plugin_cnt = plugin_cnt + 1
 
         return section_dict
@@ -107,11 +124,11 @@ class pyIVLS_container(QObject):
         Returns:
             bool: registered or not
         """
-        plugin_name = self.config['plugins_available'][f"plugin{plugin_cnt}_name"]
+        plugin_name = self.config["plugins_available"][f"plugin{plugin_cnt}_name"]
         
         module_name = f"plugins.pyIVLS_{plugin_name}"
         class_name = f"pyIVLS_{plugin_name}_plugin"
-        sys.path.append(self.path + 'plugins' + sep + self.config['plugins_available'][f"plugin{plugin_cnt}_address"])
+        sys.path.append(self.path + "plugins" + sep + self.config["plugins_available"][f"plugin{plugin_cnt}_address"])
         try:
             # Dynamic import using importlib
             module = importlib.import_module(module_name)
@@ -120,18 +137,19 @@ class pyIVLS_container(QObject):
             # Check if the plugin is already registered
             if self.pm.get_plugin(plugin_name) is None:
                 # Register the plugin with the standard name to prevent multiple instances
+
                 self.pm.register(plugin_instance, name=plugin_name)
-                self.config['plugins_available'][f"plugin{plugin_cnt}_load"] = "True"
+                self.config["plugins_available"][f"plugin{plugin_cnt}_load"] = "True"
                 # FIXME: remove debug print
                 print(f"Plugin {plugin_name} loaded")
                 return True
             else:
-                sys.path.remove(self.path + 'plugins' + sep + self.config['plugins_available'][f"plugin{plugin_cnt}_address"])
+                sys.path.remove(self.path + "plugins" + sep + self.config["plugins_available"][f"plugin{plugin_cnt}_address"])
                 return False
         except (ImportError, AttributeError) as e:
             print(f"Failed to load plugin {plugin_name}: {e}")
-            self.config['plugins_available'][f"plugin{plugin_cnt}_load"] = "False"
-            sys.path.remove(self.path + 'plugins' + sep + self.config['plugins_available'][f"plugin{plugin_cnt}_address"])
+            self.config["plugins_available"][f"plugin{plugin_cnt}_load"] = "False"
+            sys.path.remove(self.path + "plugins" + sep + self.config["plugins_available"][f"plugin{plugin_cnt}_address"])
             return False
 
     def _unregister(self, plugin: str) -> bool:
@@ -177,10 +195,10 @@ class pyIVLS_container(QObject):
     def register_start_up(self):
         """Checks the .ini file for saved settings and registers all plugins that are set to load on startup."""
         # FIXME: Naive implementation. If a pluginload fails on startup, it's not retried. This makes it possible for the user™ to break something.
-        plugin_num = (int)(self.config.get('plugins_available', 'num').lstrip())
+        plugin_num = (int)(self.config.get("plugins_available", "num").lstrip())
         plugin_cnt = 1
         while plugin_cnt <= plugin_num:
-           if self.config['plugins_available'][f"plugin{plugin_cnt}_load"] == "True":
+           if self.config["plugins_available"][f"plugin{plugin_cnt}_load"] == "True":
                 self._register(plugin_cnt)
            plugin_cnt = plugin_cnt + 1     
 
@@ -239,7 +257,7 @@ class pyIVLS_container(QObject):
         """initializes the container and the plugin manager. Reads the config file and registers all plugins set to load on startup."""
         super().__init__()
         self.path = dirname(__file__) + sep
-        sys.path.append(self.path + 'plugins'+ sep)
+        sys.path.append(self.path + "plugins"+ sep)
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
 

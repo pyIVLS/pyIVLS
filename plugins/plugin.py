@@ -17,7 +17,9 @@ class Plugin:
     # NOTE: currently creates quite a bit of overhead since the vars
     # are updated every time the plugin list is updated.
     # On the other hand, This will probably not be a bottleneck.
+    
     def setup(self, pm, plugin_info):
+        ##############IRtodo## needs to be checked if this is used at all
         """
         Loads the plugin info
         """
@@ -52,6 +54,7 @@ class Plugin:
 
             self.pm = pm
         self.plugin_name = plugin_name
+        print(self.plugin_info["settings"])
 
     def get_public_methods(self):
         """

@@ -45,7 +45,6 @@ class pyIVLS_GUI(QObject):
 
         # Create a QTabWidget to hold the widgets
         tab_widget = QtWidgets.QTabWidget()
-
         # Add each widget to the QTabWidget as a new tab
         for name, widget in widgets.items():
             tab_widget.addTab(widget, str(name))  # Ensure name is a string
@@ -53,6 +52,18 @@ class pyIVLS_GUI(QObject):
         # Set the QTabWidget as the widget for the QDockWidget
         self.window.dockWidget.setWidget(tab_widget)
         self.window.dockWidget.show()  # Ensure the dock widget is visible
+        
+    def setMDIArea(self, widgets: dict):
+        """
+        Set a list of widgets in MDI area
+
+        :param widgets: dict of QtWidgets.QWidget instances to be added to MDI windows
+        """
+
+        # Add each widget to the MDI area as subwindows
+        for name, widget in widgets.items():
+            MDIwindow = self.window.mdiArea.addSubWindow(widget)
+            MDIwindow.setWindowTitle(name)    
 
     def clearDockWidget(self):
         """

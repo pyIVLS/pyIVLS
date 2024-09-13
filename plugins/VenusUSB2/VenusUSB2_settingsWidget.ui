@@ -61,7 +61,7 @@
          <item>
           <widget class="QSlider" name="cameraExposure">
            <property name="maximum">
-            <number>9</number>
+            <number>8</number>
            </property>
            <property name="pageStep">
             <number>1</number>
@@ -126,7 +126,46 @@
           </widget>
          </item>
          <item>
+          <spacer name="horizontalSpacer_4">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="statusLabel">
+           <property name="text">
+            <string>Connection status</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QLabel" name="sourceLabel">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="connectionIndicator">
+           <property name="maximumSize">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">border-radius: 10px;
+background-color:rgb(165, 29, 45);
+min-height: 20px;
+min-width: 20px;</string>
+           </property>
            <property name="text">
             <string/>
            </property>
@@ -158,13 +197,6 @@
           <widget class="QPushButton" name="cameraPreview">
            <property name="text">
             <string>preview</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="previewLabel">
-           <property name="text">
-            <string/>
            </property>
           </widget>
          </item>
