@@ -98,8 +98,7 @@ class VenusUSB2GUI():
         self.close_camera()
            	
     def initGUI(self, plugin_info:"dictionary with settings obtained from plugin_data in pyIVLS_*_plugin"):
-        self.settings = plugin_info
-        ##no settings checks are here. Practically it means that anything may be used for initialization, but functions should not work if settings are not OK
-        self.settings["exposure"] = int(self.settings["exposure"])
-        self.settingsWidget.cameraExposure.setValue(self.camera.exposures.index(self.settings["exposure"]))
-        self.settingsWidget.cameraSource.setText(self.settings["source"])
+        ##settings are not initialized here, only GUI
+        ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
+        self.settingsWidget.cameraExposure.setValue(self.camera.exposures.index(int(plugin_info["exposure"])))
+        self.settingsWidget.cameraSource.setText(plugin_info["source"])

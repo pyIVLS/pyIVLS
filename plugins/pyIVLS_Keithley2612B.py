@@ -1,6 +1,6 @@
 import pluggy
-from plugins.Keithley2612B.Keithley2612B import Keithley2612B
-from plugins.plugin import Plugin
+from Keithley2612BGUI import Keithley2612BGUI
+from plugin import Plugin
 import numpy as np
 
 
@@ -8,7 +8,7 @@ class pyIVLS_Keithley2612B_plugin(Plugin):
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.smu = Keithley2612B()
+        self.smu = Keithley2612BGUI()
         super().__init__()
 
     @hookimpl
@@ -20,6 +20,7 @@ class pyIVLS_Keithley2612B_plugin(Plugin):
         :return: dict containing widget and setup structure
         """
         self.setup(pm, plugin_data)
+        self.smu._initGUI(plugin_data[self.plugin_name]["settings"])
         return {self.plugin_name: self.smu.settingsWidget}
 
     @hookimpl
@@ -41,7 +42,7 @@ class pyIVLS_Keithley2612B_plugin(Plugin):
             return (self.plugin_name, True)
         return (self.plugin_name, False)
 
-    def run_sweep(self) -> list(np.ndarray):
+    def run_sweep(self):# -> list(np.ndarray):
         """runs a sweep
 
         :return: list of data

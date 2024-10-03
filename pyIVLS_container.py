@@ -133,11 +133,10 @@ class pyIVLS_container(QObject):
             # Dynamic import using importlib
             module = importlib.import_module(module_name)
             plugin_class = getattr(module, class_name)
-            plugin_instance = plugin_class()
+            plugin_instance = plugin_class()            
             # Check if the plugin is already registered
             if self.pm.get_plugin(plugin_name) is None:
                 # Register the plugin with the standard name to prevent multiple instances
-
                 self.pm.register(plugin_instance, name=plugin_name)
                 self.config["plugins_available"][f"plugin{plugin_cnt}_load"] = "True"
                 # FIXME: remove debug print

@@ -2,8 +2,6 @@ import cv2 as cv
 import os
 
 import numpy as np
-from typing import Optional
-
 
 class VenusUSB2:
     """Handles communication with the VenusUSB2 camera"""

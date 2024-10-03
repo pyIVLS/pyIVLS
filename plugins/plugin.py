@@ -19,7 +19,6 @@ class Plugin:
     # On the other hand, This will probably not be a bottleneck.
     
     def setup(self, pm, plugin_info):
-        ##############IRtodo## needs to be checked if this is used at all
         """
         Loads the plugin info
         """
@@ -46,6 +45,8 @@ class Plugin:
         calling_class = stack[1].frame.f_locals["self"].__class__.__name__
         ## Maybe not the optimum solution, as the plugin name is derived form the calling class. It imposes the naming scheme that should be followed. 
         ## On the other hand, I am not sure if there is a simle workaround
+        
+        ##IRNote: it is possible to set the plugin class name in pyIVLS_name.py as a constant. In this case theis setup function may not be needed at all
         plugin_name = calling_class.removeprefix("pyIVLS_").removesuffix("_plugin")
 
         # Set internal variables
@@ -54,7 +55,6 @@ class Plugin:
 
             self.pm = pm
         self.plugin_name = plugin_name
-        print(self.plugin_info["settings"])
 
     def get_public_methods(self):
         """

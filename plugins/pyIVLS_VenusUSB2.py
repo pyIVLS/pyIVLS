@@ -13,7 +13,6 @@ class pyIVLS_VenusUSB2_plugin(Plugin):
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.name = "VenusUSB2"
         self.camera_control = VenusUSB2GUI()
         super().__init__()
 
@@ -25,8 +24,9 @@ class pyIVLS_VenusUSB2_plugin(Plugin):
             dict: name, widget
         """
         ##IRtodo#### add check if (error) show message and return error
-        self.camera_control.initGUI(plugin_data[self.name]["settings"])
-        return {self.name: self.camera_control.settingsWidget}
+        self.setup(pm, plugin_data)
+        self.camera_control.initGUI(plugin_data[self.plugin_name]["settings"])
+        return {self.plugin_name: self.camera_control.settingsWidget}
 
     @hookimpl
     def get_MDI_interface(self, args = None) -> dict:
@@ -35,7 +35,7 @@ class pyIVLS_VenusUSB2_plugin(Plugin):
         Returns:
             dict: name, widget
         """
-        return {self.name: self.camera_control.previewWidget}
+        return {self.plugin_name: self.camera_control.previewWidget}
 
     @hookimpl
     def get_functions(self, args):
