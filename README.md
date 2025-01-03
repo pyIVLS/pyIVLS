@@ -11,6 +11,22 @@
 # 5. implement saving of settings to configuration file
 # 6. implement reopening of docking window and MDI windows
 
+#### install (Ubuntu 24.04.1 LTS)
+# 1. python3 -m venv .venv
+# 2. source .venv/bin/activate
+# 3. python3 -m pip install pyqt6
+# 4. python3 -m pip install pluggy
+# 5. python3 -m pip install pyvisa
+# 6. python3 -m pip install pyvisa_py
+# 7. python3 -m pip install numpy
+# 8. python3 -m pip install opencv-python
+# deactivate
+
+# change the first line of pyIVLS.py to address the virual environment 
+## e.g.#!/home/ivls/git_pyIVLS/pyIVLS/.venv/bin/python3
+#run with
+## ./pyIVLS.py
+
 #### plugin conventions
 # 1. Every plugin  consists of a couple of files. 
 #	pyIVLS_name.py - a child of the plugin class, implementation of the pluggy interface

@@ -3,7 +3,7 @@ from os.path import dirname, sep
 import sys
 
 import importlib
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 import pluggy
 
 # Import to communicate with the GUI
@@ -260,7 +260,7 @@ class pyIVLS_container(QObject):
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
 
-        self.config = SafeConfigParser()
+        self.config = ConfigParser()
         self.config.read(self.path + pyIVLS_constants.configFileName)
         self.register_start_up()
 
