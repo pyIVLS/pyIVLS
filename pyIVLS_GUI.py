@@ -29,6 +29,11 @@ class pyIVLS_GUI(QObject):
         msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
         msg.exec_()
 
+    ############################### Slots
+    @pyqtSlot(str)
+    def addDataLog(self, str):
+        print(str)
+
     ################ Menu actions
     def actionPlugins(self):
         self.pluginloader.refresh()

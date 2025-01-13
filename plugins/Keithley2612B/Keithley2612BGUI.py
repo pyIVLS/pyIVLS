@@ -64,6 +64,8 @@ import pyIVLS_constants
 '''
 
 class Keithley2612BGUI:
+    """GUI for Keithley2612B"""
+    non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
 
     ####################################  threads
 
@@ -298,6 +300,24 @@ class Keithley2612BGUI:
              self.settingsWidget.groupBox_drainSweep.setEnabled(True)
 
         self.settingsWidget.update()
+
+########Functions
+########plugins interraction
+    def _get_public_methods(self):
+        """
+        Returns a nested dictionary of public methods for the plugin
+        """
+        # if the plugin type matches the requested type, return the functions
+
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method not in self.non_public_methods
+        }
+        return methods
         
 ########Functions to be used externally
 ###############get settings from GUI
@@ -320,13 +340,13 @@ class Keithley2612BGUI:
         # Determine source type: may take values [current, voltage]
         self.settings["inject"] = (self.settingsWidget.comboBox_inject.currentText()).lower()
         # Determine pulse/continuous mode: may take values [continuous, pulsed, mixed]
-        self.settings["mode"] = (self.settingsWidget.comboBox_mode.currentText()).lower
+        self.settings["mode"] = (self.settingsWidget.comboBox_mode.currentText()).lower()
  	# Determine delay mode for continuous sweep: may take values [auto, manual]
-        self.settings["continuousdelaymode"] = (self.settingsWidget.comboBox_continuousDelayMode.currentText()).lower
+        self.settings["continuousdelaymode"] = (self.settingsWidget.comboBox_continuousDelayMode.currentText()).lower()
         # Determine delay mode for pulsed sweep: may take values [auto, manual]
-        self.settings["pulseddelaymode"] = (self.settingsWidget.comboBox_pulsedDelayMode.currentText()).lower
+        self.settings["pulseddelaymode"] = (self.settingsWidget.comboBox_pulsedDelayMode.currentText()).lower()
         # Determine delay mode for drain: may take values [auto, manual]
-        self.settings["draindelaymode"] = (self.settingsWidget.comboBox_drainDelayMode.currentText()).lower
+        self.settings["draindelaymode"] = (self.settingsWidget.comboBox_drainDelayMode.currentText()).lower()
         # Determine source sence mode: may take values [2 wire, 4 wire, 2 & 4 wire]
         self.settings["sourcesensemode"] = (self.settingsWidget.comboBox_sourceSenseMode.currentText()).lower()
         # Determine drain sence mode: may take values [2 wire, 4 wire, 2 & 4 wire]
@@ -452,4 +472,9 @@ class Keithley2612BGUI:
         
         Note: this function should be called only when the settings are checked, i.e. after parse_settings_widget
         """
-        return smu.keithley_init(s)
+        return smu.keithley_init(s)    
+        
+        
+    def test_communication(self):
+        self.parse_settings_widget()
+        return self.settings

@@ -7,25 +7,26 @@ from VenusUSB2GUI import VenusUSB2GUI
 import cv2
 
 
-class pyIVLS_VenusUSB2_plugin(Plugin):
+class pyIVLS_VenusUSB2_plugin():
     """Hooks for VenusUSB2 camera plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
+        self.plugin_name = 'VenusUSB2'
+        self.plugin_function = 'camera'
         self.camera_control = VenusUSB2GUI()
         super().__init__()
 
     @hookimpl
-    def get_setup_interface(self, pm, plugin_data) -> dict:
+    def get_setup_interface(self, plugin_data) -> dict:
         """ Returns GUI
 
         Returns:
             dict: name, widget
         """
         ##IRtodo#### add check if (error) show message and return error
-        self.setup(pm, plugin_data)
-        self.camera_control.initGUI(plugin_data[self.plugin_name]["settings"])
+        self.camera_control._initGUI(plugin_data[self.plugin_name]["settings"])
         return {self.plugin_name: self.camera_control.settingsWidget}
 
     @hookimpl
@@ -38,7 +39,7 @@ class pyIVLS_VenusUSB2_plugin(Plugin):
         return {self.plugin_name: self.camera_control.previewWidget}
 
     @hookimpl
-    def get_functions(self, args):
+    def get_functions(self, args = None):
         """Returns a dictionary of publicly accessible functions.
 
         Args:
@@ -47,9 +48,8 @@ class pyIVLS_VenusUSB2_plugin(Plugin):
         Returns:
             dict: functions
         """
-
-        if args.get("function") == self.plugin_info["function"]:
-            return self.get_public_methods()
+        if args is None or args.get("function") == plugin_function:
+            return {self.plugin_name: self.camera_control._get_public_methods()}
 
     def open(self) -> tuple:
         """Open the device.

@@ -47,6 +47,11 @@ if __name__ == "__main__":
         GUI_mainWindow.pluginloader.show_message
     )
 
+    for logSignal in pluginsContainer.getLogSignals():
+       logSignal.connect(GUI_mainWindow.addDataLog)
+
+    pluginsContainer.public_function_exchange()
+
     ### init interfaces
     whatAmI = pluginsContainer.get_plugin_info_for_settingsGUI()
     GUI_mainWindow.setSettingsWidget(whatAmI)
