@@ -15,7 +15,14 @@ from PyQt6.QtWidgets import (
     QLabel,
 )
 
-import pyvisa
+##IRtothink#### currently usbtmc is used for communication with Keithley via USB, however it may also be connected via eth with pyvisa 
+# In principle it may make some sence to allow user to select way to connect, or to create two different plugins one for USB connection and another one with eth connection
+# It is obvious, but it is still worth to mention that not all the methods of self.rm.open_resource are the same as for usbtmc.Instrument, eventhought write and read methods are presented in both 
+# For implementing both connections simultaneously some abstractions for module specific commands should be implemented e.g query in pyvisa and ask in usbtmc
+# At the moment all the pyvisa methods are commented
+
+#import pyvisa
+import usbtmc
 import numpy as np
 import time
 
@@ -23,7 +30,8 @@ import pyIVLS_constants
 
 
 class Keithley2612B:
-
+   
+    
     ####################################  threads
 
     ################################### internal functions
@@ -34,40 +42,44 @@ class Keithley2612B:
 
     ########Functions
     def __init__(self, address, dbg_mode=False):
-
-        # Initialize resource manager
-        self.rm = pyvisa.ResourceManager("@py")
-        self.k = None
         
+        #handler for Keithley
+        self.k = None
+        self.address = address 
+        
+        # Initialize pyvisa resource manager
+        #self.rm = pyvisa.ResourceManager("@py")
+             
         # Initialize constants 
         ##IRtothink#### debug_mode may be replaced with something like logging
         self.debug_mode = dbg_mode 
-        self.address = address 
         # Initialize the lock for the measurement
         self.lock = Lock()
-
 
     ## Communication functions
     def safewrite(self, command):
         try:
             self.k.write(command)
-            if self.debug_mode:
-                error_code = self.k.query("print(errorqueue.next())")
-                if "Queue Is Empty" not in error_code:
-                    print(f"Error sending command: {command}\nError code: {error_code}")
+            ##IRtothink#### debug_mode may be replaced with something like logging
+            #if self.debug_mode:
+            #    error_code = self.k.query("print(errorqueue.next())")
+            #    if "Queue Is Empty" not in error_code:
+            #        print(f"Error sending command: {command}\nError code: {error_code}")
         except Exception as e:
+            ##IRtodo#### mov to the log
             print(f"Exception sending command: {command}\nException: {e}")
+            ##IRtothink#### some exception handling implemented
             raise e
-        finally:
-            if self.debug_mode:
-                self.k.write("errorqueue.clear()")
+        #finally:
+        #    if self.debug_mode:
+        #        self.k.write("errorqueue.clear()")
 
-    def safequery(self, command):
-        try:
-            return self.k.query_ascii_values(command)
-        except Exception as e:
-            print(f"Exception querying command: {command}\nException: {e}")
-            raise e
+    #def safequery(self, command):
+    #    try:
+    #        return self.k.query_ascii_values(command)
+    #    except Exception as e:
+    #        print(f"Exception querying command: {command}\nException: {e}")
+    #        raise e
 
     def keithley_connect(self):# -> status:
         """Connect to the Keithley 2612B.
@@ -80,14 +92,21 @@ class Keithley2612B:
             if self.k is None:
                 ##IRtodo#### move to log
                 #print("Connecting to Keithley 2612B")
-                self.k = self.rm.open_resource(self.address)
+                
+                #connect the device
+                #### connect with pyvisa resource manager
+                #self.k = self.rm.open_resource(self.address)
+                #self.k.read_termination = "\n"
+                #self.k.write_termination = "\n"
                 ##IRtodo#### move to log
                 #print(self.k.query("*IDN?"))
-                self.k.read_termination = "\n"
-                self.k.write_termination = "\n"
+                #### connect with usbtmc
+                self.k =  usbtmc.Instrument(self.address)
+                ##IRtodo#### move to log
+                #print(self.k.ask("*IDN?"))
             return 0
-
         except:
+            ##IRtodo#### move to log
             print("Failed to connect to Keithley 2612B")
             return 1
 
@@ -133,6 +152,19 @@ class Keithley2612B:
                 self.safewrite(f"{channel}.source.leveli = 0")
         else:
             raise ValueError(f"Invalid channel {channel}")
+
+    def get_last_buffer_value(self, channel):
+        """
+        Args:
+            channel (str): smua or smub
+
+        Returns:
+            list [i, v, number of point in the buffer]
+        """
+           readings = self.safequery(f"print({channel}.nvbuffer2.n)")
+           i_value = self.safequery(f"printbuffer({readings}, {readings}, {channel}.nvbuffer1)")
+           v_value = self.safequery(f"printbuffer({readings}, {readings}, {channel}.nvbuffer2)")
+        return [i_value, v_value, readings]
 
     ##IRtodo#### modify or add another function:
     ######## there should be a function to read last value from the buffer

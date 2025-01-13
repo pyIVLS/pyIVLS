@@ -16,9 +16,16 @@
 # 2. source .venv/bin/activate
 # 3. python3 -m pip install pyqt6
 # 4. python3 -m pip install pluggy
+## if pyvisa needed, e.g. Keithley via eth
 # 5. python3 -m pip install pyvisa
-# 6. python3 -m pip install pyvisa_py
+# 5a. python3 -m pip install pyvisa_py
+# 5b. python3 -m pip install psutil # required to supress some warnings
+# 5c. python3 -m pip install zeroconf  # required to supress some warnings
+## if usbtmc is needed, e.g. Keithley via USB
+# 6. python3 -m pip install pyhton-usbtmc
+# 6a. python3 -m pip install PyUSB # required for usbtmc
 # 7. python3 -m pip install numpy
+## if cameras are needed
 # 8. python3 -m pip install opencv-python
 # deactivate
 
@@ -26,6 +33,10 @@
 ## e.g.#!/home/ivls/git_pyIVLS/pyIVLS/.venv/bin/python3
 #run with
 ## ./pyIVLS.py
+
+#### settings for hardware discovery
+# to avoid running the script as superused some rules needs to be created
+# check https://github.com/python-ivi/python-usbtmc for details
 
 #### plugin conventions
 # 1. Every plugin  consists of a couple of files. 
@@ -36,7 +47,6 @@
 #	if a plugin should be loaded, it is done in pyIVLS_container:_register. This creates an instance of pyIVLS_*.py class
 #	pyIVLS_*.py in its initialization creates an instance of *GUI.py
 #	*GUI.py in its initialization craeatis an instanse of the core class and loads GUI
-
 
 #### execution flow
 #1. When pyIVLS.py is run it creates an instance of the pyIVLS_container.py (handles all the plugins) and the main window
