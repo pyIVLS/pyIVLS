@@ -14,6 +14,8 @@ from typing import Optional
 
 class VenusUSB2GUI():
     """GUI for the VenusUSB2 camera"""
+    non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
+    
     ##IRtothink#### should this be changed to a GUI setting? 
     default_timerInterval = 30
     
@@ -34,16 +36,16 @@ class VenusUSB2GUI():
             QtWidgets.QPushButton, "cameraPreview"
         )
         GUI_save_button = self.settingsWidget.findChild(QtWidgets.QPushButton, "cameraSave")
-        GUI_preview_button.clicked.connect(self.previewButtonAction)
+        GUI_preview_button.clicked.connect(self.previewAction)
         GUI_save_button.clicked.connect(self.saveButtonAction)
 
 
         # Set a timer for the camera feed
         self.timer = QTimer()
-        self.timer.timeout.connect(self.update_frame)
+        self.timer.timeout.connect(self._update_frame)
         self.preview_running = False
 
-    def update_frame(self):
+    def _update_frame(self):
         frame = self.camera.capture_image()
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         height, width, channel = frame.shape
@@ -53,7 +55,7 @@ class VenusUSB2GUI():
         )
         self.previewWidget.previewLabel.setPixmap(QPixmap.fromImage(q_img))
 
-    def parse_settings_widget(self) -> "status":
+    def _parse_settings_widget(self) -> "status":
         """Parses the settings widget for the camera. Extracts current values
 
         Returns:
@@ -65,7 +67,7 @@ class VenusUSB2GUI():
 	##IRtodo######### add here checks that the values are allowed
         return 0
 
-    def previewButtonAction(self):
+    def previewAction(self):
         """interface for the preview button. Opens the camera, sets the exposure and previews the feed"""
         if self.preview_running:
             self.timer.stop()
@@ -74,7 +76,7 @@ class VenusUSB2GUI():
             self.preview_running = False
             self.camera.close()
         else:
-            self.parse_settings_widget()
+            self._parse_settings_widget()
             ##IRtodo#### add check if not(settings OK) return error
             if not(self.camera.open(source=self.settings["source"], exposure=self.settings["exposure"])):
               self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
@@ -93,12 +95,28 @@ class VenusUSB2GUI():
         Returns:
             bool: pass/fail
         """
-        self.settings = self.parse_settings_widget()
+        self.settings = self._parse_settings_widget()
         ##IRtodo#### should be something different, e.g. check if the camera is open then restart with new settings, else do nothing
         self.close_camera()
            	
-    def initGUI(self, plugin_info:"dictionary with settings obtained from plugin_data in pyIVLS_*_plugin"):
+    def _initGUI(self, plugin_info:"dictionary with settings obtained from plugin_data in pyIVLS_*_plugin"):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
         self.settingsWidget.cameraExposure.setValue(self.camera.exposures.index(int(plugin_info["exposure"])))
         self.settingsWidget.cameraSource.setText(plugin_info["source"])
+        
+    def _get_public_methods(self):
+        """
+        Returns a nested dictionary of public methods for the plugin
+        """
+        # if the plugin type matches the requested type, return the functions
+
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method not in self.non_public_methods
+        }
+        return methods
