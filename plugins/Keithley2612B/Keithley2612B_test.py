@@ -71,8 +71,9 @@ import pyIVLS_constants
 
 
 class Keithley2612B:
-   
-    
+    datafile_address = "/home/ivls/test_IV.dat"
+    linepointer = 0
+    dataarray = np.array([])
     ####################################  threads
 
     ################################### internal functions
@@ -100,7 +101,8 @@ class Keithley2612B:
     ## Communication functions
     def safewrite(self, command):
         try:
-            self.k.write(command)
+            #self.k.write(command)
+            print(command)
             ##IRtothink#### debug_mode may be replaced with something like logging
             #if self.debug_mode:
             #    error_code = self.k.query("print(errorqueue.next())")
@@ -140,7 +142,7 @@ class Keithley2612B:
             message contains devices response to IDN query if devices is connected, or an error message otherwise
         """
         try:
-            if self.k is None:
+            #if self.k is None:
                 ##IRtodo#### move to log
                 #print("Connecting to Keithley 2612B")
                 
@@ -152,16 +154,17 @@ class Keithley2612B:
                 ##IRtodo#### move to log
                 #print(self.k.query("*IDN?"))
                 #### connect with usbtmc
-                self.k =  usbtmc.Instrument(self.address)
-            return [0, self.k.ask("*IDN?")]
+                #self.k =  usbtmc.Instrument(self.address)
+            return [0, "SMU test module activated"]
         except:
             return [1,"Failed to connect to Keithley 2612B"]
 
     def keithley_disconnect(self):
         ##IRtodo#### move to log
         #print("Disconnecting from Keithley 2612B")
-        if self.k is not None:
-            self.k.close()
+        #if self.k is not None:
+        #    self.k.close()
+        return 0
 
     ## Device functions
     def resistance_measurement(self, channel) -> float:
@@ -200,7 +203,7 @@ class Keithley2612B:
         else:
             raise ValueError(f"Invalid channel {channel}")
 
-    def get_last_buffer_value(self, channel, readings = None):
+    def get_last_buffer_value(self, channel):
         """
         Args:
             channel (str): smua or smub
@@ -208,11 +211,10 @@ class Keithley2612B:
         Returns:
             list [i, v, number of point in the buffer]
         """
-        ##IRtothink#### some check may be added to make sure that the value may be converted
-        if readings is None:
-	        readings = int(float(self.safequery(f"print({channel}.nvbuffer2.n)")))
-        i_value = float(self.safequery(f"printbuffer({readings}, {readings}, {channel}.nvbuffer1)"))
-        v_value = float(self.safequery(f"printbuffer({readings}, {readings}, {channel}.nvbuffer2)"))
+        readings = self.linepointer
+        i_value = self.dataarray[readings, 0]
+        v_value = self.dataarray[readings, 1]
+        self.linepointer = self.linepointer + 1
         return [i_value, v_value, readings]
 
     def read_buffers(self, channel) -> np.ndarray:
@@ -225,17 +227,11 @@ class Keithley2612B:
         """
         iv = []
         # Get the number of readings in nvbuffer2
-        readings_count = int(float(self.safequery(f"print({channel}.nvbuffer2.n)")))
-        i_values = self.safequery(
-            f"printbuffer({1}, {readings_count}, {channel}.nvbuffer1)"
-        )
-        v_values = self.safequery(
-            f"printbuffer({1}, {readings_count}, {channel}.nvbuffer2)"
-        )
+        i_values = self.dataarray[:, 0]
+        v_values = self.dataarray[:, 1]
 
         # Add to the iv array
-        ##IRtothink#### some check may be added to make sure that the value may be converted
-        iv.extend(list(zip(np.array(i_values.split(",")).astype(float), np.array(v_values.split(",")).astype(float))))
+        iv.extend(list(zip(i_values, v_values)))
         return np.array(iv)
 
     def abort_sweep(self, channel):
@@ -256,16 +252,16 @@ class Keithley2612B:
 
     def keithley_init(self, s: dict):
     ##IRtothink#### pulsed operation should be rechecked if strict pulse duration will be needed
-      #"""Initialize Keithley SMU for single or dual channel operation.
-#	
-#	Returns:
-#            0 - no error
-#            ~0 - error (add error code later on if needed)
-#
-#        Args:
-#            s (dict): Configuration dictionary.
-#      """
-      #try:
+        """Initialize Keithley SMU for single or dual channel operation.
+	
+	Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+
+        Args:
+            s (dict): Configuration dictionary.
+        """
+#      try:            
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
         
@@ -282,12 +278,11 @@ class Keithley2612B:
             self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
 
         self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
-
         if s["sourcehighc"]:
             self.safewrite(f"{s['source']}.source.highc = {s['source']}.ENABLE")
-
+        
         self.safewrite(f"{s['source']}.source.settling = {s['source']}.SETTLE_FAST_RANGE")
-
+        
 	####set stabilization times for source
 	##IRtodo#### add delay factor to GUI
         if s["delay"]:
@@ -298,7 +293,7 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.measure.delayfactor = 1.0")
         else:
             self.safewrite(f"{s['source']}.measure.delay = {s['delayduration']}")
-        
+
 	# set limits and modes
         if s["type"] == "i": # if current injection
                     if abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5:
@@ -396,6 +391,12 @@ class Keithley2612B:
 #      except:
 #        return 1
 
+    def readIVLS(self, address): #####dummy to get data from a file
+    	try:
+    		return [0, np.genfromtxt(address, skip_header=44, delimiter=',')]
+    	except:
+    		return [-1, sys.exc_info()[1]]
+
     def keithley_run_sweep(self, s: dict):# -> status:
         """Runs a single channel sweep on. Handles locking the instrument and releasing it after the sweep is started.
         This method sets the start, end, steps, type of injection and the limit. 
@@ -412,7 +413,7 @@ class Keithley2612B:
         # Try and acquire the lock to make sure nothing else is running
         ##IRtothink#### is locking really needed?
         with self.lock:
-            try:
+#            try:
                 # Clear buffers, set repeats and steps, set sweep range.
                 self.safewrite(f"{s['source']}.nvbuffer1.clear()")
                 self.safewrite(f"{s['source']}.nvbuffer2.clear()")
@@ -476,15 +477,17 @@ class Keithley2612B:
                 # Turn on the source and trigger the sweep.
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
                 self.safewrite(f"{s['source']}.trigger.initiate()")
+                
+                [status,self.dataarray] = self.readIVLS(self.datafile_address)
                 return 0
 
-            except:
-                # if something fails, abort the measurement and turn off the source.
-                self.safewrite(f"{s['source']}.abort()")
-                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
-                if not s["single_ch"]:  
-                      self.safewrite(f"{s['drain']}.abort()")
-                      self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
-                
-                return 1
+#            except:
+#                # if something fails, abort the measurement and turn off the source.
+#                self.safewrite(f"{s['source']}.abort()")
+#                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
+#                if not s["single_ch"]:  
+#                      self.safewrite(f"{s['drain']}.abort()")
+#                      self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
+#                
+#                return 1
 

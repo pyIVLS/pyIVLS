@@ -1006,6 +1006,9 @@
                      <height>0</height>
                     </size>
                    </property>
+                   <property name="text">
+                    <string>10</string>
+                   </property>
                   </widget>
                  </item>
                  <item>
@@ -1151,6 +1154,9 @@
                      <width>20</width>
                      <height>0</height>
                     </size>
+                   </property>
+                   <property name="text">
+                    <string>10</string>
                    </property>
                   </widget>
                  </item>
@@ -1988,6 +1994,9 @@
                      <width>20</width>
                      <height>0</height>
                     </size>
+                   </property>
+                   <property name="text">
+                    <string>10</string>
                    </property>
                   </widget>
                  </item>

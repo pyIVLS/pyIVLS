@@ -2,6 +2,7 @@ import sys
 import os
 import time
 from threading import Lock
+#from Keithley2612B_test import Keithley2612B
 from Keithley2612B import Keithley2612B
 
 from PyQt6 import uic
@@ -51,10 +52,11 @@ import pyIVLS_constants
 		## settings["pulsedlimit"] limit for current in voltage mode or for voltage in current mode
 		## settings["pulsednplc"] integration time in nplc units
 		## settings["pulseddelay"] stabilization time before the measurement
+		## settings["pulsepause"] pase between the pulses
 		# settings for drain
 		## settings["drainstart"] start point
 		## settings["drainend"] end point
-		## settings["drainpoints"] number of points
+		## settings["drainpoints"] number of points should be not zero. If equals to 1 only the start point is used
 		## settings["drainlimit"] limit for current in voltage mode or for voltage in current mode
 		## settings["drainnplc"] integration time in nplc units
 		## settings["draindelay"] stabilization time before the measurement
@@ -84,7 +86,7 @@ class Keithley2612BGUI:
 
         # Initialize Keithley module
         ##IRtodo#### move Keithley address to GUI
-        self.smu = Keithley2612B(pyIVLS_constants.KEITHLEY_VISA, dbg_mode=True)
+        self.smu = Keithley2612B(pyIVLS_constants.KEITHLEY_tcmp, dbg_mode=True)
 	##IRtodo#### check here or in some other place if Keithley is actually connected
 
         self._connect_signals()
@@ -322,18 +324,15 @@ class Keithley2612BGUI:
 ########Functions to be used externally
 ###############get settings from GUI
 
-    def parse_settings_widget(self) -> "status":
+    def parse_settings_widget(self):
         """Parses the settings widget for the Keithley. Extracts current values
 
-        Returns:
-            0 - no error
-            ~0 - error (add error code later on if needed)
+        Returns [status, settings_dict]:
+            status: 0 - no error, ~0 - error (add error code later on if needed)
+            self.settings
         """       
 
         self.settings = {}
-        mixed_mode_flag = False
-        double_sense_mode_flag = False
-        ret_list = []
 
         # Determine source channel: may take values [smua, smub]
         self.settings["channel"] = (self.settingsWidget.comboBox_channel.currentText()).lower()
@@ -396,7 +395,7 @@ class Keithley2612BGUI:
         #delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
         self.settings["pulseddelay"] = float(self.settingsWidget.lineEdit_pulsedDelay.text())/1000
         #pause between pulses
-        self.settings["pulsedpause"] = float(self.settingsWidget.lineEdit_pulsedPause.text())
+        self.settings["pulsepause"] = float(self.settingsWidget.lineEdit_pulsedPause.text())
 
         # Determine settings for drain mode
 	#start should be float
@@ -419,7 +418,7 @@ class Keithley2612BGUI:
 	        self.settings["drainhighc"] = False
 
 	##IRtodo######### add here checks that the values are allowed
-        return 0
+        return [0, self.settings]
         
     def resistance_measurement(self, channel) -> float:
     ##IRtothink#### Should it be kept like this?
@@ -458,7 +457,36 @@ class Keithley2612BGUI:
         else:
             raise ValueError(f"Invalid channel {channel}")
 
- 
+    def smu_connect(self): 
+        """an interface for an externall calling function to connect to Keithley
+        
+        Returns [status, message]:
+            0 - no error, ~0 - error (add error code later on if needed)
+            message contains devices response to IDN query if devices is connected, or an error message otherwise
+        
+        """
+        return self.smu.keithley_connect()
+
+    def smu_disconnect(self): 
+        """an interface for an externall calling function to disconnect Keithley
+        
+        """
+        self.smu.keithley_disconnect()
+
+    def smu_abort(self, channel): 
+        """An interface for an externall calling function to stop the sweep on Keithley 
+        (this function will NOT switch OFF the outputs)
+        s: channel to get the last value (may be 'smua' or 'smub')
+        """
+        
+        self.smu.abort_sweep(channel)
+    
+    def smu_outputOFF(self): 
+        """An interface for an externall calling function to switch off the output
+        """
+        
+        self.smu.channelsOFF()   
+    
     def smu_init(self, s:dict):
         """an interface for an externall calling function to initialize Keithley
         s: dictionary containing the settings for the sweep to initialize. It is different from the self. settings, as it contains data only for the current sweep 
@@ -472,9 +500,38 @@ class Keithley2612BGUI:
         
         Note: this function should be called only when the settings are checked, i.e. after parse_settings_widget
         """
-        return smu.keithley_init(s)    
+        return self.smu.keithley_init(s)    
         
+
+    def smu_runSweep(self, s:dict):
+        """an interface for an externall calling function to run sweep on Keithley
+        s: dictionary containing the settings to run the sweep. It is different from the self. settings, as it contains data only for the current sweep 
         
-    def test_communication(self):
-        self.parse_settings_widget()
-        return self.settings
+        Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+
+        Args:
+            s (dict): Configuration dictionary.
+        
+        Note: this function should be called only after the Keithley is initialized (i.e. after smu.keithley_init(s))
+        """
+        return  self.smu.keithley_run_sweep(s)
+
+    def smu_getLastBufferValue(self, channel, readings = None):
+        """an interface for an externall calling function to get last buffer value from Keithley
+        s: channel to get the last value (may be 'smua' or 'smub')
+        
+        Returns:
+            list [i, v, number of point in the buffer]
+        """
+        return  self.smu.get_last_buffer_value(channel)
+        
+    def smu_bufferRead(self, channel):
+        """an interface for an externall calling function to get the content of a channel buffer from Keithley
+        s: channel to get the last value (may be 'smua' or 'smub')
+        
+        Returns:
+            np.ndarray (current, voltage)
+        """
+        return  self.smu.read_buffers(channel)
