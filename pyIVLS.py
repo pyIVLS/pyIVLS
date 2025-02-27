@@ -50,6 +50,9 @@ if __name__ == "__main__":
     for logSignal in pluginsContainer.getLogSignals():
        logSignal.connect(GUI_mainWindow.addDataLog)
 
+    for infoSignal in pluginsContainer.getInfoSignals():
+       infoSignal.connect(GUI_mainWindow.show_message)
+
     pluginsContainer.public_function_exchange()
 
     ### init interfaces

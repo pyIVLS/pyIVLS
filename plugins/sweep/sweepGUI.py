@@ -1,20 +1,16 @@
 import os
-from datetime import datetime
 import time
 import numpy as np
-from MplCanvas import MplCanvas
+from MplCanvas import MplCanvas # this should be moved to some pluginsShare
 
 from PyQt6 import uic
-from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtWidgets import QVBoxLayout
 
 from sweepCommon import create_file_header, create_sweep_reciepe
-from threadStopped import ThreadStopped, thread_with_exception
 
-
-class sweepGUI(QObject):
+class sweepGUI():
     """Basic sweep module"""
-
+    non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
 ####################################  threads
 
 ################################### internal functions
@@ -22,17 +18,13 @@ class sweepGUI(QObject):
 ########Slots
 
 ########Signals
-
-    log_message = pyqtSignal(str) 
-
+ 
 ########Functions
 
-    def __init__(self):
-        super(sweepGUI,self).__init__()
-    
+    def __init__(self):  
         # List of functions from another plugins required for functioning
         self.dependency = {
-        "smu": ["parse_settings_widget", "smu_connect", "smu_init", "smu_runSweep", "smu_abort", "smu_outputOFF", "smu_getLastBufferValue", "smu_bufferRead"], 
+        "smu": ["parse_settings_widget", "smu_connect", "smu_init", "smu_runSweep", "smu_abort", "smu_outputOFF", "smu_disconnect","smu_getLastBufferValue", "smu_bufferRead", "set_running"], 
         }
         
         # Load the settings based on the name of this file.
@@ -41,18 +33,13 @@ class sweepGUI(QObject):
         self.MDIWidget = uic.loadUi(self.path + "sweep_MDIWidget.ui")
         
         self._create_plt()      
-        #self.measure = sweep()
-        self._connect_signals()
 
-    def _connect_signals(self):
-        self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
-        self.settingsWidget.stopButton.clicked.connect(self._stopAction)
-        self.settingsWidget.runButton.clicked.connect(self._runAction)
- 
     def _create_plt(self):
-    ##IRtodo#### make proper axes for displaying necessary curves
         self.sc = MplCanvas(self, width=5, height=4, dpi=100)
         self.axes = self.sc.fig.add_subplot(111)
+       
+        self.axes.set_xlabel('Voltage (V)')
+        self.axes.set_ylabel('Current (A)')
 
         layout = QVBoxLayout()
         layout.addWidget(self.sc._create_toolbar(self.MDIWidget))
@@ -64,116 +51,123 @@ class sweepGUI(QObject):
     def _initGUI(self, plugin_info:"dictionary with settings obtained from plugin_data in pyIVLS_*_plugin"):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
-        self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
-        self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
-        self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
-        self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
         try:
              intPlotUpdate = int(plugin_info["plotUpdate"])
         except:
              intPlotUpdate = 0       
         self.settingsWidget.spinBox_plotUpdate.setValue(intPlotUpdate)
-
-    def _getAddress(self):
-        address = self.settingsWidget.lineEdit_path.text()
-        if not(os.path.exists(address)):
-                address = self.path
-        address = QFileDialog.getExistingDirectory(None, "Select directory for saving", self.path, options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks)
-        if address:
-                self.settingsWidget.lineEdit_path.setText(address)
-                
-    def _parse_settings_widget(self):
-        """Parses the settings widget for the sweep. Extracts current values
-
-        Returns [status]:
-            status: 0 - no error, ~0 - error (add error code later on if needed)
-        """   
-        self.settings = {}
-        self.settings["address"] = self.settingsWidget.lineEdit_path.text()
-        self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
-        self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
-        self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-        self.settings["plotUpdate"] = self.settingsWidget.spinBox_plotUpdate.value()
-
-        ##IRtodo######### add here checks that the values are allowed
-        return 0
+        self.settingsWidget.prescalerEdit.setText(plugin_info["prescaler"])
 
 ########Functions
 ########plugins interraction
+
     def _getPublicFunctions(self,function_dict):
-        missing_functions = []    
+        self.missing_functions = []    
         for dependency_plugin in list(self.dependency.keys()):
                 if not dependency_plugin in function_dict:
-                        now = datetime.now()
-                        self.log_message.emit(now.strftime("%H:%M:%S.%f") + f" : sweep plugin : Functions for dependency plugin '{dependency_plugin}' not found")
-                        missing_functions.append(dependency_plugin)
+                        self.missing_functions.append(dependency_plugin)
                         continue
                 for dependency_function in self.dependency[dependency_plugin]:
                         if not dependency_function in function_dict[dependency_plugin]:
-                                now = datetime.now()
-                                self.log_message.emit(now.strftime("%H:%M:%S.%f") + f" : sweep plugin : Function '{dependency_function}' for dependency plugin '{dependency_plugin}' not found")
-                                missing_functions.append(f"{dependency_plugin}:{dependency_function}")
-        if not missing_functions:
+                                self.missing_functions.append(f"{dependency_plugin}:{dependency_function}")
+        if not self.missing_functions:
             self.settingsWidget.runButton.setEnabled(True)   
             self.function_dict = function_dict
         else:    
             self.settingsWidget.runButton.setDisabled(True)   
             self.function_dict = {}
-        return missing_functions
+        return self.missing_functions
         
-    def _getLogSignal(self):
-        return self.log_message
-        
-########Functions
-########plugin actions   
-    def _stopAction(self):
-        self.settingsWidget.stopButton.setEnabled(False)
-        self.run_thread.sweep_stop()
-        
-    def _runAction(self):
-        ##IRtodo#### disable interface controls
-        self.settingsWidget.stopButton.setEnabled(True)
-        ##IRtodo#### check that the new file will not overwrite existing data -> show message
+    def _get_public_methods(self):
+        """
+        Returns a nested dictionary of public methods for the plugin
+        """
+        # if the plugin type matches the requested type, return the functions
 
-        #check data input by user by calling plugin functions
-        self._parse_settings_widget()
-        #no need to check if we have all the needed functions from the other plugins as they are already checked in _getPublicFunction
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method not in self.non_public_methods
+        }
+        return methods
+
+                
+########Functions to be used externally
+###############get settings from GUI 
+    def parse_settings_widget(self):
+        """Parses the settings widget for the plugin. Extracts current values. Checks if values are allowed. Provides settings of sweep plugin to an external plugin
+
+        Returns [status, settings_dict]:
+            status: 0 - no error, ~0 - error
+            self.settings
+        """     
+        if not self.function_dict:
+                return [3,  {"Error message": f"Missing functions in sweep plugin : {self.missing_functions}"]
+
+        self.settings["plotUpdate"] = self.settingsWidget.spinBox_plotUpdate.value()
+        try:
+                self.settings["prescaler"] = float(self.settingsWidget.prescalerEdit.text())
+        except ValueError:
+                return [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
+        if self.settings["prescaler"]>1:
+                return [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler can not be greater than 1"}]
+        if self.settings["prescaler"]<=0:
+                return [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler should be greater than 0"}]
+
         [status, self.smu_settings] = self.function_dict["smu"]["parse_settings_widget"]()
         if status:
-            self.log_message.emit(now.strftime("%H:%M:%S.%f") + f" : sweep plugin : error getting settings from smu plugin, status = {status}")
-            return 1
-        
-        #check the needed devices are connected
-        [status, message] = self.function_dict["smu"]["smu_connect"]()
-        if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin : {message}, status = {status}")
-            return 1
-        [recipe, drainsteps, sensesteps, modesteps] = create_sweep_reciepe(self.smu_settings)
-        self.run_thread = thread_with_exception(self._sweepImplementation, (recipe, drainsteps, sensesteps, modesteps))
-        self.run_thread.start()		
+            return [2, self.smu_settings]
 
-########Functions
+        return [0, self.settings]
+
+###############provide smu functions to sequence to handle excetions 
+    def smu_connect(self):
+            return self.function_dict["smu"]["smu_connect"]()
+
+    def smu_disconnect(self):
+            return self.function_dict["smu"]["smu_disconnect"]()
+
+    def smu_abort(self):
+            return self.function_dict["smu"]["smu_abort"]()
+
+    def smu_outputOFF(self):
+            return self.function_dict["smu"]["smu_outputOFF"]()
+
+###############GUI enable/disable
+
+    def set_running(self, status):
+        self.settingsWidget.groupBox.setEnabled(not status)
+        self.function_dict["smu"]["set_running"](status)
+        
 ########sweep implementation  
-    #moving this into the sweepCommon feels to be tempting, but it may create some unreasonable overheads:
-    	#1. plugin functions will need to be sent also
-    	#2. updating the plot will require transfer of the handles
-    #this makes this function not that independent, so in another sweep implementations it may be just copied as a block
-    def _sweepImplementation(self, recipe, drainsteps, sensesteps, modesteps) :
+    def sweepImplementation(self, file_settings):
+    	"""
+    	Performs an IV sweep on SMU, saves the result in a file
+    	Input: dict
+    	        file_settings["address"] - address to save the result
+    	        file_settings["filename"] - filename to use
+    	        file_settings["samplename"] - data for the header
+    	        file_settings["comment"] - date for the header
+    	        
+    	Returns [status, message]:
+            status: 0 - no error, ~0 - error
+    	"""
     	try:
-    		#initializaing SMU, may be moved into the loop, here it will save a bit of time
+                [recipe, drainsteps, sensesteps, modesteps] = create_sweep_reciepe(self.smu_settings)
     		if  self.function_dict["smu"]["smu_init"](recipe[0]):
-    				self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin : smu_init failed")
-    				##IRtodo#### enable interface controls
-    				return 1
+    				return [1, f"sweep plugin : smu_init failed"]
     		data = np.array([])                
     		for recipeStep,measurement in enumerate(recipe):
     			#creating a new header
     			if recipeStep % (sensesteps*modesteps) == 0:
     				columnheader = ''
     				if not measurement["single_ch"]:
-    					fileheader = create_file_header(self.settings, self.smu_settings, backVoltage = measurement["drainvoltage"])
+    					fileheader = create_file_header(file_settings, self.smu_settings, backVoltage = measurement["drainvoltage"])
     				else:	
-    					fileheader = create_file_header(self.settings, self.smu_settings)
+    					fileheader = create_file_header(file_settings, self.smu_settings)
 	    		if measurement["sourcesense"]:
 	    			columnheader = f"{columnheader}IS_4pr, VS_4pr,"
 	    		else:	
@@ -185,17 +179,16 @@ class sweepGUI(QObject):
 		    			columnheader = f"{columnheader}ID_2pr, VD_2pr,"
 	    		#running sweep
 	    		if  self.function_dict["smu"]["smu_runSweep"](measurement):
-		                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin : smu_runSweep failed")
-		                ##IRtodo#### enable interface controls
-		                return 1        
+		                return [1, f"sweep plugin : smu_runSweep failed"]
 		                
 	    		#plotting while measuring
 	    		self.axes.cla()
+	    		self.axes.set_xlabel('Voltage (V)')
+	    		self.axes.set_ylabel('Current (A)')
 	    		self.sc.draw()
 	    		buffer_prev = 0
 	    		while True:
       		    		time.sleep(self.settings["plotUpdate"])
-      		    		##IRtodo#### plotting should be done for both source and drain
       		    		[lastI, lastV, lastPoints] = self.function_dict["smu"]["smu_getLastBufferValue"](measurement["source"])
       		    		if lastPoints >= measurement["steps"]*measurement["repeat"]:
       		    			break
@@ -225,8 +218,7 @@ class sweepGUI(QObject):
       		    			self.axes.relim()
       		    			self.axes.autoscale_view()
       		    			self.sc.draw()
-      		    			##IRtodo#### add stop before limit to GUI	
-      		    			if (measurement["type"] == 'i' and (abs(lastV)> 0.95*abs(measurement["limit"])) ) or (measurement["type"] == 'i' and (abs(lastV)> 0.95*abs(measurement["limit"])) ):
+      		    			if (measurement["type"] == 'i' and (abs(lastV)> self.settings["prescaler"]*abs(measurement["limit"])) ) or (measurement["type"] == 'i' and (abs(lastV)> self.settings["prescaler"]*abs(measurement["limit"])) ):
       		    				self.function_dict["smu"]["smu_abort"](measurement["source"])
       		    				break
       		    			buffer_prev = lastPoints
@@ -235,14 +227,13 @@ class sweepGUI(QObject):
 	    		self.function_dict["smu"]["smu_outputOFF"]()
 	    		IV_source = self.function_dict["smu"]["smu_bufferRead"](measurement["source"])
 	    		self.axes.cla()
+	    		self.axes.set_xlabel('Voltage (V)')
+	    		self.axes.set_ylabel('Current (A)')
 	    		plot_refs = self.axes.plot(IV_source[:,1], IV_source[:,0], 'bo')
 	    		if not measurement["single_ch"]:
 	    			IV_drain = self.function_dict["smu"]["smu_bufferRead"](measurement["drain"])
 	    			plot_refs = self.axes.plot(IV_source[:,1], IV_drain[:,0], 'go')
 	    		self.sc.draw()
-	    		if not measurement["single_ch"]:
-	    			##IRtodo#### plotting should be done for both source and drain
-	    			IV_drain = self.function_dict["smu"]["smu_bufferRead"](measurement["drain"])
 	    		IVresize = 0	
 	    		if data.size == 0:
 	    			data = IV_source
@@ -261,11 +252,11 @@ class sweepGUI(QObject):
 	    			data = np.hstack([data, IV_drain])	
 	    		columnheader = f"{columnheader[:-1]}"
 	    		if drainsteps > 1:
-	    			fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + f"{drainvoltage}V"+".dat"
+	    			fulladdress = file_settings["address"] + os.sep + file_settings["filename"] + f"{drainvoltage}V"+".dat"
 	    		else:
-	    			fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
-	    		fulladdress = self.settings["address"] + self.settings["filename"] + ".dat"
-	    		np.savetxt(fulladdress, data, fmt='%.8f', delimiter=',', newline='\n', header=fileheader + columnheader, comments='#')		
-    	except ThreadStopped:
-    		self.function_dict["smu"]["smu_abort"](measurement["source"])
-    		self.function_dict["smu"]["smu_outputOFF"]()
+	    			fulladdress = file_settings["address"] + os.sep + file_settings["filename"] + ".dat"
+	    		fulladdress = file_settings["address"] + file_settings["filename"] + ".dat"
+	    		np.savetxt(fulladdress, data, fmt='%.8f', delimiter=',', newline='\n', header=fileheader + columnheader, comments='#')
+    		return [0, "sweep finished"]
+    	except Exception as e:
+    		return [1, f"sweep stopped because of unexpected exception: {e}"]

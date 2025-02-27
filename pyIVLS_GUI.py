@@ -21,15 +21,17 @@ from pyIVLS_pluginloader import pyIVLS_pluginloader
 class pyIVLS_GUI(QObject):
 
     ############################### GUI functions
-    # FIXME: incorrect, see pyIVLS_pluginloader.py
-    def show_message(self, txt):
+
+    ############################### Slots
+    @pyqtSlot(str)
+    def show_message(self, str):
         msg = QtWidgets.QMessageBox()
-        msg.setText(txt)
+        msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
         msg.exec_()
 
-    ############################### Slots
+    
     @pyqtSlot(str)
     def addDataLog(self, str):
         print(str)

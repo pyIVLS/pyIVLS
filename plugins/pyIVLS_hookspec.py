@@ -50,3 +50,13 @@ class pyIVLS_hookspec:
         This argument will allow the specific implementation of the hook to identify if any response is needed or not. 
         :return: dict containing signal for logging
         """
+        
+    @hookspec
+    def get_info(self, args = None):
+        """provides the signal for showing info messages in the main app
+         
+        args may include
+        :plugin_type: as all the plugins will be rolled in one loop, but plugins will be of different types, not all of them should return smth.
+        This argument will allow the specific implementation of the hook to identify if any response is needed or not. 
+        :return: dict containing signal for logging
+        """        

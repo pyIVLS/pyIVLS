@@ -96,7 +96,7 @@ class pyIVLS_container(QObject):
         for plugin in self.config.sections():
                 if plugin.rsplit("_", 1)[1] == 'plugin':
                         option_dict = {}
-                        for option in ["type","function","load", "dependencies", "address"]:
+                        for option in ["type","function", "class", "load", "dependencies", "address"]:
                                 if self.config.has_option(plugin, option):
                                         option_dict[option] = self.config[plugin][option]
                                 else:
@@ -211,6 +211,14 @@ class pyIVLS_container(QObject):
             plugin_name = list(logSignal.keys())[0]
             logSignals.append(logSignal[plugin_name])
         return logSignals
+
+    def getInfoSignals(self):
+        plugin_infoSignals = self.pm.hook.get_info()
+        infoSignals = []
+        for infoSignal in plugin_infoSignals:
+            plugin_name = list(infoSignal.keys())[0]
+            infoSignals.append(infoSignal[plugin_name])
+        return infoSignals
             
     # NOTE: This function *might* fail with circular dependencies. Plugins might be loaded multiple times, but _register should make sure that only one instance is registered.
     def _check_dependencies_register(self, plugins_to_activate: list) -> list:

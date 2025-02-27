@@ -2,17 +2,22 @@
 # 1. MDI area added to MainWindow (will be used for vizualization)
 # 2. Device plugins are separated into the GUI and core parts. The main idea of separation is to be able to use core without the GUI
 # 3. pyIVLS are not any more descendents of plugin class. Mainly it is done because the public functions should be provided by GUI classes, but not by the plugin itself. As a benefit, requirements to the plugin names are removed
-# 4. GUI clases are now descendents of QObject as they need to emit signals for logging (and probably for warnings in future implementations)
+# 4. Some GUI clases may now be descendents of QObject as they may need to emit signals for logging (see note on logging and error messaging)
 # 5. Changed the structure of ini file, now it allows to save plugin settings
+# 6. class option is added to the plugin descriptor in the ini file. This is related to suggested implementation of the built-in functionality of run and address selection. (class = step for measurement, class = loop for looping the steps, class = none for support plugins not directly used in recipe)
 
 #### TODO list
-# 1. add settings validation to GUI
-# 2. add settings locking/unlocking to GUI
+# 1. add settings validation to GUI (partially done)
+# 2. add settings locking/unlocking to GUI (partially done)
 # 3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)
-# 4. implement warning messaging
+# 4. implement warning messaging (implemented not tested)
 # 5. implement saving of settings to configuration file
 # 6. implement reopening of docking window and MDI windows
 # 7. implement autosave for long measurements
+# 8. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
+# 9. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence. 
+##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
+##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
 
 #### install (Ubuntu 24.04.1 LTS)
 # 1. python3 -m venv .venv
@@ -66,8 +71,17 @@
 
 #### logging and error messaging
 # Logs messages and info messages for user should be sent only by the plugin that directly interracts with the user, i.e.
-# in case of sweep only sweep plugin should save to the log and show messages to the user. All other plugins communicate to the sweep plugin, e.g. with returned status of the functions.
+# in case of sweep only run sweep plugin should save to the log and show messages to the user. All other plugins communicate to the sweep plugin, e.g. with returned status of the functions.
 # This is necessary to avoid multiple messaging
+## standard error codes
+#0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins
+##plugins return errors in form of list [number, {"Error message":"Error text"}], e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
+#error text will be shown in the dialog message in the interaction plugin, so the error text should contain the plugin name, e.g. return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
+##intermidiate plugins should pass the error to the plugins that interract with users as is, just changing the error code
+#e.g.return [2, self.smu_settings]
+##the plugin interracting with user adds to the log it's own name, and name of the plugin that transmitted this error 
+#(not the name of original plugin, that's why the message should contain the original plugin name, as if there will be multiple intermediate plugins some of the plugin names may be dropped)
+#e.g. self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : runsweep : the sweep plugin reported an error: {self.sweep_settings["Error message"]}')
 
 #### execution flow
 #1. When pyIVLS.py is run it creates an instance of the pyIVLS_container.py (handles all the plugins) and the main window
@@ -75,6 +89,8 @@
 ##	reads plugin data from ini
 ##	registers the plugins marked for loading in ini (_register function)
 #3. pyIVLS.py makes initialization of main slots and signals between plugin container and GUI. This includes connecting signals from plugins to the main window
+##      log signals from plugins is connected to slot addDataLog in pyIVLS_GUI.py
+##      info signals from plugins are connectend to slot show_message in pyIVLS_GUI.py
 #4. pyIVLS.py calls a public_function_exchange() from pyIVLS_container.py to provide functions from dependency plugins to the plugins that require them
 #5. pyIVLS.py calls get_plugin_info_for_settingsGUI() for adding settings widgets to main GUI window
 ##6. get_plugin_info_for_settingsGUI() is implemented in pyIVLS_container.py  
