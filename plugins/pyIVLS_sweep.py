@@ -14,7 +14,7 @@ class pyIVLS_sweep_plugin():
     def __init__(self):
         ##IRtothink#### there should be some kind of configuration file for installing the plugins. This config file may be stored in the plugin folder, and the plugin data may be read from there
         self.plugin_name="sweep"
-        self.plugin_function="measurement"
+        self.plugin_function="ivsweep"
         self.plugin_dependencies=["smu", "camera"]
         self.sweep = sweepGUI()
         super().__init__()
@@ -50,7 +50,7 @@ class pyIVLS_sweep_plugin():
             dict: functions
         """
         if args is None or args.get("function") == plugin_function:
-            return {self.plugin_name: self.pluginClass._get_public_methods()}
+            return {self.plugin_name: self.sweep._get_public_methods()}
       
     @hookimpl
     def set_function(self, function_dict):

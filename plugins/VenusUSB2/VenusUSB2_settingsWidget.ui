@@ -20,13 +20,6 @@
    <string>Venus USB2.0 camera settings</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="2" column="0">
-    <widget class="QPushButton" name="cameraSave">
-     <property name="text">
-      <string>Save settings</string>
-     </property>
-    </widget>
-   </item>
    <item row="0" column="0">
     <widget class="QGroupBox" name="groupBox_general">
      <property name="title">

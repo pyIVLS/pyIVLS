@@ -333,6 +333,7 @@ class Keithley2612BGUI:
             status: 0 - no error, ~0 - error (add error code later on if needed)
             self.settings
         """       
+        ##IRtothink#### this implementation requires that all settings (including those not needed for current sweep) to be good. This is not a bad thing, but might be an overkill. A possible implementation will be to use some default values that may be stored in plugin installation package
 
         self.settings = {}
 
@@ -365,158 +366,158 @@ class Keithley2612BGUI:
 	        self.settings["sourcehighc"] = False
 
         # Determine repeat count: should be int >0
-        self.settings["repeat"] = int(self.settingsWidget.lineEdit_repeat.text())
+        try:
+        	self.settings["repeat"] = int(self.settingsWidget.lineEdit_repeat.text())
+        except ValueError:
+                        return [1, {"Error message":"Value error in Keithley plugin: repeat field should be integer"}]
+        if self.settings["repeat"] <1:
+                        return [1, {"Error message":"Value error in Keithley plugin: repeat field can not be less than 1"}]
+
 
         # Determine settings for continuous mode
-        if self.settings["mode"] != "pulsed":
-	        #start should be float
-	        try:
+        #start should be float
+        try:
                         self.settings["continuousstart"] = float(self.settingsWidget.lineEdit_continuousStart.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: continuous start field should be numeric"}]
 	        
-	        #end should be float
-	        try:
+        #end should be float
+        try:
                         self.settings["continuousend"] = float(self.settingsWidget.lineEdit_continuousEnd.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: continuous end field should be numeric"}]
         
-	        #number of points should be int >0
-	        try:
+        #number of points should be int >0
+        try:
                         self.settings["continuouspoints"] = int(self.settingsWidget.lineEdit_continuousPoints.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: continuous number of points field should be integer"}]
-	        if self.settings["continuouspoints"] <1:
+        if self.settings["continuouspoints"] <1:
                         return [1, {"Error message":"Value error in Keithley plugin: continuous number of points field can not be less than 1"}]
 
-	        #limit should be float >0
-	        try:
+        #limit should be float >0
+        try:
                         self.settings["continuouslimit"] = float(self.settingsWidget.lineEdit_continuousLimit.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: continuous limit field should be numeric"}]
-	        if self.settings["continuouslimit"] <=0:
+        if self.settings["continuouslimit"] <=0:
                         return [1, {"Error message":"Value error in Keithley plugin: continuous limit field should be positive"}]
 
-	        #continuous nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
-	        ##IRtodo#### line frequency may be read from Keithley itself
-	        try:
+        #continuous nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
+        ##IRtodo#### line frequency may be read from Keithley itself
+        try:
                         self.settings["continuousnplc"] =  0.001 * pyIVLS_constants.LINE_FREQ * float(self.settingsWidget.lineEdit_continuousNPLC.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: continuous nplc field should be numeric"}]
-	        if self.settings["continuousnplc"] <=0:
+        if self.settings["continuousnplc"] <=0:
                         return [1, {"Error message":"Value error in Keithley plugin: continuous nplc field should be positive"}]
 
-	        if self.settings["continuousdelaymode"] == "manual":
-	                #delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
-	                try:
+        #delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
+        try:
                                 self.settings["continuousdelay"] =  float(self.settingsWidget.lineEdit_continuousDelay.text())/1000
-	                except ValueError:
+        except ValueError:
                                 return [1, {"Error message":"Value error in Keithley plugin: continuous delay field should be numeric"}]
-	                if self.settings["continuousdelay"] <=0:
+        if self.settings["continuousdelay"] <=0:
                                 return [1, {"Error message":"Value error in Keithley plugin: continuous delay field should be positive"}]	                
 
         # Determine settings for pulsed mode
-        if self.settings["mode"] != "continuous":
-	        #start should be float
-	        try:
+        #start should be float
+        try:
                         self.settings["pulsedstart"] = float(self.settingsWidget.lineEdit_pulsedStart.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: pulsed start field should be numeric"}]
 
-	        #end should be float
-	        try:
+        #end should be float
+        try:
                         self.settings["pulsedend"] = float(self.settingsWidget.lineEdit_pulsedEnd.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: pulsed end field should be numeric"}]
 	        
-	        #number of points should be int >0
-	        try:
+        #number of points should be int >0
+        try:
                         self.settings["pulsedpoints"] = int(self.settingsWidget.lineEdit_pulsedPoints.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: pulsed number of points field should be integer"}]
-	        if self.settings["pulsedpoints"] <1:
+        if self.settings["pulsedpoints"] <1:
                         return [1, {"Error message":"Value error in Keithley plugin: pulsed number of points field can not be less than 1"}]
 
-	        #limit should be float >0
-	        try:
+        #limit should be float >0
+        try:
                         self.settings["pulsedlimit"] = float(self.settingsWidget.lineEdit_pulsedLimit.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: pulsed limit field should be numeric"}]
-	        if self.settings["pulsedlimit"] <=0:
+        if self.settings["pulsedlimit"] <=0:
                         return [1, {"Error message":"Value error in Keithley plugin: pulsed limit field should be positive"}]
                         
-	        #pulsed nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
-	        ##IRtodo#### line frequency may be read from Keithley itself
-	        try:
+        #pulsed nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
+        ##IRtodo#### line frequency may be read from Keithley itself
+        try:
                         self.settings["pulsednplc"] = 0.001 * pyIVLS_constants.LINE_FREQ * float(self.settingsWidget.lineEdit_pulsedNPLC.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: pulsed nplc field should be numeric"}]
-	        if self.settings["pulsednplc"] <=0:
+        if self.settings["pulsednplc"] <=0:
                         return [1, {"Error message":"Value error in Keithley plugin: pulsed nplc field should be positive"}]
 
-	        if self.settings["pulseddelaymode"] == "manual":
-	                #delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
-	                try:
+        #delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
+        try:
                                 self.settings["pulseddelay"] = float(self.settingsWidget.lineEdit_pulsedDelay.text())/1000
-	                except ValueError:
+        except ValueError:
                                 return [1, {"Error message":"Value error in Keithley plugin: pulsed delay field should be numeric"}]
-	                if self.settings["pulseddelay"] <=0:
+        if self.settings["pulseddelay"] <=0:
                                 return [1, {"Error message":"Value error in Keithley plugin: pulsed delay field should be positive"}]        
 
-	        #pause between pulses should be >0
-	        try:
+        #pause between pulses should be >0
+        try:
                         self.settings["pulsepause"] = float(self.settingsWidget.lineEdit_pulsedPause.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: pulse pause field should be numeric"}]
-	        if self.settings["pulsepause"] <=0:
+        if self.settings["pulsepause"] <=0:
                         return [1, {"Error message":"Value error in Keithley plugin: pulse pause field should be positive"}]
 
         # Determine settings for drain mode
-        if not self.settings["singlechannel"]:
-	        #start should be float
-	        try:
+        #start should be float
+        try:
                         self.settings["drainstart"] = float(self.settingsWidget.lineEdit_drainStart.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: drain start field should be numeric"}]
 
-	        #end should be float
-	        try:
+        #end should be float
+        try:
                         self.settings["drainend"] = float(self.settingsWidget.lineEdit_drainEnd.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: drain end field should be numeric"}]
 	        
-	        #number of points should be int >0
-	        try:
+        #number of points should be int >0
+        try:
                         self.settings["drainpoints"] = int(self.settingsWidget.lineEdit_drainPoints.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: drain number of points field should be integer"}]
-	        if self.settings["drainpoints"] <1:
+        if self.settings["drainpoints"] <1:
                         return [1, {"Error message":"Value error in Keithley plugin: drain number of points field can not be less than 1"}]
 
-	        #limit should be float >0
-	        try:
+        #limit should be float >0
+        try:
                         self.settings["drainlimit"] = float(self.settingsWidget.lineEdit_drainLimit.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: drain limit field should be numeric"}]
-	        if self.settings["drainlimit"] <=0:
+        if self.settings["drainlimit"] <=0:
                         return [1, {"Error message":"Value error in Keithley plugin: drain limit field should be positive"}]
                         
-	        #drain nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
-	        ##IRtodo#### line frequency may be read from Keithley itself
-	        try:
+        #drain nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
+        ##IRtodo#### line frequency may be read from Keithley itself
+        try:
                         self.settings["drainnplc"] =  0.001 * pyIVLS_constants.LINE_FREQ * float(self.settingsWidget.lineEdit_drainNPLC.text())
-	        except ValueError:
+        except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
-	        if self.settings["drainnplc"] <=0:
+        if self.settings["drainnplc"] <=0:
                         return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be positive"}]
 
-	        if self.settings["draindelaymode"] == "manual":
-	                #delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
-	                try:
+        #delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
+        try:
                                 self.settings["draindelay"] =  float(self.settingsWidget.lineEdit_drainDelay.text())/1000
-	                except ValueError:
+        except ValueError:
                                 return [1, {"Error message":"Value error in Keithley plugin: drain delay field should be numeric"}]
-	                if self.settings["draindelay"] <=0:
+        if self.settings["draindelay"] <=0:
                                 return [1, {"Error message":"Value error in Keithley plugin: drain delay field should be positive"}]                                
 
         # Determine a HighC mode for drain: may be True or False 

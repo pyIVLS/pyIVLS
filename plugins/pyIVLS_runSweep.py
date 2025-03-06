@@ -2,11 +2,9 @@
 import pluggy
 from PyQt6 import QtWidgets
 
-from sweepGUI import runSweepGUI
-from plugin import Plugin
+from runSweepGUI import runSweepGUI
 
-
-class pyIVLS_sweep_plugin():
+class pyIVLS_runSweep_plugin():
     """Hooks for the tester plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
@@ -14,8 +12,8 @@ class pyIVLS_sweep_plugin():
     def __init__(self):
         ##IRtothink#### there should be some kind of configuration file for installing the plugins. This config file may be stored in the plugin folder, and the plugin data may be read from there
         self.plugin_name="runSweep"
-        self.plugin_function="measurement"
-        self.plugin_dependencies=["sweep"]
+        self.plugin_function="sequence"
+        self.plugin_dependencies=["ivsweep"]
         self.sweep = runSweepGUI()
         super().__init__()
 
@@ -29,15 +27,6 @@ class pyIVLS_sweep_plugin():
         """
         self.sweep._initGUI(plugin_data[self.plugin_name]["settings"])
         return {self.plugin_name: self.sweep.settingsWidget}
-
-    @hookimpl
-    def get_MDI_interface(self, args = None) -> dict:
-        """ Returns MDI window for camera preview
-
-        Returns:
-            dict: name, widget
-        """
-        return {self.plugin_name: self.sweep.MDIWidget}
 
     @hookimpl
     def get_log(self, args = None):
@@ -57,7 +46,7 @@ class pyIVLS_sweep_plugin():
         """
         
         if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.peltierController._getInfoSignal()}
+            return {self.plugin_name: self.sweep._getInfoSignal()}
         
     @hookimpl
     def set_function(self, function_dict):

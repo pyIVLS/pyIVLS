@@ -23,15 +23,18 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,1">
      <item>
-      <layout class="QVBoxLayout" name="displayLayout" stretch=""/>
+      <layout class="QVBoxLayout" name="displayLayout"/>
      </item>
      <item>
-      <widget class="QTextEdit" name="peltieOutputEdit">
+      <widget class="QTextEdit" name="peltierOutputEdit">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>1</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
      </item>

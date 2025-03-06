@@ -51,6 +51,26 @@ class pyIVLS_VenusUSB2_plugin():
         if args is None or args.get("function") == plugin_function:
             return {self.plugin_name: self.camera_control._get_public_methods()}
 
+    @hookimpl
+    def get_log(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.camera_control._getLogSignal()}
+
+    @hookimpl
+    def get_info(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.camera_control._getInfoSignal()}
+
     def open(self) -> tuple:
         """Open the device.
 

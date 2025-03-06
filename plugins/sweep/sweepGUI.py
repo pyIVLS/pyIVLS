@@ -70,11 +70,9 @@ class sweepGUI():
                 for dependency_function in self.dependency[dependency_plugin]:
                         if not dependency_function in function_dict[dependency_plugin]:
                                 self.missing_functions.append(f"{dependency_plugin}:{dependency_function}")
-        if not self.missing_functions:
-            self.settingsWidget.runButton.setEnabled(True)   
+        if not self.missing_functions: 
             self.function_dict = function_dict
-        else:    
-            self.settingsWidget.runButton.setDisabled(True)   
+        else:     
             self.function_dict = {}
         return self.missing_functions
         
@@ -105,7 +103,8 @@ class sweepGUI():
             self.settings
         """     
         if not self.function_dict:
-                return [3,  {"Error message": f"Missing functions in sweep plugin : {self.missing_functions}"]
+                return [3,  {"Error message": f"Missing functions in sweep plugin : {self.missing_functions}"}]
+        self.settings = {}
 
         self.settings["plotUpdate"] = self.settingsWidget.spinBox_plotUpdate.value()
         try:
@@ -138,7 +137,7 @@ class sweepGUI():
 
 ###############GUI enable/disable
 
-    def set_running(self, status):
+    def set_running(self, status):    	
         self.settingsWidget.groupBox.setEnabled(not status)
         self.function_dict["smu"]["set_running"](status)
         
@@ -156,7 +155,7 @@ class sweepGUI():
             status: 0 - no error, ~0 - error
     	"""
     	try:
-                [recipe, drainsteps, sensesteps, modesteps] = create_sweep_reciepe(self.smu_settings)
+    		[recipe, drainsteps, sensesteps, modesteps] = create_sweep_reciepe(self.smu_settings)
     		if  self.function_dict["smu"]["smu_init"](recipe[0]):
     				return [1, f"sweep plugin : smu_init failed"]
     		data = np.array([])                

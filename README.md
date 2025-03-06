@@ -5,19 +5,29 @@
 # 4. Some GUI clases may now be descendents of QObject as they may need to emit signals for logging (see note on logging and error messaging)
 # 5. Changed the structure of ini file, now it allows to save plugin settings
 # 6. class option is added to the plugin descriptor in the ini file. This is related to suggested implementation of the built-in functionality of run and address selection. (class = step for measurement, class = loop for looping the steps, class = none for support plugins not directly used in recipe)
+# 7. Execution flow is modified to allow to add messages from pluginContainer to log. Message slot from pluginloader is removed, info signal from plugin container is connected to the message slot in pyIVLS_GUI, as for all the other information windows.
 
 #### TODO list
 # 1. add settings validation to GUI (partially done)
 # 2. add settings locking/unlocking to GUI (partially done)
 # 3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)
-# 4. implement warning messaging (implemented not tested)
+# 4. remove constants file. The info from it may be moved to the plugin settings.
 # 5. implement saving of settings to configuration file
 # 6. implement reopening of docking window and MDI windows
 # 7. implement autosave for long measurements
-# 8. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
-# 9. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence. 
+# 8. implement close check, i.e. the main GUI window can not be closed if a measuremen or preview is running
+# 9. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
+# 10. modify _get_public_methods in plugins. Now it returns also quit some subfunctions from dependent modules (e.g. for VenusUSB2). It may be reasonable to create a list with name of the methods to be exported, if the method name is in the list if will be processed by this function
+# 11. implement GUI for adding/removing plugins. This should take care that plugin info in *.ini (i.e. name, class, function. etc) corresponds to info in plugin itself
+# 12. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence
 ##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
 ##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
+
+#### plugin specific TODO lists
+######### VenusUSB2
+####	Implement manipulation of the image (size change, digital zoom, etc.). May be reasonable to thing about changing integration time without stopping the preview
+######### runSweep
+####	Stop button
 
 #### install (Ubuntu 24.04.1 LTS)
 # 1. python3 -m venv .venv
@@ -37,6 +47,8 @@
 # 8. python3 -m pip install opencv-python
 # 9. python3 -m pip install matplotlib
 #10. python3 -m pip install datetime
+#11. python3 -m pip install pathvalidate # required for sequenceces
+#12. python3 -m pip install pyserial # required for peltierController, senseMultiplexer, etc.
 # deactivate
 
 # change the first line of pyIVLS.py to address the virual environment 
@@ -58,6 +70,10 @@
 # Example for creating the group and adding the user
 ##sudo groupadd usbtmc
 ##sudo usermod -a -G usbtmc ivls
+#
+## peltierController
+# the device is detected as 1a86:7523 QinHeng Electronics CH340 serial converter. To provide access to /dev/ttyUSB0 add user to dialout group
+#sudo usermod -a -G dialout $USER
 
 #### plugin conventions
 # 1. Every plugin  consists of a couple of files. 
@@ -74,7 +90,7 @@
 # in case of sweep only run sweep plugin should save to the log and show messages to the user. All other plugins communicate to the sweep plugin, e.g. with returned status of the functions.
 # This is necessary to avoid multiple messaging
 ## standard error codes
-#0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins
+#0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins, 4 = harware error
 ##plugins return errors in form of list [number, {"Error message":"Error text"}], e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
 #error text will be shown in the dialog message in the interaction plugin, so the error text should contain the plugin name, e.g. return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
 ##intermidiate plugins should pass the error to the plugins that interract with users as is, just changing the error code
@@ -85,7 +101,8 @@
 
 #### execution flow
 #1. When pyIVLS.py is run it creates an instance of the pyIVLS_container.py (handles all the plugins) and the main window
-##2. In the initialization the pyIVLS_container.py 
+##	signals (including log and user message) from pyIVLS_container.py and pyIVLS_pluginloader are connected to respective slots
+#2. register_start_up of pyIVLS_container.py is called
 ##	reads plugin data from ini
 ##	registers the plugins marked for loading in ini (_register function)
 #3. pyIVLS.py makes initialization of main slots and signals between plugin container and GUI. This includes connecting signals from plugins to the main window

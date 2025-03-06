@@ -59,20 +59,6 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             if item.data(Qt.ItemDataRole.UserRole) == plugin_name:
                 item.setCheckState(Qt.CheckState.Checked)
 
-    @pyqtSlot(str)
-    def show_message(self, txt):
-        """Displays a warning message in the plugin-gui. Called from the container signal "show_message_signal".
-
-        Args:
-            txt (str): message to be displayed
-        """
-        msg = QtWidgets.QMessageBox()
-        msg.setText(txt)
-        msg.setWindowTitle("Warning")
-        msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-        msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
-        msg.exec()
-
     #### Button actions
     def refresh(self):
         """Tells the container to send the available plugins. The container the emits a signal that leads to the populate_list() method."""

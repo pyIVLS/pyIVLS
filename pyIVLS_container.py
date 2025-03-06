@@ -3,6 +3,7 @@ from os.path import dirname, sep
 import sys
 
 import importlib
+from datetime import datetime
 from configparser import ConfigParser
 import pluggy
 
@@ -24,6 +25,8 @@ class pyIVLS_container(QObject):
     plugins_updated_signal = pyqtSignal()
     # show a message to the user in the plugin loader GUI
     show_message_signal = pyqtSignal(str)
+    # add info to log   
+    log_message = pyqtSignal(str) 
 
     #### Slots for communication
     @pyqtSlot()
@@ -133,14 +136,13 @@ class pyIVLS_container(QObject):
                 # Register the plugin with the standard name to prevent multiple instances
                 self.pm.register(plugin_instance, name=plugin_name)
                 self.config[plugin]["load"] = "True"
-                # FIXME: remove debug print
-                print(f"Plugin {plugin_name} loaded")
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin_name} loaded")
                 return True
             else:
                 sys.path.remove(self.path + "plugins" + sep + self.config[plugin]["address"])
                 return False
         except (ImportError, AttributeError) as e:
-            print(f"Failed to load plugin {plugin_name}: {e}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Failed to load plugin {plugin_name}: {e}")
             self.config[plugin]["load"] = "False"
             sys.path.remove(self.path + "plugins" + sep + self.config[plugin]["address"])
             return False
@@ -173,20 +175,22 @@ class pyIVLS_container(QObject):
                 # if not, unregister the plugin
                 self.pm.unregister(plugin_instance)
                 self.config[plugin]["load"] = "False"
-                # FIXME: remove debug print
-                print(f"Plugin {plugin} unloaded")
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin} unloaded")
                 return True
             # plugin not registered, do nothing.
             return False
         except ImportError as e:
-            print(f"Failed to unload plugin {plugin}: {e}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + " : Failed to unload plugin {plugin}: {e}")
             return False
         except AttributeError as e:
-            print(f"Failed to unload plugin {plugin}: {e}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Failed to unload plugin {plugin}: {e}")
             return False
 
     def register_start_up(self):
         """Checks the .ini file for saved settings and registers all plugins that are set to load on startup."""
+        self.config = ConfigParser()
+        self.config.read(self.path + pyIVLS_constants.configFileName)
+        
         # FIXME: Naive implementation. If a pluginload fails on startup, it's not retried. This makes it possible for the user™ to break something.
         ##IRtodo#### it needs to be checked that there are no 2 plugins with the same name/or 2 plugins with the same function
         for plugin in self.config.sections():
@@ -278,10 +282,6 @@ class pyIVLS_container(QObject):
         sys.path.append(self.path + "plugins"+ sep)
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
-
-        self.config = ConfigParser()
-        self.config.read(self.path + pyIVLS_constants.configFileName)
-        self.register_start_up()
 
     def cleanup(self) -> None:
         """Explicitly cleanup resources, such as writing the config file."""

@@ -77,7 +77,7 @@ class pyIVLS_peltierController_plugin():
         """
         
         if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.peltierController._getLogSignal()}
+            return {self.plugin_name: self.pluginClass._getLogSignal()}
 
     @hookimpl
     def get_info(self, args = None):
@@ -87,5 +87,5 @@ class pyIVLS_peltierController_plugin():
         """
         
         if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.peltierController._getInfoSignal()}
+            return {self.plugin_name: self.pluginClass._getInfoSignal()}
 

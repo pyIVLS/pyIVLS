@@ -23,6 +23,7 @@ import matplotlib.dates as mdates
 from PyQt6 import uic
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtWidgets import QTextEdit
 from peltierController import peltierController
 from MplCanvas import MplCanvas # this should be moved to some pluginsShare
 
@@ -41,12 +42,12 @@ class peltierControllerGUI(QObject):
         self.path = os.path.dirname(__file__) + os.path.sep
     
         self.settingsWidget = uic.loadUi(self.path + "peltierController_settingsWidget.ui")
-        self.displayWidget = uic.loadUi(self.path + "peltierController_MDIWidget.ui")
+        self.MDIWidget = uic.loadUi(self.path + "peltierController_MDIWidget.ui")
 
         # Initialize the functionality core that should be independent on GUI
         self.peltierController = peltierController()
         
-        self._connect_sgnals()
+        self._connect_signals()
         self._create_plt()
         
         # Set a timer for the temperature display
@@ -64,23 +65,27 @@ class peltierControllerGUI(QObject):
         self.sc = MplCanvas(self, width=5, height=4, dpi=100)
         self.axes = self.sc.fig.add_subplot(111)
         self.axes.set_xlabel('time (HH:MM)')
-        self.axes.set_ylabel('Temperature ($^\circ$C)')
 
-        self.MDIWidget.dislpayLayout.addWidget(self.sc._create_toolbar(self.MDIWidget))
-        self.MDIWidget.dislpayLayout.addWidget(self.sc)
+        self.axes.set_ylabel(f"Temperature ({u'\N{DEGREE SIGN}'}C)")
+        
+        self.MDIWidget.displayLayout.addWidget(self.sc._create_toolbar(self.MDIWidget))
+        self.MDIWidget.displayLayout.addWidget(self.sc)
 
 ########Functions 
 ########GUI Slots
     def _connectAction(self):
+                self._parse_settings_source()
                 self.settings["source"] = self.settingsWidget.peltierSource.text()
                 [status, message] = self.peltierController.open(self.settings["source"])
                 if status:
                         self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
                         self.info_message.emit(f"peltierController plugin : {message}")
                 else:
-                        self._GUIchange_deviceConnected(False)
+                        self._GUIchange_deviceConnected(True)
 
     def _disconnectAction(self):
+                if self.timer.isActive():
+                	self._displayAction()
                 [status, message] = self.peltierController.close()
                 if status:
                         self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
@@ -117,6 +122,7 @@ class peltierControllerGUI(QObject):
                 [status, info] = self._parse_settings_display()
                 if status:
                         self.info_message.emit(f"peltierController plugin : {info}")
+                        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}")
                 else:
                         self.Xdata = []
                         self.Ydata = []
@@ -126,6 +132,13 @@ class peltierControllerGUI(QObject):
 
 ########Functions
 ################################### internal
+
+    def _parse_settings_source(self):
+
+        self.settings = {}        
+        self.settings["source"] = self.settingsWidget.peltierSource.text()
+
+        return [0, self.settings]
 
     def _parse_settings_setT(self):
         try:
@@ -141,7 +154,7 @@ class peltierControllerGUI(QObject):
         except ValueError:
                 return [1, {"Error message":"Value error: set power field should be numeric"}]
         if abs(self.settings["setp"])>100:
-                return [2, {"Error message":"Value error: set power field can not be larger than 100"}]
+                return [1, {"Error message":"Value error: set power field can not be larger than 100"}]
 
         return [0, self.settings] 
 
@@ -151,14 +164,14 @@ class peltierControllerGUI(QObject):
         except ValueError:
                 return [1, {"Error message":"Value error: check period field should be integer"}]
         if self.settings["period"]<1:
-                return [2, {"Error message":"Value error: check period field should be greater than 0"}]
+                return [1, {"Error message":"Value error: check period field should be greater than 0"}]
 
         try:
                 self.settings["periodpts"] = int(self.settingsWidget.periodPtsEdit.text())
         except ValueError:
                 return [1, {"Error message":"Value error: points to show field should be integer"}]
         if self.settings["periodpts"]<1:
-                return [2, {"Error message":"Value error: points to show field should be greater than 0"}]
+                return [1, {"Error message":"Value error: points to show field should be greater than 0"}]
 
         return [0, self.settings]
 
@@ -169,25 +182,27 @@ class peltierControllerGUI(QObject):
                 self.info_message.emit(f"peltierController plugin : {info}")
                 self.timer.stop()
         else:
+                self.MDIWidget.peltierOutputEdit.clear()
+                self.MDIWidget.peltierOutputEdit.append(info["raw"])
                 temperature = info["T1"]
                 if not self.Xdata:
                         self.axes.cla()
                         self.Xdata = [datetime.now()]
                         self.Ydata = [temperature]
-                        plot_refs = self.axes.plot(Xdata_source, Ydata_source, 'bo')
+                        plot_refs = self.axes.plot(self.Xdata, self.Ydata, 'bo')
                         self.axes.set_xlabel('time (HH:MM)')
-                        self.axes.set_ylabel('Temperature ($^\circ$C)')
-                        self._plot_ref_source = plot_refs[0]
+                        self.axes.set_ylabel(f"Temperature ({u'\N{DEGREE SIGN}'}C)")
+                        self._plot_temperature = plot_refs[0]
                         self.axes.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
-                        ax.set_xlim([self.Xdata[-1] - timedelta(seconds = self.settings["period"]), self.Xdata[-1] + timedelta(seconds = self.settings["period"])*self.settings["periodpts"])
+                        self.axes.set_xlim(self.Xdata[-1] - timedelta(seconds = self.settings["period"]), self.Xdata[-1] + timedelta(seconds = self.settings["period"])*self.settings["periodpts"])
                 else:
                         self.Xdata.append(datetime.now())
                         self.Ydata.append(temperature)
-                        self._plot_ref_drain.set_xdata(self.Xdata)
-                        self._plot_ref_drain.set_ydata(self.Ydata)
+                        self._plot_temperature.set_xdata(self.Xdata)
+                        self._plot_temperature.set_ydata(self.Ydata)
                         if len(self.Xdata) > self.settings["periodpts"]:
-                                ax.set_xlim([self.Xdata[-1] - timedelta(seconds = self.settings["period"]*self.settings["periodpts"]), self.Xdata[-1] + timedelta(seconds = self.settings["period"]))
-                ax.set_ylim(min(self.Ydata) - 10 , max(self.Ydata) + 10) # +/- 10 just a random margin for plotting
+                                self.axes.set_xlim(self.Xdata[-1] - timedelta(seconds = self.settings["period"]*self.settings["periodpts"]), self.Xdata[-1] + timedelta(seconds = self.settings["period"]))
+                self.axes.set_ylim(min(self.Ydata) - 10 , max(self.Ydata) + 10) # +/- 10 just a random margin for plotting
                 self.sc.draw()
                 
 ########Functions
@@ -201,12 +216,12 @@ class peltierControllerGUI(QObject):
         self.settingsWidget.peltierSource.setText(plugin_info["source"])
         self.settingsWidget.setTEdit.setText(plugin_info["sett"])
         self.settingsWidget.setPEdit.setText(plugin_info["setp"])
-        self.settingsWidget.setPEdit.setText(plugin_info["periodEdit"])
-        self.settingsWidget.setPEdit.setText(plugin_info["periodPtsEdit"])        
-        self.settingsWidget.setPEdit.setText(plugin_info["sweepStartEdit"])
-        self.settingsWidget.setPEdit.setText(plugin_info["sweepEndEdit"])                
-        self.settingsWidget.setPEdit.setText(plugin_info["sweepPtsEdit"])
-        self.settingsWidget.setPEdit.setText(plugin_info["sweepStabilizationEdit"])
+        self.settingsWidget.periodEdit.setText(plugin_info["period"])
+        self.settingsWidget.periodPtsEdit.setText(plugin_info["periodpts"])      
+        self.settingsWidget.sweepStartEdit.setText(plugin_info["sweepstart"])
+        self.settingsWidget.sweepEndEdit.setText(plugin_info["sweepend"])                
+        self.settingsWidget.sweepPtsEdit.setText(plugin_info["sweeppts"])
+        self.settingsWidget.sweepStabilizationEdit.setText(plugin_info["sweepstabilization"])
 
 ########Functions
 ###############GUI react to change
@@ -216,10 +231,12 @@ class peltierControllerGUI(QObject):
                         self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
         else:
                         self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
-                        self.settingsWidget.settingsGroupBox.setEnabled(status)
-                        self.settingsWidget.DisplayGroupBox.setEnabled(status)
-                        self.settingsWidget.disconnectButton.setEnabled(status)
-                        self.settingsWidget.connectButton.setEnabled(not(status))
+        self.settingsWidget.settingsGroupBox.setEnabled(status)
+        self.settingsWidget.DisplayGroupBox.setEnabled(status)
+        self.settingsWidget.disconnectButton.setEnabled(status)
+        self.settingsWidget.connectButton.setEnabled(not(status))
+        self.settingsWidget.setTButton.setEnabled(status)
+        self.settingsWidget.setPButton.setEnabled(status)
 
     def _GUIchange_display(self, status):
         if status:
@@ -261,9 +278,8 @@ class peltierControllerGUI(QObject):
         Returns [status, settings_dict]:
             status: 0 - no error, ~0 - error (add error code later on if needed)
             self.settings
-        """        
-        #### for example
-        self.settings["source"] = self.settingsWidget.peltierSource.text()
+        """
+        self._parse_settings_source()
 
         try:
                 self.settings["sweepstart"] = float(self.settingsWidget.sweepStartEdit.text())

@@ -22,7 +22,7 @@ class VenusUSB2:
             ~0 - error (add error code later on if needed)
         """
         if (source is None) or (exposure is None):
-            return 1
+            return [1, {"Error message":"Source or exposure time not set"}]
         self.cap.open(source)
         if self.cap.isOpened():          
             #set exposure
@@ -36,7 +36,7 @@ class VenusUSB2:
             #  return
             
             if not self.cap.set(cv.CAP_PROP_EXPOSURE, exposure):
-                 return 3
+                 return [4, {"Error message":"Can not set exposure time"}]
             
             ##IRtothink#### should the next settings be obtaines as parameters
             
@@ -46,8 +46,8 @@ class VenusUSB2:
             # Set resolution
             self.cap.set(cv.CAP_PROP_FRAME_WIDTH, 1024)
             self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, 768)
-            return 0
-        return 2
+            return [0, {"Error message":"OK"}]
+        return [4, {"Error message":"Can not open camera"}]
 
     def close(self):
         """Pretty self explanatory"""

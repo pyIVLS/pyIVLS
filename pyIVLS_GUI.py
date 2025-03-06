@@ -28,8 +28,10 @@ class pyIVLS_GUI(QObject):
         msg = QtWidgets.QMessageBox()
         msg.setText(str)
         msg.setWindowTitle("Warning")
-        msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        msg.exec_()
+        msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint)
+        msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
+        msg.exec()
 
     
     @pyqtSlot(str)
@@ -82,7 +84,7 @@ class pyIVLS_GUI(QObject):
         self.window.dockWidget.setWidget(None)
 
     def __init__(self):
-        super().__init__()
+        super(pyIVLS_GUI, self).__init__()
         self.path = dirname(__file__) + sep
 
         self.window = uic.loadUi(self.path + "pyIVLS_GUI.ui")

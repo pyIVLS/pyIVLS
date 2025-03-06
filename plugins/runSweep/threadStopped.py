@@ -7,7 +7,7 @@ import time
 class ThreadStopped(Exception): pass 
  
 class thread_with_exception(threading.Thread):
-    def __init__(self, trgt, arg):
+    def __init__(self, trgt, *arg):
         threading.Thread.__init__(self, target = trgt, args = arg)
  
     def get_id(self):

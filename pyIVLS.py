@@ -44,17 +44,20 @@ if __name__ == "__main__":
     pluginsContainer.plugins_updated_signal.connect(update_settings_widget)
 
     pluginsContainer.show_message_signal.connect(
-        GUI_mainWindow.pluginloader.show_message
+        GUI_mainWindow.show_message
     )
+    
+    pluginsContainer.log_message.connect(GUI_mainWindow.addDataLog)
 
+    pluginsContainer.register_start_up()
+       
     for logSignal in pluginsContainer.getLogSignals():
        logSignal.connect(GUI_mainWindow.addDataLog)
 
     for infoSignal in pluginsContainer.getInfoSignals():
        infoSignal.connect(GUI_mainWindow.show_message)
-
+    
     pluginsContainer.public_function_exchange()
-
     ### init interfaces
     whatAmI = pluginsContainer.get_plugin_info_for_settingsGUI()
     GUI_mainWindow.setSettingsWidget(whatAmI)

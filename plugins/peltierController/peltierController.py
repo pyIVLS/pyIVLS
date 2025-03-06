@@ -34,16 +34,16 @@ class peltierController:
         if self.device.is_open:
                 return [0, "device is already connected"]
         else:
-                try:
+                try:             
                         with self.lock:
                                 self.device.port = source
                                 self.device.open()
                                 self.device.reset_input_buffer()
                                 self.device.reset_output_buffer()
-                                self.device.write(f"SETP 0\n".encode())
+                                self.device.write(f"SETP 0\r".encode())
                         return [0, "device connected"]
                 except serial.SerialException:
-                        return [1, "can not connect the device"]
+                        return [4, "can not connect the device"]
 
     def close(self):
         """close the port of peltier controller
@@ -57,13 +57,13 @@ class peltierController:
         else:
                 try:
                         with self.lock:
-                                self.device.write(f"SETP 0\n".encode())
+                                self.device.write(f"SETP 0\r".encode())
                                 self.device.reset_input_buffer()
                                 self.device.reset_output_buffer()
                                 self.device.close()
                         return [0, "device disconnected"]
                 except serial.SerialException:
-                        return [1, "can not disconnect the device"]
+                        return [4, "can not disconnect the device"]
 
                         
     def setT(self, temperature):
@@ -76,10 +76,10 @@ class peltierController:
         """
         try:
                 with self.lock:
-                        self.device.write(f"SETT {temperature}\n".encode())
+                        self.device.write(f"SETT {temperature}\r".encode())
                 return [0, "temperature set"]
         except serial.SerialException:
-                return [1, "error setting the temperature"]
+                return [4, "error setting the temperature"]
                 
     def setP(self, power):
         """set the power
@@ -91,10 +91,10 @@ class peltierController:
         """
         try:
                 with self.lock:
-                        self.device.write(f"SETP {power}\n".encode())
+                        self.device.write(f"SETP {power}\r".encode())
                 return [0, "power set"]
         except serial.SerialException:
-                return [1, "error setting the power"]
+                return [4, "error setting the power"]
                 
     def getData(self):
         """get the data out of controller and return it in a form of dict
@@ -114,20 +114,25 @@ class peltierController:
         dataOutput["raw"]=""
         try:
                 with self.lock:
-                        self.device.write(f" \n".encode())
-                        for cnt in dataOrder:
-                                response =  self.device.readline()
+                        self.device.write(f" \r".encode())
+                        for cnt,_ in enumerate(dataOrder):
+                                response =  self.device.readline().decode("utf-8")
+                                if len(dataOrder[cnt])<1:
+                                	continue                     
                                 if not(dataOrder[cnt][-1] in [":", "="]):
                                         dict_key = dataOrder[cnt]
                                 else:
-                                        dict_key = dataOrder[cnt][0:-2]
-                                dataOutput["raw"] = dataOutput["raw"] + response
+                                        dict_key = dataOrder[cnt][0:-1]                                      
+                                dataOutput["raw"] = dataOutput['raw'] + response[1:-1] + "\n"
                                 if cnt in numericValues:
-                                        dataOutput[dict_key] = float(response[len(dataOrder[cnt]):-1])
+                                        if response[len(dataOrder[cnt])+1:-1] == 'na':
+                                        	dataOutput[dict_key] = float('nan')
+                                        else:
+                                        	dataOutput[dict_key] = float(response[len(dataOrder[cnt])+1:-1])
                                 if cnt in stringValues:
-                                        dataOutput[dict_key] = response[len(dataOrder[cnt]):-1)]
+                                        dataOutput[dict_key] = response[len(dataOrder[cnt]):-1]
                 return [0, dataOutput]
         except serial.SerialException:
-                return [1, "error in communication with device"]
+                return [4, "error in communication with device"]
         except ValueError:
-                return [2, "error in data from the device"]
+                return [1, "error in data from the device"]
