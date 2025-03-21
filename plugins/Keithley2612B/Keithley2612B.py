@@ -155,7 +155,7 @@ class Keithley2612B:
                 self.k =  usbtmc.Instrument(self.address)
             return [0, self.k.ask("*IDN?")]
         except:
-            return [1,"Failed to connect to Keithley 2612B"]
+            return [4,"Failed to connect to Keithley 2612B"]
 
     def keithley_disconnect(self):
         ##IRtodo#### move to log

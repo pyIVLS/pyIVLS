@@ -3,6 +3,14 @@ CCS_SERIES_MAX_INT_TIME = 60.0  # 60s is the maximum integration time
 CCS_SERIES_MIN_INT_TIME = 0.00001  # 10us is the minimum integration time
 CCS_SERIES_DEF_INT_TIME = 0.01  # 10ms is the default integration time
 
+# Spectral limits
+CCS175_MIN_WV = 500  # minimum wavelength in nm of spectrometer CCS175
+CCS175_MAX_WV = 1000  # maximum wavelength in nm of spectrometer CCS175
+
+# VID AND PID
+CCS175_VID = 0x1313
+CCS175_PID = 0x8087
+
 # Calibration data sets
 CCS_SERIES_CAL_DATA_SET_FACTORY = 0
 CCS_SERIES_CAL_DATA_SET_USER = 1

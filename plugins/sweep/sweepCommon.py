@@ -12,7 +12,7 @@ def create_file_header(settings, smu_settings, backVoltage = None):
             
             '''
 
-            ## header may not be optimal, thi is because it should repeat the structure of the headers produced by the old measurement station
+            ## header may not be optimal, this is because it should repeat the structure of the headers produced by the old measurement station
             comment = "#####################"
             if settings["samplename"] == "":
                comment = f"{comment}\n\n measurement of {{noname}}\n\n"

@@ -1,8 +1,6 @@
 #!/usr/bin/python3.8
 import pluggy
-from PyQt6 import QtWidgets
 
-from plugin import Plugin
 from VenusUSB2GUI import VenusUSB2GUI
 import cv2
 
@@ -25,7 +23,6 @@ class pyIVLS_VenusUSB2_plugin():
         Returns:
             dict: name, widget
         """
-        ##IRtodo#### add check if (error) show message and return error
         self.camera_control._initGUI(plugin_data[self.plugin_name]["settings"])
         return {self.plugin_name: self.camera_control.settingsWidget}
 

@@ -22,12 +22,15 @@
 # 12. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence
 ##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
 ##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
+# 13. make plugins share (e.g for threadStopped and MplCanvas). During plugin install the version of shared libraries should be checked and updated if needed
 
 #### plugin specific TODO lists
 ######### VenusUSB2
 ####	Implement manipulation of the image (size change, digital zoom, etc.). May be reasonable to thing about changing integration time without stopping the preview
 ######### runSweep
 ####	Stop button
+######### Keithley2612B
+####	get frequency from device, do not use it as constant
 
 #### install (Ubuntu 24.04.1 LTS)
 # 1. python3 -m venv .venv
@@ -50,6 +53,38 @@
 #11. python3 -m pip install pathvalidate # required for sequenceces
 #12. python3 -m pip install pyserial # required for peltierController, senseMultiplexer, etc.
 # deactivate
+
+###List of packages knowing to have working configuration
+#contourpy==1.3.1
+#cycler==0.12.1
+#DateTime==5.5
+#fonttools==4.55.3
+#ifaddr==0.2.0
+#kiwisolver==1.4.8
+#matplotlib==3.10.0
+#numpy==2.2.1
+#opencv-python==4.10.0.84
+#packaging==24.2
+#pathvalidate==3.2.3
+#pillow==11.1.0
+#pluggy==1.5.0
+#psutil==7.0.0
+#pyparsing==3.2.1
+#PyQt6==6.8.0
+#PyQt6-Qt6==6.8.1
+#PyQt6_sip==13.9.1
+#pyserial==3.5
+#python-dateutil==2.9.0.post0
+#python-usbtmc==0.8
+#pytz==2025.1
+#pyusb==1.3.1
+#PyVISA==1.14.1
+#PyVISA-py==0.7.2
+#setuptools==76.0.0
+#six==1.17.0
+#typing_extensions==4.12.2
+#zeroconf==0.137.2
+#zope.interface==7.2
 
 # change the first line of pyIVLS.py to address the virual environment 
 ## e.g.#!/home/ivls/git_pyIVLS/pyIVLS/.venv/bin/python3
@@ -74,6 +109,13 @@
 ## peltierController
 # the device is detected as 1a86:7523 QinHeng Electronics CH340 serial converter. To provide access to /dev/ttyUSB0 add user to dialout group
 #sudo usermod -a -G dialout $USER
+#
+## Thorlabs CCS175 spectrometer
+#see more details in plugins/TLCCS/SETUP.md
+#shortly
+##copy fxload to /usr/sbin (sudo cp fxload /usr/sbin/fxload)
+##add execution permission if necessary (sudo chmod +x /usr/sbin/fxload)
+##make sure that rules for spectrometer discovery point to the CCS175_2.ihx file copy rules to udev directory (sudo cp 99-thorccs.rules /etc/udev/rules.d/)
 
 #### plugin conventions
 # 1. Every plugin  consists of a couple of files. 

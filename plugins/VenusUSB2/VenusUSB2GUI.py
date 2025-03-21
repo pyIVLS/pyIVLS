@@ -40,8 +40,7 @@ class VenusUSB2GUI(QObject):
     log_message = pyqtSignal(str)     
     info_message = pyqtSignal(str) 
     
-    ##IRtothink#### should this be changed to a GUI setting? 
-    default_timerInterval = 30
+    default_timerInterval = 42 # ms, it is close to 24 fps that is standard for movies and TV
 
 ########Functions       
     def __init__(self):

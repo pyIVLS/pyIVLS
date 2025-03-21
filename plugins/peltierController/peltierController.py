@@ -95,7 +95,24 @@ class peltierController:
                 return [0, "power set"]
         except serial.SerialException:
                 return [4, "error setting the power"]
+
+    def setPID(self, kp, ki, kd):
+        """set the power
+        
+        Returns [status, message]:
+            0 - no error
+            ~0 - error (add error code later on if needed)
                 
+        """
+        try:
+                with self.lock:
+                        self.device.write(f"SETKP {kp}\r".encode())
+                        self.device.write(f"SETKI {ki}\r".encode())
+                        self.device.write(f"SETKD {kd}\r".encode())
+                return [0, "PID parameters set"]
+        except serial.SerialException:
+                return [4, "error setting PID parameters"]
+
     def getData(self):
         """get the data out of controller and return it in a form of dict
         

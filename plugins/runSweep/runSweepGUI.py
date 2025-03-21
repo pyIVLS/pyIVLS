@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from sweepCommon import create_file_header, create_sweep_reciepe
-from threadStopped import ThreadStopped, thread_with_exception # this should be moved to some pluginsShare
+from threadStopped import thread_with_exception # this should be moved to some pluginsShare
 
 
 class runSweepGUI(QObject):
@@ -91,7 +91,7 @@ class runSweepGUI(QObject):
         address = self.settingsWidget.lineEdit_path.text()
         if not(os.path.exists(address)):
                 address = self.path
-        address = QFileDialog.getExistingDirectory(None, "Select directory for saving", self.path, options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks)
+        address = QFileDialog.getExistingDirectory(None, "Select directory for saving", address, options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks)
         if address:
                 self.settingsWidget.lineEdit_path.setText(address)
 
@@ -134,7 +134,7 @@ class runSweepGUI(QObject):
 ########plugin actions   
     def _stopAction(self):
         self.settingsWidget.stopButton.setEnabled(False)
-        self.run_thread.sweep_stop()
+        self.run_thread.thread_stop()
         
     def _runAction(self):
         

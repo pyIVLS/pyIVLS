@@ -60,6 +60,7 @@ class peltierControllerGUI(QObject):
         self.settingsWidget.setTButton.clicked.connect(self._setTAction)
         self.settingsWidget.setPButton.clicked.connect(self._setPAction)
         self.settingsWidget.periodCheck.clicked.connect(self._displayAction)
+        self.settingsWidget.PIDbutton.clicked.connect(self._setPIDAction)
  
     def _create_plt(self):
         self.sc = MplCanvas(self, width=5, height=4, dpi=100)
@@ -113,6 +114,15 @@ class peltierControllerGUI(QObject):
                         self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
                         self.info_message.emit(f"peltierController plugin : {message}")
 
+    def _setPIDAction(self):
+        [status, info] = self._parse_settings_setPID()
+        if status:
+                self.info_message.emit(f"peltierController plugin : {info}")
+        else:
+                [status, message] = self.peltierController.setPID(self.settings["kp"], self.settings["ki"], self.settings["kd"])
+                if status:
+                        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+                        self.info_message.emit(f"peltierController plugin : {message}")
 
     def _displayAction(self):
         if self.timer.isActive():
@@ -157,6 +167,22 @@ class peltierControllerGUI(QObject):
                 return [1, {"Error message":"Value error: set power field can not be larger than 100"}]
 
         return [0, self.settings] 
+
+    def _parse_settings_setPID(self):
+        try:
+                self.settings["kp"] = float(self.settingsWidget.KPlineEdit.text())
+        except ValueError:
+                return [1, {"Error message":"Value error: Kp field should be numeric"}]
+        try:
+                self.settings["ki"] = float(self.settingsWidget.KIlineEdit.text())
+        except ValueError:
+                return [1, {"Error message":"Value error: Ki field should be numeric"}]
+        try:
+                self.settings["kd"] = float(self.settingsWidget.KDlineEdit.text())
+        except ValueError:
+                return [1, {"Error message":"Value error: Kd field should be numeric"}]
+
+        return [0, self.settings]
 
     def _parse_settings_display(self):
         try:
@@ -222,6 +248,9 @@ class peltierControllerGUI(QObject):
         self.settingsWidget.sweepEndEdit.setText(plugin_info["sweepend"])                
         self.settingsWidget.sweepPtsEdit.setText(plugin_info["sweeppts"])
         self.settingsWidget.sweepStabilizationEdit.setText(plugin_info["sweepstabilization"])
+        self.settingsWidget.KPlineEdit.setText(plugin_info["pidkp"])
+        self.settingsWidget.KIlineEdit.setText(plugin_info["pidki"])
+        self.settingsWidget.KDlineEdit.setText(plugin_info["pidkd"])
 
 ########Functions
 ###############GUI react to change
@@ -237,6 +266,7 @@ class peltierControllerGUI(QObject):
         self.settingsWidget.connectButton.setEnabled(not(status))
         self.settingsWidget.setTButton.setEnabled(status)
         self.settingsWidget.setPButton.setEnabled(status)
+        self.settingsWidget.PIDbox.setEnabled(status)
 
     def _GUIchange_display(self, status):
         if status:
@@ -304,7 +334,8 @@ class peltierControllerGUI(QObject):
                 return [1, {"Error message":"Value error: stabilization time field should be integer"}]
         if self.settings["sweepstabilization"]<1:
                 return [2, {"Error message":"Value error: stabilization time field should be greater than 0"}]
-
+        
+        
         return [0, self.settings]
 
 ########Functions

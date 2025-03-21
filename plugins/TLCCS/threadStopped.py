@@ -23,7 +23,9 @@ class thread_with_exception(threading.Thread):
         thread_id = self.get_id()
 #       res = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(thread_id), ctypes.py_object(SystemExit))
         res = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(thread_id), ctypes.py_object(ThreadStopped)) #Just not to confuse with any other possible exceptions
+        print("trying to stop")
         if res > 1:
             ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(thread_id), 0)
             return [1, 'ThreadStopped exception raise failure']
+        print("OK")    
         return [0, 'ThreadStopped exception sent']    
