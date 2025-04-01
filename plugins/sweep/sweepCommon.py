@@ -42,8 +42,7 @@ def create_file_header(settings, smu_settings, backVoltage = None):
                     comment = f"{comment}Measurement stabilization period is done in AUTO mode\n"
                 else:
                     comment = f"{comment}Measurement stabilization period is{smu_settings['continuousdelay']/1000} ms\n"
-                ##IRtodo#### line frequency may be read from Keithley itself    
-                comment = f"{comment}NPLC value {smu_settings['continuousnplc']*1000/pyIVLS_constants.LINE_FREQ} ms (for detected line frequency {pyIVLS_constants.LINE_FREQ} Hz is {smu_settings["continuousnplc"]})"
+                comment = f"{comment}NPLC value {smu_settings['continuousnplc']*1000/self.settings['lineFrequency']} ms (for detected line frequency {self.settings['lineFrequency']} Hz is {smu_settings['continuousnplc']})"
             else:
                 comment = f"{comment}Start value for sweep {smu_settings['pulsedstart']} {stepunit}\n"
                 comment = f"{comment}End value for sweep {smu_settings['pulsedend']} {stepunit}\n"
@@ -51,9 +50,8 @@ def create_file_header(settings, smu_settings, backVoltage = None):
                 if smu_settings["pulseddelaymode"] == 'auto':
                     comment = f"{comment}Measurement stabilization period is done in AUTO mode\n"
                 else:
-                    comment = f"{comment}Measurement stabilization period is{smu_settings['pulseddelay']/1000} ms\n"
-                ##IRtodo#### line frequency may be read from Keithley itself       
-                comment = f"{comment}NPLC value {smu_settings['pulsednplc']*1000/pyIVLS_constants.LINE_FREQ} ms (for detected line frequency {pyIVLS_constants.LINE_FREQ} Hz is {smu_settings["pulsednplc"]})\n"    
+                    comment = f"{comment}Measurement stabilization period is{smu_settings['pulseddelay']/1000} ms\n" 
+                comment = f"{comment}NPLC value {smu_settings['pulsednplc']*1000/self.settings['lineFrequency']} ms (for detected line frequency {self.settings['lineFrequency']} Hz is {smu_settings['pulsednplc']})\n"    
 
             comment = f"{comment}\n\n\n"   
             if smu_settings["mode"] == "continuous":
@@ -61,9 +59,8 @@ def create_file_header(settings, smu_settings, backVoltage = None):
             elif smu_settings["mode"] == "pulsed":
             	comment = f"{comment}Pulse operation of the source with delays of {smu_settings['pulsedpause']} s\n"
             else:
-            	comment = f"{comment}Mixed operation of the source with delays of {smu_settings['pulsedpause']} s\n"  
-                ##IRtodo#### line frequency may be read from Keithley itself       
-            	comment = f"{comment}NPLC value for continuous operation arm {smu_settings['continuousnplc']*1000/pyIVLS_constants.LINE_FREQ} ms (for detected line frequency {pyIVLS_constants.LINE_FREQ} Hz is {smu_settings['continuousnplc']})"
+            	comment = f"{comment}Mixed operation of the source with delays of {smu_settings['pulsedpause']} s\n"     
+            	comment = f"{comment}NPLC value for continuous operation arm {smu_settings['continuousnplc']*1000/self.settings['lineFrequency']} ms (for detected line frequency {self.settings['lineFrequency']} Hz is {smu_settings['continuousnplc']})"
             	comment = f"{comment}Limit for continuous operation arm {smu_settings['continuouslimit']} {limitunit}\n"
             	comment = f"{comment}Start value for continuous operation arm {smu_settings['continuousstart']} {stepunit}\n"
             	comment = f"{comment}End value for continuous operation arm {smu_settings['continuousend']} {stepunit}\n"
@@ -132,7 +129,6 @@ def create_sweep_reciepe(smu_settings):
 	s["pulsepause"] = smu_settings["pulsepause"] #pause between pulses in sweep (may not be used in continuous)
 	 
 	s["sourcehighc"] = smu_settings["sourcehighc"]
-	##IRtodo#### recalculate with inefrequency from the device. After doing this modify definition of settings["drainnplc"], settings["pulsednplc"] and settings["continuousnplc"] in Keithley2612GUI.py
 	s["drainnplc"] = smu_settings["drainnplc"] #drain NPLC (may not be used in single channel mode)
 	
 	s["draindelay"] = smu_settings["draindelaymode"] #stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)

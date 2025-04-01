@@ -156,10 +156,10 @@ class sweepGUI():
     	"""
     	try:
     		[recipe, drainsteps, sensesteps, modesteps] = create_sweep_reciepe(self.smu_settings)
-    		if  self.function_dict["smu"]["smu_init"](recipe[0]):
-    				return [2, f"sweep plugin : smu_init failed"]
     		data = np.array([])                
     		for recipeStep,measurement in enumerate(recipe):
+    			if  self.function_dict["smu"]["smu_init"](recipeStep): #reinitialization at every step is needed because limits for pused and continuous may be deffierent
+    				return [2, f"sweep plugin : smu_init failed"]
     			#creating a new header
     			if recipeStep % (sensesteps*modesteps) == 0:
     				columnheader = ''

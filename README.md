@@ -23,6 +23,7 @@
 ##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
 ##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
 # 13. make plugins share (e.g for threadStopped and MplCanvas). During plugin install the version of shared libraries should be checked and updated if needed
+# 14. there may be a reason to make "hiddenLoad" option for plugins, i.e. the plugin will be loaded but there will be not setting tab and MDI window for it. That may be useful e.g. for duplicating a part of keithley plugin to sweep and not showing Keithley plugin at all. The idea would be to have a minimalistic set of parameters, ad if more needed the main plugin may be switched on
 
 #### plugin specific TODO lists
 ######### VenusUSB2
@@ -30,7 +31,8 @@
 ######### runSweep
 ####	Stop button
 ######### Keithley2612B
-####	get frequency from device, do not use it as constant
+####	it may be reasonable to move main controls (start voltage, limits, etc) to the plugins that require them. The Keithley plugin should keep only the device settings, averaging, highC, etc.
+####	modify function return for providing access to SMU functions. Made them in a standard from [status, info]
 
 #### install (Ubuntu 24.04.1 LTS)
 # 1. python3 -m venv .venv

@@ -140,10 +140,7 @@ class Keithley2612B:
             message contains devices response to IDN query if devices is connected, or an error message otherwise
         """
         try:
-            if self.k is None:
-                ##IRtodo#### move to log
-                #print("Connecting to Keithley 2612B")
-                
+            if self.k is None: 
                 #connect the device
                 #### connect with pyvisa resource manager
                 #self.k = self.rm.open_resource(self.address)
@@ -195,10 +192,47 @@ class Keithley2612B:
                 print(f"Error measuring resistance: {e}")
                 return -1
             finally:
-                self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
                 self.safewrite(f"{channel}.source.leveli = 0")
+                self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
         else:
             raise ValueError(f"Invalid channel {channel}")
+
+    def getLineFrequency(self):
+        """gets line frequency from Keithley 2612B for nplc calculation.
+
+        Returns [status, message]:
+            0 - no error, ~0 - error (add error code later on if needed)
+            message contains line frequency as float, or an error message otherwise
+        """
+
+        if self.k is None: 
+        	status, message = self.keithley_connect()
+        	if status:
+        		return [status, message]
+        try:
+             freq = float(self.safequery('print(localnode.linefreq)'))
+             self.keithley_connect()
+             return [0, freq]
+        except Exception as e:
+            return [4,f"Failed to get line frequency. Exception {e}"]
+        
+    def getIV(self, channel):
+        """gets IV data
+
+        Returns:
+            list [i, v]
+        """
+        ##IRtothink#### some check may be added
+        return list(np.array(self.safequery(f"print ({channel}.measure.iv())'").split(",")).astype(float))
+
+    def setOutput(self, channel, outputType, value):
+        """sets smu output but does not switch it ON
+	channel = "smua" or "smub"
+	outputType = "i" or "v"
+	value = float
+        """
+        ##IRtothink#### some check may be added
+        self.safewrite(F"{source}.source.level{outputType} = {value}")
 
     def get_last_buffer_value(self, channel, readings = None):
         """
@@ -246,6 +280,14 @@ class Keithley2612B:
         """
         self.safewrite(f"print({channel}.abort())")
 
+    def channelsON(self, source, drain):
+        """
+        swihces on channels
+        """
+        if not source == None:
+        	self.safewrite(f"{source}.source.output={source}.OUTPUT_ON")
+        if not drain == None:
+        	self.safewrite(f"{drain}.source.output={drain}.OUTPUT_ON")
 
     def channelsOFF(self):
         """
@@ -265,7 +307,7 @@ class Keithley2612B:
 #        Args:
 #            s (dict): Configuration dictionary.
 #      """
-      #try:
+      try:
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
         
@@ -393,8 +435,8 @@ class Keithley2612B:
 
         return 0
 
-#      except:
-#        return 1
+      except:
+        return 1
 
     def keithley_run_sweep(self, s: dict):# -> status:
         """Runs a single channel sweep on. Handles locking the instrument and releasing it after the sweep is started.

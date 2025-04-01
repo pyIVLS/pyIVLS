@@ -52,6 +52,8 @@ class VenusUSB2GUI(QObject):
         self.settingsWidget = uic.loadUi(self.path + "VenusUSB2_settingsWidget.ui")
         self.previewWidget = uic.loadUi(self.path + "VenusUSB2_previewWidget.ui")
 
+        self.settings = {}
+
         # Initialize cap as empty capture
         self.camera = VenusUSB2()
 
@@ -86,7 +88,6 @@ class VenusUSB2GUI(QObject):
             0 - no error
             ~0 - error (add error code later on if needed)
         """   
-        self.settings = {}
         self.settings["exposure"] = self.camera.exposures[int(self.settingsWidget.cameraExposure.value())]
         self.settings["source"] = self.settingsWidget.cameraSource.text()
 	##no value checks are possible here as the source should be just address and exposure is given by a set of values

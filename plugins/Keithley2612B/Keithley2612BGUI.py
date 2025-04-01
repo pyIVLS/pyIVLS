@@ -87,9 +87,8 @@ class Keithley2612BGUI:
         # Initialize Keithley module
         ##IRtodo#### move Keithley address to GUI
         self.smu = Keithley2612B(pyIVLS_constants.KEITHLEY_tcmp, dbg_mode=True)
-	##IRtodo#### check here or in some other place if Keithley is actually connected
-
         self._connect_signals()
+        self.settings = {}
 
     def _connect_signals(self):
         # Connect the channel combobox
@@ -334,9 +333,14 @@ class Keithley2612BGUI:
             self.settings
         """       
         ##IRtothink#### this implementation requires that all settings (including those not needed for current sweep) to be good. This is not a bad thing, but might be an overkill. A possible implementation will be to use some default values that may be stored in plugin installation package
-
-        self.settings = {}
-
+        
+        if not "lineFreuency" in self.settings:
+        	status, info = self.smu.getLineFrequency()
+        	if status:
+        		return [status, info]
+        	else:
+        		self.settings["lineFrequency"] = info
+ 
         # Determine source channel: may take values [smua, smub]
         self.settings["channel"] = (self.settingsWidget.comboBox_channel.currentText()).lower()
         # Determine source type: may take values [current, voltage]
@@ -404,9 +408,8 @@ class Keithley2612BGUI:
                         return [1, {"Error message":"Value error in Keithley plugin: continuous limit field should be positive"}]
 
         #continuous nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
-        ##IRtodo#### line frequency may be read from Keithley itself
         try:
-                        self.settings["continuousnplc"] =  0.001 * pyIVLS_constants.LINE_FREQ * float(self.settingsWidget.lineEdit_continuousNPLC.text())
+                        self.settings["continuousnplc"] =  0.001 * self.settings["lineFrequency"] * float(self.settingsWidget.lineEdit_continuousNPLC.text())
         except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: continuous nplc field should be numeric"}]
         if self.settings["continuousnplc"] <=0:
@@ -450,9 +453,8 @@ class Keithley2612BGUI:
                         return [1, {"Error message":"Value error in Keithley plugin: pulsed limit field should be positive"}]
                         
         #pulsed nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
-        ##IRtodo#### line frequency may be read from Keithley itself
         try:
-                        self.settings["pulsednplc"] = 0.001 * pyIVLS_constants.LINE_FREQ * float(self.settingsWidget.lineEdit_pulsedNPLC.text())
+                        self.settings["pulsednplc"] = 0.001 * self.settings["lineFrequency"] * float(self.settingsWidget.lineEdit_pulsedNPLC.text())
         except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: pulsed nplc field should be numeric"}]
         if self.settings["pulsednplc"] <=0:
@@ -504,9 +506,8 @@ class Keithley2612BGUI:
                         return [1, {"Error message":"Value error in Keithley plugin: drain limit field should be positive"}]
                         
         #drain nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
-        ##IRtodo#### line frequency may be read from Keithley itself
         try:
-                        self.settings["drainnplc"] =  0.001 * pyIVLS_constants.LINE_FREQ * float(self.settingsWidget.lineEdit_drainNPLC.text())
+                        self.settings["drainnplc"] =  0.001 * self.settings["lineFrequency"] * float(self.settingsWidget.lineEdit_drainNPLC.text())
         except ValueError:
                         return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
         if self.settings["drainnplc"] <=0:
@@ -536,45 +537,61 @@ class Keithley2612BGUI:
         if not status:
                 self._update_GUI_state()
 
-###############resistance measurement (to be checked)        
-    def resistance_measurement(self, channel) -> float:
-    ##IRtothink#### Should it be kept like this?
-        """Measure the resistance at the probe.
+###############function for keithley control outside of sweep
+    def smu_basicInit(self): 
+    	"""intializaes smu with data for the 1st sweep step
 
-        Returns:
-            float: resistance
-        """
-        if channel == "smua" or channel == "smub":
-            try:
-                # Restore Series 2600B defaults.
-                self.safewrite(f"{channel}.reset()")
-                # Select current source function.
-                self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
-                # Set source range to 10 mA.
-                self.safewrite(f"{channel}.source.rangei = 10e-3")
-                # Set current source to 10 mA.
-                self.safewrite(f"{channel}.source.leveli = 10e-3")
-                # Set voltage limit to 10 V. FIXME: Value of 1 v is arbitrary.
-                self.safewrite(f"{channel}.source.limitv = 1")
-                # Enable 2-wire ohms. FIXME: Check this
-                self.safewrite(f"{channel}.sense = {channel}.SENSE_LOCAL")
-                # Set voltage range to auto.
-                self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
-                # Turn on output.
-                self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
-                # Get resistance reading.
-                res = self.safequery(f"print({channel}.measure.r())")
-                return res
-            except Exception as e:
-                print(f"Error measuring resistance: {e}")
-                return -1
-            finally:
-                self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
-                self.safewrite(f"{channel}.source.leveli = 0")
-        else:
-            raise ValueError(f"Invalid channel {channel}")
+    	Return the same as for keithley_init [status, message]:
+    		status: 0 - no error, ~0 - error
+    		message
+    	"""     
+    	s = {}
 
-
+    	s["source"] = self.settings["channel"] #source channel: may take values [smua, smub]
+    	s["drain"] = "smub" if self.settings["channel"] == "smua" else "smua"#drain channel: may take values [smub, smua]
+    	s["type"] = "v" if self.settings["inject"] == "voltage" else "i"#source inject current or voltage: may take values [i ,v]
+    	s["single_ch"] = self.settings["singlechannel"] #single channel mode: may be True or False
+    	s["repeat"] = self.settings["repeat"] #repeat count: should be int >0
+    	s["pulsepause"] = self.settings["pulsepause"] #pause between pulses in sweep (may not be used in continuous)
+    	 
+    	s["sourcehighc"] = self.settings["sourcehighc"]
+    	s["drainnplc"] = self.settings["drainnplc"] #drain NPLC (may not be used in single channel mode)
+    	
+    	s["draindelay"] = self.settings["draindelaymode"] #stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)
+    	s["draindelayduration"] = self.settings["draindelay"] #stabilization time duration if manual (may not be used in single channel mode)
+    	s["drainlimit"] = self.settings["drainlimit"] #limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+    	
+    	s["sourcehighc"] = self.settings["sourcehighc"]
+    	s["drainhighc"] = self.settings["drainhighc"]   	
+    	s["drainvoltage"] = self.settings["drainstart"]
+    	if self.smu_settings["sourcesensemode"] == "4 wire":
+    		s["sourcesense"] = True #source sence mode: may take values [True - 4 wire, False - 2 wire]
+    	else:
+    		s["sourcesense"] = False #source sence mode: may take values [True - 4 wire, False - 2 wire]
+    	if self.smu_settings["drainsensemode"] == "4 wire":
+    		s["drainsense"] = True #source sence mode: may take values [True - 4 wire, False - 2 wire]
+    	else:
+    		s["drainsense"] = False #source sence mode: may take values [True - 4 wire, False - 2 wire]
+    	if not (self.settings["mode"] == "pulsed"):
+    		s["pulse"] = False# set pulsed mode: may be True - pulsed, False - continuous
+    		s['sourcenplc'] = self.settings["continuousnplc"] #integration time in nplc units
+    		s["delay"] = self.settings["continuousdelaymode"] #stabilization time mode for source: may take values [True - Auto, False - manual]
+    		s["delayduration"] = self.settings["continuousdelay"] #stabilization time duration if manual				
+    		s["steps"] = self.settings["continuouspoints"] #number of points in sweep
+    		s["start"] = self.settings["continuousstart"] #start point of sweep
+    		s["end"] = self.settings["continuousend"] #end point of sweep
+    		s["limit"] = self.settings["continuouslimit"] #limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
+    	else:
+    		s["pulse"] = True# set pulsed mode: may be True - pulsed, False - continuous
+    		s['sourcenplc'] = self.settings["pulsednplc"] #integration time in nplc units
+    		s["delay"] = self.settings["pulseddelaymode"] #stabilization time mode for source: may take values [True - Auto, False - manual]
+    		s["delayduration"] = self.settings["pulseddelay"] #stabilization time duration if manual				
+    		s["steps"] = self.settings["pulsedpoints"] #number of points in sweep
+    		s["start"] = self.settings["pulsedstart"] #start point of sweep
+    		s["end"] = self.settings["pulsedend"] #end point of sweep
+    		s["limit"] = self.settings["pulsedlimit"] #limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode    	
+    	
+    	return self.smu.keithley_init(s) 
 ###############providing access to SMU functions
 
     def smu_connect(self): 
@@ -600,20 +617,35 @@ class Keithley2612BGUI:
         """
         
         self.smu.abort_sweep(channel)
+
+    def smu_outputON(self, source = None, drain = None): 
+        """An interface for an externall calling function to switch on the output
+        
+        source and drain are "smua" or "smub"
+        """       
+        self.smu.channelsON(source, drain)  
     
     def smu_outputOFF(self): 
         """An interface for an externall calling function to switch off the output
         """
         
         self.smu.channelsOFF()   
+
+    def get_line_frequency(self):
+        """gets line frequency to provide to the plugins that will use it for nplc calculatin
+
+        Returns:
+            list [status, linefrequency/error message]
+        """
+        return self.smu.getLineFrequency()
     
     def smu_init(self, s:dict):
         """an interface for an externall calling function to initialize Keithley
         s: dictionary containing the settings for the sweep to initialize. It is different from the self. settings, as it contains data only for the current sweep 
         
-        Returns:
-            0 - no error
-            ~0 - error (add error code later on if needed)
+    	Return the same as for keithley_init [status, message]:
+    		status: 0 - no error, ~0 - error
+    		message
 
         Args:
             s (dict): Configuration dictionary.
@@ -622,7 +654,6 @@ class Keithley2612BGUI:
         """
         return self.smu.keithley_init(s)    
         
-
     def smu_runSweep(self, s:dict):
         """an interface for an externall calling function to run sweep on Keithley
         s: dictionary containing the settings to run the sweep. It is different from the self. settings, as it contains data only for the current sweep 
@@ -655,3 +686,25 @@ class Keithley2612BGUI:
             np.ndarray (current, voltage)
         """
         return  self.smu.read_buffers(channel)
+
+    def smu_getIV(self, channel):
+        """gets IV data
+
+        Returns:
+            list [i, v]
+        """
+        try:
+                return [0, self.smu.getIV(channel)]
+        except:
+                return [4, {"Error message":"Failed to get IV data"}]
+
+    def smu_setOutput(self, channel, outputType, value):
+        """sets smu output but does not switch it ON
+	channel = "smua" or "smub"
+	outputType = "i" or "v"
+	value = float
+        """
+        try:
+                return [0, self.smu.setOutput(channel,outputType,value)]
+        except:
+                return [4, {"Error message":"Failed to set smu output"}]
