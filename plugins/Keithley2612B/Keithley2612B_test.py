@@ -71,7 +71,7 @@ import pyIVLS_constants
 
 
 class Keithley2612B:
-    datafile_address = "/home/ivls/test_IV.dat"
+    datafile_address = os.path.dirname(__file__) + os.path.sep + "ivls_data.dat"
     linepointer = 0
     dataarray = np.array([])
     ####################################  threads
@@ -203,6 +203,51 @@ class Keithley2612B:
         else:
             raise ValueError(f"Invalid channel {channel}")
 
+    def getLineFrequency(self):
+        """gets line frequency from Keithley 2612B for nplc calculation.
+
+        Returns [status, message]:
+            0 - no error, ~0 - error (add error code later on if needed)
+            message contains line frequency as float, or an error message otherwise
+        
+
+        if self.k is None: 
+        	status, message = self.keithley_connect()
+        	if status:
+        		return [status, message]
+        try:
+             freq = float(self.safequery('print(localnode.linefreq)'))
+             self.keithley_connect()
+             return [0, freq]
+        except Exception as e:
+            return [4,f"Failed to get line frequency. Exception {e}"]
+        """
+        return [0, 50]
+        
+    def getIV(self, channel):
+        """gets IV data
+
+        Returns:
+            list [i, v]
+        """
+        ##IRtothink#### some check may be added
+        readings = self.linepointer
+        i_value = self.dataarray[readings, 0]
+        v_value = self.dataarray[readings, 1]
+        self.linepointer = self.linepointer + 1
+        print(i_value, v_value)
+        return [i_value, v_value, readings]
+
+    def setOutput(self, channel, outputType, value):
+        """sets smu output but does not switch it ON
+	channel = "smua" or "smub"
+	outputType = "i" or "v"
+	value = float
+        """
+        ##IRtothink#### some check may be added
+        #self.safewrite(f"{source}.source.level{outputType} = {value}")
+        print(f"{source}.source.level{outputType} = {value}")
+
     def get_last_buffer_value(self, channel):
         """
         Args:
@@ -250,6 +295,16 @@ class Keithley2612B:
         self.safewrite(f"smua.source.output=smua.OUTPUT_OFF")
         self.safewrite(f"smub.source.output=smub.OUTPUT_OFF")
 
+    def channelsON(self, source, drain):
+        """
+        swihces on channels
+        """
+        if not source == None:
+        	self.safewrite(f"{source}.source.output={source}.OUTPUT_ON")
+        if not drain == None:
+        	self.safewrite(f"{drain}.source.output={drain}.OUTPUT_ON")
+        	
+        	
     def keithley_init(self, s: dict):
     ##IRtothink#### pulsed operation should be rechecked if strict pulse duration will be needed
         """Initialize Keithley SMU for single or dual channel operation.
@@ -261,7 +316,8 @@ class Keithley2612B:
         Args:
             s (dict): Configuration dictionary.
         """
-#      try:            
+#      try:
+        [status,self.dataarray] = self.readIVLS(self.datafile_address)            
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
         
@@ -478,7 +534,6 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
                 self.safewrite(f"{s['source']}.trigger.initiate()")
                 
-                [status,self.dataarray] = self.readIVLS(self.datafile_address)
                 return 0
 
 #            except:

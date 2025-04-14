@@ -33,6 +33,10 @@
 ######### Keithley2612B
 ####	it may be reasonable to move main controls (start voltage, limits, etc) to the plugins that require them. The Keithley plugin should keep only the device settings, averaging, highC, etc.
 ####	modify function return for providing access to SMU functions. Made them in a standard from [status, info]
+####    should contain enum for channel names ['smua', 'smub']. This enum should be delivered to the plugins that need it. Now the plugins directly use channel names, this makes them bound to Keithley plugin
+######### timeIV
+####	there is a bug in matplotlib, the axes name is on a wrong side after cla() see https://github.com/matplotlib/matplotlib/issues/28268
+####    pulsed operation may be added
 
 #### install (Ubuntu 24.04.1 LTS)
 # 1. python3 -m venv .venv

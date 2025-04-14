@@ -622,7 +622,7 @@ class Keithley2612BGUI:
         """An interface for an externall calling function to switch on the output
         
         source and drain are "smua" or "smub"
-        """       
+        """     
         self.smu.channelsON(source, drain)  
     
     def smu_outputOFF(self): 

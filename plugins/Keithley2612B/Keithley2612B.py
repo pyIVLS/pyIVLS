@@ -232,7 +232,7 @@ class Keithley2612B:
 	value = float
         """
         ##IRtothink#### some check may be added
-        self.safewrite(F"{source}.source.level{outputType} = {value}")
+        self.safewrite(f"{source}.source.level{outputType} = {value}")
 
     def get_last_buffer_value(self, channel, readings = None):
         """
