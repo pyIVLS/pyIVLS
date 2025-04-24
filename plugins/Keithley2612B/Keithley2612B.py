@@ -82,11 +82,10 @@ class Keithley2612B:
     ########Signals
 
     ########Functions
-    def __init__(self, address, dbg_mode=False):
+    def __init__(self, dbg_mode=False):
         
         #handler for Keithley
         self.k = None
-        self.address = address 
         
         # Initialize pyvisa resource manager
         #self.rm = pyvisa.ResourceManager("@py")
@@ -131,16 +130,18 @@ class Keithley2612B:
     #    except Exception as e:
     #        print(f"Exception querying command: {command}\nException: {e}")
     #        raise e
+    def keithley_IDN(self):
+        return self.k.ask("*IDN?")
 
-    def keithley_connect(self):# -> status:
+    def keithley_connect(self, address):# -> status:
         """Connect to the Keithley 2612B.
 
         Returns [status, message]:
             0 - no error, ~0 - error (add error code later on if needed)
             message contains devices response to IDN query if devices is connected, or an error message otherwise
         """
-        try:
-            if self.k is None: 
+        self.address = address
+        if self.k is None: 
                 #connect the device
                 #### connect with pyvisa resource manager
                 #self.k = self.rm.open_resource(self.address)
@@ -150,9 +151,6 @@ class Keithley2612B:
                 #print(self.k.query("*IDN?"))
                 #### connect with usbtmc
                 self.k =  usbtmc.Instrument(self.address)
-            return [0, self.k.ask("*IDN?")]
-        except:
-            return [4,"Failed to connect to Keithley 2612B"]
 
     def keithley_disconnect(self):
         ##IRtodo#### move to log
@@ -206,15 +204,9 @@ class Keithley2612B:
         """
 
         if self.k is None: 
-        	status, message = self.keithley_connect()
-        	if status:
-        		return [status, message]
-        try:
-             freq = float(self.safequery('print(localnode.linefreq)'))
-             self.keithley_connect()
-             return [0, freq]
-        except Exception as e:
-            return [4,f"Failed to get line frequency. Exception {e}"]
+        	self.keithley_connect()        	
+        freq = float(self.safequery('print(localnode.linefreq)'))
+        return freq
         
     def getIV(self, channel):
         """gets IV data
@@ -278,7 +270,7 @@ class Keithley2612B:
         Args:
             channel (str): smua or smub
         """
-        self.safewrite(f"print({channel}.abort())")
+        self.safewrite(f"{channel}.abort()")
 
     def channelsON(self, source, drain):
         """

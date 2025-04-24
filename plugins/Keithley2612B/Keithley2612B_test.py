@@ -83,11 +83,10 @@ class Keithley2612B:
     ########Signals
 
     ########Functions
-    def __init__(self, address, dbg_mode=False):
+    def __init__(self, dbg_mode=False):
         
         #handler for Keithley
         self.k = None
-        self.address = address 
         
         # Initialize pyvisa resource manager
         #self.rm = pyvisa.ResourceManager("@py")
@@ -134,14 +133,18 @@ class Keithley2612B:
     #        print(f"Exception querying command: {command}\nException: {e}")
     #        raise e
 
-    def keithley_connect(self):# -> status:
+    def keithley_IDN(self):
+        return "IDN_test"
+
+    def keithley_connect(self, address):# -> status:
         """Connect to the Keithley 2612B.
 
         Returns [status, message]:
             0 - no error, ~0 - error (add error code later on if needed)
             message contains devices response to IDN query if devices is connected, or an error message otherwise
         """
-        try:
+        self.address = address
+        self.linepointer = 0
             #if self.k is None:
                 ##IRtodo#### move to log
                 #print("Connecting to Keithley 2612B")
@@ -155,9 +158,7 @@ class Keithley2612B:
                 #print(self.k.query("*IDN?"))
                 #### connect with usbtmc
                 #self.k =  usbtmc.Instrument(self.address)
-            return [0, "SMU test module activated"]
-        except:
-            return [1,"Failed to connect to Keithley 2612B"]
+        return 0
 
     def keithley_disconnect(self):
         ##IRtodo#### move to log
@@ -222,7 +223,7 @@ class Keithley2612B:
         except Exception as e:
             return [4,f"Failed to get line frequency. Exception {e}"]
         """
-        return [0, 50]
+        return 50
         
     def getIV(self, channel):
         """gets IV data
@@ -285,7 +286,7 @@ class Keithley2612B:
         Args:
             channel (str): smua or smub
         """
-        self.safewrite(f"print({channel}.abort())")
+        self.safewrite(f"{channel}.abort()")
 
 
     def channelsOFF(self):
@@ -320,11 +321,9 @@ class Keithley2612B:
         [status,self.dataarray] = self.readIVLS(self.datafile_address)            
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
-        
         ####set visualization
         self.safewrite("display.screen = display.SMUA_SMUB")
         self.safewrite("format.data = format.ASCII")
-        
         ####source settings
         self.safewrite(f"{s['source']}.reset()")         
 

@@ -60,3 +60,23 @@ class pyIVLS_sweep_plugin():
             dict: name, widget
         """
         return self.sweep._getPublicFunctions({function_dict_key: function_dict[function_dict_key] for function_dict_key in self.plugin_dependencies if function_dict_key in function_dict})
+
+    @hookimpl
+    def get_log(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.sweep._getLogSignal()}
+
+    @hookimpl
+    def get_info(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.sweep._getInfoSignal()}

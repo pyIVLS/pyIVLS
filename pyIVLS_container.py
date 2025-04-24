@@ -280,6 +280,7 @@ class pyIVLS_container(QObject):
         super().__init__()
         self.path = dirname(__file__) + sep
         sys.path.append(self.path + "plugins"+ sep)
+        sys.path.append(self.path + "components"+ sep)
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
 

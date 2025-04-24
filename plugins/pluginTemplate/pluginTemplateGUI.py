@@ -17,13 +17,14 @@ import os
 from PyQt6 import uic
 from PyQt6 import QtWidgets
 from pluginTemplate import pluginTemplate
-from MplCanvas import MplCanvas # this should be moved to some pluginsShare
+from MplCanvas import MplCanvas # this is loaded from components directory that contains shared classes
 
 class pluginTemplateGUI(): 
     """GUI implementation
     this class may be a child of QObject if Signals or Slot will be needed
     """
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
+    public_methods = [] # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 ########Signals
 ##remove this if plugin will only provide functions to another plugins, but will not interract with the user directly
     log_message = pyqtSignal(str)     
@@ -97,6 +98,7 @@ class pluginTemplateGUI():
             and not method.startswith("__")
             and not method.startswith("_")
             and method not in self.non_public_methods
+            and method in self.public_methods
         }
         return methods
     

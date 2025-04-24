@@ -17,23 +17,23 @@
 # 7. implement autosave for long measurements
 # 8. implement close check, i.e. the main GUI window can not be closed if a measuremen or preview is running
 # 9. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
-# 10. modify _get_public_methods in plugins. Now it returns also quit some subfunctions from dependent modules (e.g. for VenusUSB2). It may be reasonable to create a list with name of the methods to be exported, if the method name is in the list if will be processed by this function
-# 11. implement GUI for adding/removing plugins. This should take care that plugin info in *.ini (i.e. name, class, function. etc) corresponds to info in plugin itself
-# 12. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence
+# 10. implement GUI for adding/removing plugins. This should take care that plugin info in *.ini (i.e. name, class, function. etc) corresponds to info in plugin itself
+# 11. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence
 ##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
 ##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
-# 13. make plugins share (e.g for threadStopped and MplCanvas). During plugin install the version of shared libraries should be checked and updated if needed
-# 14. there may be a reason to make "hiddenLoad" option for plugins, i.e. the plugin will be loaded but there will be not setting tab and MDI window for it. That may be useful e.g. for duplicating a part of keithley plugin to sweep and not showing Keithley plugin at all. The idea would be to have a minimalistic set of parameters, ad if more needed the main plugin may be switched on
+# 12. plugins share is implemented (e.g for threadStopped and MplCanvas), but during plugin install the version of shared libraries should be checked and updated if needed
+# 13. there may be a reason to make "hiddenLoad" option for plugins, i.e. the plugin will be loaded but there will be not setting tab and MDI window for it. That may be useful e.g. for duplicating a part of keithley plugin to sweep and not showing Keithley plugin at all. The idea would be to have a minimalistic set of parameters, ad if more needed the main plugin may be switched on
+
+#### Plugin list
+#1. Keithley2612B: interface to SMU
+#2. sweep: automatic sweep with SMU
+#3. timeIV: variation of readings from SMU with time
+#4. VenusUSB2: interface to camera
+#5. TLCCS: interface to spectrometer
 
 #### plugin specific TODO lists
 ######### VenusUSB2
 ####	Implement manipulation of the image (size change, digital zoom, etc.). May be reasonable to thing about changing integration time without stopping the preview
-######### runSweep
-####	Stop button
-######### Keithley2612B
-####	it may be reasonable to move main controls (start voltage, limits, etc) to the plugins that require them. The Keithley plugin should keep only the device settings, averaging, highC, etc.
-####	modify function return for providing access to SMU functions. Made them in a standard from [status, info]
-####    should contain enum for channel names ['smua', 'smub']. This enum should be delivered to the plugins that need it. Now the plugins directly use channel names, this makes them bound to Keithley plugin
 ######### timeIV
 ####	there is a bug in matplotlib, the axes name is on a wrong side after cla() see https://github.com/matplotlib/matplotlib/issues/28268
 ####    pulsed operation may be added
@@ -135,20 +135,25 @@
 
 #### logging and error messaging
 # Logs messages and info messages for user should be sent only by the plugin that directly interracts with the user, i.e.
-# in case of sweep only run sweep plugin should save to the log and show messages to the user. All other plugins communicate to the sweep plugin, e.g. with returned status of the functions.
-# This is necessary to avoid multiple messaging
+# in case of sweep only sweep plugin should save to the log and show messages to the user not the SMU plugin,i.e. Keithley2612B. All other plugins communicate to the sweep plugin, 
+# e.g. with returned status of the functions. This is necessary to avoid multiple messaging
 ## standard error codes
 #0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins, 4 = harware error
-##plugins return errors in form of list [number, {"Error message":"Error text"}], e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
+##plugins return errors in form of list [number, {"Error message":"Error text", "Exception":f"e"}], e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
 #error text will be shown in the dialog message in the interaction plugin, so the error text should contain the plugin name, e.g. return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
+## standard names in the dicts returning errors
+# "Error message" : message to display in info box
+# "Missing functions" : list of missing functions from other plugins
+# "Exception" : exception from called function
 ##intermidiate plugins should pass the error to the plugins that interract with users as is, just changing the error code
 #e.g.return [2, self.smu_settings]
-##the plugin interracting with user adds to the log it's own name, and name of the plugin that transmitted this error 
-#(not the name of original plugin, that's why the message should contain the original plugin name, as if there will be multiple intermediate plugins some of the plugin names may be dropped)
-#e.g. self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : runsweep : the sweep plugin reported an error: {self.sweep_settings["Error message"]}')
+## log should include all the content of returned dict, as that may contain unexpected exceptions, missing plugin functions, etc.
+#[status, message] = self.function_dict["smu"]["smu_connect"]()
+#if status:
+# self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : sweep plugin status={status}, {message}')
 
 #### execution flow
-#1. When pyIVLS.py is run it creates an instance of the pyIVLS_container.py (handles all the plugins) and the main window
+#1. When pyIVLS.py is run it creates an instance of the pyIVLS_container.py (handles all the plugins, initializes path to components that contains shared plugin classes) and the main window
 ##	signals (including log and user message) from pyIVLS_container.py and pyIVLS_pluginloader are connected to respective slots
 #2. register_start_up of pyIVLS_container.py is called
 ##	reads plugin data from ini

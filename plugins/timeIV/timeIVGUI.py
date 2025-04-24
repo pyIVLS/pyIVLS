@@ -33,6 +33,8 @@ class timeIVGUI(QObject):
     this class may be a child of QObject if Signals or Slot will be needed
     """
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
+    public_methods = ["parse_settings_widget", "set_running"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    
 ########Signals
 ##remove this if plugin will only provide functions to another plugins, but will not interract with the user directly
     log_message = pyqtSignal(str)     
@@ -44,7 +46,7 @@ class timeIVGUI(QObject):
         
         # List of functions from another plugins required for functioning
         self.dependency = {
-        "smu": ["get_line_frequency", "parse_settings_widget", "smu_connect", "smu_init", "smu_outputOFF",  "smu_outputON", "smu_disconnect","set_running", "smu_setOutput"], 
+        "smu": ["parse_settings_widget", "smu_connect", "smu_init", "smu_outputOFF",  "smu_outputON", "smu_disconnect", "set_running", "smu_setOutput", "smu_channelNames"], 
         }
         self.settings = {}
         
@@ -94,13 +96,13 @@ class timeIVGUI(QObject):
     def _parseSaveData(self) -> "status":
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : address string should point to a valid directory")
-                return [1, {"Error message":f"TLCCS plugin : address string should point to a valid directory"}]           
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" timeIV plugin: address string should point to a valid directory")
+                return [1, {"Error message":f" timeIV plugin: address string should point to a valid directory"}]           
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : filename is not valid")
-                self.info_message.emit(f"TLCCS plugin : filename is not valid")
-                return [1, {"Error message":f"TLCCS plugin : filename is not valid"}]
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" timeIV plugin: filename is not valid")
+                self.info_message.emit(f"timeIV plugin: filename is not valid")
+                return [1, {"Error message":f"timeIV plugin: filename is not valid"}]
                
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
@@ -114,14 +116,11 @@ class timeIVGUI(QObject):
             self.settings
         """        
         if not self.function_dict:
-                return [3, {"Error message":"timeIV plugin : the plugin did not get all the neccessary functions from other plugins.", "Missing functions":self.missing_functions}]
+                return [3, {"Error message":f"Missing functions in timeIV plugin. Check log" , "Missing functions" : self.missing_functions}]
 
-        if not "lineFreuency" in self.settings:
-        	status, info = self.function_dict["smu"]["get_line_frequency"]()
-        	if status:
-        		return [status, info]
-        	else:
-        		self.settings["lineFrequency"] = info
+        [status, self.smu_settings] = self.function_dict["smu"]["parse_settings_widget"]()
+        if status:
+            return [2, self.smu_settings]
 
         status, message = self._parseSaveData()
         if status:
@@ -149,8 +148,17 @@ class timeIVGUI(QObject):
         self.settings["autosave"] = self.settingsWidget.autosaveCheckBox.isChecked()
         
         #SMU settings
-        # Determine source channel: may take values [smua, smub]
+        # Determine source channel: may take values depending on the channel names in smu, eg. for Keithley 2612B [smua, smub]
         self.settings["channel"] = (self.settingsWidget.comboBox_channel.currentText()).lower()
+        currentIndex = self.settingsWidget.comboBox_channel.currentIndex()
+        if self.settingsWidget.comboBox_channel.count()>1:
+                if currentIndex == 0:
+                        self.settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(1)
+                else:
+                        self.settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(0)
+        else:
+                        self.settings["drainchannel"] = 'xxx' #for compatability if the smu does not support second channel
+
         # Determine source type: may take values [current, voltage]
         self.settings["inject"] = (self.settingsWidget.comboBox_inject.currentText()).lower()
  	# Determine delay mode for source: may take values [auto, manual]
@@ -169,7 +177,6 @@ class timeIVGUI(QObject):
         	self.settings["singlechannel"] = True
         else:	
 	        self.settings["singlechannel"] = False
-        self.settings["drainchannel"] = "smub" if self.settings["channel"] == "smua" else "smua"
         
         # Determine settings for source
         #start should be float
@@ -188,7 +195,7 @@ class timeIVGUI(QObject):
 
         #source nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-                        self.settings["sourcenplc"] =  0.001 * self.settings["lineFrequency"] * float(self.settingsWidget.lineEdit_sourceNPLC.text())
+                        self.settings["sourcenplc"] =  0.001 * self.smu_settings["lineFrequency"] * float(self.settingsWidget.lineEdit_sourceNPLC.text())
         except ValueError:
                         return [1, {"Error message":"Value error in timeIV plugin: source nplc field should be numeric"}]
         if self.settings["sourcenplc"] <=0:
@@ -218,7 +225,7 @@ class timeIVGUI(QObject):
 
         #drain nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-                        self.settings["drainnplc"] =  0.001 * self.settings["lineFrequency"] * float(self.settingsWidget.lineEdit_drainNPLC.text())
+                        self.settings["drainnplc"] =  0.001 * self.smu_settings["lineFrequency"] * float(self.settingsWidget.lineEdit_drainNPLC.text())
         except ValueError:
                         return [1, {"Error message":"Value error in timeIV plugin: drain nplc field should be numeric"}]
         if self.settings["drainnplc"] <=0:
@@ -231,10 +238,6 @@ class timeIVGUI(QObject):
                                 return [1, {"Error message":"Value error in timeIV plugin: drain delay field should be numeric"}]
         if self.settings["draindelay"] <=0:
                                 return [1, {"Error message":"Value error in timeIV plugin: drain delay field should be positive"}]	             	             
-        
-        [status, self.smu_settings] = self.function_dict["smu"]["parse_settings_widget"]()
-        if status:
-            return [2, self.smu_settings]
         
         return [0, self.settings]
 
@@ -265,6 +268,8 @@ class timeIVGUI(QObject):
         # SMU settings
         if plugin_info["singlechannel"] == "True":
             self.settingsWidget.checkBox_singleChannel.setChecked(True)
+        self.settingsWidget.comboBox_channel.clear()
+        self.settingsWidget.comboBox_channel.addItems(self.function_dict["smu"]["smu_channelNames"]())
         currentIndex = self.settingsWidget.comboBox_channel.findText(plugin_info["channel"], Qt.MatchFlag.MatchFixedString)
         if currentIndex > -1:
            self.settingsWidget.comboBox_channel.setCurrentIndex(currentIndex)
@@ -297,7 +302,7 @@ class timeIVGUI(QObject):
         self.settingsWidget.lineEdit_drainDelay.setText(plugin_info["draindelay"])
        
         # update to the correct GUI state
-        self.setRunning(False)
+        self.set_running(False)
         self._update_GUI_state()
 
     def _getAddress(self):
@@ -394,7 +399,7 @@ class timeIVGUI(QObject):
     		self.settingsWidget.autosaveLineEdit.setEnabled(False)
     		self.settingsWidget.autosaveintervalUnitslabel.setEnabled(False)
 
-    def setRunning(self, status):
+    def set_running(self, status):
     	#status == True the measurement is running
         self.settingsWidget.stopButton.setEnabled(status)
         self.settingsWidget.runButton.setEnabled(not status)
@@ -402,6 +407,7 @@ class timeIVGUI(QObject):
         self.settingsWidget.groupBox.setEnabled(not status)        
         self.settingsWidget.groupBox_SMUGeneral.setEnabled(not status)        
         self.settingsWidget.fileBox.setEnabled(not status)  
+        self.function_dict["smu"]["set_running"](status)
         
         if status:
         	self._update_GUI_state()
@@ -444,8 +450,8 @@ class timeIVGUI(QObject):
     	s = {}
 
     	s["pulse"] = False
-    	s["source"] = self.settings["channel"] #source channel: may take values [smua, smub]
-    	s["drain"] = self.settings["drainchannel"]#drain channel: may take values [smub, smua]
+    	s["source"] = self.settings["channel"] #may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
+    	s["drain"] = self.settings["drainchannel"]
     	s["type"] = "v" if self.settings["inject"] == "voltage" else "i"#source inject current or voltage: may take values [i ,v]
     	s["single_ch"] = self.settings["singlechannel"] #single channel mode: may be True or False    	 
 
@@ -511,7 +517,7 @@ class timeIVGUI(QObject):
                 comment = f"{comment}Measurement acquisition period is done in AUTO mode\n"
             else:
                 comment = f"{comment}Measurement stabilization period is{settings['sourcedelay']/1000} ms\n"
-            comment = f"{comment}NPLC value {settings['sourcenplc']*1000/settings['lineFrequency']} ms (for detected line frequency {settings['lineFrequency']} Hz is {settings['sourcenplc']})\n"
+            comment = f"{comment}NPLC value {settings['sourcenplc']*1000/smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['sourcenplc']})\n"
             comment = f"{comment}\n\n"
             comment = f"{comment}Continuous operation of the source with step time settings['timestep'] \n\n\n"
 	   
@@ -529,7 +535,7 @@ class timeIVGUI(QObject):
                         comment = f"{comment}Measurement acquisition period for drain is done in AUTO mode\n"
                 else:
                         comment = f"{comment}Measurement stabilization period for drain is{settings['draindelay']/1000} ms\n"
-                comment = f"{comment}NPLC value {settings['drainnplc']*1000/settings['lineFrequency']} ms (for detected line frequency {settings['lineFrequency']} Hz is {settings['drainnplc']})\n"
+                comment = f"{comment}NPLC value {settings['drainnplc']*1000/smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['drainnplc']})\n"
             else:
             	comment = f"{comment}\n\n\n\n\n"
 
@@ -551,16 +557,6 @@ class timeIVGUI(QObject):
             else:
                 comment = f"{comment}\n"
             
-            comment = f"{comment}\n\n\n\n\n\n\n\n\n"
-
-            if not(smu_settings["singlechannel"]):
-                if smu_settings["drainhighc"]:
-                    comment = f"{comment}High capacitance mode for drain is enabled\n"
-                else:
-                    comment = f"{comment}High capacitance mode for drain is disabled\n"
-            else:
-                comment = f"{comment}\n"
-                
             comment = f"{comment}\n\n\n\n\n\n\n\n\n"
 
             if settings["stoptimer"]:
@@ -593,29 +589,26 @@ class timeIVGUI(QObject):
         self.run_thread.thread_stop()
         
     def _runAction(self):
-        try:
-                self.setRunning(True)
-                status, info = self.parse_settings_widget()
+                self.set_running(True)
+                [status, message] = self.parse_settings_widget()
                 if status:
-        	        if status == 3:
-        		        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f":timeIV : missing plugins: {info['Missing functions']}")
-        	        raise timeIVexception(f"{info['Error message']}")
+                        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f': timeIV plugin status={status}, {message}')
+                        self.info_message.emit(f"{message['Error message']}")
+                        self.set_running(False)
+                        return [status, message]
+        	        
                 [status, message] = self.function_dict["smu"]["smu_connect"]()
                 if status:
-        	        raise timeIVexception(f"can not connect to smu {message}")
-                [status, info] = self.smuInit()
-                if status:
-        	        raise timeIVexception(f"{info['Error message']}")
-
+                        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : sweep plugin status={status}, {message}')
+                        self.info_message.emit(message["Error message"])
+                        self.set_running(False)
+                        return [status, message]
+                        
         ##IRtodo#### check that the new file will not overwrite existing data -> implement dialog
 
                 self.run_thread = thread_with_exception(self._sequenceImplementation)
                 self.run_thread.start()
-        except Exception as e:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f":timeIV : {e}")
-                self.info_message.emit(f"{e}")
-                self.setRunning(False)
-                return [status, info]
+                return [0, "OK"]
 
 ########Functions
 ########sequence implementation
@@ -623,13 +616,16 @@ class timeIVGUI(QObject):
         fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
         if drainI == None:
                 np.savetxt(fulladdress, np.hstack([time, sourceI, sourceV]).T, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')        
-                print("save")
         else:
                 np.savetxt(fulladdress, np.hstack([time, sourceI, sourceV, drainI, drainV]).T, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')
 
-    def _sequenceImplementation(self) :
-        try:
+    def _timeIVimplementation(self) :
                 header = self.create_file_header(self.settings, self.smu_settings)
+                
+                [status, message] = self.smuInit()
+                if status:
+        	        raise timeIVexception(f"{message['Error message']}")
+        	        
                 self.function_dict["smu"]["smu_outputOFF"]()
                 self.function_dict["smu"]["smu_setOutput"](self.settings["channel"], 'v' if self.settings['inject']=='voltage' else 'i', self.settings["sourcevalue"])
                 if not self.settings["singlechannel"]:
@@ -637,7 +633,10 @@ class timeIVGUI(QObject):
                 timeData = []
                 startTic = time.time()
                 saveTic = startTic
-                self.function_dict["smu"]["smu_outputON"](self.settings["channel"], self.settings["drainchannel"])
+                if not self.settings["singlechannel"]:
+                        self.function_dict["smu"]["smu_outputON"](self.settings["channel"], self.settings["drainchannel"])
+                else:
+                        self.function_dict["smu"]["smu_outputON"](self.settings["channel"])
                 while True:
                         status, sourceIV = self.function_dict["smu"]["smu_getIV"](self.settings["channel"])
                         if status:
@@ -673,10 +672,12 @@ class timeIVGUI(QObject):
                                         drainV = None
                         else:
                                 timeData.append(toc)
+                                self.axes.cla()
                                 sourceV.append(sourceIV[dataOrder.V.value])
                                 sourceI.append(sourceIV[dataOrder.I.value])
-                                self._plot_sourceV.set_xdata(timeData)
-                                self._plot_sourceV.set_ydata(sourceV)
+                                #self._plot_sourceV.set_xdata(timeData) #### there is some bug not allowing to update the curves, redrawing works fine
+                                #self._plot_sourceV.set_ydata(sourceV)
+                                self.axes.plot(timeData, sourceV, 'bo')
                                 #self._plot_sourceI.set_ydata(sourceI)
                                 ##### there is a bug in matplotlib, the axes name is on a wrong side after cla()
                                 #####https://github.com/matplotlib/matplotlib/issues/28268
@@ -684,8 +685,11 @@ class timeIVGUI(QObject):
                                 self.axes_twinx.plot(timeData, sourceI, 'b*')
                                 
                                 if not self.settings["singlechannel"]:
-                                        self._plot_drainV.set_ydata(drainV)
-                                        self._plot_drainI.set_ydata(drainI)
+                                        drainV.append(drainIV[dataOrder.V.value])
+                                        drainI.append(drainIV[dataOrder.I.value])
+                                        #self._plot_drainV.set_ydata(drainV)
+                                        self.axes_twinx.plot(timeData, drainI, 'g*')
+                                        self.axes.plot(timeData, drainV, 'go')
                         self.axes.relim()
                         self.axes.autoscale_view()
                         self.sc.draw()        
@@ -700,25 +704,35 @@ class timeIVGUI(QObject):
                         time.sleep(self.settings["timestep"])
                 self.function_dict["smu"]["smu_outputOFF"]()
                 self.function_dict["smu"]["smu_disconnect"]()
-                self.setRunning(False)
+                self.set_running(False)
                 return [0,"OK"]
-        except ThreadStopped:
-                self.setRunning(False)
-                try:
-        	        self.function_dict["smu"]["smu_outputOFF"]()
-        	        self.function_dict["smu"]["smu_disconnect"]()
-        	        return [0,"OK"]
-                except Exception as e:
-        	        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : timeIV : smu turn off failed')
-        	        return [1, {"Error message", e}] 
-        except Exception as e:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f":timeIV: smu returned wrong status with message {e}")
-                self.info_message.emit(f"timeIV sequence failed with message: {e}")
-                self.setRunning(False)
-                try:
-        	        self.function_dict["smu"]["smu_outputOFF"]()
-        	        self.function_dict["smu"]["smu_disconnect"]()
-                except:
-        	        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : timeIV : smu turn off failed')
-                finally:       
-        	        return [1, {"Error message", e}]
+        	        
+    def _sequenceImplementation(self):
+    	"""
+    	Performs a timeIV on SMU, saves the result in a file
+    	        
+    	Returns [status, message]:
+            status: 0 - no error, ~0 - error
+    	"""    	
+    	try:
+    		exception = 0 #handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
+    		self._timeIVimplementation()
+    	except timeIVexception as e:
+    		self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f'{e}')
+    		exception = 1
+    	except ThreadStopped:
+    	        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f': timeIV plugin implementation aborted')
+    	        exception = 2
+    	except Exception as e:
+    		self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f': timeIV plugin implementation stopped because of unexpected exception: {e}')
+    		exception = 3
+    	finally:
+                        try:
+                                self.function_dict["smu"]["smu_outputOFF"]()
+                                self.function_dict["smu"]["smu_disconnect"]()
+                                if exception == 3 or exception == 1:
+                                        self.info_message.emit(f'Implementation stopped because of exception. Check log')
+                        except Exception as e:
+                                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : timeIV plugin: smu turn off failed because of unexpected exception: {e}')
+                                self.info_message.emit(f'SMU turn off failed. Check log')
+                        self.set_running(False)
