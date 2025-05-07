@@ -6,6 +6,7 @@ configFileName = "pyIVLS.ini"
 
 ### Keithley constants
 KEITHLEY_VISA = "TCPIP::192.168.1.5::INSTR"
+KEITHLEY_tcmp = "USB::0x05e6::0x2612::INSTR"
 LINE_FREQ = 50  # Hz
 
 ### Sutter constants

@@ -1,58 +1,81 @@
 #!/usr/bin/python3.8
 import pluggy
-from PyQt6 import QtWidgets
+
+from TLCCSGUI import TLCCS_GUI
 
 
-from plugins.TLCCS.TLCCS import CCSDRV
-from plugins.plugin import Plugin
-
-
-class pyIVLS_TLCCS_plugin(Plugin):
+class pyIVLS_TLCCS_plugin():
     """Thorlabs ccs plugin for pyIVLS"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        # crete the driver
-        self.drv = CCSDRV()
+        self.plugin_name = 'TLCCS'
+        self.plugin_function = 'spectrometer'
+    
+        # create the driver        
+        self.spectrometerGUI = TLCCS_GUI()
         super().__init__()
 
+
     @hookimpl
-    def get_setup_interface(self, pm, plugin_data) -> dict:
-        """Template get_setup_interface hook implementation
+    def get_setup_interface(self, plugin_data) -> dict:
+        """ Returns GUI
+
+        Returns:
+            dict: name, widget
+        """
+        self.spectrometerGUI._initGUI(plugin_data[self.plugin_name]["settings"])
+        return {self.plugin_name: self.spectrometerGUI.settingsWidget}
+
+    @hookimpl
+    def get_MDI_interface(self, args = None) -> dict:
+        """ Returns MDI window for camera preview
+
+        Returns:
+            dict: name, widget
+        """
+        return {self.plugin_name: self.spectrometerGUI.previewWidget}
+
+    @hookimpl
+    def get_functions(self, args = None):
+        """Returns a dictionary of publicly accessible functions.
 
         Args:
-            pm (pluggy.PluginManager): The plugin manager, only used if needed.
+            args (dict): function
 
         Returns:
-            dict: name : widget
+            dict: functions
         """
-        self.setup(pm, plugin_data)
-
-        # Find buttons from the settings widget
-        button = self.drv.settingsWidget.findChild(QtWidgets.QPushButton, "pushButton")
-
-        # Connect widget buttons to functions
-        button.clicked.connect(self.drv.read_integration_time_GUI)
-
-        return {self.plugin_name: self.drv.settingsWidget}
+        if args is None or args.get("function") == plugin_function:
+            return {self.plugin_name: self.spectrometerGUI._get_public_methods()}
 
     @hookimpl
-    def get_functions(self, args):
-        if args.get("function") == self.plugin_info["function"]:
-            return self.get_public_methods()
+    def get_log(self, args = None):
+        """provides the signal for logging to main app
 
-    def run_scan(self):
-        """Currently open needs to be called separatedly
-
-        Returns:
-            _type_: _description_
+        :return: dict that includes the log signal
         """
-        self.drv.start_scan()
-        return self.drv.get_scan_data()
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.spectrometerGUI._getLogSignal()}
 
-    def open(self) -> tuple:
-        """Open the connection to the device"""
-        if self.drv.open():
-            return (self.plugin_name, True)
-        return (self.plugin_name, False)
+    @hookimpl
+    def get_info(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.spectrometerGUI._getInfoSignal()}
+
+    @hookimpl
+    def get_closeLock(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.spectrometerGUI._getCloseLockSignal()}

@@ -1,9 +1,10 @@
 #!/usr/bin/python3.8
 from os.path import dirname, sep
-
+import sys
 
 import importlib
-from configparser import SafeConfigParser
+from datetime import datetime
+from configparser import ConfigParser
 import pluggy
 
 # Import to communicate with the GUI
@@ -24,6 +25,8 @@ class pyIVLS_container(QObject):
     plugins_updated_signal = pyqtSignal()
     # show a message to the user in the plugin loader GUI
     show_message_signal = pyqtSignal(str)
+    # add info to log   
+    log_message = pyqtSignal(str) 
 
     #### Slots for communication
     @pyqtSlot()
@@ -57,20 +60,31 @@ class pyIVLS_container(QObject):
             self.plugins_updated_signal.emit()
             self.cleanup()
 
-    def get_plugin_info_from_settings(self) -> dict:
+    def get_plugin_info_for_settingsGUI(self) -> dict:
         """Returns a dictionary with the plugin info for the settings widget.
 
         Returns:
             dict: plugin name -> plugin widget
         """
         plugin_manager = self.pm
-        single_element_dicts = self.pm.hook.get_setup_interface(
-            pm=plugin_manager, plugin_data=self.get_plugin_dict()
-        )
+        single_element_dicts = self.pm.hook.get_setup_interface(plugin_data=self.get_plugin_dict())
         combined_dict = {}
         for d in single_element_dicts:
-            combined_dict.update(d)
+            combined_dict.update(d)    
         return combined_dict
+        
+    def get_plugin_info_for_MDIarea(self) -> dict:
+        """Returns a dictionary with the plugin info for the settings widget.
+
+        Returns:
+            dict: plugin name -> plugin widget
+        """
+        single_element_dicts = self.pm.hook.get_MDI_interface()
+        combined_dict = {}
+        for d in single_element_dicts:
+            combined_dict.update(d)    
+        return combined_dict    
+        
 
     def get_plugin_dict(self) -> dict:
         """Returns a dictionary with all plugins and their properties.
@@ -82,43 +96,55 @@ class pyIVLS_container(QObject):
         section_dict = {}
 
         # Iterate through all sections in the parser
-        for section in self.config.sections():
-            # Create a dictionary with the section name as the key and the section items as the value
-            section_dict[section] = dict(self.config.items(section))
-
+        for plugin in self.config.sections():
+                if plugin.rsplit("_", 1)[1] == 'plugin':
+                        option_dict = {}
+                        for option in ["type","function", "class", "load", "dependencies", "address"]:
+                                if self.config.has_option(plugin, option):
+                                        option_dict[option] = self.config[plugin][option]
+                                else:
+                                        option_dict[option] = "" 
+                        if self.config.has_section(f"{self.config[plugin]['name']}_settings"):
+                                option_dict["settings"] = dict(self.config.items(f"{self.config[plugin]['name']}_settings"))  
+                        else:
+                                option_dict["settings"] = {}
+                        section_dict[self.config[plugin]['name']] = option_dict         
         return section_dict
 
-    def _register(self, plugin: str) -> bool:
+    def _register(self, plugin) -> bool:
         """Registers a plugin with the plugin manager. Dynamically imports the plugin and creates an instance of the plugin class.
         Handles errors, checks if the plugin is already registered and if it is a dependency for another plugin.
 
         Args:
-            plugin (str): plugin name to activate
+            plugin (str): section name in the ini file
 
         Returns:
             bool: registered or not
         """
-        module_name = f"plugins.pyIVLS_{plugin}"
-        class_name = f"pyIVLS_{plugin}_plugin"
-
+        plugin_name = self.config[plugin]["name"]
+        
+        module_name = f"pyIVLS_{plugin_name}"
+        class_name = f"pyIVLS_{plugin_name}_plugin"
+        sys.path.append(self.path + "plugins" + sep + self.config[plugin]["address"])
         try:
             # Dynamic import using importlib
             module = importlib.import_module(module_name)
             plugin_class = getattr(module, class_name)
-            plugin_instance = plugin_class()
+            plugin_instance = plugin_class()            
             # Check if the plugin is already registered
-            if self.pm.get_plugin(plugin) is None:
+            if self.pm.get_plugin(plugin_name) is None:
                 # Register the plugin with the standard name to prevent multiple instances
-                self.pm.register(plugin_instance, name=plugin)
+                self.pm.register(plugin_instance, name=plugin_name)
                 self.config[plugin]["load"] = "True"
-                # FIXME: remove debug print
-                print(f"Plugin {plugin} loaded")
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin_name} loaded")
                 return True
             else:
+                sys.path.remove(self.path + "plugins" + sep + self.config[plugin]["address"])
                 return False
         except (ImportError, AttributeError) as e:
-            print(f"Failed to load plugin {plugin}: {e}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Failed to load plugin {plugin_name}: {e}")
             self.config[plugin]["load"] = "False"
+            sys.path.remove(self.path + "plugins" + sep + self.config[plugin]["address"])
             return False
 
     def _unregister(self, plugin: str) -> bool:
@@ -149,24 +175,62 @@ class pyIVLS_container(QObject):
                 # if not, unregister the plugin
                 self.pm.unregister(plugin_instance)
                 self.config[plugin]["load"] = "False"
-                # FIXME: remove debug print
-                print(f"Plugin {plugin} unloaded")
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin} unloaded")
                 return True
             # plugin not registered, do nothing.
             return False
         except ImportError as e:
-            print(f"Failed to unload plugin {plugin}: {e}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + " : Failed to unload plugin {plugin}: {e}")
             return False
         except AttributeError as e:
-            print(f"Failed to unload plugin {plugin}: {e}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Failed to unload plugin {plugin}: {e}")
             return False
 
     def register_start_up(self):
         """Checks the .ini file for saved settings and registers all plugins that are set to load on startup."""
+        self.config = ConfigParser()
+        self.config.read(self.path + pyIVLS_constants.configFileName)
+        
         # FIXME: Naive implementation. If a pluginload fails on startup, it's not retried. This makes it possible for the user™ to break something.
+        ##IRtodo#### it needs to be checked that there are no 2 plugins with the same name/or 2 plugins with the same function
         for plugin in self.config.sections():
-            if self.config[plugin]["load"] == "True":
-                self._register(plugin)
+                if plugin.rsplit("_", 1)[1] == 'plugin':
+                        if self.config[plugin]["load"] == "True":
+                                self._register(plugin)
+
+    def public_function_exchange(self):
+        #get all the plugin public functions by plugin name, in case at some point there may be 2 plugins with the same function.
+        plugin_public_functions = self.pm.hook.get_functions()
+        available_public_functions = {}
+        #change public functions names as dict keys to plugin function, thus every plugin may find objects it needs
+        for public_functions in plugin_public_functions:
+            plugin_name = list(public_functions.keys())[0]
+            available_public_functions[self.config[plugin_name + '_plugin']["function"]] = public_functions[plugin_name]
+        self.pm.hook.set_function(function_dict = available_public_functions)    
+
+    def getLogSignals(self):
+        plugin_logSignals = self.pm.hook.get_log()
+        logSignals = []
+        for logSignal in plugin_logSignals:
+            plugin_name = list(logSignal.keys())[0]
+            logSignals.append(logSignal[plugin_name])
+        return logSignals
+
+    def getInfoSignals(self):
+        plugin_infoSignals = self.pm.hook.get_info()
+        infoSignals = []
+        for infoSignal in plugin_infoSignals:
+            plugin_name = list(infoSignal.keys())[0]
+            infoSignals.append(infoSignal[plugin_name])
+        return infoSignals
+
+    def getCloseLockSignals(self):
+        plugin_closeLockSignals = self.pm.hook.get_closeLock()
+        closeLockSignals = []
+        for closeLockSignal in plugin_closeLockSignals:
+            plugin_name = list(closeLockSignal.keys())[0]
+            closeLockSignals.append(closeLockSignal[plugin_name])
+        return closeLockSignals
 
     # NOTE: This function *might* fail with circular dependencies. Plugins might be loaded multiple times, but _register should make sure that only one instance is registered.
     def _check_dependencies_register(self, plugins_to_activate: list) -> list:
@@ -223,13 +287,9 @@ class pyIVLS_container(QObject):
         """initializes the container and the plugin manager. Reads the config file and registers all plugins set to load on startup."""
         super().__init__()
         self.path = dirname(__file__) + sep
-
+        sys.path.append(self.path + "plugins"+ sep)
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
-
-        self.config = SafeConfigParser()
-        self.config.read(self.path + pyIVLS_constants.configFileName)
-        self.register_start_up()
 
     def cleanup(self) -> None:
         """Explicitly cleanup resources, such as writing the config file."""

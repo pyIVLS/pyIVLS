@@ -1,36 +1,38 @@
 import pluggy
-from plugins.Keithley2612B.Keithley2612B import Keithley2612B
-from plugins.plugin import Plugin
+from Keithley2612BGUI import Keithley2612BGUI
+from plugin import Plugin
 import numpy as np
 
 
-class pyIVLS_Keithley2612B_plugin(Plugin):
+class pyIVLS_Keithley2612B_plugin():
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.smu = Keithley2612B()
+        self.plugin_name = 'Keithley2612B'
+        self.plugin_function = 'smu'
+        self.smu = Keithley2612BGUI()
         super().__init__()
 
     @hookimpl
-    def get_setup_interface(self, pm, plugin_data) -> dict:
+    def get_setup_interface(self, plugin_data) -> dict:
         """returns a widget for a tab in setup, and probably data for the setup structure
 
         :plugin_type: as all the plugins will be rolled in one loop, but plugins will be of different types, not all of them should return smth.
         This argument will allow the specific implementation of the hook to identify if any response is needed or not.
         :return: dict containing widget and setup structure
         """
-        self.setup(pm, plugin_data)
+        self.smu._initGUI(plugin_data[self.plugin_name]["settings"])
         return {self.plugin_name: self.smu.settingsWidget}
 
     @hookimpl
-    def get_functions(self, args):
+    def get_functions(self, args = None):
         """returns a dict of publicly accessible functions.
 
         :return: dict of functions
         """
-
-        if args.get("function") == self.plugin_info["function"]:
-            return self.get_public_methods()
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.smu._get_public_methods()}
 
     def open(self) -> tuple:
         """opens the plugin. If already open, returns True.
@@ -41,7 +43,7 @@ class pyIVLS_Keithley2612B_plugin(Plugin):
             return (self.plugin_name, True)
         return (self.plugin_name, False)
 
-    def run_sweep(self) -> list(np.ndarray):
+    def run_sweep(self):# -> list(np.ndarray):
         """runs a sweep
 
         :return: list of data
@@ -72,3 +74,4 @@ class pyIVLS_Keithley2612B_plugin(Plugin):
         if self.smu.k is None:
             self.smu.connect()
         return self.smu.resistance_measurement(channel)
+        

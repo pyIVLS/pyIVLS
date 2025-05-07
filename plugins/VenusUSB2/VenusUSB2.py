@@ -2,68 +2,54 @@ import cv2 as cv
 import os
 
 import numpy as np
-from PyQt6 import uic
-from PyQt6 import QtWidgets
-from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QImage, QPixmap
-
-from typing import Optional
-
 
 class VenusUSB2:
     """Handles communication with the VenusUSB2 camera"""
 
-    exposures = [1, 1, 2, 5, 10, 20, 39, 78, 156, 312]
+    exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
+    bufferSize = 1
 
     def __init__(self):
 
-        # Load the settings based on the name of this file.
-        self.path = os.path.dirname(__file__) + os.path.sep
-        filename = (
-            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
-        )
-        self.settingsWidget = uic.loadUi(self.path + filename)
-
-        # Initialize labels that might be modified:
-        self.source_label = self.settingsWidget.findChild(
-            QtWidgets.QLabel, "sourceLabel"
-        )
-
-        self.preview_label = self.settingsWidget.findChild(
-            QtWidgets.QLabel, "previewLabel"
-        )
-
         # Initialize cap as empty capture
         self.cap = cv.VideoCapture()
-        self.save_button()
 
-        # Set a timer for the camera feed
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_frame)
-        self.preview_running = False
-
-    def open_camera(self, source=None, exposure=None) -> bool:
+    def open(self, source=None, exposure=None) -> "status":
         """Opens the camera using current settings.
 
         Returns:
-            bool: pass/fail
+            0 - no error
+            ~0 - error (add error code later on if needed)
         """
-        if source is None:
-            source = self.settings["source"]
-        if exposure is None:
-            exposure = self.settings["exposure"]
-
+        if (source is None) or (exposure is None):
+            return [1, {"Error message":"Source or exposure time not set"}]
         self.cap.open(source)
-        if self.cap.isOpened():
-            self.source_label.setText(f"Source open: {source}")
-            self._set_exposure(exposure)
+        if self.cap.isOpened():          
+            #set exposure
+            
+            ## Check if the camera supports setting exposure
+            ##		not really needed here, as this code is hardware specifc
+            ##		should be used in general purpose code
+            ##
+            #if not self.cap.get(cv.CAP_PROP_EXPOSURE):
+            #  print("Camera does not support setting exposure.")
+            #  return
+            
+            if not self.cap.set(cv.CAP_PROP_EXPOSURE, exposure):
+                 return [4, {"Error message":"Can not set exposure time"}]
+            
+            ##IRtothink#### should the next settings be obtaines as parameters
+            
             # Set buffer size to 1.
-            self.cap.set(cv.CAP_PROP_BUFFERSIZE, 1)
-            return True
-        self.source_label.setText(f"Failed to open source: {source}")
-        return False
+            self.cap.set(cv.CAP_PROP_BUFFERSIZE, self.bufferSize)
+            
+            # Set resolution
+            self.cap.set(cv.CAP_PROP_FRAME_WIDTH, 1024)
+            self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, 768)
+            return [0, {"Error message":"OK"}]
+        return [4, {"Error message":"Can not open camera"}]
 
-    def close_camera(self):
+    def close(self):
         """Pretty self explanatory"""
         self.cap.release()
 
@@ -84,83 +70,5 @@ class VenusUSB2:
             self.cap.read()
             _, frame = self.cap.read()
         else:
-            frame = np.zeros((480, 640, 3), np.uint8)
+            frame = np.zeros((480, 640, 3), np.uint8) # 3 is number of channels
         return frame
-
-    def update_frame(self):
-        frame = self.capture_image()
-        frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-        height, width, channel = frame.shape
-        bytes_per_line = 3 * width
-        q_img = QImage(
-            frame.data, width, height, bytes_per_line, QImage.Format.Format_RGB888
-        )
-        self.preview_label.setPixmap(QPixmap.fromImage(q_img))
-
-    # FIXME: Might not work on windows
-    def _set_exposure(self, exposure):
-        """Sets the exposure for the camera
-
-        Args:
-            exposure (int): index of the possible exposure. See self.exposures for the values
-        """
-        # Method to set the exposure
-        assert 0 <= exposure <= 9, "Error: Exposure value out of range"
-
-        # Check if the camera supports setting exposure
-        if not self.cap.get(cv.CAP_PROP_EXPOSURE):
-            print("Camera does not support setting exposure.")
-            return
-
-        # Set the exposure
-        success = self.cap.set(cv.CAP_PROP_EXPOSURE, self.exposures[exposure])
-        if success:
-            print(f"Exposure set to {self.exposures[exposure]}")
-        else:
-            print("Failed to set exposure.")
-
-    def get_exposure(self):
-        """Getter for the current exposure value
-
-        Returns:
-            _type_: current exposure as set in the camera
-        """
-        # Method to get the exposure value
-        return self.cap.get(cv.CAP_PROP_EXPOSURE)
-
-    def parse_settings_widget(self) -> dict:
-        """Parses the settings widget for the camera. Extracts current values
-
-        Returns:
-            dict: setting -> value
-        """
-        exposureSlider = self.settingsWidget.findChild(
-            QtWidgets.QSlider, "cameraExposure"
-        )
-        sourceInput = self.settingsWidget.findChild(QtWidgets.QLineEdit, "cameraSource")
-        exposure_value = exposureSlider.value()
-        source_input = sourceInput.text()
-
-        return {"exposure": exposure_value, "source": source_input}
-
-    def preview_button(self):
-        """interface for the preview button. Opens the camera, sets the exposure and previews the feed"""
-        if self.preview_running:
-            self.timer.stop()
-            self.preview_label.setText("Preview stopped")
-            self.preview_running = False
-            self.close_camera()
-        else:
-            sett = self.parse_settings_widget()
-            self.open_camera(source=sett["source"], exposure=sett["exposure"])
-            self.timer.start(30)
-            self.preview_running = True
-
-    def save_button(self) -> None:
-        """interface for the save button. Updates the settings and saves them to internal dict.
-
-        Returns:
-            bool: pass/fail
-        """
-        self.settings = self.parse_settings_widget()
-        self.close_camera()
