@@ -1,34 +1,42 @@
 #!/usr/bin/python3.8
 import pluggy
-from PyQt6 import QtWidgets
 
-from plugins.plugin import Plugin
-from plugins.VenusUSB2.VenusUSB2 import VenusUSB2
+from VenusUSB2GUI import VenusUSB2GUI
 import cv2
 
 
-class pyIVLS_VenusUSB2_plugin(Plugin):
+class pyIVLS_VenusUSB2_plugin():
     """Hooks for VenusUSB2 camera plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.camera = VenusUSB2()
+        self.plugin_name = 'VenusUSB2'
+        self.plugin_function = 'camera'
+        self.camera_control = VenusUSB2GUI()
         super().__init__()
 
     @hookimpl
-    def get_setup_interface(self, pm, plugin_data) -> dict:
-        """Sets up camera, preview, and save buttons for VenusUSB2 camera plugin
+    def get_setup_interface(self, plugin_data) -> dict:
+        """ Returns GUI
 
         Returns:
             dict: name, widget
         """
-        self.setup(pm, plugin_data)
-
-        return {self.plugin_name: self._connect_buttons(self.camera.settingsWidget)}
+        self.camera_control._initGUI(plugin_data[self.plugin_name]["settings"])
+        return {self.plugin_name: self.camera_control.settingsWidget}
 
     @hookimpl
-    def get_functions(self, args):
+    def get_MDI_interface(self, args = None) -> dict:
+        """ Returns MDI window for camera preview
+
+        Returns:
+            dict: name, widget
+        """
+        return {self.plugin_name: self.camera_control.previewWidget}
+
+    @hookimpl
+    def get_functions(self, args = None):
         """Returns a dictionary of publicly accessible functions.
 
         Args:
@@ -37,19 +45,38 @@ class pyIVLS_VenusUSB2_plugin(Plugin):
         Returns:
             dict: functions
         """
+        if args is None or args.get("function") == plugin_function:
+            return {self.plugin_name: self.camera_control._get_public_methods()}
 
-        if args.get("function") == self.plugin_info["function"]:
-            return self.get_public_methods()
+    @hookimpl
+    def get_log(self, args = None):
+        """provides the signal for logging to main app
 
-    def _connect_buttons(self, settingsWidget):
-        preview_button = settingsWidget.findChild(
-            QtWidgets.QPushButton, "cameraPreview"
-        )
-        save_button = settingsWidget.findChild(QtWidgets.QPushButton, "cameraSave")
-        # Connect widget buttons to functions
-        preview_button.clicked.connect(self.camera.preview_button)
-        save_button.clicked.connect(self.camera.save_button)
-        return settingsWidget
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.camera_control._getLogSignal()}
+
+    @hookimpl
+    def get_info(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.camera_control._getInfoSignal()}
+
+    @hookimpl
+    def get_closeLock(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.camera_control._getCloseLockSignal()}
 
     def open(self) -> tuple:
         """Open the device.

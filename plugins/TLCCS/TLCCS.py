@@ -1,15 +1,6 @@
-import cv2 as cv
-import numpy as np
-import os
-
-from PyQt6 import uic
-from PyQt6 import QtWidgets
-
-
-
 import usb
-from plugins.TLCCS.lowLevel import LLIO
-import plugins.TLCCS.const as const
+from lowLevel import LLIO
+import TLCCS_const as const
 import numpy as np
 import struct
 import time
@@ -17,42 +8,11 @@ import time
 
 class CCSDRV:
 
-    def __init__(self):
+#    def __init__(self):
+#
+#    	return 0
 
-        # Load the settings based on the name of this file.
-        self.path = os.path.dirname(__file__) + os.path.sep
-        filename = (
-            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
-        )
-        self.settingsWidget = uic.loadUi(self.path + filename)
-
-        # save the labels that might be modified:
-        self.status_label = self.settingsWidget.findChild(
-            QtWidgets.QLabel, "statusLabel"
-        )
-
-    def read_integration_time_GUI(self):
-        """Reads the integration time from the GUI and returns it as a float.
-        If the field is empty, the default integration time is returned.
-
-        Returns:
-            float: integration time in seconds
-        """
-        input = self.settingsWidget.findChild(
-            QtWidgets.QLineEdit, "lineEdit_Integ"
-        ).text()
-
-        if input == "":
-            print("Default integration time used")
-            return const.CCS_SERIES_DEF_INT_TIME
-        else:
-            print("Integration time from GUI: ", input)
-            return float(input) * 1e-3
-
-    def open(
-        self,
-        integration_time=None,
-    ):
+    def open(self, spectrometerVID, spectrometerPID, integration_time=const.CCS_SERIES_DEF_INT_TIME):
         """Opens a connection through LLIO.
 
         Args:
@@ -60,33 +20,20 @@ class CCSDRV:
             pid (hexadecimal, optional): product ID. Defaults to 0x8087 (CCS175).
         """
         # Set class vars
-        self.io = LLIO()
+        self.io = LLIO(spectrometerVID, spectrometerPID)
         if self.io.open():
-            self.dev = self.io.dev
+         	self.dev = self.io.dev
+         	self.set_integration_time(integration_time)
+         	state = self.get_device_status()
+         	self.integration_time = integration_time
 
-            # if integration time is not passed as an arg, read from GUI.
-            if integration_time is None:
-                integration_time = self.read_integration_time_GUI()
-
-            # Set default integration time
-            assert self.set_integration_time(
-                integration_time
-            ), "Integration time not set"
-            state = self.get_device_status()
-            self.integration_time = const.CCS_SERIES_DEF_INT_TIME
-
-            if "SCAN_IDLE" not in state:
-                # FIXME: This is a workaround for the device not being in idle state
-                # after opening connection for first time. Look into reset.
-                print(
-                    "Device not in idle state after opening connection. Running a scan and flushing to reset"
-                )
-                time.sleep(3)
-                self.start_scan()
-                self.get_scan_data()
-
-            self.status_label.setText("Connected")
-            return True
+         	if "SCAN_IDLE" not in state:
+         		# FIXME: This is a workaround for the device not being in idle state
+         		# after opening connection for first time. Look into reset.
+                	time.sleep(3)
+                	self.start_scan()
+                	self.get_scan_data()
+         	return True
         return False
 
     def close(self):
@@ -260,7 +207,6 @@ class CCSDRV:
 
         # Process raw data
         data = self._acquire_raw_scan_data(raw)
-
         return data
 
     # FIXME: There seems to be a a period of zeroes at the beginning and end of the data.
@@ -301,7 +247,7 @@ class CCSDRV:
 
         # Process raw data
         for i in range(const.CCS_SERIES_NUM_PIXELS):
-            data[i] = raw[const.SCAN_PIXELS_OFFSET + i] - dark_com * norm_com
+            data[i] = (raw[const.SCAN_PIXELS_OFFSET + i] - dark_com) * norm_com
 
         return data
 

@@ -1,9 +1,7 @@
 from array import array
 import usb.core
 import usb.util
-import plugins.TLCCS.const as const
-import pyIVLS_constants as ivls_const
-
+import TLCCS_const as const
 
 class LLIO:
     """This class handles low level usb communication with a
@@ -11,9 +9,9 @@ class LLIO:
     Includes control IN/OUT transfers and raw (bulk) read.
     """
 
-    def __init__(self):
-        self.vid = ivls_const.THORSPEC_VID
-        self.pid = ivls_const.THORSPEC_PID
+    def __init__(self, THORSPEC_VID, THORSPEC_PID):
+        self.vid = THORSPEC_VID
+        self.pid = THORSPEC_PID
         self.bulk_in_pipe = None
         self.timeout = None
         self.dev = None
@@ -26,12 +24,11 @@ class LLIO:
             ValueError: device not found with the given vid and pid
             ConnectionError: usb error when connecting to the device
         """
-        try:
+        try:      
             if not self.connected:
                 self.dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
-
                 if self.dev is None:
-                    raise ValueError("Device not found")
+                    raise ValueError("Device not found")                                      
                 self.dev.set_configuration()
                 self.connected = True
                 return True

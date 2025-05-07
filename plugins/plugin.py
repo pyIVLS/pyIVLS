@@ -10,13 +10,20 @@ class Plugin:
     non_public_methods.extend(const.HOOKS)
 
     def __init__(self):
-        self.plugin_name = None
+        stack = inspect.stack()
+        calling_class = stack[1].frame.f_locals["self"].__class__.__name__
+        ## Maybe not the optimum solution, as the plugin name is derived form the calling class. It imposes the naming scheme that should be followed. 
+        ## On the other hand, I am not sure if there is a simle workaround
+        
+        self.plugin_name = calling_class.removeprefix("pyIVLS_").removesuffix("_plugin")
+
         self.plugin_info = None
         self.pm = None
 
     # NOTE: currently creates quite a bit of overhead since the vars
     # are updated every time the plugin list is updated.
     # On the other hand, This will probably not be a bottleneck.
+    
     def setup(self, pm, plugin_info):
         """
         Loads the plugin info
@@ -40,16 +47,12 @@ class Plugin:
         else:
             raise FileNotFoundError(f"UI file {ui_file_path} not found.")
         """
-        stack = inspect.stack()
-        calling_class = stack[1].frame.f_locals["self"].__class__.__name__
-        plugin_name = calling_class.removeprefix("pyIVLS_").removesuffix("_plugin")
 
         # Set internal variables
-        self.plugin_info = plugin_info.get(plugin_name)
+        self.plugin_info = plugin_info.get(self.plugin_name)
         if self.plugin_info["dependencies"] != "" and self.pm is None:
 
             self.pm = pm
-        self.plugin_name = plugin_name
 
     def get_public_methods(self):
         """

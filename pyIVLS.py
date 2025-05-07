@@ -1,9 +1,10 @@
-#!/usr/bin/python3.8
+#!/home/ivarad/git_pyIVLS/.venv/bin/python3
 import sys
 from os.path import dirname, sep
 
 IVLS_path = dirname(__file__) + sep
 sys.path.append(IVLS_path)
+sys.path.append(dirname(__file__) + sep + "components"+ sep)
 
 from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot
 from PyQt6 import QtWidgets
@@ -30,7 +31,7 @@ if __name__ == "__main__":
 
     pluginsContainer = pyIVLS_container()
     GUI_mainWindow = pyIVLS_GUI()
-
+    
     ### initalize signals for pluginloader <-> container communication
     GUI_mainWindow.pluginloader.request_available_plugins_signal.connect(
         pluginsContainer.read_available_plugins
@@ -44,12 +45,28 @@ if __name__ == "__main__":
     pluginsContainer.plugins_updated_signal.connect(update_settings_widget)
 
     pluginsContainer.show_message_signal.connect(
-        GUI_mainWindow.pluginloader.show_message
+        GUI_mainWindow.show_message
     )
+    
+    pluginsContainer.log_message.connect(GUI_mainWindow.addDataLog)
 
+    pluginsContainer.register_start_up()
+       
+    for logSignal in pluginsContainer.getLogSignals():
+       logSignal.connect(GUI_mainWindow.addDataLog)
+
+    for infoSignal in pluginsContainer.getInfoSignals():
+       infoSignal.connect(GUI_mainWindow.show_message)
+
+    for closeLockSignal in pluginsContainer.getCloseLockSignals():
+       closeLockSignal.connect(GUI_mainWindow.setCloseLock)
+    
+    pluginsContainer.public_function_exchange()
     ### init interfaces
-    whatAmI = pluginsContainer.get_plugin_info_from_settings()
+    whatAmI = pluginsContainer.get_plugin_info_for_settingsGUI()
     GUI_mainWindow.setSettingsWidget(whatAmI)
+    GUI_mainWindow.setMDIArea(pluginsContainer.get_plugin_info_for_MDIarea())
+    
     GUI_mainWindow.window.show()
 
     pluginsContainer.cleanup()
