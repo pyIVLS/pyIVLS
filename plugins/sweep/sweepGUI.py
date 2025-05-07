@@ -29,6 +29,8 @@ class sweepGUI(QObject):
 
     log_message = pyqtSignal(str) 
     info_message = pyqtSignal(str) 
+    closeLock = pyqtSignal(bool)
+    
 ########Functions
 
     def __init__(self):  
@@ -331,7 +333,10 @@ class sweepGUI(QObject):
         return self.log_message
 
     def _getInfoSignal(self):
-        return self.info_message 
+        return self.info_message
+        
+    def _getCloseLockSignal(self):
+        return self.closeLock         
 ########Functions to be used externally
 ###############get settings from GUI 
     def parse_settings_widget(self):
@@ -568,6 +573,7 @@ class sweepGUI(QObject):
         self.function_dict["smu"]["set_running"](status)
         self.settingsWidget.stopButton.setEnabled(status)
         self.settingsWidget.runButton.setEnabled(not status)
+        self.closeLock.emit(not status)
         
 ########sweep implementation 
 

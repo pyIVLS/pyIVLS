@@ -15,7 +15,7 @@
 # 5. implement saving of settings to configuration file
 # 6. implement reopening of docking window and MDI windows
 # 7. implement autosave for long measurements
-# 8. implement close check, i.e. the main GUI window can not be closed if a measuremen or preview is running
+# 8. check that logging, closeLock and messaging signals will work after loading plugins from menu. The connect functions in pyIVLS are run only in init stage, probably something should be moved/added to update_settings_widget slot
 # 9. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
 # 10. implement GUI for adding/removing plugins. This should take care that plugin info in *.ini (i.e. name, class, function. etc) corresponds to info in plugin itself
 # 11. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence
@@ -153,7 +153,7 @@
 # self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : sweep plugin status={status}, {message}')
 
 #### execution flow
-#1. When pyIVLS.py is run it creates an instance of the pyIVLS_container.py (handles all the plugins, initializes path to components that contains shared plugin classes) and the main window
+#1. When pyIVLS.py is run it initializes the pathes and creates an instance of the pyIVLS_container.py (handles all the plugins) and the main window
 ##	signals (including log and user message) from pyIVLS_container.py and pyIVLS_pluginloader are connected to respective slots
 #2. register_start_up of pyIVLS_container.py is called
 ##	reads plugin data from ini

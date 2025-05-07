@@ -223,7 +223,15 @@ class pyIVLS_container(QObject):
             plugin_name = list(infoSignal.keys())[0]
             infoSignals.append(infoSignal[plugin_name])
         return infoSignals
-            
+
+    def getCloseLockSignals(self):
+        plugin_closeLockSignals = self.pm.hook.get_closeLock()
+        closeLockSignals = []
+        for closeLockSignal in plugin_closeLockSignals:
+            plugin_name = list(closeLockSignal.keys())[0]
+            closeLockSignals.append(closeLockSignal[plugin_name])
+        return closeLockSignals
+
     # NOTE: This function *might* fail with circular dependencies. Plugins might be loaded multiple times, but _register should make sure that only one instance is registered.
     def _check_dependencies_register(self, plugins_to_activate: list) -> list:
         """Checks the dependencies of the plugins to activate and adds them to the list of plugins to activate.
@@ -280,7 +288,6 @@ class pyIVLS_container(QObject):
         super().__init__()
         self.path = dirname(__file__) + sep
         sys.path.append(self.path + "plugins"+ sep)
-        sys.path.append(self.path + "components"+ sep)
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
 

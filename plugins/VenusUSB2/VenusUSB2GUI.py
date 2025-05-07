@@ -35,12 +35,12 @@ from typing import Optional
 class VenusUSB2GUI(QObject):
     """GUI for the VenusUSB2 camera"""
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
+    default_timerInterval = 42 # ms, it is close to 24 fps that is standard for movies and TV
 ########Signals
 
     log_message = pyqtSignal(str)     
     info_message = pyqtSignal(str) 
-    
-    default_timerInterval = 42 # ms, it is close to 24 fps that is standard for movies and TV
+    closeLock = pyqtSignal(bool)
 
 ########Functions       
     def __init__(self):
@@ -137,6 +137,7 @@ class VenusUSB2GUI(QObject):
                         self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
         self.settingsWidget.exposureBox.setEnabled(status)
         self.settingsWidget.sourceBox.setEnabled(status)
+        self.closeLock.emit(not status)
 
 ########Functions
 ########plugins interraction
@@ -162,3 +163,6 @@ class VenusUSB2GUI(QObject):
         
     def _getInfoSignal(self):
         return self.info_message
+
+    def _getCloseLockSignal(self):
+        return self.closeLock

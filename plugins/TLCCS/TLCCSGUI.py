@@ -35,10 +35,13 @@ from TLCCS import CCSDRV
 class TLCCS_GUI(QObject):
     """spectrometer plugin for pyIVLS"""
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
+    public_methods = ["parse_settings_preview" , "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+
 ########Signals
 
     log_message = pyqtSignal(str)     
-    info_message = pyqtSignal(str) 
+    info_message = pyqtSignal(str)
+    closeLock = pyqtSignal(bool) 
     
     default_timerInterval = 20 # ms, it is close to 24*2 fps (twice the standard for movies and TV)
 
@@ -147,6 +150,7 @@ class TLCCS_GUI(QObject):
             	self.scanRunning = False
             self.preview_running = False
             self._enableSaveButton()
+            self.closeLock.emit(not self.preview_running)
         else:
             [status, info] = self.parse_settings_preview()
             if status:
@@ -155,6 +159,7 @@ class TLCCS_GUI(QObject):
                 return [status, info]
             self.integrationTimeChanged = True
             self.preview_running = True
+            self.closeLock.emit(not self.preview_running)
             self.settingsWidget.saveButton.setEnabled(False)
             self.run_thread = thread_with_exception(self._previewIteration)
             self.run_thread.start()	
@@ -278,6 +283,7 @@ class TLCCS_GUI(QObject):
             and not method.startswith("__")
             and not method.startswith("_")
             and method not in self.non_public_methods
+            and method in self.public_methods
         }
         return methods
 
@@ -286,6 +292,9 @@ class TLCCS_GUI(QObject):
         
     def _getInfoSignal(self):
         return self.info_message
+
+    def _getCloseLockSignal(self):
+        return self.closeLock           
 
     def _parse_settings_integrationTime(self) -> "status":
         try:

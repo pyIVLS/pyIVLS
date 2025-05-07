@@ -4,6 +4,7 @@ from os.path import dirname, sep
 
 IVLS_path = dirname(__file__) + sep
 sys.path.append(IVLS_path)
+sys.path.append(dirname(__file__) + sep + "components"+ sep)
 
 from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot
 from PyQt6 import QtWidgets
@@ -56,6 +57,9 @@ if __name__ == "__main__":
 
     for infoSignal in pluginsContainer.getInfoSignals():
        infoSignal.connect(GUI_mainWindow.show_message)
+
+    for closeLockSignal in pluginsContainer.getCloseLockSignals():
+       closeLockSignal.connect(GUI_mainWindow.setCloseLock)
     
     pluginsContainer.public_function_exchange()
     ### init interfaces

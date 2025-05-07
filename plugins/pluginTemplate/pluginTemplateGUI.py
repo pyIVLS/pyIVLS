@@ -101,6 +101,15 @@ class pluginTemplateGUI():
             and method in self.public_methods
         }
         return methods
+
+    def _getLogSignal(self):
+        return self.log_message
+        
+    def _getInfoSignal(self):
+        return self.info_message
+
+    def _getCloseLockSignal(self):
+        return self.closeLock        
     
 ########Functions to be used externally
 ###############get settings from GUI 

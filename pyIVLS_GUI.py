@@ -3,20 +3,14 @@ from os.path import dirname, sep
 
 from PyQt6.QtCore import (
     QObject,
-    QFile,
-    QIODevice,
-    QCoreApplication,
     Qt,
-    QEvent,
     pyqtSignal,
     pyqtSlot,
 )
 from PyQt6.QtWidgets import QVBoxLayout
-
-import pyIVLS_constants
 from pyIVLS_container import pyIVLS_container
 from pyIVLS_pluginloader import pyIVLS_pluginloader
-
+from pyIVLS_mainWindow import pyIVLS_mainWindow
 
 class pyIVLS_GUI(QObject):
 
@@ -37,7 +31,15 @@ class pyIVLS_GUI(QObject):
     @pyqtSlot(str)
     def addDataLog(self, str):
         print(str)
-
+    
+    @pyqtSlot()
+    def reactClose(self):
+        self.show_message("Stop running processes and disconnect devices before close")
+    
+    @pyqtSlot(bool)
+    def setCloseLock(self, bool):
+        self.window.setCloseOK(bool)
+    
     ################ Menu actions
     def actionPlugins(self):
         self.pluginloader.refresh()
@@ -87,9 +89,11 @@ class pyIVLS_GUI(QObject):
         super(pyIVLS_GUI, self).__init__()
         self.path = dirname(__file__) + sep
 
-        self.window = uic.loadUi(self.path + "pyIVLS_GUI.ui")
+#        self.window = uic.loadUi(self.path + "pyIVLS_GUI.ui")
+        self.window = pyIVLS_mainWindow(self.path)
         self.pluginloader = pyIVLS_pluginloader(self.path)
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
+        self.window.closeSignal.connect(self.reactClose)
 
         self.initial_widget_state = {}

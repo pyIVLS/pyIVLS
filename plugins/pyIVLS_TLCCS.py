@@ -69,3 +69,13 @@ class pyIVLS_TLCCS_plugin():
         
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.spectrometerGUI._getInfoSignal()}
+
+    @hookimpl
+    def get_closeLock(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.spectrometerGUI._getCloseLockSignal()}
