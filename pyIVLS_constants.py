@@ -23,5 +23,3 @@ HOOKS = ["get_setup_interface", "get_functions"]
 
 ### conDetect
 CONDETECT_PORT = "ftdi://ftdi:232:UUT1/1"
-
-

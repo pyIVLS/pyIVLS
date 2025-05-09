@@ -2,11 +2,10 @@
 # dialog and functionality for the plugins action from the Tools menu
 # This represents the single window opened.
 
-from os.path import sep
 import sys
-import pyIVLS_constants
+from os.path import sep
 
-from PyQt6 import QtWidgets, uic, QtGui
+from PyQt6 import QtGui, QtWidgets, uic
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 
 

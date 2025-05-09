@@ -4,20 +4,20 @@ import pluggy
 from plugins.VenusUSB2.VenusUSB2GUI import VenusUSB2GUI
 
 
-class pyIVLS_VenusUSB2_plugin():
+class pyIVLS_VenusUSB2_plugin:
     """Hooks for VenusUSB2 camera plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.plugin_name = 'VenusUSB2'
-        self.plugin_function = 'camera'
+        self.plugin_name = "VenusUSB2"
+        self.plugin_function = "camera"
         self.camera_control = VenusUSB2GUI()
         super().__init__()
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
-        """ Returns GUI
+        """Returns GUI
 
         Returns:
             dict: name, widget
@@ -26,8 +26,8 @@ class pyIVLS_VenusUSB2_plugin():
         return {self.plugin_name: self.camera_control.settingsWidget}
 
     @hookimpl
-    def get_MDI_interface(self, args = None) -> dict:
-        """ Returns MDI window for camera preview
+    def get_MDI_interface(self, args=None) -> dict:
+        """Returns MDI window for camera preview
 
         Returns:
             dict: name, widget
@@ -35,7 +35,7 @@ class pyIVLS_VenusUSB2_plugin():
         return {self.plugin_name: self.camera_control.previewWidget}
 
     @hookimpl
-    def get_functions(self, args = None):
+    def get_functions(self, args=None):
         """Returns a dictionary of publicly accessible functions.
 
         Args:
@@ -48,32 +48,32 @@ class pyIVLS_VenusUSB2_plugin():
             return {self.plugin_name: self.camera_control._get_public_methods()}
 
     @hookimpl
-    def get_log(self, args = None):
+    def get_log(self, args=None):
         """provides the signal for logging to main app
 
         :return: dict that includes the log signal
         """
-        
+
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.camera_control._getLogSignal()}
 
     @hookimpl
-    def get_info(self, args = None):
+    def get_info(self, args=None):
         """provides the signal for logging to main app
 
         :return: dict that includes the log signal
         """
-        
+
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.camera_control._getInfoSignal()}
 
     @hookimpl
-    def get_closeLock(self, args = None):
+    def get_closeLock(self, args=None):
         """provides the signal for logging to main app
 
         :return: dict that includes the log signal
         """
-        
+
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.camera_control._getCloseLockSignal()}
 

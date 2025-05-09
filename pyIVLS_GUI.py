@@ -1,19 +1,17 @@
-from PyQt6 import QtWidgets, uic
 from os.path import dirname, sep
 
+from PyQt6 import QtWidgets
 from PyQt6.QtCore import (
     QObject,
     Qt,
-    pyqtSignal,
     pyqtSlot,
 )
-from PyQt6.QtWidgets import QVBoxLayout
-from pyIVLS_container import pyIVLS_container
+
+from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 from pyIVLS_pluginloader import pyIVLS_pluginloader
-from pyIVLS_mainWindow import pyIVLS_mainWindow
+
 
 class pyIVLS_GUI(QObject):
-
     ############################### GUI functions
 
     ############################### Slots
@@ -23,23 +21,26 @@ class pyIVLS_GUI(QObject):
         msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint)
+        msg.setWindowFlags(
+            Qt.WindowType.CustomizeWindowHint
+            | Qt.WindowType.WindowTitleHint
+            | Qt.WindowType.WindowShadeButtonHint
+        )
         msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
         msg.exec()
 
-    
     @pyqtSlot(str)
     def addDataLog(self, str):
         print(str)
-    
+
     @pyqtSlot()
     def reactClose(self):
         self.show_message("Stop running processes and disconnect devices before close")
-    
+
     @pyqtSlot(bool)
     def setCloseLock(self, bool):
         self.window.setCloseOK(bool)
-    
+
     ################ Menu actions
     def actionPlugins(self):
         self.pluginloader.refresh()
@@ -63,7 +64,7 @@ class pyIVLS_GUI(QObject):
         # Set the QTabWidget as the widget for the QDockWidget
         self.window.dockWidget.setWidget(tab_widget)
         self.window.dockWidget.show()  # Ensure the dock widget is visible
-        
+
     def setMDIArea(self, widgets: dict):
         """
         Set a list of widgets in MDI area
@@ -74,7 +75,7 @@ class pyIVLS_GUI(QObject):
         # Add each widget to the MDI area as subwindows
         for name, widget in widgets.items():
             MDIwindow = self.window.mdiArea.addSubWindow(widget)
-            MDIwindow.setWindowTitle(name)    
+            MDIwindow.setWindowTitle(name)
 
     def clearDockWidget(self):
         """
@@ -89,7 +90,7 @@ class pyIVLS_GUI(QObject):
         super(pyIVLS_GUI, self).__init__()
         self.path = dirname(__file__) + sep
 
-#        self.window = uic.loadUi(self.path + "pyIVLS_GUI.ui")
+        #        self.window = uic.loadUi(self.path + "pyIVLS_GUI.ui")
         self.window = pyIVLS_mainWindow(self.path)
         self.pluginloader = pyIVLS_pluginloader(self.path)
 
