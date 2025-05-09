@@ -35,7 +35,8 @@ class pyIVLS_pluginTemplate_plugin():
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
         """ Returns GUI plugin for the docking area (settings/buttons). This function is called from pyIVLS_container
-
+        Args:
+            plugin_data (dict): plugin dict from pyIVLS_container. Used for example to get the initial settings.
         Returns:
             dict: name, widget
         """

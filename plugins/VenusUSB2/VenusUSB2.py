@@ -1,11 +1,10 @@
 import cv2 as cv
 import os
-
 import numpy as np
 
 class VenusUSB2:
     """Handles communication with the VenusUSB2 camera"""
-
+    
     exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
     bufferSize = 1
 
@@ -25,16 +24,7 @@ class VenusUSB2:
             return [1, {"Error message":"Source or exposure time not set"}]
         self.cap.open(source)
         if self.cap.isOpened():          
-            #set exposure
-            
-            ## Check if the camera supports setting exposure
-            ##		not really needed here, as this code is hardware specifc
-            ##		should be used in general purpose code
-            ##
-            #if not self.cap.get(cv.CAP_PROP_EXPOSURE):
-            #  print("Camera does not support setting exposure.")
-            #  return
-            
+            #set exposure            
             if not self.cap.set(cv.CAP_PROP_EXPOSURE, exposure):
                  return [4, {"Error message":"Can not set exposure time"}]
             
@@ -55,7 +45,7 @@ class VenusUSB2:
 
     # FIXME: Maybe this should send more info if an error is encountered.
     # Info could be used in AFFINE to display a message to the user.
-    def capture_image(self) -> cv.typing.MatLike:
+    def capture_image(self):
         """Captures an image from the camera. NOTE: returns color image
 
         Returns:
@@ -66,7 +56,7 @@ class VenusUSB2:
         if self.cap.isOpened():
             self.cap.read()
             _, frame = self.cap.read()
-        elif self.open_camera():
+        elif self.open():
             self.cap.read()
             _, frame = self.cap.read()
         else:

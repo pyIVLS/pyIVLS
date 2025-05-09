@@ -19,14 +19,13 @@ ivarad
 
 import os
 
-import numpy as np
 from datetime import datetime
 from PyQt6 import uic
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 from VenusUSB2 import VenusUSB2
-
+import numpy as np
 import cv2 as cv
 from typing import Optional
 

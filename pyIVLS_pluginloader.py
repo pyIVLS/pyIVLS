@@ -73,7 +73,9 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         for i in range(self.model.rowCount()):
             item = self.model.item(i)
             if item.checkState() == Qt.CheckState.Checked:
-                plugins.append(item.data(Qt.ItemDataRole.UserRole))
+                plugin_name = item.data(Qt.ItemDataRole.UserRole)
+                plugin = plugin_name + "_plugin"
+                plugins.append(plugin)
         self.register_plugins_signal.emit(plugins)
         self.refresh()
 
