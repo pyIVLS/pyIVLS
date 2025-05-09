@@ -2,7 +2,6 @@
 import pluggy
 
 from plugins.VenusUSB2.VenusUSB2GUI import VenusUSB2GUI
-from plugins.VenusUSB2.VenusUSB2 import VenusUSB2
 
 
 class pyIVLS_VenusUSB2_plugin():
@@ -14,7 +13,6 @@ class pyIVLS_VenusUSB2_plugin():
         self.plugin_name = 'VenusUSB2'
         self.plugin_function = 'camera'
         self.camera_control = VenusUSB2GUI()
-        self.camera = VenusUSB2()
         super().__init__()
 
     @hookimpl
