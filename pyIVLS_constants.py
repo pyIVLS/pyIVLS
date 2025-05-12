@@ -18,8 +18,7 @@ SUTTER_DEFAULT_PORT = (
 THORSPEC_VID = 0x1313
 THORSPEC_PID = 0x8087
 
-### Base class Plugin constants
-HOOKS = ["get_setup_interface", "get_functions"]
+
 
 ### conDetect
 CONDETECT_PORT = "ftdi://ftdi:232:UUT1/1"

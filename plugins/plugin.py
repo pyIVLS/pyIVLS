@@ -1,10 +1,9 @@
-import os
 import inspect
-from PyQt6 import uic
 import pyIVLS_constants as const
+### Base class Plugin constants
+HOOKS = ["get_setup_interface", "get_functions"]
 
-
-class Plugin:
+class Plugin_hookspec:
     # Classwide variables
     non_public_methods = ["setup", "get_public_methods", "hookimpl"]
     non_public_methods.extend(const.HOOKS)

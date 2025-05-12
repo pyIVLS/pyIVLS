@@ -215,7 +215,7 @@ class pyIVLS_container(QObject):
                 self.config[plugin]["load"] = "False"
                 self.log_message.emit(
                     datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : Plugin {plugin} unloaded"
+                    + f": Plugin {plugin_name} unloaded"
                 )
                 return True
             # plugin not registered, do nothing.
@@ -223,7 +223,7 @@ class pyIVLS_container(QObject):
         except ImportError:
             self.log_message.emit(
                 datetime.now().strftime("%H:%M:%S.%f")
-                + " : Failed to unload plugin {plugin}: {e}"
+                + ": Failed to unload plugin {plugin}: {e}"
             )
             return False
         except AttributeError as e:
@@ -248,14 +248,15 @@ class pyIVLS_container(QObject):
                     self._register(plugin)
 
     def public_function_exchange(self):
+        # TODO: Fix this, maybe a good use case would be affine + camera.
         # get all the plugin public functions by plugin name, in case at some point there may be 2 plugins with the same function.
-        if self.debug:
+        if True:  # FIXME: debug flag
             print("public_function_exchange in container called")
             print("self.pm.hook.get_functions(): ", self.pm.hook.get_functions())
         plugin_public_functions = self.pm.hook.get_functions()
         available_public_functions = {}
         # change public functions names as dict keys to plugin function, thus every plugin may find objects it needs
-        for public_functions in plugin_public_functions:
+        for public_functions in plugin_public_functions:    
             plugin_name = list(public_functions.keys())[0]
             available_public_functions[
                 self.config[plugin_name + "_plugin"]["function"]
@@ -336,8 +337,9 @@ class pyIVLS_container(QObject):
             resolve_dependencies(plugin, seen)
 
         if added_deps:
-            self.show_message_signal.emit(
-                f"Added dependencies: {', '.join(added_deps)}"
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f": Added dependencies: {', '.join(added_deps)}"
             )
 
         return plugins_to_activate
@@ -351,6 +353,9 @@ class pyIVLS_container(QObject):
         Returns:
             tuple[bool, str]: is a dependency, dependent plugin name in format x_plugin
         """
+        # TODO: Modify this to take in a list of plugins and modify the list according to dependencies.
+        # see _check_dependencies_register for the logic.
+        
         # iterate through all sections
         for section in self.config.sections():
             if section.rsplit("_", 1)[1] == "plugin":
@@ -374,7 +379,7 @@ class pyIVLS_container(QObject):
         sys.path.append(self.path + "plugins" + sep)
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
-        self.debug = True
+        self.debug = False
 
     def cleanup(self) -> None:
         """Explicitly cleanup resources, such as writing the config file."""
