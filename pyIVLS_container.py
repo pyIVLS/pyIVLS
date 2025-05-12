@@ -256,7 +256,7 @@ class pyIVLS_container(QObject):
         plugin_public_functions = self.pm.hook.get_functions()
         available_public_functions = {}
         # change public functions names as dict keys to plugin function, thus every plugin may find objects it needs
-        for public_functions in plugin_public_functions:    
+        for public_functions in plugin_public_functions:
             plugin_name = list(public_functions.keys())[0]
             available_public_functions[
                 self.config[plugin_name + "_plugin"]["function"]
@@ -355,7 +355,7 @@ class pyIVLS_container(QObject):
         """
         # TODO: Modify this to take in a list of plugins and modify the list according to dependencies.
         # see _check_dependencies_register for the logic.
-        
+
         # iterate through all sections
         for section in self.config.sections():
             if section.rsplit("_", 1)[1] == "plugin":

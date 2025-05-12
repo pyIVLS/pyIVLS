@@ -19,6 +19,8 @@ def update_settings_widget():
     what_am_i = pluginsContainer.get_plugin_info_for_settingsGUI()
     GUI_mainWindow.clearDockWidget()
     GUI_mainWindow.setSettingsWidget(what_am_i)
+    # NOTE: Added fetch for MDI area when updating pluginlist.
+    GUI_mainWindow.setMDIArea(pluginsContainer.get_plugin_info_for_MDIarea())
     GUI_mainWindow.pluginloader.refresh()
 
 
