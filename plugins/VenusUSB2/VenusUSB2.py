@@ -1,15 +1,14 @@
 import cv2 as cv
-import os
 import numpy as np
+
 
 class VenusUSB2:
     """Handles communication with the VenusUSB2 camera"""
-    
+
     exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
     bufferSize = 1
 
     def __init__(self):
-
         # Initialize cap as empty capture
         self.cap = cv.VideoCapture()
 
@@ -21,23 +20,23 @@ class VenusUSB2:
             ~0 - error (add error code later on if needed)
         """
         if (source is None) or (exposure is None):
-            return [1, {"Error message":"Source or exposure time not set"}]
-        self.cap.open(source)
-        if self.cap.isOpened():          
-            #set exposure            
+            return [1, {"Error message": "Source or exposure time not set"}]
+        self.cap.open(0)  # FIXME: Debug line
+        if self.cap.isOpened():
+            # set exposure
             if not self.cap.set(cv.CAP_PROP_EXPOSURE, exposure):
-                 return [4, {"Error message":"Can not set exposure time"}]
-            
+                return [4, {"Error message": "Can not set exposure time"}]
+
             ##IRtothink#### should the next settings be obtaines as parameters
-            
+
             # Set buffer size to 1.
             self.cap.set(cv.CAP_PROP_BUFFERSIZE, self.bufferSize)
-            
+
             # Set resolution
             self.cap.set(cv.CAP_PROP_FRAME_WIDTH, 1024)
             self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, 768)
-            return [0, {"Error message":"OK"}]
-        return [4, {"Error message":"Can not open camera"}]
+            return [0, {"Error message": "OK"}]
+        return [4, {"Error message": "Can not open camera"}]
 
     def close(self):
         """Pretty self explanatory"""
@@ -60,5 +59,5 @@ class VenusUSB2:
             self.cap.read()
             _, frame = self.cap.read()
         else:
-            frame = np.zeros((480, 640, 3), np.uint8) # 3 is number of channels
+            frame = np.zeros((480, 640, 3), np.uint8)  # 3 is number of channels
         return frame

@@ -22,7 +22,7 @@ from datetime import datetime
 
 import cv2 as cv
 from PyQt6 import QtWidgets, uic
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 from VenusUSB2 import VenusUSB2
 
@@ -67,19 +67,28 @@ class VenusUSB2GUI(QObject):
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_frame)
         self.preview_running = False
+        self.preview_label = self.previewWidget.previewLabel
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_label.setScaledContents(False)
 
     ########Functions
     ################################### internal
 
     def _update_frame(self):
         frame = self.camera.capture_image()
+        label = self.preview_label
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-        height, width, channel = frame.shape
-        bytes_per_line = channel * width
-        q_img = QImage(
-            frame.data, width, height, bytes_per_line, QImage.Format.Format_RGB888
+        h, w, ch = frame.shape
+        bytes_per_line = ch * w
+        qt_image = QImage(frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+
+        pixmap = QPixmap.fromImage(qt_image)
+        scaled_pixmap = pixmap.scaled(
+            label.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
         )
-        self.previewWidget.previewLabel.setPixmap(QPixmap.fromImage(q_img))
+        label.setPixmap(scaled_pixmap)
 
     def _parse_settings_preview(self) -> "status":
         """Parses the settings widget for the camera. Extracts current values
@@ -156,6 +165,8 @@ class VenusUSB2GUI(QObject):
         self.settingsWidget.exposureBox.setEnabled(status)
         self.settingsWidget.sourceBox.setEnabled(status)
         self.closeLock.emit(not status)
+        print("closeLock emitted", not status)  # FIXME: Debug print
+        print(self.closeLock)  # FIXME: Debug print
 
     ########Functions
     ########plugins interraction
