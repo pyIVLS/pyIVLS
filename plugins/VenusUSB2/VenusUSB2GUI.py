@@ -38,6 +38,7 @@ class VenusUSB2GUI(QObject):
     )
     ########Signals
 
+    # used to send messages to the main app
     log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool)
@@ -49,8 +50,19 @@ class VenusUSB2GUI(QObject):
         self.path = os.path.dirname(__file__) + os.path.sep
         ##IRtothink#### I do not like have filename hardly coded,
         ############### but in any case the refrences to the GUI elements will be hardly coded, so it may be OK
-        self.settingsWidget = uic.loadUi(self.path + "VenusUSB2_settingsWidget.ui")
-        self.previewWidget = uic.loadUi(self.path + "VenusUSB2_previewWidget.ui")
+
+        """Changes here:
+        - widgets are loaded from the same directory, and assume to have relevant suffixes. 
+        I thinks this is easier than to just hardcode the names, now they just have to be in 
+        the same directory and have the correct suffixes. This can be copied to other plugins.
+        """
+        for _, _, files in os.walk(self.path):
+            for file in files:
+                if file.endswith(".ui"):
+                    if file.split("_")[1] == "settingsWidget.ui":
+                        self.settingsWidget = uic.loadUi(self.path + file)
+                    elif file.split("_")[1] == "previewWidget.ui":
+                        self.previewWidget = uic.loadUi(self.path + file)
 
         self.settings = {}
 
@@ -165,27 +177,11 @@ class VenusUSB2GUI(QObject):
         self.settingsWidget.exposureBox.setEnabled(status)
         self.settingsWidget.sourceBox.setEnabled(status)
         self.closeLock.emit(not status)
-        print("closeLock emitted", not status)  # FIXME: Debug print
-        print(self.closeLock)  # FIXME: Debug print
+        print("closeLock emitted from camera", not status)  # FIXME: Debug print
 
     ########Functions
     ########plugins interraction
-
-    def _get_public_methods(self):
-        """
-        Returns a nested dictionary of public methods for the plugin
-        """
-        # if the plugin type matches the requested type, return the functions
-
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-        }
-        return methods
+    # These are hooked to the plugin container and sent to the main app. Then they are connected to the msg slots.
 
     def _getLogSignal(self):
         return self.log_message
@@ -195,3 +191,46 @@ class VenusUSB2GUI(QObject):
 
     def _getCloseLockSignal(self):
         return self.closeLock
+
+    def _get_public_methods(self, function: str) -> dict:
+        """
+        Returns a nested dictionary of public methods for the plugin
+        """
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method.startswith(f"{function.lower()}_")
+        }
+        return methods
+
+    # HOX: Functions for the camera are exported when they have the prefix "camera_"
+    def camera_open(self):
+        """Opens the camera using current settings.
+        Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+        """
+        return self.camera.open(
+            source=self.settings["source"], exposure=self.settings["exposure"]
+        )
+
+    def camera_close(self):
+        self.camera.close()
+
+    def camera_capture_image(self):
+        parse_status, settings = self._parse_settings_preview()
+        if parse_status == 0:
+            source = settings["source"]
+            exposure = settings["exposure"]
+            img = self.camera.capture_image(source, exposure)
+        else:
+            img = None
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : VenusUSB2 plugin settings error, status = {parse_status}"
+            )
+
+        return img

@@ -76,6 +76,7 @@ class pyIVLS_GUI(QObject):
         for name, widget in widgets.items():
             MDIwindow = self.window.mdiArea.addSubWindow(widget)
             MDIwindow.setWindowTitle(name)
+            widget.show()  # Show the widget in the MDI area. THis was where the issue is
 
     def clearDockWidget(self):
         """
@@ -85,6 +86,13 @@ class pyIVLS_GUI(QObject):
         if isinstance(dock_widget, QtWidgets.QTabWidget):
             dock_widget.clear()  # Clear all tabs
         self.window.dockWidget.setWidget(None)
+
+    def clearMDIArea(self):
+        """
+        Clear the MDI area by closing all subwindows.
+        """
+        for subwindow in self.window.mdiArea.subWindowList():
+            subwindow.close()
 
     def __init__(self):
         super(pyIVLS_GUI, self).__init__()

@@ -16,11 +16,15 @@ sys.path.append(dirname(__file__) + sep + "components" + sep)
 ###################################### slots
 @pyqtSlot()
 def update_settings_widget():
-    what_am_i = pluginsContainer.get_plugin_info_for_settingsGUI()
+    # update settings tabs
+    settings_windows = pluginsContainer.get_plugin_info_for_settingsGUI()
     GUI_mainWindow.clearDockWidget()
-    GUI_mainWindow.setSettingsWidget(what_am_i)
-    # NOTE: Added fetch for MDI area when updating pluginlist.
-    GUI_mainWindow.setMDIArea(pluginsContainer.get_plugin_info_for_MDIarea())
+    GUI_mainWindow.setSettingsWidget(settings_windows)
+    # update MDI widgets
+    mdi_windows = pluginsContainer.get_plugin_info_for_MDIarea()
+    GUI_mainWindow.clearMDIArea()
+    GUI_mainWindow.setMDIArea(mdi_windows)
+    # update plugin list
     GUI_mainWindow.pluginloader.refresh()
 
 

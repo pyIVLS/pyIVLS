@@ -1,18 +1,30 @@
 #!/usr/bin/python3.8
 import pluggy
 
-from plugins.plugin import Plugin_hookspec
 from plugins.VenusUSB2.VenusUSB2GUI import VenusUSB2GUI
 
+"""
+This hook implementation file should only contain the necessary hooks for the plugin.
+See pyIVLS_hookspec.py for the possible hooks. If the plugin does not need a hook, it does
+not need to be implemented.
+"""
 
-class pyIVLS_VenusUSB2_plugin(Plugin_hookspec):
+
+class pyIVLS_VenusUSB2_plugin:
     """Hooks for VenusUSB2 camera plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        super().__init__("VenusUSB2", [], "camera")
+        """
+        Initialize the plugin and set up properties.
+        """
         self.camera_control = VenusUSB2GUI()
+        self.name = "VenusUSB2"
+        self.dependencies = []
+        self.function = "camera"
+        self.type = "device"  # unnecessary
+        self.address = "VenusUSB2"  # unnecessary
 
     @hookimpl
     def get_setup_interface(self, plugin_data: dict) -> dict:
@@ -45,8 +57,8 @@ class pyIVLS_VenusUSB2_plugin(Plugin_hookspec):
         Returns:
             dict: functions
         """
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.name: self._get_public_methods()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.camera_control._get_public_methods(self.function)}
 
     @hookimpl
     def get_log(self, args=None):
@@ -55,7 +67,7 @@ class pyIVLS_VenusUSB2_plugin(Plugin_hookspec):
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
+        if args is None or args.get("function") == self.function:
             return {self.name: self.camera_control._getLogSignal()}
 
     @hookimpl
@@ -65,7 +77,7 @@ class pyIVLS_VenusUSB2_plugin(Plugin_hookspec):
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
+        if args is None or args.get("function") == self.function:
             return {self.name: self.camera_control._getInfoSignal()}
 
     @hookimpl
@@ -75,27 +87,5 @@ class pyIVLS_VenusUSB2_plugin(Plugin_hookspec):
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
+        if args is None or args.get("function") == self.function:
             return {self.name: self.camera_control._getCloseLockSignal()}
-
-    ####
-    # functions accessible from other plugins:
-    # not hooks, but public functions.
-    ####
-
-    def camera_open(self) -> tuple:
-        """Open the device.
-
-        Returns:
-            tuple: name, success
-        """
-        if self.camera.open_camera():
-            return (self.name, True)
-        return (self.name, False)
-
-    def camera_get_image(self):
-        """returns the image from the camera
-
-        :return: image from the camera
-        """
-        return self.camera.capture_image()

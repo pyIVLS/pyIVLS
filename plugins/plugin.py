@@ -9,7 +9,7 @@ HOOKS = [
 ]
 
 
-class Plugin_hookspec:
+class plugin_gui():
     non_public_methods = ["setup", "get_public_methods", "hookimpl"]
     non_public_methods.extend(HOOKS)
 
@@ -17,6 +17,13 @@ class Plugin_hookspec:
         self.name = name
         self.dependencies = dependencies
         self.function = function
+        self.previewWidget = None
+        self.settingsWidget = None
+        self.non_public_methods = ["setup", "get_public_methods", "hookimpl"]
+        self.non_public_methods.extend(HOOKS)
+
+    def _load_widgets(self):
+        print("how to exit vim")
 
     def _get_public_methods(self):
         """

@@ -7,6 +7,8 @@ class VenusUSB2:
 
     exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
     bufferSize = 1
+    cap_width = 1024
+    cap_height = 768
 
     def __init__(self):
         # Initialize cap as empty capture
@@ -31,10 +33,12 @@ class VenusUSB2:
 
             # Set buffer size to 1.
             self.cap.set(cv.CAP_PROP_BUFFERSIZE, self.bufferSize)
+            # FIXME: Make sure that this is the correct aspect ratio,
+            # otherwise I think the pixel conversion will be really bad.
 
-            # Set resolution
-            self.cap.set(cv.CAP_PROP_FRAME_WIDTH, 1024)
-            self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, 768)
+            # Set resolution / aspect ratio
+            self.cap.set(cv.CAP_PROP_FRAME_WIDTH, self.cap_width)
+            self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, self.cap_height)
             return [0, {"Error message": "OK"}]
         return [4, {"Error message": "Can not open camera"}]
 
@@ -44,7 +48,7 @@ class VenusUSB2:
 
     # FIXME: Maybe this should send more info if an error is encountered.
     # Info could be used in AFFINE to display a message to the user.
-    def capture_image(self):
+    def capture_image(self, source, exposure):
         """Captures an image from the camera. NOTE: returns color image
 
         Returns:
@@ -55,9 +59,14 @@ class VenusUSB2:
         if self.cap.isOpened():
             self.cap.read()
             _, frame = self.cap.read()
-        elif self.open():
+        elif self.open(source, exposure)[0] == 0:
             self.cap.read()
             _, frame = self.cap.read()
+            self.close()
         else:
-            frame = np.zeros((480, 640, 3), np.uint8)  # 3 is number of channels
+            frame = np.zeros(
+                (self.cap_height, self.cap_width, 3), np.uint8
+            )  # 3 is number of channels
+
+        frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         return frame

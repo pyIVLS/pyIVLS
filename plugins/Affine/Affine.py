@@ -1,14 +1,29 @@
+import os
+from datetime import datetime
+
 import cv2 as cv
 import numpy as np
-import os
-
-from PyQt6 import uic
-from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject
-import matplotlib.pyplot as plt
 
 # for gds loading
 from klayout import lay
+
+
+class AffineError(Exception):
+    """Trying out a custom error class.
+    Might be easier to handle errors in the form of exceptions
+    instead of returning error codes.?"""
+
+    def __init__(self, message, error_code):
+        super().__init__(message)
+        self.error_code = error_code
+        self.message = message
+        self.timestamp = datetime.now().strftime("%H:%M:%S.%f")
+        self.message = (
+            f"{self.timestamp}: {self.message} (Affine error Code: {self.error_code})"
+        )
+
+    def __str__(self):
+        return self.message
 
 
 class Affine:
@@ -22,30 +37,16 @@ class Affine:
     """
 
     _MIN_MATCH_COUNT = (
-        15  # Minimum number of matches required to find affine transformation.
+        4  # Minimum number of matches required to find affine transformation.
     )
 
     def __init__(self):
         """Initializes an instance of Affine."""
-
+        self.path = os.path.dirname(__file__) + os.path.sep
         self.result = dict()
         self.A = None  # Affine transformation matrix
         self.internal_img = None  # Internal image
         self.internal_mask = None  # Internal mask
-
-        # Load the settings based on the name of this file.
-        self.path = os.path.dirname(__file__) + os.path.sep
-        filename = (
-            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
-        )
-        self.settingsWidget = uic.loadUi(self.path + filename)
-
-        # save the labels that might be modified:
-        self.affine_label = self.settingsWidget.findChild(
-            QtWidgets.QLabel, "affineLabel"
-        )
-        self.mask_label = self.settingsWidget.findChild(QtWidgets.QLabel, "maskLabel")
-        assert self.settingsWidget is not None, "SettingsWidget not found."
 
     @staticmethod
     def _preprocess_img(img):
@@ -61,7 +62,8 @@ class Affine:
 
         if len(img.shape) == 3:  # Check if the image is not grayscale
             img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        img = cv.GaussianBlur(img, (5, 5), 0)  # Remove noise
+        # img = cv.GaussianBlur(img, (5, 5), 0)  # Remove noise
+        # img = cv.medianBlur(img, 5)  # Remove noise
         img = cv.equalizeHist(img)  # Bring out contrast
         return img
 
@@ -84,10 +86,47 @@ class Affine:
         mask = cv.equalizeHist(mask)  # Bring out contrast
         return mask
 
+    def draw_keypoints(self):
+        """
+        Draws the keypoints on the images, and for visual validation:
+        - Projects mask keypoints (kp2) into image coordinates using the affine matrix
+        - Draws lines between the matched keypoints to show correspondences
+        - Saves results to internal result dictionary
+        """
+        if self.result.get("img") is None or self.result.get("mask") is None:
+            raise AffineError("No affine transformation found.", 4)
+
+        img = self.result["img"].copy()
+        mask = self.result["mask"].copy()
+        kp1 = self.result["kp1"]
+        kp2 = self.result["kp2"]
+        matches = self.result["matches"]
+
+        # Draw SIFT keypoints
+        # img = cv.drawKeypoints(img, kp1, None, (0, 255, 0))
+        # mask = cv.drawKeypoints(mask, kp2, None, (0, 255, 0))
+
+        # Overlay projected kp2 points on the img using affine matrix
+        if self.A is not None:
+            for m in matches:
+                pt_mask = kp2[m.trainIdx].pt  # (x, y) in mask
+
+                # Transform mask keypoint to image space using coords()
+                projected = self.coords(pt_mask)
+
+                # Draw the projected point on the image in red
+                cv.circle(
+                    img, (int(projected[0]), int(projected[1])), 4, (0, 0, 255), -1
+                )
+
+                # Draw the original image keypoint in green
+                cv.circle(mask, (int(pt_mask[0]), int(pt_mask[1])), 4, (0, 255, 0), 1)
+
+        return img, mask
+
     def try_match(
         self,
-        img,
-        mask,
+        img: np.ndarray,
         octaveLayers=6,
         contrastThresshold=0.08,
         edgeThreshold=14,
@@ -98,8 +137,6 @@ class Affine:
         mask using SIFT keypoints and descriptors.
 
         Args:
-        - img (np.ndarray): Input image.
-        - mask (np.ndarray): Input mask.
         - octaveLayers (int): Number of octave layers in SIFT. Default is 6.
         - contrastThresshold (float): Contrast threshold in SIFT. Default is 0.08.
         - edgeThreshold (int): Edge threshold in SIFT. Default is 14.
@@ -116,7 +153,12 @@ class Affine:
             edgeThreshold=edgeThreshold,  # OpenCV default: 10
             sigma=sigma,  # OpenCV default: 1.6
         )
-
+        mask = self.internal_mask
+        if img is None:
+            # ok so this should be caught in the GUI already.
+            raise AffineError("No image provided.", 1)
+        if mask is None:
+            raise AffineError("No mask loaded.", 2)
         # Preprocess the images
         img = self._preprocess_img(img)
         mask = self._preprocess_mask(mask)
@@ -128,6 +170,13 @@ class Affine:
         # Use BFMatcher to match descriptors.
         bf = cv.BFMatcher(crossCheck=True)
         matches = bf.match(des1, des2)
+
+        # Sort them in ascending order of distance
+        matches = sorted(matches, key=lambda x: x.distance)
+
+        # take top percentage of matches
+        num_matches = int(len(matches) * 0.10)
+        matches = matches[:num_matches]
 
         if len(matches) > self._MIN_MATCH_COUNT:
             src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(
@@ -141,6 +190,9 @@ class Affine:
             )
             # Populate the class variables when a transformation is found.
             self.A = A
+            img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
+            mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
+
             self.result["img"] = img
             self.result["mask"] = mask
             self.result["kp1"] = kp1
@@ -150,10 +202,10 @@ class Affine:
 
             return True
         else:
-            print(
-                f"Not enough matches are found - {len(matches)}/{self._MIN_MATCH_COUNT}"
+            raise AffineError(
+                f"Not enough matches are found - {len(matches)}/{self._MIN_MATCH_COUNT}",
+                3,
             )
-            return False
 
     def coords(self, point: tuple[float, float]) -> tuple[float, float]:
         """
@@ -166,7 +218,7 @@ class Affine:
         - transformed_point (tuple): (x, y) coordinates of the corresponding point on the image.
         """
         if self.A is None:
-            raise ValueError("Affine transformation not found. Call try_match() first.")
+            raise AffineError("No affine transformation found.", 4)
 
         # Convert the point to a homogeneous coordinate for affine transformation
         point_homogeneous = np.array([[point[0]], [point[1]], [1]])
@@ -177,81 +229,13 @@ class Affine:
         # Return the transformed (x, y) coordinates
         return (transformed_point[0][0], transformed_point[1][0])
 
-    def mask_button(self):
-        """
-        Function to be called when the mask button is clicked.
-        """
-        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self.settingsWidget,
-            "Open Image",
-            self.path + os.sep + "masks",
-            "Image Files (*.png *.jpg *.bmp)",
-        )
-
-        if fileName:
-            self.internal_mask = cv.imread(fileName, cv.IMREAD_GRAYSCALE)
-            self.mask_label.setText("Mask loaded successfully.")
-
-    def mask_gds_button(self):
-        """Interface for the gds mask loading button."""
-        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self.settingsWidget,
-            "Open .GDS file",
-            self.path + os.sep + "masks",
-            "Mask Files (*.gds)",
-        )
-        if fileName:
-            self.load_and_save_gds(fileName)
-
-    def find_button(self) -> bool:
-        """Interface for the find button
-
-        Returns:
-            bool: Affine found or not
-        """
-        if self.internal_mask is None:
-            self.affine_label.setText("No mask loaded. Please load a mask.")
-            return False
-
-        if self.try_match(self.internal_img, self.internal_mask):
-            self.affine_label.setText("Affine matrix found. Click 'Save' to visualize.")
-            return True
-        else:
-            self.affine_label.setText(
-                "Affine matrix not found. Check camera feed and click again."
-            )
-            return False
-
-    def save_button(self):
-        """Interface for the save button. Shows the affine transformation."""
-        visu = Visualize(self)
-        visu.queue_affine()
-        visu.show()
-
-    def update_img(self, img):
-        """Just updates the internal image.
-
-        Args:
-            img (_type_): _description_
-        """
-        self.internal_img = img
-
-    # FIXME: Don't use matplotlib. Use functions provided by the GUI to avoid conflicts.
-    def check_mask_button(self):
-        """Interface to check the mask image. Displays the mask image in a window."""
-        if self.internal_mask is not None:
-            plt.imshow(self.internal_mask, cmap="gray")
-            plt.title("Mask")
-            plt.axis("off")  # Hide axes for better visualization
-            plt.show()
-
-    # FIXME: the size is a bit arbitary. Scale to mask size?
+    # TODO: tune this one. The size is currently scaled to be the same as the camera images.
     def load_and_save_gds(
         self,
         input_gds_path,
         output_image_path=None,
-        width=800,
-        height=800,
+        width=1024,
+        height=768,
     ):
         """Loads a GDS file and saves it as a PNG image.
 
@@ -290,143 +274,45 @@ class Affine:
         # Save the layout view as an image
         view.save_image(output_image_path, width, height)
 
-        self.internal_mask = cv.imread(output_image_path, cv.IMREAD_GRAYSCALE)
-        self.mask_label.setText("Mask converted and loaded successfully.")
+        internal_mask = cv.imread(output_image_path)
+        internal_mask = cv.cvtColor(internal_mask, cv.COLOR_BGR2RGB)
+        self.internal_mask = internal_mask
+        return internal_mask
 
+    def load_image(self, path: str) -> np.ndarray:
+        """
+        Loads an mask image from the specified path.
 
-# Ugly import workaround.
-class Visualize:
-    def __init__(self, parent):
-        self.parent = parent
-        self.visuQueue = []
+        Args:
+            path (str): Path to the image file.
 
-    def queue_affine(self):
-        if self.parent.A is not None:
-            # Warp the img using the affine transformation matrix
-            img = self.parent.result["img"]
-            mask = self.parent.result["mask"]
-            warped_img = cv.warpAffine(
-                img,
-                self.parent.A,
-                (mask.shape[1], mask.shape[0]),
-            )
+        Returns:
+            np.ndarray: Loaded image.
+        """
 
-            # Convert both images to color to allow blending
-            if len(mask) == 2:  # If maskW is grayscale
-                mask_color = cv.cvtColor(self.parent.maskW, cv.COLOR_GRAY2BGR)
-            else:
-                mask_color = mask.copy()
+        img = cv.imread(path)
+        if img is None:
+            raise AffineError(f"Could not load image from {path}", 5)
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        img = cv.resize(img, (1024, 768))  # Resize to match the camera image size
+        self.internal_mask = img
+        return img
 
-            if len(img) == 2:  # If warped_img is grayscale
-                warped_img_color = cv.cvtColor(warped_img, cv.COLOR_GRAY2BGR)
-            else:
-                warped_img_color = warped_img.copy()
-
-            # Blend the images with transparency
-            alpha = 0.4  # Transparency factor
-            blended_img = cv.addWeighted(
-                mask_color, 1 - alpha, warped_img_color, alpha, 0
-            )
-
-            # Get screen resolution
-            screen_res = 1920, 1080
-            scale_width = screen_res[0] / blended_img.shape[1]
-            scale_height = screen_res[1] / blended_img.shape[0]
-            scale = min(scale_width, scale_height)
-
-            # Rescale the image
-            new_size = (
-                int(blended_img.shape[1] * scale),
-                int(blended_img.shape[0] * scale),
-            )
-            resized_img = cv.resize(blended_img, new_size, interpolation=cv.INTER_AREA)
-
-            # add visu to queue
-            self.visuQueue.append(resized_img)
-            self.visualize_matches()
-
+    def update_interal_mask(self, path):
+        if path.endswith(".gds"):
+            mask = self.load_and_save_gds(path)
         else:
-            print("Affine transform not found. Run try_match() first.")
+            mask = self.load_image(path)
+        return mask
 
-    # Prints out the visualizations in the queue
-    def show(self, num_rows=2):
-        num_images = len(self.visuQueue)
+    def test_image(self) -> np.ndarray:
+        """
+        Loads a test image from the specified path.
 
-        # Calculate the number of columns
-        num_cols = (num_images + num_rows - 1) // num_rows
-
-        # Adjust the figsize to accommodate the grid layout better
-        plt.figure(figsize=(5 * num_cols, 5 * num_rows))
-
-        for i in range(num_images):
-            img = self.visuQueue.pop(0)  # Remove the first element from visuQueue
-            plt.subplot(num_rows, num_cols, i + 1)
-            plt.imshow(img)
-            plt.axis("off")  # Optional: Turn off axis
-
-        # plt.tight_layout()
-        plt.show()
-
-    def visualize_point_conversion(self):
-        # Define the corner points of the image
-        h, w = self.parent.imgW.shape[:2]
-        points = [(0, 0), (w, 0), (w, h), (0, h)]
-
-        # Transform the corner points
-        transformed_points = [self.parent.transform_point(point) for point in points]
-
-        # Draw the original and transformed points on the mask
-        mask_with_points = self.parent.maskW.copy()
-        mask_with_points = cv.cvtColor(mask_with_points, cv.COLOR_GRAY2BGR)
-        for point in points:
-            int_point = tuple(
-                map(int, point)
-            )  # Ensure the point is a tuple of integers
-            cv.circle(
-                mask_with_points, int_point, 100, (255, 0, 0), -1
-            )  # Blue for original points
-        for point in transformed_points:
-            int_point = tuple(
-                map(int, point)
-            )  # Ensure the point is a tuple of integers
-            cv.circle(
-                mask_with_points, int_point, 100, (0, 0, 255), -1
-            )  # Red for transformed points
-
-        # Add the visualization to the queue
-        self.visuQueue.append(mask_with_points)
-
-    def visualize_matches(self):
-        # Draw matches between the images
-
-        draw_params = dict(
-            matchColor=(0, 255, 0),
-            singlePointColor=(255, 0, 0),
-            flags=cv.DrawMatchesFlags_DEFAULT,
-        )
-        # Draw the matches
-        matches_img = cv.drawMatches(
-            self.parent.result["img"],
-            self.parent.result["kp1"],
-            self.parent.result["mask"],
-            self.parent.result["kp2"],
-            self.parent.result["matches"],
-            None,
-            **draw_params,
-        )
-
-        # Get screen resolution
-        screen_res = 1920, 1080
-        scale_width = screen_res[0] / matches_img.shape[1]
-        scale_height = screen_res[1] / matches_img.shape[0]
-        scale = min(scale_width, scale_height)
-
-        # Rescale the image
-        new_size = (
-            int(matches_img.shape[1] * scale),
-            int(matches_img.shape[0] * scale),
-        )
-        resized_img = cv.resize(matches_img, new_size, interpolation=cv.INTER_AREA)
-
-        # Add the visualization to the queue
-        self.visuQueue.append(resized_img)
+        Returns:
+            np.ndarray: Loaded test image.
+        """
+        img = cv.imread("plugins/Affine/testImages/NC3.png")
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        img = cv.resize(img, (1024, 768))
+        return img

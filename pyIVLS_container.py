@@ -250,17 +250,22 @@ class pyIVLS_container(QObject):
     def public_function_exchange(self):
         # TODO: Fix this, maybe a good use case would be affine + camera.
         # get all the plugin public functions by plugin name, in case at some point there may be 2 plugins with the same function.
-        if True:  # FIXME: debug flag
-            print("public_function_exchange in container called")
-            print("self.pm.hook.get_functions(): ", self.pm.hook.get_functions())
+
+        # Returns a list of responses to the hook, where every response is a dict 
+        # with the plugin name as key and the function as value.
         plugin_public_functions = self.pm.hook.get_functions()
+
         available_public_functions = {}
         # change public functions names as dict keys to plugin function, thus every plugin may find objects it needs
         for public_functions in plugin_public_functions:
-            plugin_name = list(public_functions.keys())[0]
+            plugin_name = list(public_functions.keys())[0]  # get the plugin name
+            # add the plugin name to the dict under the function name
+
             available_public_functions[
                 self.config[plugin_name + "_plugin"]["function"]
             ] = public_functions[plugin_name]
+
+
         self.pm.hook.set_function(function_dict=available_public_functions)
 
     def getLogSignals(self):
