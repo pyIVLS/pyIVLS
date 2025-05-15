@@ -3,9 +3,11 @@ from datetime import datetime
 
 import cv2 as cv
 import numpy as np
+import skimage as ski
 
 # for gds loading
 from klayout import lay
+from skimage.feature import SIFT, match_descriptors
 
 
 class AffineError(Exception):
@@ -36,10 +38,6 @@ class Affine:
     - When transformation is found, use coords() to get the transformed coordinates of a point.
     """
 
-    _MIN_MATCH_COUNT = (
-        4  # Minimum number of matches required to find affine transformation.
-    )
-
     def __init__(self):
         """Initializes an instance of Affine."""
         self.path = os.path.dirname(__file__) + os.path.sep
@@ -59,12 +57,12 @@ class Affine:
             Returns:
             - img (np.ndarray): Preprocessed image.
         """
-
+        if img.shape[2] == 4:
+            img = img[:, :, :3]
         if len(img.shape) == 3:  # Check if the image is not grayscale
-            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        # img = cv.GaussianBlur(img, (5, 5), 0)  # Remove noise
-        # img = cv.medianBlur(img, 5)  # Remove noise
-        img = cv.equalizeHist(img)  # Bring out contrast
+            img = ski.color.rgb2gray(img)
+        img = (img * 255).astype("uint8")
+
         return img
 
     @staticmethod
@@ -79,58 +77,37 @@ class Affine:
         - mask (np.ndarray): Preprocessed mask.
         """
 
+        if mask.shape[2] == 4:
+            mask = mask[:, :, :3]
         if len(mask.shape) == 3:  # Check if the image is not grayscale
-            mask = cv.cvtColor(mask, cv.COLOR_BGR2GRAY)
-        # Invert image. The mask should be white and the background black
-        mask = cv.bitwise_not(mask)
-        mask = cv.equalizeHist(mask)  # Bring out contrast
+            mask = ski.color.rgb2gray(mask)
+        mask = ski.exposure.equalize_hist(mask)  # Histogram equalization
+
+        mask = (mask * 255).astype("uint8")
+
         return mask
 
     def draw_keypoints(self):
         """
-        Draws the keypoints on the images, and for visual validation:
-        - Projects mask keypoints (kp2) into image coordinates using the affine matrix
-        - Draws lines between the matched keypoints to show correspondences
-        - Saves results to internal result dictionary
+        Visualizes the keypoints and their matches. Projects mask keypoints to image space and shows the mapping.
+        Returns:
+            Tuple of annotated (img, mask).
         """
         if self.result.get("img") is None or self.result.get("mask") is None:
             raise AffineError("No affine transformation found.", 4)
 
         img = self.result["img"].copy()
         mask = self.result["mask"].copy()
-        kp1 = self.result["kp1"]
-        kp2 = self.result["kp2"]
-        matches = self.result["matches"]
-
-        # Draw SIFT keypoints
-        # img = cv.drawKeypoints(img, kp1, None, (0, 255, 0))
-        # mask = cv.drawKeypoints(mask, kp2, None, (0, 255, 0))
-
-        # Overlay projected kp2 points on the img using affine matrix
-        if self.A is not None:
-            for m in matches:
-                pt_mask = kp2[m.trainIdx].pt  # (x, y) in mask
-
-                # Transform mask keypoint to image space using coords()
-                projected = self.coords(pt_mask)
-
-                # Draw the projected point on the image in red
-                cv.circle(
-                    img, (int(projected[0]), int(projected[1])), 4, (0, 0, 255), -1
-                )
-
-                # Draw the original image keypoint in green
-                cv.circle(mask, (int(pt_mask[0]), int(pt_mask[1])), 4, (0, 255, 0), 1)
-
+        kp1 = self.result["kp1"]  # image keypoints: (N, 2)
+        kp2 = self.result["kp2"]  # mask keypoints: (M, 2)
+        matches = self.result["matches"]  # shape (K, 2)
+        model = self.result["transform"]  # shape (3, 3)
+        print("keypoints not impelemented yet")
         return img, mask
 
     def try_match(
         self,
         img: np.ndarray,
-        octaveLayers=6,
-        contrastThresshold=0.08,
-        edgeThreshold=14,
-        sigma=2.6,
     ) -> bool:
         """
         Attempts to find the affine transformation between the input image and
@@ -146,13 +123,8 @@ class Affine:
         - bool: True if the affine transformation is successfully found, False otherwise.
         """
         # Initiate SIFT detector
-        sift = cv.SIFT_create(
-            nfeatures=0,  # OpenCV default: 0
-            nOctaveLayers=octaveLayers,  # OpenCV default: 3
-            contrastThreshold=contrastThresshold,  # OpenCV default: 0.04. This value is divided by nOctavelayers. Lowe used 0.03.
-            edgeThreshold=edgeThreshold,  # OpenCV default: 10
-            sigma=sigma,  # OpenCV default: 1.6
-        )
+        sift = SIFT()
+
         mask = self.internal_mask
         if img is None:
             # ok so this should be caught in the GUI already.
@@ -163,87 +135,79 @@ class Affine:
         img = self._preprocess_img(img)
         mask = self._preprocess_mask(mask)
 
-        # find the keypoints and descriptors with SIFT
-        kp1, des1 = sift.detectAndCompute(img, None)
-        kp2, des2 = sift.detectAndCompute(mask, None)
+        # Detect keypoints and compute descriptors
+        sift = SIFT()
+        sift.detect_and_extract(img)
+        kp_img, desc_img = sift.keypoints, sift.descriptors
 
-        # Use BFMatcher to match descriptors.
-        bf = cv.BFMatcher(crossCheck=True)
-        matches = bf.match(des1, des2)
+        sift.detect_and_extract(mask)
+        kp_mask, desc_mask = sift.keypoints, sift.descriptors
 
-        # Sort them in ascending order of distance
-        matches = sorted(matches, key=lambda x: x.distance)
+        if len(kp_img) == 0 or len(kp_mask) == 0:
+            raise AffineError("No keypoints found in image or mask.", 3)
+        # Match descriptors, lowes ratio test
+        matches = match_descriptors(desc_mask, desc_img, max_ratio=0.75)
 
-        # take top percentage of matches
-        num_matches = int(len(matches) * 0.10)
-        matches = matches[:num_matches]
+        # estimate affine transformation with ransac
+        # OH MAN I LOVE COORDINATE SYSTEMS :)))
+        src = kp_mask[matches[:, 0]][:, ::-1].astype(np.float32)  # mask keypoints
+        dst = kp_img[matches[:, 1]][:, ::-1].astype(np.float32)  # image keypoints
 
-        if len(matches) > self._MIN_MATCH_COUNT:
-            src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(
-                -1, 1, 2
-            )
-            dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(
-                -1, 1, 2
-            )
-            A, aMask = cv.estimateAffinePartial2D(
-                src_pts, dst_pts, method=cv.RANSAC, ransacReprojThreshold=2
-            )
-            # Populate the class variables when a transformation is found.
-            self.A = A
-            img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
-            mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
+        model, inliers = ski.measure.ransac(
+            (src, dst),
+            ski.transform.SimilarityTransform,
+            residual_threshold=5,
+            min_samples=4,
+            max_trials=1000,
+        )
+        if inliers is None:
+            raise AffineError("Ransac can't find transform.", 3)
+        # Populate the class variables when a transformation is found.
+        self.A = model.params
+        img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
+        mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
 
-            self.result["img"] = img
-            self.result["mask"] = mask
-            self.result["kp1"] = kp1
-            self.result["kp2"] = kp2
-            self.result["aMask"] = aMask
-            self.result["matches"] = matches
-
-            return True
-        else:
-            raise AffineError(
-                f"Not enough matches are found - {len(matches)}/{self._MIN_MATCH_COUNT}",
-                3,
-            )
+        self.result["img"] = img
+        self.result["mask"] = mask
+        self.result["kp1"] = kp_mask
+        self.result["kp2"] = kp_img
+        self.result["matches"] = matches
+        self.result["transform"] = model
 
     def coords(self, point: tuple[float, float]) -> tuple[float, float]:
         """
         Transforms a point from the mask to the corresponding point on the image using the affine transformation.
 
         Args:
-        - point (tuple): (x, y) coordinates of the point on the mask.
+            point (tuple): (x, y) coordinates of the point on the mask.
 
         Returns:
-        - transformed_point (tuple): (x, y) coordinates of the corresponding point on the image.
+            tuple: (x, y) coordinates of the transformed point on the image.
         """
         if self.A is None:
             raise AffineError("No affine transformation found.", 4)
 
-        # Convert the point to a homogeneous coordinate for affine transformation
-        point_homogeneous = np.array([[point[0]], [point[1]], [1]])
+        # Turn (x, y) into homogeneous 3x1 column vector
+        point_homogeneous = np.array([point[0], point[1], 1.0])
+        transformed = self.A @ point_homogeneous
 
-        # Apply the affine transformation matrix A
-        transformed_point = np.dot(self.A, point_homogeneous)
-
-        # Return the transformed (x, y) coordinates
-        return (transformed_point[0][0], transformed_point[1][0])
+        return float(transformed[0]), float(transformed[1])
 
     # TODO: tune this one. The size is currently scaled to be the same as the camera images.
     def load_and_save_gds(
         self,
         input_gds_path,
         output_image_path=None,
-        width=1024,
-        height=768,
+        width=1920,
+        height=1080,
     ):
         """Loads a GDS file and saves it as a PNG image.
 
         Args:
             input_gds_path (str): path to .gds file
             output_image_path (str, optional): Where to save results. Defaults to None.
-            width (int, optional): image width. Defaults to 800.
-            height (int, optional): image height. Defaults to 800.
+            width (int, optional): image width.
+            height (int, optional): image height.
         """
 
         if output_image_path is None:
@@ -294,7 +258,6 @@ class Affine:
         if img is None:
             raise AffineError(f"Could not load image from {path}", 5)
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-        img = cv.resize(img, (1024, 768))  # Resize to match the camera image size
         self.internal_mask = img
         return img
 
@@ -314,5 +277,4 @@ class Affine:
         """
         img = cv.imread("plugins/Affine/testImages/NC3.png")
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-        img = cv.resize(img, (1024, 768))
         return img
