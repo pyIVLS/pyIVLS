@@ -94,6 +94,8 @@ class AffineGUI(QObject):
         assert manual_button is not None, "manualButton not found in settingsWidget"
         dispKP = settingsWidget.findChild(QtWidgets.QCheckBox, "dispKP")
         assert dispKP is not None, "dispKP not found in MDIWidget"
+        centerButton = settingsWidget.findChild(QtWidgets.QCheckBox, "centerClicks")
+        assert centerButton is not None, "centerButton not found in settingsWidget"
 
         mask_button.clicked.connect(self._mask_button_action)
         find_button.clicked.connect(self._find_button_action)
@@ -102,6 +104,7 @@ class AffineGUI(QObject):
 
         # connect the label click on gds to a function
         self.gds_label.mousePressEvent = lambda event: self._gds_label_clicked(event)
+        self.centerButton = centerButton
 
         return settingsWidget, MDIWidget
 
@@ -161,18 +164,21 @@ class AffineGUI(QObject):
         pos = self.gds_label.mapToScene(event.pos())
         x, y = pos.x(), pos.y()
 
-        self.gds_scene.addEllipse(
-            x - 3,
-            y - 3,
-            6,
-            6,
-            brush=QBrush(Qt.GlobalColor.red),
-            pen=QPen(Qt.GlobalColor.transparent),
-        )
         # convert the clicked coords to the image coords
         try:
+            x = int(x)
+            y = int(y)
+            if self.centerButton.isChecked():
+                x, y = self.affine.center_on_component(x, y)
             img_x, img_y = self.affine.coords((x, y))
-
+            self.gds_scene.addEllipse(
+                x - 3,
+                y - 3,
+                6,
+                6,
+                brush=QBrush(Qt.GlobalColor.red),
+                pen=QPen(Qt.GlobalColor.transparent),
+            )
             # Draw red dot on the image scene
             self.camera_scene.addEllipse(
                 img_x - 3,

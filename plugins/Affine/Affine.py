@@ -289,10 +289,9 @@ class Affine:
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
         return img
 
-    def center_on_component(self, coords):
+    def center_on_component(self, x: int, y: int):
         if self.result.get("mask") is None:
             raise AffineError("No mask loaded.", 2)
-        x, y = coords
 
         mask = self.result["mask"]
         if mask.ndim != 3 or mask.shape[2] != 3:
