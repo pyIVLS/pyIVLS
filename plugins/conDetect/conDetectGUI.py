@@ -83,7 +83,7 @@ class conDetectGUI(QObject):
 ########Functions 
 ########GUI Slots
 
-    def _connectAction():
+    def _connectAction(self):
         self._parse_settings_preview()
         #try to open device
         [status, info] = self.deviceConnect()
@@ -92,19 +92,19 @@ class conDetectGUI(QObject):
                 self.info_message.emit(f"conDetect plugin : {info['Error message']}")
         self.connected = True
         self._GUIchange_deviceConnected(self.connected)
-        self.closeLock(self.connected)
+        self.closeLock.emit(not self.connected)
     
-    def _disconnectAction():
+    def _disconnectAction(self):
         [status, info] = self.deviceDisconnect()
         self.connected = False
         self._GUIchange_deviceConnected(self.connected)
-        self.closeLock(self.connected)
+        self.closeLock.emit(not self.connected)
         if status:
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : conDetect plugin :  {info}, status = {status}")
                 self.info_message.emit(f"conDetect plugin : {info['Error message']}")
                 self.settingsWidget.connectButton.setEnabled(self.connected)
                 
-    def _hiConnectionCheck():
+    def _hiConnectionCheck(self):
         if self.loCheck:
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : conDetect plugin :  {'Error message':'Simultaneous check of Hi and Lo not permitted'}, status = 1")
                 self.info_message.emit(f"conDetect plugin : {info['Simultaneous check of Hi and Lo not permitted']}")            
@@ -118,7 +118,7 @@ class conDetectGUI(QObject):
                         self.hiCheck = not self.hiCheck
                         return [0,"OK"]
         
-    def _loConnectionCheck():
+    def _loConnectionCheck(self):
         if self.hiCheck:
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : conDetect plugin :  {'Error message':'Simultaneous check of Hi and Lo not permitted'}, status = 1")
                 self.info_message.emit(f"conDetect plugin : {info['Simultaneous check of Hi and Lo not permitted']}")            
@@ -188,7 +188,7 @@ class conDetectGUI(QObject):
 ########Functions
 ########device functions
 
-    def deviceConnect():
+    def deviceConnect(self):
         if self.settings["source"]  == '':
                 return [1, { "Error message":"Source address is empty"}]
         try:
@@ -198,7 +198,7 @@ class conDetectGUI(QObject):
         except Exception as e:
                 return [4, {"Error message":f"{e}"}]
 
-    def deviceDisonnect():
+    def deviceDisconnect(self):
         try:
                 self.functionality.setDefault()
                 self.settingsWidget.hiConnectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
@@ -208,7 +208,7 @@ class conDetectGUI(QObject):
         except Exception as e:
                 return [4, {"Error message":f"{e}"}]
 
-    def deviceHiCheck(status):
+    def deviceHiCheck(self,status):
         try:
                 self.functionality.hiCheck(status)
                 if status:
@@ -219,7 +219,7 @@ class conDetectGUI(QObject):
         except Exception as e:
                 return [4, {"Error message":f"{e}"}]        
 
-    def deviceLoCheck(status):
+    def deviceLoCheck(self,status):
         try:
                 self.functionality.loCheck(status)
                 if status:

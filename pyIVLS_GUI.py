@@ -37,8 +37,8 @@ class pyIVLS_GUI(QObject):
         self.show_message("Stop running processes and disconnect devices before close")
     
     @pyqtSlot(bool)
-    def setCloseLock(self, bool):
-        self.window.setCloseOK(bool)
+    def setCloseLock(self, value):
+        self.window.setCloseOK(value)
     
     ################ Menu actions
     def actionPlugins(self):

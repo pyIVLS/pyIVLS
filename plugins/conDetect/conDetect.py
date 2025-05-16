@@ -19,7 +19,7 @@ class conDetect:
             self.device.reset_input_buffer()
             self.device.reset_output_buffer()
 
-    def disconnect(self, address):
+    def disconnect(self):
 #for ftdi         self.device.purge_buffers()
 #for ftdi         self.device.close()
 #for ftdi         self.device = None
@@ -33,16 +33,16 @@ class conDetect:
 #for ftdi            self.device.set_rts(True)
 #for ftdi            self.device.set_dtr(True)
         with self.lock:
-            self.device.rts(True)
-            self.device.dtr(True)
+            self.device.rts = True
+            self.device.dtr = True
 
     def loCheck(self, status):
 #for ftdi            self.device.set_dtr(not status)
         with self.lock:
-            self.device.dtr(not status)
+            self.device.dtr = not status
 
     
     def hiCheck(self, status):
 #for ftdi            self.device.set_rts(not status)
         with self.lock:
-            self.device.rts(not status)
+            self.device.rts = not status
