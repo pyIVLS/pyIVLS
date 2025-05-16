@@ -1,5 +1,28 @@
+from datetime import datetime
+
 import cv2 as cv
-import numpy as np
+
+
+class venusStatus(Exception):
+    # exceptionlist
+    # 0 - no error
+    # 1 - something is not set that should be
+    # 2 - cannot set value for cap
+    # 3 - can't open camera
+
+    # NOTE: this is unused for now.
+
+    def __init__(self, message, error_code):
+        super().__init__(message)
+        self.error_code = error_code
+        self.message = message
+        self.timestamp = datetime.now().strftime("%H:%M:%S.%f")
+        self.message = (
+            f"{self.timestamp}: {self.message} (VenusUSB error Code: {self.error_code})"
+        )
+
+    def __str__(self):
+        return self.message
 
 
 class VenusUSB2:
@@ -9,6 +32,8 @@ class VenusUSB2:
     bufferSize = 1
     cap_width = 1024
     cap_height = 768
+    full_size_width = 1920
+    full_size_height = 1080
 
     def __init__(self):
         # Initialize cap as empty capture
@@ -22,7 +47,7 @@ class VenusUSB2:
             ~0 - error (add error code later on if needed)
         """
         if (source is None) or (exposure is None):
-            return [1, {"Error message": "Source or exposure time not set"}]
+            return [1, {"Error message": "Source or exposure not set"}]
         self.cap.open(0)  # FIXME: Debug line
         if self.cap.isOpened():
             # set exposure
@@ -33,8 +58,6 @@ class VenusUSB2:
 
             # Set buffer size to 1.
             self.cap.set(cv.CAP_PROP_BUFFERSIZE, self.bufferSize)
-            # FIXME: Make sure that this is the correct aspect ratio,
-            # otherwise I think the pixel conversion will be really bad.
 
             # Set resolution / aspect ratio
             self.cap.set(cv.CAP_PROP_FRAME_WIDTH, self.cap_width)
@@ -46,27 +69,44 @@ class VenusUSB2:
         """Pretty self explanatory"""
         self.cap.release()
 
-    # FIXME: Maybe this should send more info if an error is encountered.
-    # Info could be used in AFFINE to display a message to the user.
-    def capture_image(self, source, exposure):
+    def capture_image(self, source, exposure, full_size=False):
         """Captures an image from the camera. NOTE: returns color image
 
         Returns:
-            matlike: The image
+            matlike: The captured image as matlike object, in RGB format.
         """
-        # is the cap opened?
-        # HACK: Camera is set to buffer 1 frame, so 1 frame is discarded to get current state.
+
+        def get_frame(full_size):
+            # FIXME: check if this creates too much overhead, I imagine changing the resolution should be constant time and not affect the performance.
+            # besides, full_size will probably be used just for single captures for Affine.
+            if full_size:
+                self.cap.set(cv.CAP_PROP_FRAME_WIDTH, self.full_size_width)
+                self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, self.full_size_height)
+
+            for _ in range(self.bufferSize):
+                # empty out the buffer
+                self.cap.read()
+            # get the frame
+            _, frame = self.cap.read()
+
+            if full_size:
+                self.cap.set(cv.CAP_PROP_FRAME_WIDTH, self.cap_width)
+                self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, self.cap_height)
+            return frame
+
+        # if cap is open, get the frame
         if self.cap.isOpened():
-            self.cap.read()
-            _, frame = self.cap.read()
+            frame = get_frame(full_size)
+
+        # if cap isn't open, open -> get frame -> close again.
         elif self.open(source, exposure)[0] == 0:
-            self.cap.read()
-            _, frame = self.cap.read()
+            frame = get_frame(full_size)
             self.close()
+
         else:
-            frame = np.zeros(
-                (self.cap_height, self.cap_width, 3), np.uint8
-            )  # 3 is number of channels
+            err = self.open(source, exposure)
+            # NOTE: instead of the black frame, this now raises an error to be handled elsewhere.
+            raise venusStatus(err[1]["Error message"], err[0])
 
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         return frame

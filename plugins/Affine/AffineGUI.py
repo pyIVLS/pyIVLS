@@ -157,7 +157,6 @@ class AffineGUI(QObject):
             pass
 
     def _gds_label_clicked(self, event):
-        print("what the sigma")
         # Map from view coords → scene coords
         pos = self.gds_label.mapToScene(event.pos())
         x, y = pos.x(), pos.y()
@@ -184,7 +183,7 @@ class AffineGUI(QObject):
                 pen=QPen(Qt.GlobalColor.transparent),
             )
         except AffineError as e:
-            print(f"Affine transform failed: {e}")
+            print(e)
 
     def _update_MDI(self, mask, img, save_internal=True):
         """Updates the MDI widget with the mask and image.

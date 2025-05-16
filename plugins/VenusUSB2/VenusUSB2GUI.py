@@ -87,9 +87,12 @@ class VenusUSB2GUI(QObject):
     ################################### internal
 
     def _update_frame(self):
-        frame = self.camera.capture_image()
+        exposure = self.settings["exposure"]
+        source = self.settings["source"]
+        # since the camera should be opened already, these parameters are redundant.
+        # FIXME: There really should be a better way to do this but this works for now.
+        frame = self.camera.capture_image(exposure=exposure, source=source)
         label = self.preview_label
-        frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         h, w, ch = frame.shape
         bytes_per_line = ch * w
         qt_image = QImage(frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)

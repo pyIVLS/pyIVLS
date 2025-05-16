@@ -46,6 +46,13 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox">
+           <property name="text">
+            <string>Center clicks on patch</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
       </item>

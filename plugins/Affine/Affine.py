@@ -7,6 +7,8 @@ import skimage as ski
 
 # for gds loading
 from klayout import lay
+
+# Sift detection moved over to skimage since I prefer it.
 from skimage.feature import SIFT, match_descriptors
 
 
@@ -14,6 +16,15 @@ class AffineError(Exception):
     """Trying out a custom error class.
     Might be easier to handle errors in the form of exceptions
     instead of returning error codes.?"""
+
+    # FIXME: Have not checked if the current codes are reasonable and consistent.
+    error_codes = {
+        1: "No image provided.",
+        2: "No mask loaded.",
+        3: "Try_match error, should output more info.",
+        4: "No transformation found.",
+        5: "Could not load image from path.",
+    }
 
     def __init__(self, message, error_code):
         super().__init__(message)
@@ -38,6 +49,7 @@ class Affine:
     - When transformation is found, use coords() to get the transformed coordinates of a point.
     """
 
+    # TODO: Add the canny method to the preprocessing as an option. Might be useful to
     def __init__(self):
         """Initializes an instance of Affine."""
         self.path = os.path.dirname(__file__) + os.path.sep
@@ -49,8 +61,7 @@ class Affine:
     @staticmethod
     def _preprocess_img(img):
         """
-        Preprocesses the input image by resizing, applying Gaussian blur, and histogram equalization.
-
+        Simple preprocessing for img.
             Args:
             - img (np.ndarray): Input image.
 
@@ -68,8 +79,7 @@ class Affine:
     @staticmethod
     def _preprocess_mask(mask):
         """
-        Preprocesses the input mask by resizing, inverting, and applying histogram equalization.
-
+        Simple preprocessing for mask.
             Args:
             - mask (np.ndarray): Input mask.
 
@@ -92,6 +102,7 @@ class Affine:
         Visualizes the keypoints and their matches. Projects mask keypoints to image space and shows the mapping.
         Returns:
             Tuple of annotated (img, mask).
+            TODO: implement this function.
         """
         if self.result.get("img") is None or self.result.get("mask") is None:
             raise AffineError("No affine transformation found.", 4)
@@ -114,13 +125,12 @@ class Affine:
         mask using SIFT keypoints and descriptors.
 
         Args:
-        - octaveLayers (int): Number of octave layers in SIFT. Default is 6.
-        - contrastThresshold (float): Contrast threshold in SIFT. Default is 0.08.
-        - edgeThreshold (int): Edge threshold in SIFT. Default is 14.
-        - sigma (float): Sigma value in SIFT. Default is 2.6.
+            img (np.ndarray): Input image to match with the mask.
 
         Returns:
-        - bool: True if the affine transformation is successfully found, False otherwise.
+        - bool: True if the affine transformation is successfully found.
+        Raises:
+            - AffineError: something bad has taken place
         """
         # Initiate SIFT detector
         sift = SIFT()
@@ -152,12 +162,13 @@ class Affine:
         # OH MAN I LOVE COORDINATE SYSTEMS :)))
         src = kp_mask[matches[:, 0]][:, ::-1].astype(np.float32)  # mask keypoints
         dst = kp_img[matches[:, 1]][:, ::-1].astype(np.float32)  # image keypoints
-
+        # NOTE: This is using SimilarityTransform, which accounts for rotation, translation, and scaling but not perspective changes.
+        # easy to change, but I think its reasonable to assume that the camera is situated directly above the img.
         model, inliers = ski.measure.ransac(
             (src, dst),
             ski.transform.SimilarityTransform,
-            residual_threshold=5,
-            min_samples=4,
+            residual_threshold=5,  # this can be increased to maybe get more inliers on difficult images, at the cost of accuracy.
+            min_samples=4,  # 4 seems to be a good value for this.
             max_trials=1000,
         )
         if inliers is None:
@@ -187,13 +198,12 @@ class Affine:
         if self.A is None:
             raise AffineError("No affine transformation found.", 4)
 
-        # Turn (x, y) into homogeneous 3x1 column vector
+        # Turn (x, y) into homogeneous 3x1 column vector because the matrix is 3x3
         point_homogeneous = np.array([point[0], point[1], 1.0])
         transformed = self.A @ point_homogeneous
 
         return float(transformed[0]), float(transformed[1])
 
-    # TODO: tune this one. The size is currently scaled to be the same as the camera images.
     def load_and_save_gds(
         self,
         input_gds_path,
@@ -201,7 +211,7 @@ class Affine:
         width=1920,
         height=1080,
     ):
-        """Loads a GDS file and saves it as a PNG image.
+        """Loads a GDS file and saves it as a large PNG image.
 
         Args:
             input_gds_path (str): path to .gds file
@@ -275,6 +285,36 @@ class Affine:
         Returns:
             np.ndarray: Loaded test image.
         """
-        img = cv.imread("plugins/Affine/testImages/NC3.png")
+        img = cv.imread("plugins/Affine/testImages/NC2.png")
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
         return img
+
+    def center_on_component(self, coords):
+        if self.result.get("mask") is None:
+            raise AffineError("No mask loaded.", 2)
+        x, y = coords
+
+        mask = self.result["mask"]
+        if mask.ndim != 3 or mask.shape[2] != 3:
+            ski.color.gray2rgb(mask)
+
+        # get target color
+        target_color = mask[y, x]
+
+        # mask the image to find the target color
+        color_match = np.all(mask == target_color, axis=-1)
+
+        # label connected components of this color
+        labeled_mask = ski.measure.label(color_match, connectivity=2)
+
+        # find the label of the clicked pixel
+        label_clicked = labeled_mask[y, x]
+
+        # get the properties of the labeled regions and find the centroid for the clicked label
+        props = ski.measure.regionprops(labeled_mask)
+        for region in props:
+            if region.label == label_clicked:
+                cy, cx = region.centroid
+
+                return (int(cx), int(cy))
+        return coords  # return original coords if no region found
