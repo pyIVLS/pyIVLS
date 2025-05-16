@@ -4,18 +4,6 @@ import time
 from threading import Lock
 
 
-from PyQt6 import uic
-from PyQt6.QtWidgets import (
-    QWidget,
-    QCheckBox,
-    QComboBox,
-    QLineEdit,
-    QPushButton,
-    QHBoxLayout,
-    QLabel,
-)
-
-
 '''
            settings dictionary for communicationg with hardware
            

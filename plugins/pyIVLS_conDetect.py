@@ -1,49 +1,70 @@
 #!/usr/bin/python3.8
 import pluggy
-from PyQt6 import QtWidgets
 
+from conDetectGUI import conDetectGUI
 
-from plugins.conDetect.conDetect import ConDetect
-from plugins.plugin import Plugin
-
-
-class pyIVLS_conDetect_plugin(Plugin):
+class pyIVLS_conDetect_plugin():
+    """Hooks for conDetect plugin 
+    The plugin is intended to be used for checking 
+    if there is connection between 2 needles on the same pad in remote sense (4-wire) measurement"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.detector = ConDetect()
+        self.plugin_name = 'conDetect'
+        self.plugin_function = 'contacting'
+        self.GUI = conDetectGUI()
         super().__init__()
 
     @hookimpl
-    def get_setup_interface(self, pm, plugin_data) -> dict:
-        """Template get_setup_interface hook implementation
-
-        Args:
-            pm (pluggy.PluginManager): The plugin manager
+    def get_setup_interface(self, plugin_data) -> dict:
+        """ Returns GUI
 
         Returns:
-            dict: name : widget
+            dict: name, widget
         """
+        self.GUI._initGUI(plugin_data[self.plugin_name]["settings"])
+        return {self.plugin_name: self.GUI.settingsWidget}
 
-        self.setup(pm, plugin_data)
-
-        # Find buttons from the settings widget
-        save_button = self.detector.settingsWidget.findChild(
-            QtWidgets.QPushButton, "saveButton"
-        )
-
-        # Connect widget buttons to functions
-        save_button.clicked.connect(self._debug_button)
-
-        return {self.plugin_name: self.detector.settingsWidget}
-
-    # The rest of the hooks go here
     @hookimpl
-    def get_functions(self, args):
-        """Returns a dictionary of publicly accessible functions."""
-        if args.get("function") == self.plugin_info["function"]:
-            return self.get_public_methods()
+    def get_functions(self, args = None):
+        """Returns a dictionary of publicly accessible functions.
 
-    def _debug_button(self):
-        self.detector.debug(self.pm)
+        Args:
+            args (dict): function
+
+        Returns:
+            dict: functions
+        """
+        if args is None or args.get("function") == plugin_function:
+            return {self.plugin_name: self.GUI._get_public_methods()}
+
+    @hookimpl
+    def get_log(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.GUI._getLogSignal()}
+
+    @hookimpl
+    def get_info(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.GUI._getInfoSignal()}
+
+    @hookimpl
+    def get_closeLock(self, args = None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.GUI._getCloseLockSignal()}        

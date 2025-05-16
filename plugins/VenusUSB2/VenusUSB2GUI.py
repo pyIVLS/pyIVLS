@@ -12,8 +12,8 @@ This plugin should have double functionality
 
 Because of (i) it requires to send log and message signals, i.e. it is a child of QObject
 
-version 0.4
-2025.02.28
+version 0.6
+2025.05.12
 ivarad
 '''
 
@@ -21,8 +21,9 @@ import os
 
 import numpy as np
 from datetime import datetime
+from pathvalidate import is_valid_filename
 from PyQt6 import uic
-from PyQt6 import QtWidgets
+from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 from VenusUSB2 import VenusUSB2
@@ -35,6 +36,7 @@ from typing import Optional
 class VenusUSB2GUI(QObject):
     """GUI for the VenusUSB2 camera"""
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
+    public_methods = [] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     default_timerInterval = 42 # ms, it is close to 24 fps that is standard for movies and TV
 ########Signals
 
@@ -52,22 +54,25 @@ class VenusUSB2GUI(QObject):
         self.settingsWidget = uic.loadUi(self.path + "VenusUSB2_settingsWidget.ui")
         self.previewWidget = uic.loadUi(self.path + "VenusUSB2_previewWidget.ui")
 
+        self._connect_signals()
+
         self.settings = {}
+        self.q_img = None
 
         # Initialize cap as empty capture
         self.camera = VenusUSB2()
-
-        # Connect widget buttons to functions
-        GUI_preview_button = self.settingsWidget.findChild(
-            QtWidgets.QPushButton, "cameraPreview"
-        )
-        GUI_preview_button.clicked.connect(self._previewAction)
 
         # Set a timer for the camera feed
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_frame)
         self.preview_running = False
 
+    def _connect_signals(self):
+            # Connect widget buttons to functions
+        self.settingsWidget.cameraPreview.clicked.connect(self._previewAction)
+        self.settingsWidget.saveButton.clicked.connect(self._saveAction)
+        self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
+        
 ########Functions
 ################################### internal
 
@@ -76,10 +81,10 @@ class VenusUSB2GUI(QObject):
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         height, width, channel = frame.shape
         bytes_per_line = channel * width
-        q_img = QImage(
+        self.q_img = QImage(
             frame.data, width, height, bytes_per_line, QImage.Format.Format_RGB888
         )
-        self.previewWidget.previewLabel.setPixmap(QPixmap.fromImage(q_img))
+        self.previewWidget.previewLabel.setPixmap(QPixmap.fromImage(self.q_img))
 
     def _parse_settings_preview(self) -> "status":
         """Parses the settings widget for the camera. Extracts current values
@@ -101,7 +106,9 @@ class VenusUSB2GUI(QObject):
         if self.preview_running:
             self.timer.stop()
             self._GUIchange_deviceConnected(self.preview_running)
+            self.closeLock.emit(not self.preview_running)
             self.preview_running = False
+            self._enableSaveButton()
             self.camera.close()
         else:
             self._parse_settings_preview()
@@ -114,8 +121,17 @@ class VenusUSB2GUI(QObject):
             		self.timer.start(self.default_timerInterval)
             	else:
             		self.timer.start(self.default_timerInterval + self.settings["exposure"])
+            	self.settingsWidget.saveButton.setEnabled(False)
             	self._GUIchange_deviceConnected(self.preview_running)
+            	self.closeLock.emit(not self.preview_running)
             	self.preview_running = True
+
+    def _saveAction(self):
+    	[status, info] = self._parseSaveData()
+    	if status:
+    		self.info_message.emit(f"VenusUSB2 plugin : {info['Error message']}")
+    		return [status, info]
+    	self.q_img.save(self.settings["address"] + os.sep + self.settings["filename"] + ".jpeg", format = 'jpeg')
 
 ########Functions
 ###############GUI setting up
@@ -125,6 +141,17 @@ class VenusUSB2GUI(QObject):
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
         self.settingsWidget.cameraExposure.setValue(self.camera.exposures.index(int(plugin_info["exposure"])))
         self.settingsWidget.cameraSource.setText(plugin_info["source"])
+        self.settingsWidget.saveButton.setEnabled(False)
+        self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
+        self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
+
+    def _getAddress(self):
+        address = self.settingsWidget.lineEdit_path.text()
+        if not(os.path.exists(address)):
+                address = self.path
+        address = QFileDialog.getExistingDirectory(None, "Select directory for saving", address, options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks)
+        if address:
+                self.settingsWidget.lineEdit_path.setText(address)        
 
 ########Functions
 ###############GUI react to change
@@ -137,7 +164,12 @@ class VenusUSB2GUI(QObject):
                         self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
         self.settingsWidget.exposureBox.setEnabled(status)
         self.settingsWidget.sourceBox.setEnabled(status)
-        self.closeLock.emit(not status)
+
+    def _enableSaveButton(self):
+    	if not self.q_img:
+        	self.settingsWidget.saveButton.setEnabled(False)
+    	else:
+        	self.settingsWidget.saveButton.setEnabled(True)
 
 ########Functions
 ########plugins interraction
@@ -155,6 +187,7 @@ class VenusUSB2GUI(QObject):
             and not method.startswith("__")
             and not method.startswith("_")
             and method not in self.non_public_methods
+            and method in self.public_methods
         }
         return methods
 
@@ -166,3 +199,15 @@ class VenusUSB2GUI(QObject):
 
     def _getCloseLockSignal(self):
         return self.closeLock
+        
+    def _parseSaveData(self) -> "status":
+        self.settings["address"] = self.settingsWidget.lineEdit_path.text()
+        if not os.path.isdir(self.settings["address"] + os.sep):
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : VenusUSB2 plugin : address string should point to a valid directory")
+                return [1, {"Error message":f"VenusUSB2 plugin : address string should point to a valid directory"}]           
+        self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
+        if not is_valid_filename(self.settings["filename"]):
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : VenusUSB2 plugin : filename is not valid")
+                self.info_message.emit(f"VenusUSB2 plugin : filename is not valid")
+                return [1, {"Error message":f"VenusUSB2 plugin : filename is not valid"}]
+        return [0,"Ok"]
