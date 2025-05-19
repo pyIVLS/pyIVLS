@@ -78,24 +78,30 @@ class itc503GUI(QObject):
     def _connectAction(self):
                 self._parse_settings_source()
                 self.settings["source"] = self.settingsWidget.source.text()
-                [status, message] = self.source.open(self.settings["source"])
-                if status:
-                        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {message}, status = {status}")
-                        self.info_message.emit(f"itc503 plugin : {message}")
-                else:
-                        self._GUIchange_deviceConnected(True)
-                        self.closeLock(True)
+                try:
+                    self.itc503.open(self.settings["source"])
+                    self._GUIchange_deviceConnected(True)
+                    self.closeLock(True)
+                    return [0, "OK"]
+                except Exception as e:
+                        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
+                        self.info_message.emit(f"itc503 plugin : {e}")
+                        return [e, {"Error message" : f"{e}"}]
 
     def _disconnectAction(self):
                 if self.timer.isActive():
-                	self._displayAction()
-                [status, message] = self.itc503.close()
-                if status:
-                        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {message}, status = {status}")
-                        self.info_message.emit(f"itc503 plugin : {message}")
+                       self.info_message.emit(f"itc503 plugin : stop temperture monitor before disconnecting")
+                       return [1, {"Error message" : f"Temperature monitor is running"}]
                 else:
-                        self._GUIchange_deviceConnected(False)
-                        self.closeLock(True)
+                       try:
+                            self.itc503.close()
+                            self._GUIchange_deviceConnected(False)
+                            self.closeLock(True)
+                            return [0, "OK"]
+                       except Exception as e:
+                            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
+                            self.info_message.emit(f"itc503 plugin : {e}")
+                            return [4, {"Error message" : f"{e}"}]
 
     def _setTAction(self):
         [status, info] = self._parse_settings_setT()
@@ -103,10 +109,13 @@ class itc503GUI(QObject):
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
                 self.info_message.emit(f"itc503 plugin : {info}")
         else:
-                [status, message] = self.itc503.setT(self.settings["sett"])
-                if status:
-                        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {message}, status = {status}")
-                        self.info_message.emit(f"itc503 plugin : {message}")
+                       try:
+                            self.itc503.setT(self.settings["sett"])
+                            return [0, "OK"]
+                       except Exception as e:
+                            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
+                            self.info_message.emit(f"itc503 plugin : {e}")
+                            return [e, {"Error message" : f"{e}"}]
 
     def _displayAction(self):
         if self.timer.isActive():
@@ -122,7 +131,7 @@ class itc503GUI(QObject):
                         self.Ydata = []
                         self.display_data = ""
                         self._update_display()
-                        self.timer.start(self.settings["period"]*1000)	
+                        self.timer.start(self.settings["period"]*1000)
                         self._GUIchange_display(True)
 
 ########Functions
@@ -161,12 +170,15 @@ class itc503GUI(QObject):
         return [0, self.settings]
 
     def _update_display(self):
-        [status, info] = self.itc503.getData()
-        if status:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
-                self.info_message.emit(f"itc503 plugin : {info}")
-                self.timer.stop()
-        else:
+                try:
+                    info = self.itc503.getData()
+                except Exception as e:
+                    self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
+                    self.info_message.emit(f"itc503 plugin : {e}")
+                    self.timer.stop()
+                    self._GUIchange_display(False)
+                    return [e, {"Error message" : f"{e}"}]
+
                 timeNow = datetime.now()
                 if self.display_data.count('\n') == self.settings["periodpts"]:
                         self.display_data = self.display_data[self.display_data.find('\n')+2:]
