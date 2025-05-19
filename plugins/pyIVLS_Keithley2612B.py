@@ -1,17 +1,14 @@
 import pluggy
 from Keithley2612BGUI import Keithley2612BGUI
-from plugin import Plugin
-import numpy as np
 
 
-class pyIVLS_Keithley2612B_plugin():
+class pyIVLS_Keithley2612B_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.plugin_name = 'Keithley2612B'
-        self.plugin_function = 'smu'
+        self.plugin_name = "Keithley2612B"
+        self.plugin_function = "smu"
         self.smu = Keithley2612BGUI()
-        super().__init__()
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
@@ -25,12 +22,12 @@ class pyIVLS_Keithley2612B_plugin():
         return {self.plugin_name: self.smu.settingsWidget}
 
     @hookimpl
-    def get_functions(self, args = None):
+    def get_functions(self, args=None):
         """returns a dict of publicly accessible functions.
 
         :return: dict of functions
         """
-        
+
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.smu._get_public_methods()}
 
@@ -43,7 +40,7 @@ class pyIVLS_Keithley2612B_plugin():
             return (self.plugin_name, True)
         return (self.plugin_name, False)
 
-    def run_sweep(self):# -> list(np.ndarray):
+    def run_sweep(self):  # -> list(np.ndarray):
         """runs a sweep
 
         :return: list of data
@@ -63,8 +60,6 @@ class pyIVLS_Keithley2612B_plugin():
         finally:
             return ret_list
 
-
-
     def measure_resistance(self, channel):
         """measures resistance
 
@@ -74,4 +69,3 @@ class pyIVLS_Keithley2612B_plugin():
         if self.smu.k is None:
             self.smu.connect()
         return self.smu.resistance_measurement(channel)
-        
