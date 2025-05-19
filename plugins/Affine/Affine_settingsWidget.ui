@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>602</width>
-    <height>465</height>
+    <width>1124</width>
+    <height>712</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -42,7 +42,7 @@
          <item>
           <widget class="QCheckBox" name="dispKP">
            <property name="text">
-            <string>Display keypoints</string>
+            <string>Display keypoints (W.I.P)</string>
            </property>
           </widget>
          </item>
@@ -50,6 +50,13 @@
           <widget class="QCheckBox" name="centerClicks">
            <property name="text">
             <string>Center clicks on patch</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox">
+           <property name="text">
+            <string>debug</string>
            </property>
           </widget>
          </item>
@@ -72,7 +79,59 @@
          <item>
           <widget class="QPushButton" name="manualButton">
            <property name="text">
-            <string>Manual</string>
+            <string>Manual (W.I.P)</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="groupBox">
+        <property name="title">
+         <string/>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QComboBox" name="pointCount">
+           <item>
+            <property name="text">
+             <string>1</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>3</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="pointName">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter name for set of points&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="text">
+            <string>Measurement point 1</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="savePoints">
+           <property name="text">
+            <string>Write points to file (W.I.P)</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QListWidget" name="definedPoints">
+           <property name="contextMenuPolicy">
+            <enum>Qt::ContextMenuPolicy::DefaultContextMenu</enum>
            </property>
           </widget>
          </item>

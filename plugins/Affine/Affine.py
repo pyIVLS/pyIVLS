@@ -44,12 +44,14 @@ class Affine:
     Assumes the images are grayscale.
     Usage:
     - Create an Affine object.
+    - Load the mask image using update_interal_mask().
     - Call try_match() with the input image and mask.
     - If the transformation is found, access the transformation matrix using the A attribute.
     - When transformation is found, use coords() to get the transformed coordinates of a point.
     """
 
-    # TODO: Add the canny method to the preprocessing as an option. Might be useful to
+    # TODO: Add the canny method to the preprocessing as an option. Might be useful to be able to call on it if the first method fails.
+    # maybe first try without canny, then automatically with canny if the previous one fails and only then return an error to the user.
     def __init__(self):
         """Initializes an instance of Affine."""
         self.path = os.path.dirname(__file__) + os.path.sep
@@ -97,12 +99,12 @@ class Affine:
 
         return mask
 
+    # TODO: implement this function.
     def draw_keypoints(self):
         """
         Visualizes the keypoints and their matches. Projects mask keypoints to image space and shows the mapping.
         Returns:
             Tuple of annotated (img, mask).
-            TODO: implement this function.
         """
         if self.result.get("img") is None or self.result.get("mask") is None:
             raise AffineError("No affine transformation found.", 4)
@@ -116,6 +118,8 @@ class Affine:
         print("keypoints not impelemented yet")
         return img, mask
 
+    # TODO: separate into two functions, one for finding the keypoints and one for ransac and estimation of the transformation.
+    # this is so that manual keypoint selection can be added later.
     def try_match(
         self,
         img: np.ndarray,
@@ -126,9 +130,6 @@ class Affine:
 
         Args:
             img (np.ndarray): Input image to match with the mask.
-
-        Returns:
-        - bool: True if the affine transformation is successfully found.
         Raises:
             - AffineError: something bad has taken place
         """
@@ -204,7 +205,7 @@ class Affine:
 
         return float(transformed[0]), float(transformed[1])
 
-    def load_and_save_gds(
+    def _load_and_save_gds(
         self,
         input_gds_path,
         output_image_path=None,
@@ -219,10 +220,11 @@ class Affine:
             width (int, optional): image width.
             height (int, optional): image height.
         """
-
+        filename = os.path.basename(input_gds_path)
+        filename = filename.split(".")[0]
         if output_image_path is None:
             output_image_path = (
-                self.path + os.sep + "masks" + os.sep + "converted_mask.png"
+                self.path + os.sep + "masks" + os.sep + filename + ".png"
             )
         # Create a layout view
         view = lay.LayoutView()
@@ -250,10 +252,10 @@ class Affine:
 
         internal_mask = cv.imread(output_image_path)
         internal_mask = cv.cvtColor(internal_mask, cv.COLOR_BGR2RGB)
-        self.internal_mask = internal_mask
-        return internal_mask
 
-    def load_image(self, path: str) -> np.ndarray:
+        return internal_mask, filename
+
+    def _load_image(self, path: str):
         """
         Loads an mask image from the specified path.
 
@@ -261,39 +263,57 @@ class Affine:
             path (str): Path to the image file.
 
         Returns:
-            np.ndarray: Loaded image.
+            cv.matlike: Loaded image.
         """
 
         img = cv.imread(path)
+        filename = os.path.basename(path)
+        filename = filename.split(".")[0]
         if img is None:
             raise AffineError(f"Could not load image from {path}", 5)
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
         self.internal_mask = img
-        return img
+        return img, filename
 
     def update_interal_mask(self, path):
         if path.endswith(".gds"):
-            mask = self.load_and_save_gds(path)
+            mask, filename = self._load_and_save_gds(path)
         else:
-            mask = self.load_image(path)
+            mask, filename = self._load_image(path)
+
+        self.mask_filename = filename
+        self.internal_mask = mask
+
+        print(f"Loaded mask: {filename}")
+        # mask has changed, clear the previous result
+        self.result.clear()
         return mask
 
     def test_image(self) -> np.ndarray:
         """
-        Loads a test image from the specified path.
-
-        Returns:
-            np.ndarray: Loaded test image.
+        Loads an test image.
         """
         img = cv.imread("plugins/Affine/testImages/NC2.png")
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
         return img
 
     def center_on_component(self, x: int, y: int):
-        if self.result.get("mask") is None:
-            raise AffineError("No mask loaded.", 2)
+        """Finds the centroid of a connected component in the mask image based on the color.
 
-        mask = self.result["mask"]
+        Args:
+            x (int):
+            y (int):
+
+        Raises:
+            AffineError: something bad has taken place
+
+        Returns:
+            tuple(int,int): centered coordinates of the selected component.
+        """
+        if self.internal_mask is None:
+            raise AffineError("No internal mask available loaded.", 2)
+
+        mask = self.internal_mask
         if mask.ndim != 3 or mask.shape[2] != 3:
             ski.color.gray2rgb(mask)
 
@@ -316,4 +336,4 @@ class Affine:
                 cy, cx = region.centroid
 
                 return (int(cx), int(cy))
-        return coords  # return original coords if no region found
+        return (x, y)  # return original coords if no region found

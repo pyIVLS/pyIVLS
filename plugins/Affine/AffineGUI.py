@@ -4,8 +4,8 @@ from datetime import datetime
 from Affine import Affine, AffineError
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
-from PyQt6.QtGui import QBrush, QImage, QPen, QPixmap
-from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene
+from PyQt6.QtGui import QAction, QBrush, QImage, QPen, QPixmap
+from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
 
 
 class AffineGUI(QObject):
@@ -30,8 +30,12 @@ class AffineGUI(QObject):
         self.mdi_img = None
         self.mdi_mask = None
 
+        # init temporary point array
+        self.tp_arr = []
+        self.measurement_list = {}
+
+    # TODO: Read settings from file, for instance latest points and mask + default names for text inputs.
     def _initGUI(self, settings):
-        # placeholder
         self.settings = settings
         settingsWidget = self.settingsWidget
         MDIWidget = self.MDIWidget
@@ -40,9 +44,10 @@ class AffineGUI(QObject):
             try:
                 mask = self.affine.update_interal_mask(last_mask_path)
                 self._update_MDI(mask, None)
-            except AffineError as e:
-                self.log_message.emit(e.message)
-        # do some stuff tm
+            except AffineError:
+                # I dont want to hear about this error, dont care.
+                pass
+
         return settingsWidget, MDIWidget
 
     def _load_widgets(self):
@@ -74,7 +79,21 @@ class AffineGUI(QObject):
         self.gds_label.setScene(self.gds_scene)
         self.camera_label.setScene(self.camera_scene)
 
-        # set equal size for the graphics views
+        self.pointCount = settingsWidget.findChild(QtWidgets.QComboBox, "pointCount")
+        assert self.pointCount is not None, "pointCount not found in settingsWidget"
+        self.pointName = settingsWidget.findChild(QtWidgets.QLineEdit, "pointName")
+        assert self.pointName is not None, "pointName not found in settingsWidget"
+        self.definedPoints = settingsWidget.findChild(
+            QtWidgets.QListWidget, "definedPoints"
+        )
+        assert self.definedPoints is not None, (
+            "definedPoints not found in settingsWidget"
+        )
+        # add removal to the context menu
+        self.definedPoints.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.definedPoints.customContextMenuRequested.connect(
+            self._list_widget_context_menu
+        )
 
     def _connect_buttons(self, settingsWidget, MDIWidget):
         """Connects the buttons, checkboxes and label clicks to their actions.
@@ -108,29 +127,49 @@ class AffineGUI(QObject):
 
         return settingsWidget, MDIWidget
 
+    def _list_widget_context_menu(self, pos):
+        def remove_item(item):
+            self.definedPoints.takeItem(self.definedPoints.row(item))
+            self.log_message.emit(f"Removed {item.text()} from the list.")
+
+        item = self.definedPoints.itemAt(pos)
+        if item is None:
+            return
+
+        menu = QMenu()
+        delete_action = QAction("Delete", self.definedPoints)
+        delete_action.triggered.connect(lambda: remove_item(item))
+        menu.addAction(delete_action)
+        menu.exec(self.definedPoints.mapToGlobal(pos))
+
     def _find_button_action(self):
         """Action for the find button."""
         # Fixme: deebug.
         # img = self.functions["camera"]["camera_capture_image"]()
         img = self.affine.test_image()
         self._update_MDI(None, img)
-        try:
-            if self.affine.try_match(img):
-                timestamp = datetime.now().strftime("%H:%M:%S.%f")
-                num_matches = len(self.affine.result["matches"])
-                mask = self.affine.result["mask"]
-                img = self.affine.result["img"]
-                self._update_MDI(mask, img)
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")
 
-                self.log_message.emit(
-                    f"{timestamp}: Found {num_matches} matches between the image and the mask."
-                )
+        try:
+            self.affine.try_match(img)
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")
+            num_matches = len(self.affine.result["matches"])
+
+            self.log_message.emit(
+                f"{timestamp}: Found {num_matches} matches between the image and the mask."
+            )
+
         except AffineError as e:
             self.log_message.emit(e.message)
 
     def _manual_button_action(self):
         """Action for the save button."""
-        print("manual button pressed")
+        self.log_message.emit(
+            "Manual mode is not implemented yet. Please use the find button."
+        )
+        self.info_message.emit(
+            "Manual mode is not implemented yet. Please use the find button."
+        )
 
     def _mask_button_action(self):
         """Interface for the gds mask loading button."""
@@ -159,18 +198,25 @@ class AffineGUI(QObject):
         except AffineError:
             pass
 
+    # TODO: Might be good to add a checkbox for "enter new points mode" or something like that so that points can be added without having the affine available.
     def _gds_label_clicked(self, event):
         # Map from view coords → scene coords
         pos = self.gds_label.mapToScene(event.pos())
         x, y = pos.x(), pos.y()
+        print(f"pointname: {self.pointName.text()}")
+        print(f"pointcount: {self.pointCount.currentText()}")
 
         # convert the clicked coords to the image coords
         try:
+            # I thinks these are sometimes returned as floats from Qt
             x = int(x)
             y = int(y)
+
+            # "center on component" mode
             if self.centerButton.isChecked():
                 x, y = self.affine.center_on_component(x, y)
-            img_x, img_y = self.affine.coords((x, y))
+
+            # draw the point on the mask
             self.gds_scene.addEllipse(
                 x - 3,
                 y - 3,
@@ -179,7 +225,20 @@ class AffineGUI(QObject):
                 brush=QBrush(Qt.GlobalColor.red),
                 pen=QPen(Qt.GlobalColor.transparent),
             )
-            # Draw red dot on the image scene
+
+            # add the point to list, process point cluster if pointCount is reached
+            self.tp_arr += [(x, y)]
+            if len(self.tp_arr) == int(self.pointCount.currentText()):
+                self.measurement_list[self.pointName.text()] = self.tp_arr
+
+                # Create a widget item with the name and coordinates
+                self.definedPoints.addItem(self.pointName.text())
+                self.tp_arr = []
+                self.pointName.clear()
+
+            img_x, img_y = self.affine.coords((x, y))
+
+            # Draw red dot on the image
             self.camera_scene.addEllipse(
                 img_x - 3,
                 img_y - 3,
@@ -191,9 +250,19 @@ class AffineGUI(QObject):
         except AffineError as e:
             print(e)
 
-    def _update_MDI(self, mask, img, save_internal=True):
-        """Updates the MDI widget with the mask and image.
-        This wants 3 ch images"""
+    def _update_MDI(
+        self, mask=None, img=None, save_internal=True, mask_points=None, img_points=None
+    ):
+        """Updates the MDI Widget based on provided mask and image.
+
+        Args:
+            mask (_type_): 3ch image of mask. Optional
+            img (_type_): 3ch image from camera. Optional
+            save_internal (bool, optional): Write current mask to cache. Defaults to True.
+            mask_points (_type_, optional): draw these points on mask. Defaults to None.
+            img_points (_type_, optional): draw these points on img. Defaults to None.
+        """
+
         if img is not None:
             h, w, ch = img.shape
             bytes_per_line = ch * w
@@ -202,6 +271,7 @@ class AffineGUI(QObject):
             pixmap_item = QGraphicsPixmapItem(pixmap)
 
             # Create or update the scene
+            self.camera_scene.clear()
             self.camera_scene.addItem(pixmap_item)
             self.camera_label.setScene(self.camera_scene)
             if save_internal:
@@ -215,6 +285,7 @@ class AffineGUI(QObject):
             pixmap_item = QGraphicsPixmapItem(pixmap)
 
             # Create or update the scene
+            self.gds_scene.clear()
             self.gds_scene.addItem(pixmap_item)
             self.gds_label.setScene(self.gds_scene)
 
@@ -258,5 +329,5 @@ class AffineGUI(QObject):
         return methods
 
     def positioning_coords(self, coords: tuple[float, float]) -> tuple[float, float]:
-        """Returns the coordinates of the positioner."""
+        """Returns the transformed coordinates."""
         return self.affine.coords(coords)
