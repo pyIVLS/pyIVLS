@@ -26,7 +26,7 @@ class pyIVLS_hookspec:
         """
 
     @hookspec
-    def get_functions(self, args=None):
+    def get_function(self, args=None):
         """returns a dict of publicly accessible functions.¨
         kwargs can be used to specify which functions are needed based on
         type, function.

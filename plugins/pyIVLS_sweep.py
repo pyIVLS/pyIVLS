@@ -14,7 +14,6 @@ class pyIVLS_sweep_plugin:
         self.plugin_function = "ivsweep"
         self.plugin_dependencies = ["smu", "camera"]
         self.sweep = sweepGUI()
-        super().__init__()
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:

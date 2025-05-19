@@ -9,7 +9,6 @@ class pyIVLS_Keithley2612B_plugin:
         self.plugin_name = "Keithley2612B"
         self.plugin_function = "smu"
         self.smu = Keithley2612BGUI()
-        super().__init__()
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:

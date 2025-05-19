@@ -3,22 +3,22 @@ import pluggy
 from PyQt6 import QtWidgets
 
 from plugins.Sutter.Sutter import Mpc325
-from plugins.plugin import Plugin
 
 
-class pyIVLS_Sutter_plugin(Plugin):
+# FIXME: Should be rewritten according to the new plugin system
+class pyIVLS_Sutter_plugin:
     """Hooks for Sutter micromanipulator plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
         self.hal = Mpc325()
-        super().__init__()
 
     @hookimpl
-    def get_setup_interface(self, pm, plugin_data) -> dict:
+    def get_setup_interface(self, plugin_data) -> dict:
         """Get the setup interface for the Sutter micromanipulator plugin."""
-        self.setup(pm, plugin_data)
+        # FIXME
+        self.setup(None, plugin_data)
 
         return {self.plugin_name: self._connect_buttons(self.hal.settingsWidget)}
 

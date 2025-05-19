@@ -2,18 +2,14 @@
 import pluggy
 from PyQt6 import QtWidgets
 
-
 from plugins.conDetect.conDetect import ConDetect
-from plugins.plugin import Plugin
 
 
-class pyIVLS_conDetect_plugin(Plugin):
-
+class pyIVLS_conDetect_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
         self.detector = ConDetect()
-        super().__init__()
 
     @hookimpl
     def get_setup_interface(self, pm, plugin_data) -> dict:
