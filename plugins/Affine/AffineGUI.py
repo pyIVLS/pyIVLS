@@ -14,6 +14,7 @@ class AffineGUI(QObject):
     log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool)
+    COORD_DATA = Qt.ItemDataRole.UserRole + 1
 
     def __init__(self):
         super().__init__()
@@ -32,7 +33,6 @@ class AffineGUI(QObject):
 
         # init temporary point array
         self.tp_arr = []
-        self.measurement_list = {}
 
     # TODO: Read settings from file, for instance latest points and mask + default names for text inputs.
     def _initGUI(self, settings):
@@ -43,7 +43,7 @@ class AffineGUI(QObject):
         if last_mask_path is not None:
             try:
                 mask = self.affine.update_interal_mask(last_mask_path)
-                self._update_MDI(mask, None)
+                self._update_MDI(mask, None, save_interal=True)
             except AffineError:
                 # I dont want to hear about this error, dont care.
                 pass
@@ -94,6 +94,8 @@ class AffineGUI(QObject):
         self.definedPoints.customContextMenuRequested.connect(
             self._list_widget_context_menu
         )
+        # connect the item clicked to a function
+        self.definedPoints.itemClicked.connect(self._list_item_clicked_action)
 
     def _connect_buttons(self, settingsWidget, MDIWidget):
         """Connects the buttons, checkboxes and label clicks to their actions.
@@ -115,11 +117,13 @@ class AffineGUI(QObject):
         assert dispKP is not None, "dispKP not found in MDIWidget"
         centerButton = settingsWidget.findChild(QtWidgets.QCheckBox, "centerClicks")
         assert centerButton is not None, "centerButton not found in settingsWidget"
+        savePoints = settingsWidget.findChild(QtWidgets.QPushButton, "savePoints")
 
         mask_button.clicked.connect(self._mask_button_action)
         find_button.clicked.connect(self._find_button_action)
         manual_button.clicked.connect(self._manual_button_action)
         dispKP.stateChanged.connect(self._disp_kp_state_changed)
+        savePoints.clicked.connect(self.save_points_action)
 
         # connect the label click on gds to a function
         self.gds_label.mousePressEvent = lambda event: self._gds_label_clicked(event)
@@ -130,7 +134,6 @@ class AffineGUI(QObject):
     def _list_widget_context_menu(self, pos):
         def remove_item(item):
             self.definedPoints.takeItem(self.definedPoints.row(item))
-            self.log_message.emit(f"Removed {item.text()} from the list.")
 
         item = self.definedPoints.itemAt(pos)
         if item is None:
@@ -142,12 +145,65 @@ class AffineGUI(QObject):
         menu.addAction(delete_action)
         menu.exec(self.definedPoints.mapToGlobal(pos))
 
+    def save_points_action(self):
+        """Action for the save button."""
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self.settingsWidget,
+            "Save points",
+            self.path + os.sep + "measurement_points",
+            "Text Files (*.txt);;All Files (*)",
+        )
+        if fileName:
+            with open(fileName, "w") as f:
+                for i in range(self.definedPoints.count()):
+                    item = self.definedPoints.item(i)
+                    name = item.text()
+                    points = item.data(self.COORD_DATA)
+                    f.write(f"{name}: {points}\n")
+
+    def _list_item_clicked_action(self, item):
+        points = item.data(self.COORD_DATA)
+        if not points:
+            return
+        # Clear the previous points
+        self._update_MDI(self.mdi_mask, self.mdi_img, save_internal=False)
+        for x, y in points:
+            self.gds_scene.addEllipse(
+                x - 3,
+                y - 3,
+                6,
+                6,
+                brush=QBrush(Qt.GlobalColor.red),
+                pen=QPen(Qt.GlobalColor.transparent),
+            )
+
+        try:
+            for x, y in points:
+                # convert the clicked coords to the image coords
+                x = int(x)
+                y = int(y)
+
+                # draw the point on the mask
+                img_x, img_y = self.affine.coords((x, y))
+
+                # Draw red dot on the image
+                self.camera_scene.addEllipse(
+                    img_x - 3,
+                    img_y - 3,
+                    6,
+                    6,
+                    brush=QBrush(Qt.GlobalColor.red),
+                    pen=QPen(Qt.GlobalColor.transparent),
+                )
+        except AffineError as e:
+            self.log_message.emit(e.message)
+
     def _find_button_action(self):
         """Action for the find button."""
         # Fixme: deebug.
         # img = self.functions["camera"]["camera_capture_image"]()
         img = self.affine.test_image()
-        self._update_MDI(None, img)
+        self._update_MDI(None, img, save_internal=True)
         timestamp = datetime.now().strftime("%H:%M:%S.%f")
 
         try:
@@ -203,8 +259,6 @@ class AffineGUI(QObject):
         # Map from view coords → scene coords
         pos = self.gds_label.mapToScene(event.pos())
         x, y = pos.x(), pos.y()
-        print(f"pointname: {self.pointName.text()}")
-        print(f"pointcount: {self.pointCount.currentText()}")
 
         # convert the clicked coords to the image coords
         try:
@@ -229,10 +283,10 @@ class AffineGUI(QObject):
             # add the point to list, process point cluster if pointCount is reached
             self.tp_arr += [(x, y)]
             if len(self.tp_arr) == int(self.pointCount.currentText()):
-                self.measurement_list[self.pointName.text()] = self.tp_arr
-
                 # Create a widget item with the name and coordinates
-                self.definedPoints.addItem(self.pointName.text())
+                item = QtWidgets.QListWidgetItem(self.pointName.text())
+                item.setData(self.COORD_DATA, self.tp_arr)
+                self.definedPoints.addItem(item)
                 self.tp_arr = []
                 self.pointName.clear()
 
@@ -248,21 +302,9 @@ class AffineGUI(QObject):
                 pen=QPen(Qt.GlobalColor.transparent),
             )
         except AffineError as e:
-            print(e)
+            self.log_message.emit(e.message)
 
-    def _update_MDI(
-        self, mask=None, img=None, save_internal=True, mask_points=None, img_points=None
-    ):
-        """Updates the MDI Widget based on provided mask and image.
-
-        Args:
-            mask (_type_): 3ch image of mask. Optional
-            img (_type_): 3ch image from camera. Optional
-            save_internal (bool, optional): Write current mask to cache. Defaults to True.
-            mask_points (_type_, optional): draw these points on mask. Defaults to None.
-            img_points (_type_, optional): draw these points on img. Defaults to None.
-        """
-
+    def _update_MDI(self, mask=None, img=None, save_internal=True):
         if img is not None:
             h, w, ch = img.shape
             bytes_per_line = ch * w
