@@ -200,13 +200,12 @@ class AffineGUI(QObject):
 
     def _find_button_action(self):
         """Action for the find button."""
-        # Fixme: deebug.
-        # img = self.functions["camera"]["camera_capture_image"]()
-        img = self.affine.test_image()
-        self._update_MDI(None, img, save_internal=True)
-        timestamp = datetime.now().strftime("%H:%M:%S.%f")
+
 
         try:
+            img = self.functions["camera"]["camera_capture_image"](full_size = True)
+            self._update_MDI(None, img, save_internal=True)
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")
             self.affine.try_match(img)
             timestamp = datetime.now().strftime("%H:%M:%S.%f")
             num_matches = len(self.affine.result["matches"])
@@ -217,6 +216,7 @@ class AffineGUI(QObject):
 
         except AffineError as e:
             self.log_message.emit(e.message)
+        
 
     def _manual_button_action(self):
         """Action for the save button."""

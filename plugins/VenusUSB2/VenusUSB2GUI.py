@@ -24,7 +24,7 @@ import cv2 as cv
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
-from VenusUSB2 import VenusUSB2
+from VenusUSB2 import VenusUSB2, venusStatus
 
 ##IRtothink#### should some kind of zoom to the image part be added for the preview?
 
@@ -245,12 +245,16 @@ class VenusUSB2GUI(QObject):
     def camera_close(self):
         self.camera.close()
 
-    def camera_capture_image(self):
+    def camera_capture_image(self, full_size=False):
         parse_status, settings = self._parse_settings_preview()
         if parse_status == 0:
             source = settings["source"]
             exposure = settings["exposure"]
-            img = self.camera.capture_image(source, exposure)
+            try:
+                img = self.camera.capture_image(source, exposure, full_size=full_size)
+            except venusStatus as e:
+                self.log_message.emit(e.message)
+                img = None
         else:
             img = None
             self.log_message.emit(
