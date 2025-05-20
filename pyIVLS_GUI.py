@@ -12,6 +12,8 @@ from pyIVLS_pluginloader import pyIVLS_pluginloader
 
 
 class pyIVLS_GUI(QObject):
+    mdiWidgets = {}
+    dockWidgets = {}
     ############################### GUI functions
 
     ############################### Slots
@@ -47,6 +49,25 @@ class pyIVLS_GUI(QObject):
         self.pluginloader.refresh()
         self.pluginloader.window.show()
 
+    def actionReopen_MDI(self):
+        """
+        Reopen the MDI area with the widgets stored in self.mdiWidgets.
+        """
+        self.clearMDIArea()
+        for name, widget in self.mdiWidgets.items():
+            widget.show()
+
+        
+
+    def actionReopen_dock(self):
+        """
+        Reopen the dock widget with the widgets stored in self.dockWidgets.
+        """
+        # if dockwidget is not visible, show it
+        if not self.window.dockWidget.isVisible():
+            self.window.dockWidget.show()
+
+
     ############### Settings Widget
 
     def setSettingsWidget(self, widgets: dict):
@@ -77,7 +98,14 @@ class pyIVLS_GUI(QObject):
         for name, widget in widgets.items():
             MDIwindow = self.window.mdiArea.addSubWindow(widget)
             MDIwindow.setWindowTitle(name)
-            widget.show()  # Show the widget in the MDI area. THis was where the issue is
+
+            # so this is the flag that makes it possible to reopen the MDI windows
+            # NOTE: this could lead to memory bloat if running multiple widgets and never closing the main window?
+            # Although i think this will not be a problem.
+            MDIwindow.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
+            widget.show()  
+
+        self.mdiWidgets = widgets
 
     def clearDockWidget(self):
         """
@@ -94,6 +122,7 @@ class pyIVLS_GUI(QObject):
         """
         for subwindow in self.window.mdiArea.subWindowList():
             subwindow.close()
+            
 
     def __init__(self):
         super(pyIVLS_GUI, self).__init__()
@@ -104,6 +133,8 @@ class pyIVLS_GUI(QObject):
         self.pluginloader = pyIVLS_pluginloader(self.path)
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
+        self.window.actionReopen_MDI.triggered.connect(self.actionReopen_MDI)
+        self.window.actionReopen_dock.triggered.connect(self.actionReopen_dock)
         self.window.closeSignal.connect(self.reactClose)
 
         self.initial_widget_state = {}
