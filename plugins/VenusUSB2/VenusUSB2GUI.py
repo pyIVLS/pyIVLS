@@ -180,7 +180,6 @@ class VenusUSB2GUI(QObject):
         self.settingsWidget.exposureBox.setEnabled(status)
         self.settingsWidget.sourceBox.setEnabled(status)
         self.closeLock.emit(not status)
-        print("closeLock emitted from camera", not status)  # FIXME: Debug print
 
     ########Functions
     ########plugins interraction

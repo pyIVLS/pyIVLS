@@ -47,16 +47,16 @@ class VenusUSB2:
             ~0 - error (add error code later on if needed)
         """
 
-        print(f"Opening camera {source} with exposure {exposure}")
         if source is None or source == "":
             self.cap.open(0)
         else:
             self.cap.open(source)  
         if self.cap.isOpened():
+            self.cap.read() # read so that the camera doesn't feel sad
             if exposure is None:
                 exposure = 1            
-            #if not self.cap.set(cv.CAP_PROP_EXPOSURE, exposure):
-                #return [4, {"Error message": "Can not set exposure time"}]
+            if not self.cap.set(cv.CAP_PROP_EXPOSURE, exposure):
+                return [4, {"Error message": "Can not set exposure time"}]
 
             ##IRtothink#### should the next settings be obtaines as parameters
 
