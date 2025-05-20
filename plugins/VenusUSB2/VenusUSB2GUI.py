@@ -74,11 +74,21 @@ class VenusUSB2GUI(QObject):
             QtWidgets.QPushButton, "cameraPreview"
         )
         GUI_preview_button.clicked.connect(self._previewAction)
-        self.exposure_slider = self.settingsWidget.findChild(
-            QtWidgets.QSlider, "cameraExposure"
+        self.exposure = self.settingsWidget.findChild(
+            QtWidgets.QComboBox, "exposure"
         )
-        # connect changes on the exposure slider to a function
-        self.exposure_slider.valueChanged.connect(self._exp_slider_change)
+
+
+        # get possible exposures from the camera
+        exposures = self.camera.exposures
+
+        # add possible exposures to the combobox
+        for exposure in exposures:
+            self.exposure.addItem(str(exposure))
+        
+        # connect changes in the exposure combobox:
+        self.exposure.currentIndexChanged.connect(self._exp_slider_change)
+        
         # Set a timer for the camera feed
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_frame)
@@ -116,9 +126,7 @@ class VenusUSB2GUI(QObject):
             0 - no error
             ~0 - error (add error code later on if needed)
         """
-        self.settings["exposure"] = self.camera.exposures[
-            int(self.settingsWidget.cameraExposure.value())
-        ]
+        self.settings["exposure"] = int(self.exposure.currentText())
         self.settings["source"] = self.settingsWidget.cameraSource.text()
         ##no value checks are possible here as the source should be just address and exposure is given by a set of values
         return [0, self.settings]
@@ -163,9 +171,11 @@ class VenusUSB2GUI(QObject):
     ):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
+        """        
         self.settingsWidget.cameraExposure.setValue(
             self.camera.exposures.index(int(plugin_info["exposure"]))
         )
+        """
         self.settingsWidget.cameraSource.setText(plugin_info["source"])
 
     ########Functions
@@ -187,8 +197,7 @@ class VenusUSB2GUI(QObject):
 
     def _exp_slider_change(self):
         if self.preview_running:
-            exp_value = self.exposure_slider.value()
-            self.settings["exposure"] = self.camera.exposures[exp_value]
+            self._parse_settings_preview()
             self.camera.close()
             self.camera.open(
                 source=self.settings["source"], exposure=self.settings["exposure"]
