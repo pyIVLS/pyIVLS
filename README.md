@@ -30,15 +30,19 @@
 #3. timeIV: variation of readings from SMU with time
 #4. VenusUSB2: interface to camera
 #5. TLCCS: interface to spectrometer
+#6. conDetect: multiplexor for checking connection between sense and current probes
+#7. itc503: temperature controller for cryo
 
 #### plugin specific TODO lists
 ######### VenusUSB2
 ####	Implement manipulation of the image (size change, digital zoom, etc.). May be reasonable to thing about changing integration time without stopping the preview
+####	closeLock is not implemented
 ######### timeIV
 ####	there is a bug in matplotlib, the axes name is on a wrong side after cla() see https://github.com/matplotlib/matplotlib/issues/28268
 ####	pulsed operation may be added
 ######### conDetect
 ####	the multiplexor device works in a bit inconvinient mode on startup: according to AN_184 bus powered behavior starts with enumeration in chart, as power comes from the usb host (DTR set to tristate on enumeration, output once active). Since it is active low, it's a voltage high at this point. Meaning that it is switched to the sense mode until the device will be connedted to the module, and this is undersired behaviour. A workaround will be to reset the invertion of the pin from FT232 flash, in this case behaviour on not powered and powered but not connected will be the same. 
+###	there is a bug: when connect action fails with an exeption, the GUI is still changed to the connected mode
 
 #### install (Ubuntu 24.04.1 LTS)
 # 1. python3 -m venv .venv
