@@ -633,7 +633,7 @@ requires-dist = [
     { name = "pyvisa", specifier = "==1.14.1" },
     { name = "pyvisa-py", specifier = "==0.7.2" },
     { name = "scikit-image", specifier = ">=0.25.2" },
-    { name = "setuptools", specifier = "==78.1.1" },
+    { name = "setuptools", specifier = ">=78.1.1" },
     { name = "six", specifier = "==1.17.0" },
     { name = "typing-extensions", specifier = "==4.12.2" },
     { name = "zeroconf", specifier = "==0.137.2" },

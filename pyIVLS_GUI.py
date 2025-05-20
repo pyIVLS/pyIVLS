@@ -39,7 +39,8 @@ class pyIVLS_GUI(QObject):
 
     @pyqtSlot(bool)
     def setCloseLock(self, bool):
-        self.window.setCloseOK(bool)
+        # changes here, since closelock is True when closing is not allowed
+        self.window.setCloseOK(not bool)
 
     ################ Menu actions
     def actionPlugins(self):
