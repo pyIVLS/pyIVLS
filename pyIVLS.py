@@ -28,6 +28,16 @@ def update_settings_widget():
     GUI_mainWindow.pluginloader.refresh()
 
 
+    # when pluginlist updates, call hooks to connect all data/log signals 
+    for logSignal in pluginsContainer.getLogSignals():
+        logSignal.connect(GUI_mainWindow.addDataLog)
+
+    for infoSignal in pluginsContainer.getInfoSignals():
+        infoSignal.connect(GUI_mainWindow.show_message)
+
+    for closeLockSignal in pluginsContainer.getCloseLockSignals():
+        closeLockSignal.connect(GUI_mainWindow.setCloseLock)
+
 ############################### main function
 
 if __name__ == "__main__":
