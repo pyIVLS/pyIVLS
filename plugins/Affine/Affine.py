@@ -290,7 +290,6 @@ class Affine:
         self.mask_filename = filename
         self.internal_mask = mask
 
-        print(f"Loaded mask: {filename}")
         # mask has changed, clear the previous result
         self.result.clear()
         return mask
