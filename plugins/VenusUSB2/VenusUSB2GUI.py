@@ -74,7 +74,11 @@ class VenusUSB2GUI(QObject):
             QtWidgets.QPushButton, "cameraPreview"
         )
         GUI_preview_button.clicked.connect(self._previewAction)
-
+        self.exposure_slider = self.settingsWidget.findChild(
+            QtWidgets.QSlider, "cameraExposure"
+        )
+        # connect changes on the exposure slider to a function
+        self.exposure_slider.valueChanged.connect(self._exp_slider_change)
         # Set a timer for the camera feed
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_frame)
@@ -177,9 +181,19 @@ class VenusUSB2GUI(QObject):
             self.settingsWidget.connectionIndicator.setStyleSheet(
                 "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
             )
-        self.settingsWidget.exposureBox.setEnabled(status)
+        #self.settingsWidget.exposureBox.setEnabled(status)
         self.settingsWidget.sourceBox.setEnabled(status)
         self.closeLock.emit(not status)
+
+    def _exp_slider_change(self):
+        if self.preview_running:
+            exp_value = self.exposure_slider.value()
+            self.settings["exposure"] = self.camera.exposures[exp_value]
+            self.camera.close()
+            self.camera.open(
+                source=self.settings["source"], exposure=self.settings["exposure"]
+            )
+
 
     ########Functions
     ########plugins interraction
