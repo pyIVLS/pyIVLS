@@ -59,6 +59,7 @@ class Affine:
         self.A = None  # Affine transformation matrix
         self.internal_img = None  # Internal image
         self.internal_mask = None  # Internal mask
+        self.MIN_MATCHES = 4 
 
     @staticmethod
     def _preprocess_img(img):
@@ -159,6 +160,11 @@ class Affine:
         # Match descriptors, lowes ratio test
         matches = match_descriptors(desc_mask, desc_img, max_ratio=0.75)
 
+        if len(matches) < self.MIN_MATCHES:
+            raise AffineError(
+                f"Not enough matches found: {len(matches)} < {self.MIN_MATCHES}", 3
+            )
+
         # estimate affine transformation with ransac
         # OH MAN I LOVE COORDINATE SYSTEMS :)))
         src = kp_mask[matches[:, 0]][:, ::-1].astype(np.float32)  # mask keypoints
@@ -169,7 +175,7 @@ class Affine:
             (src, dst),
             ski.transform.SimilarityTransform,
             residual_threshold=5,  # this can be increased to maybe get more inliers on difficult images, at the cost of accuracy.
-            min_samples=4,  # 4 seems to be a good value for this.
+            min_samples=self.MIN_MATCHES,  # 4 seems to be a good value for this.
             max_trials=1000,
         )
         if inliers is None:
@@ -284,7 +290,6 @@ class Affine:
         self.mask_filename = filename
         self.internal_mask = mask
 
-        print(f"Loaded mask: {filename}")
         # mask has changed, clear the previous result
         self.result.clear()
         return mask
