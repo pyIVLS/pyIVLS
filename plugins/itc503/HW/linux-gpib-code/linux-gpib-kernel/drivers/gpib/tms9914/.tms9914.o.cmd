@@ -1,0 +1,1 @@
+savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tms9914/tms9914.o := ld -m elf_x86_64 -z noexecstack --no-warn-rwx-segments   -r -o /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tms9914/tms9914.o @/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tms9914/tms9914.mod 

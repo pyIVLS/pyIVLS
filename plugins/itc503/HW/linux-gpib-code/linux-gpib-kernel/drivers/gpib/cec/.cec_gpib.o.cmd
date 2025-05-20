@@ -1,0 +1,1 @@
+savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cec/cec_gpib.o := ld -m elf_x86_64 -z noexecstack --no-warn-rwx-segments   -r -o /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cec/cec_gpib.o @/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cec/cec_gpib.mod 

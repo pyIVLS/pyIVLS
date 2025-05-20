@@ -81,7 +81,7 @@ class itc503GUI(QObject):
                 try:
                     self.itc503.open(self.settings["source"])
                     self._GUIchange_deviceConnected(True)
-                    self.closeLock(True)
+                    self.closeLock.emit(False)
                     return [0, "OK"]
                 except Exception as e:
                         self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
@@ -96,7 +96,7 @@ class itc503GUI(QObject):
                        try:
                             self.itc503.close()
                             self._GUIchange_deviceConnected(False)
-                            self.closeLock(True)
+                            self.closeLock.emit(True)
                             return [0, "OK"]
                        except Exception as e:
                             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
@@ -181,7 +181,7 @@ class itc503GUI(QObject):
 
                 timeNow = datetime.now()
                 if self.display_data.count('\n') == self.settings["periodpts"]:
-                        self.display_data = self.display_data[self.display_data.find('\n')+2:]
+                        self.display_data = self.display_data[self.display_data.find('\n')+1:]
                 self.display_data = self.display_data + timeNow.strftime("%H:%M:%S.%f") + f": {info}K\n"
                 self.MDIWidget.outputEdit.clear()
                 self.MDIWidget.outputEdit.append(self.display_data)

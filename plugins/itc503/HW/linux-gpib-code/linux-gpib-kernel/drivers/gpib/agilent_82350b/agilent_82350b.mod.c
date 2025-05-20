@@ -1,0 +1,172 @@
+#include <linux/module.h>
+#define INCLUDE_VERMAGIC
+#include <linux/build-salt.h>
+#include <linux/elfnote-lto.h>
+#include <linux/export-internal.h>
+#include <linux/vermagic.h>
+#include <linux/compiler.h>
+
+#ifdef CONFIG_UNWINDER_ORC
+#include <asm/orc_header.h>
+ORC_HEADER;
+#endif
+
+BUILD_SALT;
+BUILD_LTO_INFO;
+
+MODULE_INFO(vermagic, VERMAGIC_STRING);
+MODULE_INFO(name, KBUILD_MODNAME);
+
+__visible struct module __this_module
+__section(".gnu.linkonce.this_module") = {
+	.name = KBUILD_MODNAME,
+	.init = init_module,
+#ifdef CONFIG_MODULE_UNLOAD
+	.exit = cleanup_module,
+#endif
+	.arch = MODULE_ARCH_INIT,
+};
+
+#ifdef CONFIG_MITIGATION_RETPOLINE
+MODULE_INFO(retpoline, "Y");
+#endif
+
+
+
+static const char ____versions[]
+__used __section("__versions") =
+	"\x14\x00\x00\x00\x3b\x4a\x51\xc1"
+	"free_irq\0\0\0\0"
+	"\x1c\x00\x00\x00\x11\xad\x69\x9a"
+	"tms9914_line_status\0"
+	"\x24\x00\x00\x00\x22\x92\x11\xec"
+	"tms9914_iomem_write_byte\0\0\0\0"
+	"\x1c\x00\x00\x00\xb8\xc7\x17\xfb"
+	"pci_enable_device\0\0\0"
+	"\x20\x00\x00\x00\x5b\x46\x0d\x94"
+	"tms9914_return_to_local\0"
+	"\x28\x00\x00\x00\x30\x7c\xec\x52"
+	"tms9914_interrupt_have_status\0\0\0"
+	"\x14\x00\x00\x00\x93\x74\xc6\x5d"
+	"pci_dev_put\0"
+	"\x14\x00\x00\x00\xbf\x0f\x54\x92"
+	"finish_wait\0"
+	"\x20\x00\x00\x00\x1f\x5c\x90\xf0"
+	"__pci_register_driver\0\0\0"
+	"\x10\x00\x00\x00\x53\x39\xc0\xed"
+	"iounmap\0"
+	"\x1c\x00\x00\x00\x31\xe0\x27\xa7"
+	"pci_request_regions\0"
+	"\x24\x00\x00\x00\x53\xd4\x09\xe3"
+	"tms9914_set_holdoff_mode\0\0\0\0"
+	"\x10\x00\x00\x00\xba\x0c\x7a\x03"
+	"kfree\0\0\0"
+	"\x20\x00\x00\x00\x5a\xe4\x4a\x04"
+	"tms9914_go_to_standby\0\0\0"
+	"\x20\x00\x00\x00\x95\xd4\x26\x8c"
+	"prepare_to_wait_event\0\0\0"
+	"\x14\x00\x00\x00\x44\x43\x96\xe2"
+	"__wake_up\0\0\0"
+	"\x20\x00\x00\x00\x0b\x05\xdb\x34"
+	"_raw_spin_lock_irqsave\0\0"
+	"\x20\x00\x00\x00\x49\x1a\x8f\x46"
+	"pci_unregister_driver\0\0\0"
+	"\x14\x00\x00\x00\xbb\x6d\xfb\xbd"
+	"__fentry__\0\0"
+	"\x20\x00\x00\x00\xcc\x0e\xb5\x23"
+	"tms9914_interface_clear\0"
+	"\x24\x00\x00\x00\x97\x70\x48\x65"
+	"__x86_indirect_thunk_rax\0\0\0\0"
+	"\x10\x00\x00\x00\x7e\x3a\x2c\x12"
+	"_printk\0"
+	"\x20\x00\x00\x00\x8f\x87\x2d\x44"
+	"gpib_register_driver\0\0\0\0"
+	"\x14\x00\x00\x00\x51\x0e\x00\x01"
+	"schedule\0\0\0\0"
+	"\x1c\x00\x00\x00\xcb\xf6\xfd\xf0"
+	"__stack_chk_fail\0\0\0\0"
+	"\x18\x00\x00\x00\xbd\x9c\x8e\x1e"
+	"tms9914_command\0"
+	"\x18\x00\x00\x00\xa2\xe8\x6d\x4e"
+	"const_pcpu_hot\0\0"
+	"\x28\x00\x00\x00\xab\xda\x20\x77"
+	"tms9914_serial_poll_response\0\0\0\0"
+	"\x20\x00\x00\x00\x2e\x4c\xda\x59"
+	"tms9914_remote_enable\0\0\0"
+	"\x28\x00\x00\x00\x7b\x3c\x95\x80"
+	"tms9914_take_control_workaround\0"
+	"\x18\x00\x00\x00\x75\x79\x48\xfe"
+	"init_wait_entry\0"
+	"\x24\x00\x00\x00\x46\xb0\xed\xeb"
+	"tms9914_secondary_address\0\0\0"
+	"\x20\x00\x00\x00\x8e\x83\xd5\x92"
+	"request_threaded_irq\0\0\0\0"
+	"\x1c\x00\x00\x00\x63\xa5\x03\x4c"
+	"random_kmalloc_seed\0"
+	"\x1c\x00\x00\x00\xc3\x51\xef\x9f"
+	"tms9914_board_reset\0"
+	"\x10\x00\x00\x00\x09\xcd\x80\xde"
+	"ioremap\0"
+	"\x24\x00\x00\x00\xe0\x41\xd4\x4d"
+	"tms9914_serial_poll_status\0\0"
+	"\x24\x00\x00\x00\x70\xce\x5c\xd3"
+	"_raw_spin_unlock_irqrestore\0"
+	"\x20\x00\x00\x00\x98\x31\xa5\x9c"
+	"tms9914_update_status\0\0\0"
+	"\x18\x00\x00\x00\xd0\x32\x9c\x81"
+	"tms9914_write\0\0\0"
+	"\x28\x00\x00\x00\x51\x76\x81\x94"
+	"tms9914_parallel_poll_configure\0"
+	"\x1c\x00\x00\x00\xca\x39\x82\x5b"
+	"__x86_return_thunk\0\0"
+	"\x20\x00\x00\x00\x9e\x46\x0d\x35"
+	"tms9914_iomem_read_byte\0"
+	"\x20\x00\x00\x00\x1e\x64\x6b\x56"
+	"tms9914_parallel_poll\0\0\0"
+	"\x1c\x00\x00\x00\x83\x96\x03\x45"
+	"tms9914_t1_delay\0\0\0\0"
+	"\x1c\x00\x00\x00\x5a\x31\xdb\x20"
+	"gpib_pci_get_subsys\0"
+	"\x1c\x00\x00\x00\xc8\x23\x2f\x9d"
+	"gpib_pci_get_device\0"
+	"\x20\x00\x00\x00\x74\xf9\xc1\x55"
+	"gpib_unregister_driver\0\0"
+	"\x1c\x00\x00\x00\xcf\x78\x6e\x10"
+	"pci_release_regions\0"
+	"\x18\x00\x00\x00\xd6\xdf\xe3\xea"
+	"__const_udelay\0\0"
+	"\x28\x00\x00\x00\x4f\x1e\xe3\x73"
+	"tms9914_parallel_poll_response\0\0"
+	"\x20\x00\x00\x00\xee\xfb\xb4\x10"
+	"__kmalloc_cache_noprof\0\0"
+	"\x20\x00\x00\x00\x5b\x2c\x73\x87"
+	"tms9914_primary_address\0"
+	"\x18\x00\x00\x00\x09\xe4\x8d\xf9"
+	"tms9914_read\0\0\0\0"
+	"\x20\x00\x00\x00\xb1\x47\x35\xea"
+	"tms9914_release_holdoff\0"
+	"\x1c\x00\x00\x00\x12\xe3\xee\xf7"
+	"tms9914_enable_eos\0\0"
+	"\x18\x00\x00\x00\xd3\x81\x34\xfa"
+	"tms9914_online\0\0"
+	"\x1c\x00\x00\x00\x8c\x5f\x3c\x8c"
+	"tms9914_disable_eos\0"
+	"\x10\x00\x00\x00\xf9\x82\xa4\xf9"
+	"msleep\0\0"
+	"\x20\x00\x00\x00\x5d\x7b\xc1\xe2"
+	"__SCT__might_resched\0\0\0\0"
+	"\x18\x00\x00\x00\xaf\xfc\x16\x7b"
+	"kmalloc_caches\0\0"
+	"\x28\x00\x00\x00\xdc\xe1\xd8\x78"
+	"tms9914_request_system_control\0\0"
+	"\x18\x00\x00\x00\xde\x9f\x8a\x25"
+	"module_layout\0\0\0"
+	"\x00\x00\x00\x00\x00\x00\x00\x00";
+
+MODULE_INFO(depends, "tms9914,gpib_common");
+
+MODULE_ALIAS("pci:v000010B5d00009050sv0000103Csd000010B0bc*sc*i*");
+MODULE_ALIAS("pci:v000015BCd00000B01sv*sd*bc*sc*i*");
+MODULE_ALIAS("pci:v000015BCd00001218sv*sd*bc*sc*i*");
+
+MODULE_INFO(srcversion, "D4D98BE73A8199E352469E7");

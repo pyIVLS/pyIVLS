@@ -72,4 +72,4 @@ class itc503:
         """
         with self.lock:
             self.device.write("R1")
-            return float(self.device.read_bytes(8))
+            return float(self.device.read_bytes(8)[1:-2]) #response is of the form "Rttttt\r\n" see manual for details

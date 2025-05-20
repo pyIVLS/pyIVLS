@@ -64,6 +64,7 @@
 #10. python3 -m pip install datetime
 #11. python3 -m pip install pathvalidate # required for sequenceces
 #12. python3 -m pip install pyserial # required for peltierController, senseMultiplexer, etc.
+#13. python3 -m pip install gpib-ctypes # required for gpib communication
 # deactivate
 
 ###List of packages knowing to have working configuration
@@ -71,6 +72,7 @@
 #cycler==0.12.1
 #DateTime==5.5
 #fonttools==4.55.3
+#gpib-ctypes==0.3.0
 #ifaddr==0.2.0
 #kiwisolver==1.4.8
 #matplotlib==3.10.0

@@ -1,0 +1,1 @@
+savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tnt4882/modules.order := {   echo /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tnt4882/tnt4882.o; :; } > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tnt4882/modules.order

@@ -1,0 +1,1 @@
+savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/fmh_gpib/fmh_gpib.mod := printf '%s\n'   fmh_gpib.o | awk '!x[$$0]++ { print("/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/fmh_gpib/"$$0) }' > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/fmh_gpib/fmh_gpib.mod

@@ -1,0 +1,1 @@
+savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cb7210/cb7210.mod := printf '%s\n'   cb7210_init.o cb7210_cs.o interrupt.o cb7210_aux.o cb7210_read.o cb7210_write.o | awk '!x[$$0]++ { print("/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cb7210/"$$0) }' > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cb7210/cb7210.mod

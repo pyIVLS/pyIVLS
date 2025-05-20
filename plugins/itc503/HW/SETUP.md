@@ -9,7 +9,7 @@
 			sudo make install 
 		This will actually make Makefile and will put gpib.conf file in the right place, which is in /etc/gpib.conf and not in /usr/local/etc/gpib.conf
 
-
+2. To allow access to the gpib without root privileges modify MODE in /etc/udev/rules.d/98-gpib-generic.rules to '0666'
 
 	- ITC503 won’t answer as intended
 		-to do that see controlitc.py
