@@ -40,10 +40,24 @@ class pyIVLS_GUI(QObject):
     def setCloseLock(self, value):
         self.window.setCloseOK(value)
     
+    @pyqtSlot()
+    def seqBuilderReactClose(self):
+        self.window.actionSequence_builder.setChecked(False)
+    
+    @pyqtSlot()
+    def dockWidgetReactClose(self):
+        self.window.actionDockWidget.setChecked(False)
+        
     ################ Menu actions
     def actionPlugins(self):
         self.pluginloader.refresh()
         self.pluginloader.window.show()
+
+    def actionSequence_builder(self):
+        self.window.seqBuilder_dockWidget.setVisible(self.window.actionSequence_builder.isChecked())
+
+    def actionDockWidget(self):
+        self.window.dockWidget.setVisible(self.window.actionDockWidget.isChecked())
 
     ############### Settings Widget
 
@@ -94,6 +108,10 @@ class pyIVLS_GUI(QObject):
         self.pluginloader = pyIVLS_pluginloader(self.path)
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
+        self.window.actionSequence_builder.triggered.connect(self.actionSequence_builder)
+        self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
         self.window.closeSignal.connect(self.reactClose)
+        self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
+        self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)
 
         self.initial_widget_state = {}

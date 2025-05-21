@@ -13,14 +13,14 @@
 # 3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)
 # 4. remove constants file. The info from it may be moved to the plugin settings.
 # 5. implement saving of settings to configuration file
-# 6. implement reopening of docking window and MDI windows
+# 6. implement reopening of MDI windows
 # 7. implement autosave for long measurements
 # 8. check that logging, closeLock and messaging signals will work after loading plugins from menu. The connect functions in pyIVLS are run only in init stage, probably something should be moved/added to update_settings_widget slot
 # 9. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
 # 10. implement GUI for adding/removing plugins. This should take care that plugin info in *.ini (i.e. name, class, function. etc) corresponds to info in plugin itself
-# 11. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence
+# 11. implement measurement run and address selection for data saving as a built-in functionality (partially implemented). A temporary workaround is the use of plugings with function = sequence
 ##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
-##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
+##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through. 
 # 12. plugins share is implemented (e.g for threadStopped and MplCanvas), but during plugin install the version of shared libraries should be checked and updated if needed
 # 13. there may be a reason to make "hiddenLoad" option for plugins, i.e. the plugin will be loaded but there will be not setting tab and MDI window for it. That may be useful e.g. for duplicating a part of keithley plugin to sweep and not showing Keithley plugin at all. The idea would be to have a minimalistic set of parameters, ad if more needed the main plugin may be switched on
 
