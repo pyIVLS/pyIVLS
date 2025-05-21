@@ -13,14 +13,14 @@
 # 3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)
 # 4. remove constants file. The info from it may be moved to the plugin settings.
 # 5. implement saving of settings to configuration file
-# 6. implement reopening of docking window and MDI windows
+# 6. implement reopening of MDI windows
 # 7. implement autosave for long measurements
 # 8. check that logging, closeLock and messaging signals will work after loading plugins from menu. The connect functions in pyIVLS are run only in init stage, probably something should be moved/added to update_settings_widget slot
 # 9. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
 # 10. implement GUI for adding/removing plugins. This should take care that plugin info in *.ini (i.e. name, class, function. etc) corresponds to info in plugin itself
-# 11. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence
+# 11. implement measurement run and address selection for data saving as a built-in functionality (partially implemented). A temporary workaround is the use of plugings with function = sequence
 ##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
-##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
+##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through. 
 # 12. plugins share is implemented (e.g for threadStopped and MplCanvas), but during plugin install the version of shared libraries should be checked and updated if needed
 # 13. there may be a reason to make "hiddenLoad" option for plugins, i.e. the plugin will be loaded but there will be not setting tab and MDI window for it. That may be useful e.g. for duplicating a part of keithley plugin to sweep and not showing Keithley plugin at all. The idea would be to have a minimalistic set of parameters, ad if more needed the main plugin may be switched on
 
@@ -30,13 +30,19 @@
 #3. timeIV: variation of readings from SMU with time
 #4. VenusUSB2: interface to camera
 #5. TLCCS: interface to spectrometer
+#6. conDetect: multiplexor for checking connection between sense and current probes
+#7. itc503: temperature controller for cryo
 
 #### plugin specific TODO lists
 ######### VenusUSB2
 ####	Implement manipulation of the image (size change, digital zoom, etc.). May be reasonable to thing about changing integration time without stopping the preview
+####	closeLock is not implemented
 ######### timeIV
 ####	there is a bug in matplotlib, the axes name is on a wrong side after cla() see https://github.com/matplotlib/matplotlib/issues/28268
-####    pulsed operation may be added
+####	pulsed operation may be added
+######### conDetect
+####	the multiplexor device works in a bit inconvinient mode on startup: according to AN_184 bus powered behavior starts with enumeration in chart, as power comes from the usb host (DTR set to tristate on enumeration, output once active). Since it is active low, it's a voltage high at this point. Meaning that it is switched to the sense mode until the device will be connedted to the module, and this is undersired behaviour. A workaround will be to reset the invertion of the pin from FT232 flash, in this case behaviour on not powered and powered but not connected will be the same. 
+###	there is a bug: when connect action fails with an exeption, the GUI is still changed to the connected mode
 
 #### install (Ubuntu 24.04.1 LTS)
 # 1. python3 -m venv .venv
@@ -58,6 +64,7 @@
 #10. python3 -m pip install datetime
 #11. python3 -m pip install pathvalidate # required for sequenceces
 #12. python3 -m pip install pyserial # required for peltierController, senseMultiplexer, etc.
+#13. python3 -m pip install gpib-ctypes # required for gpib communication
 # deactivate
 
 ###List of packages knowing to have working configuration
@@ -65,6 +72,7 @@
 #cycler==0.12.1
 #DateTime==5.5
 #fonttools==4.55.3
+#gpib-ctypes==0.3.0
 #ifaddr==0.2.0
 #kiwisolver==1.4.8
 #matplotlib==3.10.0
