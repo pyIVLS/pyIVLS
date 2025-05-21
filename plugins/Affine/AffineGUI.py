@@ -25,6 +25,7 @@ class AffineGUI(QObject):
 
         # init core functionality
         self.affine = Affine()
+        self.dependency = ["camera"]
 
         # init dependency functions
         self.functions = {}
@@ -89,6 +90,8 @@ class AffineGUI(QObject):
         assert self.definedPoints is not None, (
             "definedPoints not found in settingsWidget"
         )
+        self.cameraComboBox = settingsWidget.findChild(QtWidgets.QComboBox, "cameraComboBox")
+        assert self.cameraComboBox is not None, "cameraComboBox not found in settingsWidget"
         # add removal to the context menu
         self.definedPoints.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.definedPoints.customContextMenuRequested.connect(
@@ -96,6 +99,7 @@ class AffineGUI(QObject):
         )
         # connect the item clicked to a function
         self.definedPoints.itemClicked.connect(self._list_item_clicked_action)
+
 
     def _connect_buttons(self, settingsWidget, MDIWidget):
         """Connects the buttons, checkboxes and label clicks to their actions.
@@ -202,10 +206,12 @@ class AffineGUI(QObject):
         """Action for the find button."""
 
         try:
-            img = self.functions["camera"]["camera_capture_image"](full_size = True)
+            # get the camera name from the combobox
+            camera_name = self.cameraComboBox.currentText()
 
+            img = self.functions["camera"][camera_name]["camera_capture_image"](full_size=True)
             self._update_MDI(None, img, save_internal=True)
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")
+
             self.affine.try_match(img)
             timestamp = datetime.now().strftime("%H:%M:%S.%f")
             num_matches = len(self.affine.result["matches"])
@@ -256,7 +262,7 @@ class AffineGUI(QObject):
 
     # TODO: Might be good to add a checkbox for "enter new points mode" or something like that so that points can be added without having the affine available.
     def _gds_label_clicked(self, event):
-        # Map from view coords → scene coords
+        # Map from view coords -> scene coords
         pos = self.gds_label.mapToScene(event.pos())
         x, y = pos.x(), pos.y()
 
@@ -343,18 +349,23 @@ class AffineGUI(QObject):
     def _getCloseLockSignal(self):
         return self.closeLock
 
-    def _fetch_dependency_functions(self, function_dict, dependencies):
-        # FIXME: doesn't give proper returns since I think that it is not necessary
-        # to parse out spesific functions from the dependencies
-        for function in function_dict:
-            if function in dependencies:
-                try:
-                    self.functions[function] = function_dict[function]
-                except KeyError:
-                    self.log_message.emit(
-                        f"AffineFunction {function} not found for Affine plugin."
-                    )
-        return []
+    def _fetch_dependency_functions(self, function_dict):
+        self.missing_functions = []
+        self.functions = {}
+
+        for dep_category in self.dependency:
+            if dep_category not in function_dict:
+                self.missing_functions.append(dep_category)
+                
+            else:
+                self.functions[dep_category] = function_dict[dep_category]
+
+        # self.functions["camera"] is a list of nested dictionaries, iterate through every camera
+        for camera in self.functions["camera"]:
+            # get the camera name (key of the dictionary)
+            self.cameraComboBox.addItem(camera)
+            
+        return self.missing_functions
 
     def _get_public_methods(self, function: str) -> dict:
         """

@@ -54,11 +54,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QCheckBox" name="checkBox">
-           <property name="text">
-            <string>debug</string>
-           </property>
-          </widget>
+          <widget class="QComboBox" name="cameraComboBox"/>
          </item>
         </layout>
        </widget>

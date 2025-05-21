@@ -16,7 +16,6 @@ class pyIVLS_Affine_plugin:
         """
         self.affine_control = AffineGUI()
         self.name = "Affine"
-        self.dependencies = ["camera"]
         self.function = "positioning"
         self.type = "script"  # unnecessary
         self.address = "Affine"  # unnecessary
@@ -70,7 +69,7 @@ class pyIVLS_Affine_plugin:
 
         return {
             self.name: self.affine_control._fetch_dependency_functions(
-                function_dict, self.dependencies
+                function_dict
             )
         }
 

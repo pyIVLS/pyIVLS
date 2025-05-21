@@ -174,6 +174,7 @@ class VenusUSB2GUI(QObject):
         """
         self.settingsWidget.cameraSource.setText(plugin_info["source"])
 
+
     ########Functions
     ###############GUI react to change
 
