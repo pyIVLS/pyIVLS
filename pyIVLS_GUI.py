@@ -39,29 +39,15 @@ class pyIVLS_GUI(QObject):
     def reactClose(self):
         self.show_message("Stop running processes and disconnect devices before close")
 
-    def setCloseLock(self, value):
-        self.window.setCloseOK(value)
-    
-    @pyqtSlot()
-    def seqBuilderReactClose(self):
-        self.window.actionSequence_builder.setChecked(False)
-    
-    @pyqtSlot()
-    def dockWidgetReactClose(self):
-        self.window.actionDockWidget.setChecked(False)
-        
+    @pyqtSlot(bool)
+    def setCloseLock(self, bool):
+        # changes here, since closelock is True when closing is not allowed
+        self.window.setCloseOK(not bool)
 
     ################ Menu actions
     def actionPlugins(self):
         self.pluginloader.refresh()
         self.pluginloader.window.show()
-
-
-    def actionSequence_builder(self):
-        self.window.seqBuilder_dockWidget.setVisible(self.window.actionSequence_builder.isChecked())
-
-    def actionDockWidget(self):
-        self.window.dockWidget.setVisible(self.window.actionDockWidget.isChecked())
 
     def actionReopen_MDI(self):
         """
@@ -70,6 +56,16 @@ class pyIVLS_GUI(QObject):
         self.clearMDIArea()
         for name, widget in self.mdiWidgets.items():
             widget.show()
+
+        
+
+    def actionReopen_dock(self):
+        """
+        Reopen the dock widget with the widgets stored in self.dockWidgets.
+        """
+        # if dockwidget is not visible, show it
+        if not self.window.dockWidget.isVisible():
+            self.window.dockWidget.show()
 
 
     ############### Settings Widget
@@ -137,11 +133,8 @@ class pyIVLS_GUI(QObject):
         self.pluginloader = pyIVLS_pluginloader(self.path)
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
-        self.window.actionSequence_builder.triggered.connect(self.actionSequence_builder)
-        self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
         self.window.actionReopen_MDI.triggered.connect(self.actionReopen_MDI)
+        self.window.actionReopen_dock.triggered.connect(self.actionReopen_dock)
         self.window.closeSignal.connect(self.reactClose)
-        self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
-        self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)
 
         self.initial_widget_state = {}
