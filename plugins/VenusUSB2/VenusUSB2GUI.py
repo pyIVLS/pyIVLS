@@ -20,7 +20,6 @@ ivarad
 import os
 from datetime import datetime
 
-import cv2 as cv
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
@@ -74,10 +73,7 @@ class VenusUSB2GUI(QObject):
             QtWidgets.QPushButton, "cameraPreview"
         )
         GUI_preview_button.clicked.connect(self._previewAction)
-        self.exposure = self.settingsWidget.findChild(
-            QtWidgets.QComboBox, "exposure"
-        )
-
+        self.exposure = self.settingsWidget.findChild(QtWidgets.QComboBox, "exposure")
 
         # get possible exposures from the camera
         exposures = self.camera.exposures
@@ -85,10 +81,10 @@ class VenusUSB2GUI(QObject):
         # add possible exposures to the combobox
         for exposure in exposures:
             self.exposure.addItem(str(exposure))
-        
+
         # connect changes in the exposure combobox:
         self.exposure.currentIndexChanged.connect(self._exp_slider_change)
-        
+
         # Set a timer for the camera feed
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_frame)
@@ -171,7 +167,7 @@ class VenusUSB2GUI(QObject):
     ):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
-        """        
+        """
         self.settingsWidget.cameraExposure.setValue(
             self.camera.exposures.index(int(plugin_info["exposure"]))
         )
@@ -191,7 +187,7 @@ class VenusUSB2GUI(QObject):
             self.settingsWidget.connectionIndicator.setStyleSheet(
                 "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
             )
-        #self.settingsWidget.exposureBox.setEnabled(status)
+        # self.settingsWidget.exposureBox.setEnabled(status)
         self.settingsWidget.sourceBox.setEnabled(status)
         self.closeLock.emit(not status)
 
@@ -202,7 +198,6 @@ class VenusUSB2GUI(QObject):
             self.camera.open(
                 source=self.settings["source"], exposure=self.settings["exposure"]
             )
-
 
     ########Functions
     ########plugins interraction
