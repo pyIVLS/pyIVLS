@@ -253,11 +253,16 @@ class pyIVLS_container(QObject):
         plugin_public_functions = self.pm.hook.get_functions()
         available_public_functions = {}
         # change public functions names as dict keys to plugin function, thus every plugin may find objects it needs
-        for public_functions in plugin_public_functions:
-            plugin_name = list(public_functions.keys())[0]
-            available_public_functions[
-                self.config[plugin_name + "_plugin"]["function"]
-            ] = public_functions[plugin_name]
+        # iterate over the plugin_public_functions dict
+        for single_dict in plugin_public_functions:
+            for key in single_dict:
+                plugin_name = key
+                plugin_function = self.config[plugin_name + "_plugin"]["function"]
+                if plugin_function not in available_public_functions:
+                    available_public_functions[plugin_function] = {}
+                available_public_functions[plugin_function] = single_dict
+
+
         self.pm.hook.set_function(function_dict=available_public_functions)
 
     def getLogSignals(self):
