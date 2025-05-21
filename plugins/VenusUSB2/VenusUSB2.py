@@ -50,16 +50,15 @@ class VenusUSB2:
         if source is None or source == "":
             self.cap.open(0)
         else:
-            self.cap.open(source)  
+            self.cap.open(source)
         if self.cap.isOpened():
-            self.cap.read() # read so that the camera doesn't feel sad
+            self.cap.read()  # read so that the camera doesn't feel sad
             # also makes sure that the exposure is properly set, some cameras seem to need this.
             if exposure is None:
-                exposure = 1            
+                exposure = 1
             if not self.cap.set(cv.CAP_PROP_EXPOSURE, exposure):
                 self.close()
                 return [4, {"Error message": "Can not set exposure time"}]
-            
 
             ##IRtothink#### should the next settings be obtaines as parameters
 

@@ -59,7 +59,7 @@ class Affine:
         self.A = None  # Affine transformation matrix
         self.internal_img = None  # Internal image
         self.internal_mask = None  # Internal mask
-        self.MIN_MATCHES = 4 
+        self.MIN_MATCHES = 4
 
     @staticmethod
     def _preprocess_img(img):

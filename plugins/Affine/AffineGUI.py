@@ -201,9 +201,9 @@ class AffineGUI(QObject):
     def _find_button_action(self):
         """Action for the find button."""
 
-
         try:
             img = self.functions["camera"]["camera_capture_image"](full_size = True)
+
             self._update_MDI(None, img, save_internal=True)
             timestamp = datetime.now().strftime("%H:%M:%S.%f")
             self.affine.try_match(img)
