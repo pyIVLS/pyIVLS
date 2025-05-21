@@ -22,7 +22,7 @@ import pluggy
 
 from peltierControllerGUI import peltierControllerGUI
 
-class pyIVLS_peltierController_plugin():
+class pyIVLS_peltierController_plugin:
     """Hooks for peltierController plugin
     
     get_log and get_info should be implemented, as the plugin may start manual temperature monitor or set tempereature/power
@@ -34,7 +34,6 @@ class pyIVLS_peltierController_plugin():
         self.plugin_name = 'peltierController'
         self.plugin_function = 'temperature' #e.g. smu, camera, micromanipulator, etc.
         self.pluginClass = peltierControllerGUI()
-        super().__init__()
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:

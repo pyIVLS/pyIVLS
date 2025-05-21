@@ -2,11 +2,10 @@
 # dialog and functionality for the plugins action from the Tools menu
 # This represents the single window opened.
 
-from os.path import sep
 import sys
-import pyIVLS_constants
+from os.path import sep
 
-from PyQt6 import QtWidgets, uic, QtGui
+from PyQt6 import QtGui, QtWidgets, uic
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 
 
@@ -73,7 +72,9 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         for i in range(self.model.rowCount()):
             item = self.model.item(i)
             if item.checkState() == Qt.CheckState.Checked:
-                plugins.append(item.data(Qt.ItemDataRole.UserRole))
+                plugin_name = item.data(Qt.ItemDataRole.UserRole)
+                plugin = plugin_name + "_plugin"
+                plugins.append(plugin)
         self.register_plugins_signal.emit(plugins)
         self.refresh()
 

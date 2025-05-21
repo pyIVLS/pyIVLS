@@ -1,71 +1,101 @@
 #!/usr/bin/python3.8
 import pluggy
-from PyQt6 import QtWidgets
 
-from plugins.plugin import Plugin
-from plugins.Affine.Affine import Affine
+from plugins.Affine.AffineGUI import AffineGUI
 
 
-class pyIVLS_Affine_plugin(Plugin):
+class pyIVLS_Affine_plugin:
     """Hooks for affine conversion plugin
     This class acts as a bridge between plugins"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.affine = Affine()
-        super().__init__()
+        """
+        Initialize the plugin and set up properties.
+        """
+        self.affine_control = AffineGUI()
+        self.name = "Affine"
+        self.function = "positioning"
+        self.type = "script"  # unnecessary
+        self.address = "Affine"  # unnecessary
 
     @hookimpl
-    def get_setup_interface(self, pm, plugin_data) -> dict:
-        """Sets up the buttons for affine conversion plugin
+    def get_setup_interface(self, plugin_data: dict) -> dict:
+        """Returns GUI
+        Args:
+            plugin_data (dict): plugin data read from .ini to read initial settings.
 
         Returns:
             dict: name, widget
         """
-
-        self.setup(pm, plugin_data)
-
-        return {self.plugin_name: self._connect_buttons(self.affine.settingsWidget)}
+        settings = plugin_data[self.name].get("settings", {})
+        self.affine_control._initGUI(settings)
+        return {self.name: self.affine_control.settingsWidget}
 
     @hookimpl
-    def get_functions(self, args):
-        if args.get("function") == self.plugin_info["function"]:
-            return self.get_public_methods()
+    def get_MDI_interface(self, args=None) -> dict:
+        """Returns MDI window
 
-    def _connect_buttons(self, settingsWidget):
-        mask_button = settingsWidget.findChild(QtWidgets.QPushButton, "maskButton")
+        Returns:
+            dict: name, widget
+        """
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.affine_control.MDIWidget}
 
-        find_button = settingsWidget.findChild(QtWidgets.QPushButton, "findButton")
+    @hookimpl
+    def get_functions(self, args=None):
+        """Returns a dictionary of publicly accessible functions.
 
-        save_button = settingsWidget.findChild(QtWidgets.QPushButton, "saveButton")
-        mask_gds_button = settingsWidget.findChild(
-            QtWidgets.QPushButton, "maskGdsButton"
-        )
-        check_mask_button = settingsWidget.findChild(
-            QtWidgets.QPushButton, "checkMaskButton"
-        )
+        Args:
+            args (dict): function
 
-        # Connect widget buttons to functions
-        mask_button.clicked.connect(self.affine.mask_button)
-        find_button.clicked.connect(self._find_button)
-        save_button.clicked.connect(self.affine.save_button)
-        mask_gds_button.clicked.connect(self.affine.mask_gds_button)
-        check_mask_button.clicked.connect(self.affine.check_mask_button)
-        if self.affine.A is None:
-            self.affine.affine_label.setText(
-                "Affine matrix not found. Please click 'Find Affine'."
+        Returns:
+            dict: functions
+        """
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.affine_control._get_public_methods(self.function)}
+
+    @hookimpl
+    def set_function(self, function_dict):
+        """Sets the functions for the plugin.
+
+        Args:
+            args (dict): function
+
+        Returns:
+            dict: functions
+        """
+
+        return {
+            self.name: self.affine_control._fetch_dependency_functions(
+                function_dict
             )
-        self.affine.mask_label.setText("Set mask image.")
+        }
 
-        return settingsWidget
+    @hookimpl
+    def get_log(self, args=None):
+        """provides the signal for logging to main app
 
-    def _find_button(self):
-        # FIXME: Might be best to save the functions to reduce the number of calls
-        camera_funcs = self.pm.hook.get_functions(args={"function": "camera"})[0]
-        img = camera_funcs["VenusUSB2"]["camera_get_image"]()
-        self.affine.update_img(img)
-        self.affine.find_button()
+        :return: dict that includes the log signal
+        """
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.affine_control._getLogSignal()}
 
-    def coords(self, point: tuple[float, float]) -> tuple[float, float]:
-        self.affine.coords(point)
+    @hookimpl
+    def get_info(self, args=None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.affine_control._getInfoSignal()}
+
+    @hookimpl
+    def get_closeLock(self, args=None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.affine_control._getCloseLockSignal()}

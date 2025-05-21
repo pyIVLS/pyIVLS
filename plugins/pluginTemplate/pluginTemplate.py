@@ -5,9 +5,7 @@ This file should be independent on GUI, i.e. it should be made in a way that all
 '''
 
 import cv2 as cv
-import os
 
-import numpy as np
 
 class pluginTemplate:
     """below is an minimum example from VenusUSB camera plugin"""
