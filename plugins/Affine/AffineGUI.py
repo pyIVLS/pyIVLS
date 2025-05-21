@@ -208,10 +208,10 @@ class AffineGUI(QObject):
         try:
             # get the camera name from the combobox
             camera_name = self.cameraComboBox.currentText()
-            print(camera_name)
-            print(self.functions)
+
             img = self.functions["camera"][camera_name]["camera_capture_image"](full_size=True)
             self._update_MDI(None, img, save_internal=True)
+
             self.affine.try_match(img)
             timestamp = datetime.now().strftime("%H:%M:%S.%f")
             num_matches = len(self.affine.result["matches"])
@@ -222,6 +222,7 @@ class AffineGUI(QObject):
 
         except AffineError as e:
             self.log_message.emit(e.message)
+        
 
     def _manual_button_action(self):
         """Action for the save button."""
