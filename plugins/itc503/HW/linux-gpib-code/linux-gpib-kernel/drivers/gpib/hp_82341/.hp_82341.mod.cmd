@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/hp_82341/hp_82341.mod := printf '%s\n'   hp_82341_init.o hp_82341_read.o hp_82341_write.o | awk '!x[$$0]++ { print("/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/hp_82341/"$$0) }' > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/hp_82341/hp_82341.mod

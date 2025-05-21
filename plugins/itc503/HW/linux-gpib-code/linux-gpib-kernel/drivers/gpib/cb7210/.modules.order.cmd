@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cb7210/modules.order := {   echo /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cb7210/cb7210.o; :; } > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cb7210/modules.order

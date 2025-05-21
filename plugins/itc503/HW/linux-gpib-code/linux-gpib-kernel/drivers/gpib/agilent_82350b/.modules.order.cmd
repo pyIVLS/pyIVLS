@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/agilent_82350b/modules.order := {   echo /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/agilent_82350b/agilent_82350b.o; :; } > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/agilent_82350b/modules.order

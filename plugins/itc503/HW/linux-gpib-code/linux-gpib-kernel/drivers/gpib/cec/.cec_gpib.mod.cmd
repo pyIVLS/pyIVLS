@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cec/cec_gpib.mod := printf '%s\n'   init.o interrupt.o | awk '!x[$$0]++ { print("/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cec/"$$0) }' > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/cec/cec_gpib.mod

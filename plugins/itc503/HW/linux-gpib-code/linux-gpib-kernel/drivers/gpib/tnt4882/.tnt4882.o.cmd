@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tnt4882/tnt4882.o := ld -m elf_x86_64 -z noexecstack --no-warn-rwx-segments   -r -o /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tnt4882/tnt4882.o @/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tnt4882/tnt4882.mod 

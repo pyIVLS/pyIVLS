@@ -1,1 +1,0 @@
-/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/hp_82335/hp82335_init.o

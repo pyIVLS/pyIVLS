@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/hp_82341/modules.order := {   echo /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/hp_82341/hp_82341.o; :; } > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/hp_82341/modules.order

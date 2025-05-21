@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/ni_usb/ni_usb_gpib.mod := printf '%s\n'   ni_usb_gpib.o | awk '!x[$$0]++ { print("/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/ni_usb/"$$0) }' > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/ni_usb/ni_usb_gpib.mod

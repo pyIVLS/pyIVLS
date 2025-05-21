@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tms9914/modules.order := {   echo /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tms9914/tms9914.o; :; } > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tms9914/modules.order

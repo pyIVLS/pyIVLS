@@ -1,8 +1,0 @@
-Gpib.py
-README
-gpibinter.c
-setup.py
-gpib.egg-info/PKG-INFO
-gpib.egg-info/SOURCES.txt
-gpib.egg-info/dependency_links.txt
-gpib.egg-info/top_level.txt

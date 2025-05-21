@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tnt4882/tnt4882.mod := printf '%s\n'   tnt4882_init.o mite.o interrupt.o tnt4882_cs.o tnt4882_aux.o tnt4882_write.o tnt4882_read.o | awk '!x[$$0]++ { print("/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tnt4882/"$$0) }' > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/tnt4882/tnt4882.mod

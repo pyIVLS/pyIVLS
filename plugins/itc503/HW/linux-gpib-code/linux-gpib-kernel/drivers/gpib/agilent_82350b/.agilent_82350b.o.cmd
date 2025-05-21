@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/agilent_82350b/agilent_82350b.o := ld -m elf_x86_64 -z noexecstack --no-warn-rwx-segments   -r -o /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/agilent_82350b/agilent_82350b.o @/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/agilent_82350b/agilent_82350b.mod 

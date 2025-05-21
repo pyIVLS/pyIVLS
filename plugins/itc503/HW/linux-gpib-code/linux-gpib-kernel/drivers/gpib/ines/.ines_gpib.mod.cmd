@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/ines/ines_gpib.mod := printf '%s\n'   ines_init.o ines_cs.o interrupt.o ines_util.o ines_read.o ines_write.o | awk '!x[$$0]++ { print("/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/ines/"$$0) }' > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/ines/ines_gpib.mod

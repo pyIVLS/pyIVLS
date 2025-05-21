@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/Module.symvers -T /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/modules.order -i Module.symvers -e 

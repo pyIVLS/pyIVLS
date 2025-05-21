@@ -1,1 +1,0 @@
-savedcmd_/home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/ni_usb/modules.order := {   echo /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/ni_usb/ni_usb_gpib.o; :; } > /home/cryo/linux-gpib-code/linux-gpib-kernel/drivers/gpib/ni_usb/modules.order

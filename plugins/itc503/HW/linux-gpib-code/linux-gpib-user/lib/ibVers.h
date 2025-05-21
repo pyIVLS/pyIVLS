@@ -1,1 +1,0 @@
-#define GPIB_SCM_VERSION 4.3.7-rc1 r[2106]
