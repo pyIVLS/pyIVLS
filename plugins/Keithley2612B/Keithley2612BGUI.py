@@ -2,7 +2,7 @@ import sys
 import os
 import time
 from threading import Lock
-from Keithley2612B import Keithley2612B
+from Keithley2612B_test import Keithley2612B
 #from Keithley2612B import Keithley2612B
 
 from PyQt6 import uic
@@ -130,13 +130,10 @@ class Keithley2612BGUI:
         	self.settings["drainhighc"] = True
         else:	
 	        self.settings["drainhighc"] = False
-        if not "lineFrequency" in self.settings:
-        	try:     
-        	        [status, info] = self.smu_connect()
-        	        if status:
-        	            return [status, {"Error message": f"{info}"}]
+
+        if not "lineFreuency" in self.settings:
+        	try:        
         	        info = self.smu.getLineFrequency()
-        	        self.smu_disconnect()
         	except:
         	        return [4, {"Error message": f"Can not get line frequency from SMU"}]
         	self.settings["lineFrequency"] = info
