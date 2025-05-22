@@ -12,6 +12,11 @@ This plugin should have double functionality
 
 Because of (i) it requires to send log and message signals, i.e. it is a child of QObject
 
+public API:
+- camera_open() -> "error"
+- camera_close() -> None
+- camera_capture_image() -> image / None
+
 version 0.4
 2025.02.28
 ivarad

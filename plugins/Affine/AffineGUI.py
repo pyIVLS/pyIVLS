@@ -1,3 +1,4 @@
+
 import os
 from datetime import datetime
 
@@ -9,8 +10,17 @@ from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
 
 
 class AffineGUI(QObject):
-    """Gui for Affine plugin"""
+    """
+    GUI implementation of the Affine plugin for pyIVLS.
 
+    public API:
+
+    -positioning_coords(coords: tuple[float, float]) -> tuple[float, float]
+
+    version 0.1
+    2025.05.21
+    otsoha
+    """
     log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool)
