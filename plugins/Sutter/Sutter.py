@@ -8,21 +8,44 @@ import time  # for device-spesified wait-times
 from typing import Final  # for constants
 import serial  # Accessing sutter device through serial port
 import numpy as np  # for better typing
-import os
+from datetime import datetime  # for error messages
 
-from PyQt6 import uic
-from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject
-import pyIVLS_constants as const
 
-### Sutter constants
-SUTTER_DEFAULT_PORT = (
-    "/dev/serial/by-id/usb-Sutter_Sutter_Instrument_ROE-200_SI9NGJEQ-if00-port0"
-)
+class SutterError(Exception):
+    """
+    From readme:
+    0 = no error, 
+    1 = Value error, 
+    2 = Any error reported by dependent plugin, 
+    3 = missing functions or plugins, 
+    4 = harware error 
+    plugins return errors in form of list [number, {"Error message":"Error text", "Exception":f"e"}]
+    e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}] 
+    error text will be shown in the dialog message in the interaction plugin, 
+    so the error text should contain the plugin name,
+    e.g. return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
+
+    """
+
+    def __init__(self, message, error_code):
+        super().__init__(message)
+        self.error_code = error_code
+        self.message = message
+        self.timestamp = datetime.now().strftime("%H:%M:%S.%f")
+        self.message = (
+            f"{self.timestamp}: {self.message} (Affine error Code: {self.error_code})"
+        )
+
+    def __str__(self):
+        return self.message
 
 class Mpc325:
-    """Handles communication with the Sutter MPC-325 micromanipulator system.
+    """
+    Handles communication with the Sutter MPC-325 micromanipulator system.
     Methods are named after the commands in the manual.
+    revision 1.0.0
+    2025.05.22
+    otsoha
     """
 
     # constants from the manual. These are the the same for the whole class
@@ -58,11 +81,11 @@ class Mpc325:
 
     def __init__(self):
         # vars for a single instance
-        self.port = SUTTER_DEFAULT_PORT
         self.ser = serial.Serial()  # init a closed port
         # Initialize settings:
         self.quick_move = False
         self.speed = 0
+        self.port = ""
 
 
 
@@ -71,10 +94,25 @@ class Mpc325:
         if self.ser.is_open:
             self.ser.close()
 
-    # FIXME: add a check that tests if the port is already open
+    def update_internal_state(self, quick_move: bool, speed: int, source: str):
+        """Update the internal state of the micromanipulator.
+
+        Args:
+            quick_move (bool): Whether to use quick move or not.
+            speed (int): Speed in range 0-15.
+            source (str): Source for the micromanipulator.
+        """
+        self.quick_move = quick_move
+        self.speed = speed
+        self.port = source
+
     def open(self):
+        """Opens the serial port for communication with the micromanipulator.
+        Raises:
+            SerialException: If the port is already open.
+        """
         # Open port
-        try:
+        if not self.is_connected():
             self.ser = serial.Serial(
                 port=self.port,
                 baudrate=self._BAUDRATE,
@@ -83,18 +121,11 @@ class Mpc325:
                 timeout=self._TIMEOUT,
                 bytesize=self._DATABITS,
             )
-            print(
-                f"Port {self.port} is open: {self.ser.is_open}. Flushing I/O to initialize micromanipulators."
-            )
             self._flush()
-            return True
-        except serial.SerialException as e:
-            return False
 
     def close(self):
-        if self.ser.is_open:
+        if self.is_connected():
             self.ser.close()
-            print(f"Port {self.port} is closed: {self.ser.is_open}")
 
     def is_connected(self):
         """Check if the port is open and connected.
@@ -117,14 +148,8 @@ class Mpc325:
         """
         unpacked_data = struct.unpack(format_str, output)
         # Check last byte for simple validation.
-        if unpacked_data[-1] != 0x0D:
-            print(
-                f"Invalid end marker sent from device. Expected 0x0D, got {unpacked_data[-1]}. Flushing buffers."
-            )
-            self._flush()
-            return [-1, -1, -1, -1, -1, -1]  # Return error code
-        else:
-            return unpacked_data[:-1]
+        assert unpacked_data == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {unpacked_data[-1]}"
+        return unpacked_data[:-1]
 
     def _flush(self):
         """Flushes i/o buffers. Also applies a wait time between commands. Every method should call this before sending a command."""
@@ -173,6 +198,10 @@ class Mpc325:
             bool: Change successful
         """
         self._flush()
+        if dev_num < 1 or dev_num > 4:
+            raise ValueError(
+                f"Device number {dev_num} is out of range. Must be between 1 and 4."
+            )
         command = struct.pack("<2B", 73, dev_num)
         self.ser.write(command)  # Send command to the device (ASCII: I )
 
