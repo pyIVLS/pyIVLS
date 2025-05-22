@@ -196,6 +196,7 @@ class VenusUSB2GUI(QObject):
         # self.settingsWidget.exposureBox.setEnabled(status)
         self.settingsWidget.sourceBox.setEnabled(status)
         self.closeLock.emit(not status)
+        print("camera emitted close lock signal ", not status)
 
     def _exp_slider_change(self):
         if self.preview_running:

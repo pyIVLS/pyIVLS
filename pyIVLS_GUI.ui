@@ -26,7 +26,7 @@
      <x>0</x>
      <y>0</y>
      <width>1034</width>
-     <height>22</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -44,6 +44,7 @@
      </property>
      <addaction name="actionSequence_builder"/>
      <addaction name="actionDockWidget"/>
+     <addaction name="actionMDI_windows"/>
     </widget>
     <addaction name="menuShow"/>
    </widget>
@@ -95,6 +96,17 @@
    </property>
    <property name="text">
     <string>Settings</string>
+   </property>
+  </action>
+  <action name="actionMDI_windows">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>MDI windows</string>
    </property>
   </action>
  </widget>
