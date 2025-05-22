@@ -15,13 +15,17 @@ from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject
 import pyIVLS_constants as const
 
+### Sutter constants
+SUTTER_DEFAULT_PORT = (
+    "/dev/serial/by-id/usb-Sutter_Sutter_Instrument_ROE-200_SI9NGJEQ-if00-port0"
+)
 
 class Mpc325:
     """Handles communication with the Sutter MPC-325 micromanipulator system.
     Methods are named after the commands in the manual.
     """
 
-    # constants from the manual. These the the same for the whole class
+    # constants from the manual. These are the the same for the whole class
     # move speeds in micrometers per second
     _MOVE_SPEEDS: Final = {
         15: 1300,
@@ -54,26 +58,13 @@ class Mpc325:
 
     def __init__(self):
         # vars for a single instance
-        self.port = const.SUTTER_DEFAULT_PORT
+        self.port = SUTTER_DEFAULT_PORT
         self.ser = serial.Serial()  # init a closed port
         # Initialize settings:
         self.quick_move = False
-        self.speed = 1
+        self.speed = 0
 
-        # Load the settings based on the name of this file.
-        self.path = os.path.dirname(__file__) + os.path.sep
-        filename = (
-            os.path.splitext(os.path.basename(__file__))[0] + "_settingsWidget.ui"
-        )
-        self.settingsWidget = uic.loadUi(self.path + filename)
 
-        # initialize labels that might be modified:
-        self.port_label = self.settingsWidget.findChild(
-            QtWidgets.QLabel, "connectionLabel"
-        )
-        self.status_label = self.settingsWidget.findChild(
-            QtWidgets.QLabel, "statusLabel"
-        )
 
     # Close the connection when python garbage collection gets around to it.
     def __del__(self):
@@ -105,6 +96,14 @@ class Mpc325:
             self.ser.close()
             print(f"Port {self.port} is closed: {self.ser.is_open}")
 
+    def is_connected(self):
+        """Check if the port is open and connected.
+
+        Returns:
+            bool: True if connected, False otherwise.
+        """
+        return self.ser.is_open
+
     def _validate_and_unpack(self, format_str, output):
         """Takes in a struct of bytes, validates end marker and unpacks the data.
         Handles possible errors for the whole code.
@@ -134,7 +133,6 @@ class Mpc325:
         time.sleep(
             0.002
         )  # Hardcoded wait time (2 ms) between commands from the manual.
-        # FIXME: made it 20 ms for testing
 
     def get_connected_devices_status(self):
         """Get the status of connected micromanipulators
@@ -303,40 +301,6 @@ class Mpc325:
         else:
             return self.slow_move_to(x, y, z)
 
-    def parse_settings_widget(self):
-        """Parses the settings widget and sets the values in the class."""
-
-        quick_move = self.settingsWidget.findChild(QtWidgets.QCheckBox, "quickBox")
-        if quick_move.isChecked():
-            self.quick_move = True
-
-        speed = self.settingsWidget.findChild(QtWidgets.QSlider, "speedSlider")
-        self.speed = speed.value()
-
-        source = self.settingsWidget.findChild(QtWidgets.QLineEdit, "sourceInput")
-        self._port = source.text()
-
-    ## Button functionality:
-
-    def connect_button(self):
-        self.parse_settings_widget()
-        if self.open():
-            self.port_label.setText(f"Connected to {self._port}")
-        else:
-            self.port_label.setText(f"Failed to connect to {self._port}")
-
-    def status_button(self):
-        if self.ser.is_open:
-            num_devices, device_statuses = self.get_connected_devices_status()
-            self.status_label.setText(
-                f"Connected devices: {num_devices}\nStatus: {device_statuses}"
-            )
-        else:
-            self.status_label.setText("Not connected")
-
-    def save_button(self):
-        self.parse_settings_widget()
-        self.status_label.setText("Settings saved.")
 
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
     def _handrail_micron(self, microns) -> np.uint32:
