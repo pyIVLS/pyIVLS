@@ -5,6 +5,7 @@
 # 4. Some GUI clases may now be descendents of QObject as they may need to emit signals for logging (see note on logging and error messaging)
 # 5. Changed the structure of ini file, now it allows to save plugin settings
 # 6. class option is added to the plugin descriptor in the ini file. This is related to suggested implementation of the built-in functionality of run and address selection. (class = step for measurement, class = loop for looping the steps, class = none for support plugins not directly used in recipe)
+# 7. Sequence buoilder implmented. This required some changes to pyIVLS and pluginContainer.
 # 7. Execution flow is modified to allow to add messages from pluginContainer to log. Message slot from pluginloader is removed, info signal from plugin container is connected to the message slot in pyIVLS_GUI, as for all the other information windows.
 
 #### TODO list
@@ -21,22 +22,16 @@
 # 11. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence
 ##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
 ##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
-# 12. plugins share is implemented (e.g for threadStopped and MplCanvas), but during plugin install the version of shared libraries should be checked and updated if needed
-# 13. there may be a reason to make "hiddenLoad" option for plugins, i.e. the plugin will be loaded but there will be not setting tab and MDI window for it. That may be useful e.g. for duplicating a part of keithley plugin to sweep and not showing Keithley plugin at all. The idea would be to have a minimalistic set of parameters, ad if more needed the main plugin may be switched on
-
-#### Plugin list
-#1. Keithley2612B: interface to SMU
-#2. sweep: automatic sweep with SMU
-#3. timeIV: variation of readings from SMU with time
-#4. VenusUSB2: interface to camera
-#5. TLCCS: interface to spectrometer
-
-#### plugin specific TODO lists
-######### VenusUSB2
-####	Implement manipulation of the image (size change, digital zoom, etc.). May be reasonable to thing about changing integration time without stopping the preview
-######### timeIV
-####	there is a bug in matplotlib, the axes name is on a wrong side after cla() see https://github.com/matplotlib/matplotlib/issues/28268
-####    pulsed operation may be added
+# 10. to do list to make sequence builder usable
+####        a)connecting and disconnecting device should be implemented in a similar way, most probably at the beginning at ending of the sequence. Devices should have thread locks.
+####        b)implement proper messaging, logging and error handling for running sequencies
+####        c)implement recipe checks in sequence (should look for devices to connect/disconnect, make sure that the same plugin is not used in step mode within its own loop mode)
+####        d)implement closelock and GUI disable
+####        e)in itc503:
+####                     -allow T monitor (timer may not work as it is run in different thread)
+####                     -allow continuous T save to file
+####        f)in sweepGUI:
+####                     -implement setSettings for SMU
 
 #### install (Ubuntu 24.04.1 LTS)
 # 1. python3 -m venv .venv
