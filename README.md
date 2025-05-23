@@ -22,6 +22,16 @@
 # 11. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence
 ##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
 ##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
+# 10. to do list to make sequence builder usable
+####        a)connecting and disconnecting device should be implemented in a similar way, most probably at the beginning at ending of the sequence. Devices should have thread locks.
+####        b)implement proper messaging, logging and error handling for running sequencies
+####        c)implement recipe checks in sequence (should look for devices to connect/disconnect, make sure that the same plugin is not used in step mode within its own loop mode)
+####        d)implement closelock and GUI disable
+####        e)in itc503:
+####                     -allow T monitor (timer may not work as it is run in different thread)
+####                     -allow continuous T save to file
+####        f)in sweepGUI:
+####                     -implement setSettings for SMU
 
 #### install (Ubuntu 24.04.1 LTS)
 # 1. python3 -m venv .venv
