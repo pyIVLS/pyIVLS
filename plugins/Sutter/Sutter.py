@@ -50,9 +50,13 @@ class Mpc325:
 
     # constants from the manual. These are the the same for the whole class
     # move speeds in micrometers per second
+    # FIXME: I have no idea why, but for some reason manipulator 1 fails to move at the top 2 speeds.
+    """ 
+    15: 1300,
+    14: 1218.75,
+    
+    """
     _MOVE_SPEEDS: Final = {
-        15: 1300,
-        14: 1218.75,
         13: 1137.5,
         12: 1056.25,
         11: 975,
@@ -280,11 +284,10 @@ class Mpc325:
         command2 = struct.pack(
             "<3I", x_s, y_s, z_s
         )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
-        # command3 = struct.pack("<B", 13)
 
         self.ser.write(command1)
         self.ser.write(command2)
-        # self.ser.write(command3)
+
         print("moving")
         end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
         self.ser.read_until(
@@ -315,13 +318,6 @@ class Mpc325:
         x_s = self._handrail_step(self._m2s(self._handrail_micron(x)))
         y_s = self._handrail_step(self._m2s(self._handrail_micron(y)))
         z_s = self._handrail_step(self._m2s(self._handrail_micron(z)))
-        wait_time = self._calculate_wait_time(
-            speed, self._s2m(x_s), self._s2m(y_s), self._s2m(z_s)
-        )
-
-        print(
-            f"Moving to: ({self._s2m(x_s)}, {self._s2m(y_s)}, {self._s2m(z_s)}) in microns.\npredicted move time: {wait_time} seconds."
-        )
 
         command2 = struct.pack(
             "<3I", x_s, y_s, z_s
@@ -330,9 +326,13 @@ class Mpc325:
         self.ser.write(command1)
         time.sleep(0.03)  # wait period specified in the manual (30 ms)
         self.ser.write(command2)
-        time.sleep(wait_time)  # wait for the move to finish
-        output = self.ser.read(1)
-        self._validate_and_unpack("B", output)
+
+        print("moving")
+        end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
+        self.ser.read_until(
+            expected=end_marker_bytes
+        )  # Read until the end marker (ASCII: CR)
+        print("done")
 
     def stop(self):
         """Stop the current movement"""
@@ -349,6 +349,7 @@ class Mpc325:
             y (np.float64): y in microns
             z (np.float64): z in microns
         """
+        self._flush() # redundant flush.
         if self.quick_move:
             return self.quick_move_to(x, y, z)
         else:
