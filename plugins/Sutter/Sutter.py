@@ -1,27 +1,26 @@
-"""Module for the MPC-325 abstraction layer
-
-
-"""
+"""Module for the MPC-325 abstraction layer"""
 
 import struct  # Handling binary
 import time  # for device-spesified wait-times
-from typing import Final  # for constants
-import serial  # Accessing sutter device through serial port
-import numpy as np  # for better typing
 from datetime import datetime  # for error messages
+from typing import Final  # for constants
+
+import numpy as np  # for better typing
+import serial  # Accessing sutter device through serial port
 
 
 class SutterError(Exception):
     """
+    # NOTE UNUSED
     From readme:
-    0 = no error, 
-    1 = Value error, 
-    2 = Any error reported by dependent plugin, 
-    3 = missing functions or plugins, 
-    4 = harware error 
+    0 = no error,
+    1 = Value error,
+    2 = Any error reported by dependent plugin,
+    3 = missing functions or plugins,
+    4 = harware error
     plugins return errors in form of list [number, {"Error message":"Error text", "Exception":f"e"}]
-    e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}] 
-    error text will be shown in the dialog message in the interaction plugin, 
+    e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
+    error text will be shown in the dialog message in the interaction plugin,
     so the error text should contain the plugin name,
     e.g. return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
 
@@ -33,11 +32,12 @@ class SutterError(Exception):
         self.message = message
         self.timestamp = datetime.now().strftime("%H:%M:%S.%f")
         self.message = (
-            f"{self.timestamp}: {self.message} (Affine error Code: {self.error_code})"
+            f"{self.timestamp}: {self.message} (Sutter error Code: {self.error_code})"
         )
 
     def __str__(self):
         return self.message
+
 
 class Mpc325:
     """
@@ -69,7 +69,6 @@ class Mpc325:
         0: 81.25,
     }
     _BAUDRATE: Final = 128000
-    _TIMEOUT = 30  # seconds
     _DATABITS: Final = serial.EIGHTBITS
     _STOPBITS: Final = serial.STOPBITS_ONE
     _PARITY: Final = serial.PARITY_NONE
@@ -77,24 +76,29 @@ class Mpc325:
     _M2SCONV: Final = np.float64(16.0)
     _MINIMUM_MS: Final = 0
     _MAXIMUM_M: Final = 25000
-    _MAXIMUM_S: Final = 400000  # Manual says 266667, this is the actual maximum.
+    _MAXIMUM_S: Final = 400000  # Manual says 266667, this is the actual maximum. UPDATE 23.5.2025: This has been updated in the manual aswell.
+    _TIMEOUT: Final = 30  # seconds.
+    # The actual maximum timeout should be set to 924 seconds,
+    # since that is the longest possible move time.
+    # (slowest speed, no diagonal movement, max distance of 25000 microns in every axis)
 
     def __init__(self):
         # vars for a single instance
         self.ser = serial.Serial()  # init a closed port
         # Initialize settings:
-        self.quick_move = False
         self.speed = 0
+        self.quick_move = False
         self.port = ""
 
-
-
-    # Close the connection when python garbage collection gets around to it.
+    # Close the connection when python garbage collection gets around to it. This seems to be implemented by pySERIAL already.
     def __del__(self):
         if self.ser.is_open:
+            self._flush()
             self.ser.close()
 
-    def update_internal_state(self, quick_move: bool, speed: int, source: str):
+    def update_internal_state(
+        self, quick_move: bool = None, speed: int = None, source: str = None
+    ):
         """Update the internal state of the micromanipulator.
 
         Args:
@@ -102,19 +106,28 @@ class Mpc325:
             speed (int): Speed in range 0-15.
             source (str): Source for the micromanipulator.
         """
-        self.quick_move = quick_move
-        self.speed = speed
-        self.port = source
+        # NOTE: checking can be added here, but i dont think its necessary. Reasoning:
+        # Quickmove is a boolean, it can only be wrongly set if the user manually calls this function with a wrong parameter
+        # Speed is selected from a combobox, that dynamically reads the speedlist from this class.
+        # Source is a string, so it can be anything.
+        if quick_move is not None:
+            self.quick_move = quick_move
+        if speed is not None:
+            self.speed = speed
+        if source is not None:
+            self.port = source
 
-    def open(self):
+    def open(self, port: str = None):
         """Opens the serial port for communication with the micromanipulator.
         Raises:
             SerialException: If the port is already open.
         """
         # Open port
+        if port is None:
+            port = self.port
         if not self.is_connected():
             self.ser = serial.Serial(
-                port=self.port,
+                port=port,
                 baudrate=self._BAUDRATE,
                 stopbits=self._STOPBITS,
                 parity=self._PARITY,
@@ -148,16 +161,30 @@ class Mpc325:
         """
         unpacked_data = struct.unpack(format_str, output)
         # Check last byte for simple validation.
-        assert unpacked_data == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {unpacked_data[-1]}"
+        assert unpacked_data[-1] == 0x0D, (
+            f"Invalid end marker sent from Sutter. Expected 0x0D, got {unpacked_data[-1]}"
+        )
         return unpacked_data[:-1]
 
     def _flush(self):
         """Flushes i/o buffers. Also applies a wait time between commands. Every method should call this before sending a command."""
+        input_waiting = self.ser.in_waiting
+        output_waiting = self.ser.out_waiting
+
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
+        # NOTE: added some more waittime to try out.
         time.sleep(
-            0.002
+            0.003
         )  # Hardcoded wait time (2 ms) between commands from the manual.
+        if input_waiting > 0:
+            print(
+                f"WARNING: Input buffer was not empty. {input_waiting} bytes were waiting to be read."
+            )
+        if output_waiting > 0:
+            print(
+                f"WARNING: Output buffer was not empty. {output_waiting} bytes were waiting to be read."
+            )
 
     def get_connected_devices_status(self):
         """Get the status of connected micromanipulators
@@ -249,25 +276,21 @@ class Mpc325:
         x_s = self._handrail_step(self._m2s(self._handrail_micron(x)))
         y_s = self._handrail_step(self._m2s(self._handrail_micron(y)))
         z_s = self._handrail_step(self._m2s(self._handrail_micron(z)))
-        wait_time = self._calculate_wait_time(
-            15, self._s2m(x_s), self._s2m(y_s), self._s2m(z_s)
-        )
-        print(
-            f"Moving to: ({self._s2m(x_s)}, {self._s2m(y_s)}, {self._s2m(z_s)}) in microns.\npredicted move time: {wait_time} seconds."
-        )
 
         command2 = struct.pack(
             "<3I", x_s, y_s, z_s
         )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
-        command3 = struct.pack("<B", 13)
+        # command3 = struct.pack("<B", 13)
 
         self.ser.write(command1)
         self.ser.write(command2)
-        self.ser.write(command3)
-
-        time.sleep(wait_time)  # wait for the move to finish
-        output = self.ser.read(1)
-        self._validate_and_unpack("B", output)
+        # self.ser.write(command3)
+        print("moving")
+        end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
+        self.ser.read_until(
+            expected=end_marker_bytes
+        )  # Read until the end marker (ASCII: CR)
+        print("done")
 
     def slow_move_to(self, x: np.float64, y: np.float64, z: np.float64, speed=None):
         """Slower move in straight lines. Speed is set as a class variable. (Or given as an argument)
@@ -284,6 +307,7 @@ class Mpc325:
         self._flush()
         # Enforce speed limits
         speed = max(0, min(speed, 15))
+        print(speed)
 
         # Pack first part of command
         command1 = struct.pack("<2B", 83, speed)
@@ -329,7 +353,6 @@ class Mpc325:
             return self.quick_move_to(x, y, z)
         else:
             return self.slow_move_to(x, y, z)
-
 
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
     def _handrail_micron(self, microns) -> np.uint32:
