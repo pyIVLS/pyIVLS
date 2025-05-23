@@ -12,9 +12,17 @@ This plugin should have double functionality
 
 Because of (i) it requires to send log and message signals, i.e. it is a child of QObject
 
+public API:
+- camera_open() -> "error"
+- camera_close() -> None
+- camera_capture_image() -> image / None
+
 version 0.4
 2025.02.28
 ivarad
+version 0.5
+2025.05.22
+otsoha
 """
 
 import os
@@ -191,6 +199,7 @@ class VenusUSB2GUI(QObject):
         # self.settingsWidget.exposureBox.setEnabled(status)
         self.settingsWidget.sourceBox.setEnabled(status)
         self.closeLock.emit(not status)
+        print("camera emitted close lock signal ", not status)
 
     def _exp_slider_change(self):
         if self.preview_running:

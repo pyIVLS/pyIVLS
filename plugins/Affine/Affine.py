@@ -148,15 +148,18 @@ class Affine:
         mask = self._preprocess_mask(mask)
 
         # Detect keypoints and compute descriptors
-        sift = SIFT()
-        sift.detect_and_extract(img)
-        kp_img, desc_img = sift.keypoints, sift.descriptors
+        try:
+            sift = SIFT()
+            sift.detect_and_extract(img)
+            kp_img, desc_img = sift.keypoints, sift.descriptors
 
-        sift.detect_and_extract(mask)
-        kp_mask, desc_mask = sift.keypoints, sift.descriptors
+            sift.detect_and_extract(mask)
+            kp_mask, desc_mask = sift.keypoints, sift.descriptors
+        except RuntimeError as e:
+            raise AffineError(
+                f"Runtime error during SIFT detection: {e}", 3
+            ) from e
 
-        if len(kp_img) == 0 or len(kp_mask) == 0:
-            raise AffineError("No keypoints found in image or mask.", 3)
         # Match descriptors, lowes ratio test
         matches = match_descriptors(desc_mask, desc_img, max_ratio=0.75)
 

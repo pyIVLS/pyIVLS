@@ -9,6 +9,8 @@ from PyQt6.QtCore import (
 
 from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 from pyIVLS_pluginloader import pyIVLS_pluginloader
+# move this to mainwindow?
+from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
 
 
 class pyIVLS_GUI(QObject):
@@ -39,34 +41,52 @@ class pyIVLS_GUI(QObject):
     def reactClose(self):
         self.show_message("Stop running processes and disconnect devices before close")
 
-    @pyqtSlot(bool)
-    def setCloseLock(self, bool):
-        # changes here, since closelock is True when closing is not allowed
-        self.window.setCloseOK(not bool)
+    def setCloseLock(self, value):
+        # reverted closelock, since plugins return True when they are not ready to close
+        self.window.setCloseOK(not value)
+
+    @pyqtSlot()
+    def seqBuilderReactClose(self):
+        self.window.actionSequence_builder.setChecked(False)
+
+    @pyqtSlot()
+    def dockWidgetReactClose(self):
+        self.window.actionDockWidget.setChecked(False)
+
+    @pyqtSlot()
+    def mdi_window_react_close(self):
+        # check if all mdi windows are hidden
+        all_hidden = True
+        for subwindow in self.window.mdiArea.subWindowList():
+            if subwindow.isVisible():
+                print(f"mdi window {subwindow.windowTitle()} is visible")
+                all_hidden = False
+                break
+        if all_hidden:
+            print("All MDI windows are hidden")
+            self.window.actionMDI_windows.setChecked(False)
+
+
+
 
     ################ Menu actions
     def actionPlugins(self):
         self.pluginloader.refresh()
         self.pluginloader.window.show()
 
-    def actionReopen_MDI(self):
-        """
-        Reopen the MDI area with the widgets stored in self.mdiWidgets.
-        """
-        self.clearMDIArea()
-        for name, widget in self.mdiWidgets.items():
-            widget.show()
+    def actionSequence_builder(self):
+        self.window.seqBuilder_dockWidget.setVisible(
+            self.window.actionSequence_builder.isChecked()
+        )
 
-        
+    def actionMDI_windows(self):
+        for subwindow in self.window.mdiArea.subWindowList():
+            subwindow.setVisible(
+                self.window.actionMDI_windows.isChecked()
+            )
 
-    def actionReopen_dock(self):
-        """
-        Reopen the dock widget with the widgets stored in self.dockWidgets.
-        """
-        # if dockwidget is not visible, show it
-        if not self.window.dockWidget.isVisible():
-            self.window.dockWidget.show()
-
+    def actionDockWidget(self):
+        self.window.dockWidget.setVisible(self.window.actionDockWidget.isChecked())
 
     ############### Settings Widget
 
@@ -94,18 +114,31 @@ class pyIVLS_GUI(QObject):
         :param widgets: dict of QtWidgets.QWidget instances to be added to MDI windows
         """
 
-        # Add each widget to the MDI area as subwindows
+        subwindows = self.window.mdiArea.subWindowList()
+        subwindow_names = [subwindow.windowTitle() for subwindow in subwindows]
+
+
         for name, widget in widgets.items():
-            MDIwindow = self.window.mdiArea.addSubWindow(widget)
-            MDIwindow.setWindowTitle(name)
+            if name not in subwindow_names:
+                subwindow = pyIVLS_mdiWindow(self.window.mdiArea)
+                subwindow.setWidget(widget)
+                widget.show()
+                subwindow.setWindowTitle(name)
+                subwindow.closeSignal.connect(self.mdi_window_react_close)
+                subwindow.setVisible(
+                self.window.actionMDI_windows.isChecked()
+                )            
+            else:
+                # subwindow already exists, do nothing. Widget should be set and correct
+                pass 
 
-            # so this is the flag that makes it possible to reopen the MDI windows
-            # NOTE: this could lead to memory bloat if running multiple widgets and never closing the main window?
-            # Although i think this will not be a problem.
-            MDIwindow.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
-            widget.show()  
+        # close subwindows that are not in the widgets dict
+        for sw in subwindows:
+            if sw.windowTitle() not in widgets:
+                self.window.mdiArea.removeSubWindow(sw) # Remove subwindow because the subwindow list is used to iterate over existing windows
+                sw.setCloseLock(False) # closelock is set to False to allow closing
+                sw.close()  # actually close
 
-        self.mdiWidgets = widgets
 
     def clearDockWidget(self):
         """
@@ -116,13 +149,10 @@ class pyIVLS_GUI(QObject):
             dock_widget.clear()  # Clear all tabs
         self.window.dockWidget.setWidget(None)
 
-    def clearMDIArea(self):
-        """
-        Clear the MDI area by closing all subwindows.
-        """
-        for subwindow in self.window.mdiArea.subWindowList():
-            subwindow.close()
-            
+
+
+
+
 
     def __init__(self):
         super(pyIVLS_GUI, self).__init__()
@@ -133,8 +163,16 @@ class pyIVLS_GUI(QObject):
         self.pluginloader = pyIVLS_pluginloader(self.path)
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
-        self.window.actionReopen_MDI.triggered.connect(self.actionReopen_MDI)
-        self.window.actionReopen_dock.triggered.connect(self.actionReopen_dock)
+        self.window.actionSequence_builder.triggered.connect(
+            self.actionSequence_builder
+        )
+        self.window.actionMDI_windows.triggered.connect(self.actionMDI_windows)
+        self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
         self.window.closeSignal.connect(self.reactClose)
+        self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
+        self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)
+
+
+        self.pluginloader.request_available_plugins_signal
 
         self.initial_widget_state = {}

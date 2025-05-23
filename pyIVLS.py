@@ -22,7 +22,6 @@ def update_settings_widget():
     GUI_mainWindow.setSettingsWidget(settings_windows)
     # update MDI widgets
     mdi_windows = pluginsContainer.get_plugin_info_for_MDIarea()
-    GUI_mainWindow.clearMDIArea()
     GUI_mainWindow.setMDIArea(mdi_windows)
     # update plugin list
     GUI_mainWindow.pluginloader.refresh()
