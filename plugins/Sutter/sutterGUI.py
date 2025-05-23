@@ -105,6 +105,8 @@ class SutterGUI(QObject):
         quickmove, speed, source = self.parse_settings_widget()
         self.hal.update_internal_state(quickmove, speed, source)
 
+        self._gui_change_device_connected(self.hal.is_connected())
+
         return self.settingsWidget
 
     # GUI interactions
@@ -135,6 +137,9 @@ class SutterGUI(QObject):
             )
 
         self.source_input.setEnabled(not connected)
+        self.settingsWidget.connectButton.setText("Disconnect" if connected else "Connect")
+        self.settingsWidget.basicBox.setEnabled(connected)
+        self.settingsWidget.saveBox.setEnabled(connected)
         self.closeLock.emit(connected)
 
     def _quickmove_changed(self, checked: bool):
@@ -149,7 +154,10 @@ class SutterGUI(QObject):
 
     def _devnum_changed(self):
         """Called when the device number combobox is changed, sets the device number in the hal."""
-        dev_num = int(self.devnum_combo.currentText())
+        curr_text = self.devnum_combo.currentText()
+        if curr_text == "":
+            return
+        dev_num = int(curr_text) 
         self.hal.change_active_device(dev_num)
 
     def speed_changed(self):
