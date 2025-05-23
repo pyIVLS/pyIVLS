@@ -350,6 +350,8 @@ class Mpc325:
             z (np.float64): z in microns
         """
         self._flush() # redundant flush.
+        #(Maybe. I got some errors when switching between quickmove and slowmove, so added this here)
+        # no crashes since adding this.
         if self.quick_move:
             return self.quick_move_to(x, y, z)
         else:
