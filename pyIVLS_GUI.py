@@ -10,6 +10,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtWidgets import QVBoxLayout
 from pyIVLS_container import pyIVLS_container
 from pyIVLS_pluginloader import pyIVLS_pluginloader
+from pyIVLS_seqBuilder import pyIVLS_seqBuilder
 from pyIVLS_mainWindow import pyIVLS_mainWindow
 
 class pyIVLS_GUI(QObject):
@@ -90,6 +91,9 @@ class pyIVLS_GUI(QObject):
             MDIwindow = self.window.mdiArea.addSubWindow(widget)
             MDIwindow.setWindowTitle(name)    
 
+    def setSeqBuilder(self):
+        self.window.seqBuilder_dockWidget.setWidget(self.seqBuilder.widget)
+
     def clearDockWidget(self):
         """
         Clear the dock widget by removing all tabs and setting its widget to None.
@@ -103,15 +107,20 @@ class pyIVLS_GUI(QObject):
         super(pyIVLS_GUI, self).__init__()
         self.path = dirname(__file__) + sep
 
-#        self.window = uic.loadUi(self.path + "pyIVLS_GUI.ui")
         self.window = pyIVLS_mainWindow(self.path)
         self.pluginloader = pyIVLS_pluginloader(self.path)
+        self.seqBuilder = pyIVLS_seqBuilder(self.path)
+
+        self.setSeqBuilder()
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
         self.window.actionSequence_builder.triggered.connect(self.actionSequence_builder)
         self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
+
         self.window.closeSignal.connect(self.reactClose)
+
         self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
         self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)
-
+        
+        
         self.initial_widget_state = {}

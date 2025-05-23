@@ -354,6 +354,8 @@ class sweepGUI(QObject):
         if status:
             return [2, self.smu_settings]
 
+        self.settings["smu_settings"] = self.smu_settings
+        
         # Determine source channel: may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
         self.settings["channel"] = (self.settingsWidget.comboBox_channel.currentText()).lower()
         currentIndex = self.settingsWidget.comboBox_channel.currentIndex()

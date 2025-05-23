@@ -6,6 +6,7 @@
 # 5. Changed the structure of ini file, now it allows to save plugin settings
 # 6. class option is added to the plugin descriptor in the ini file. This is related to suggested implementation of the built-in functionality of run and address selection. (class = step for measurement, class = loop for looping the steps, class = none for support plugins not directly used in recipe)
 # 7. Execution flow is modified to allow to add messages from pluginContainer to log. Message slot from pluginloader is removed, info signal from plugin container is connected to the message slot in pyIVLS_GUI, as for all the other information windows.
+# 8. Sequence builder is partially implemented (sequence save/read/run tested on a dummy run, but not yet bounded to real plugins). This required some changes to pyIVLS and pluginContainer
 
 #### TODO list
 # 1. add settings validation to GUI (partially done)
@@ -23,6 +24,7 @@
 ##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through. 
 # 12. plugins share is implemented (e.g for threadStopped and MplCanvas), but during plugin install the version of shared libraries should be checked and updated if needed
 # 13. there may be a reason to make "hiddenLoad" option for plugins, i.e. the plugin will be loaded but there will be not setting tab and MDI window for it. That may be useful e.g. for duplicating a part of keithley plugin to sweep and not showing Keithley plugin at all. The idea would be to have a minimalistic set of parameters, ad if more needed the main plugin may be switched on
+# 14(!BUG!). there may be a bug with loading new plugins from the interface. function excange happens when the public_function_exchange of pyIVLS container is called, but not it seems that it is called only at the startup. It should be called at some point from the plugin loader also. Also the plugins themself will not update the funcction list...
 
 #### Plugin list
 #1. Keithley2612B: interface to SMU
