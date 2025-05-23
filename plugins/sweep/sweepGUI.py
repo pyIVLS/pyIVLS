@@ -22,10 +22,7 @@ class sweepException(Exception):
 class sweepGUI(QObject):
     """Basic sweep module"""
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
-<<<<<<< Updated upstream
-=======
     public_methods = ["parse_settings_widget", "set_running", "setSettings", "sequenceStep"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
->>>>>>> Stashed changes
 ####################################  threads
 
     ################################### internal functions
@@ -898,7 +895,6 @@ class sweepGUI(QObject):
 
         return [0, self.settings]
 
-<<<<<<< Updated upstream
 ###############provide smu functions to sequence to handle excetions 
     def smu_connect(self):
             return self.function_dict["smu"]["smu_connect"]()
@@ -912,11 +908,6 @@ class sweepGUI(QObject):
     def smu_outputOFF(self):
             return self.function_dict["smu"]["smu_outputOFF"]()
 
-=======
-    def setSettings(self, settings):
-        self.settings = settings
-        self._setGUIfromSettings()
->>>>>>> Stashed changes
 ###############GUI enable/disable
 
     def set_running(self, status):
