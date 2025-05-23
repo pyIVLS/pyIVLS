@@ -43,7 +43,7 @@ class Mpc325:
     """
     Handles communication with the Sutter MPC-325 micromanipulator system.
     Methods are named after the commands in the manual.
-    revision 1.0.0
+    revision 0.2
     2025.05.22
     otsoha
     """
