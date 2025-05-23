@@ -48,6 +48,9 @@ class Affine:
     - Call try_match() with the input image and mask.
     - If the transformation is found, access the transformation matrix using the A attribute.
     - When transformation is found, use coords() to get the transformed coordinates of a point.
+
+    revision 1.2.0
+    - Separated keypoint detection and transformation estimation.
     """
 
     # TODO: Add the canny method to the preprocessing as an option. Might be useful to be able to call on it if the first method fails.
@@ -119,8 +122,7 @@ class Affine:
         print("keypoints not impelemented yet")
         return img, mask
 
-    # TODO: separate into two functions, one for finding the keypoints and one for ransac and estimation of the transformation.
-    # this is so that manual keypoint selection can be added later.
+
     def try_match(
         self,
         img: np.ndarray,
@@ -172,15 +174,9 @@ class Affine:
         # OH MAN I LOVE COORDINATE SYSTEMS :)))
         src = kp_mask[matches[:, 0]][:, ::-1].astype(np.float32)  # mask keypoints
         dst = kp_img[matches[:, 1]][:, ::-1].astype(np.float32)  # image keypoints
-        # NOTE: This is using SimilarityTransform, which accounts for rotation, translation, and scaling but not perspective changes.
-        # easy to change, but I think its reasonable to assume that the camera is situated directly above the img.
-        model, inliers = ski.measure.ransac(
-            (src, dst),
-            ski.transform.SimilarityTransform,
-            residual_threshold=5,  # this can be increased to maybe get more inliers on difficult images, at the cost of accuracy.
-            min_samples=self.MIN_MATCHES,  # 4 seems to be a good value for this.
-            max_trials=1000,
-        )
+
+        model, inliers = self.get_transformation(src, dst)
+
         if inliers is None:
             raise AffineError("Ransac can't find transform.", 3)
         # Populate the class variables when a transformation is found.
@@ -194,6 +190,19 @@ class Affine:
         self.result["kp2"] = kp_img
         self.result["matches"] = matches
         self.result["transform"] = model
+
+
+    def get_transformation(self, src, dst) -> np.ndarray:
+        # NOTE: This is using SimilarityTransform, which accounts for rotation, translation, and scaling but not perspective changes.
+        # easy to change, but I think its reasonable to assume that the camera is situated directly above the img.
+        model, inliers = ski.measure.ransac(
+            (src, dst),
+            ski.transform.SimilarityTransform,
+            residual_threshold=5,  # this can be increased to maybe get more inliers on difficult images, at the cost of accuracy.
+            min_samples=self.MIN_MATCHES,  # 4 seems to be a good value for this.
+            max_trials=1000,
+        )
+        return model, inliers
 
     def coords(self, point: tuple[float, float]) -> tuple[float, float]:
         """
