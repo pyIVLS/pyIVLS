@@ -33,7 +33,7 @@ class itc503GUI(QObject):
     """itc503 controller
     """
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_widget", "setSettings", "getIterations"] # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_widget", "setSettings", "getIterations" ,"loopingIteration"] # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 ########Signals
 
     log_message = pyqtSignal(str)     
