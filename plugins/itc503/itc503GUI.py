@@ -27,11 +27,13 @@ from PyQt6.QtWidgets import QTextEdit
 from itc503 import itc503
 from MplCanvas import MplCanvas # this should be moved to some pluginsShare
 
+import time
+
 class itc503GUI(QObject): 
     """itc503 controller
     """
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_widget"] # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_widget", "setSettings", "getIterations"] # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 ########Signals
 
     log_message = pyqtSignal(str)     
@@ -108,14 +110,13 @@ class itc503GUI(QObject):
         if status:
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
                 self.info_message.emit(f"itc503 plugin : {info}")
-        else:
-                       try:
-                            self.itc503.setT(self.settings["sett"])
-                            return [0, "OK"]
-                       except Exception as e:
-                            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
-                            self.info_message.emit(f"itc503 plugin : {e}")
-                            return [e, {"Error message" : f"{e}"}]
+                return [status, info]
+        [status, info] = self._setT()
+        if status:
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
+                self.info_message.emit(f"itc503 plugin : {info}")
+                return [status, info]
+        return [0, "OK"]
 
     def _displayAction(self):
         if self.timer.isActive():
@@ -206,6 +207,12 @@ class itc503GUI(QObject):
                 self.axes.set_ylim(min(self.Ydata) - 10 , max(self.Ydata) + 10) # +/- 10 just a random margin for plotting
                 self.sc.draw()
                 
+    def _setT(self):
+        try:
+            self.itc503.setT(self.settings["sett"])
+            return [0, "OK"]
+        except Exception as e:
+            return [4, {"Error message":f"{e}"}]
 ########Functions
 ###############GUI setting up
            	
@@ -223,6 +230,19 @@ class itc503GUI(QObject):
         self.settingsWidget.sweepPtsEdit.setText(plugin_info["sweeppts"])
         self.settingsWidget.sweepStabilizationEdit.setText(plugin_info["sweepstabilization"])
 
+
+    def _setGUIfromSettings(self):
+        ##populates GUI with values stored in settings
+        
+        self.settingsWidget.source.setText(f"{self.settings['source']}")
+        self.settingsWidget.setTEdit.setText(f"{self.settings['sett']}")
+        self.settingsWidget.periodEdit.setText(f"{self.settings['period']}")
+        self.settingsWidget.periodPtsEdit.setText(f"{self.settings['periodpts']}")
+        self.settingsWidget.sweepStartEdit.setText(f"{self.settings['sweepstart']}")
+        self.settingsWidget.sweepEndEdit.setText(f"{self.settings['sweepend']}")
+        self.settingsWidget.sweepPtsEdit.setText(f"{self.settings['sweeppts']}")
+        self.settingsWidget.sweepStabilizationEdit.setText(f"{self.settings['sweepstabilization']}")
+        
 ########Functions
 ###############GUI react to change
 
@@ -272,6 +292,16 @@ class itc503GUI(QObject):
     def _getCloseLockSignal(self):
         return self.closeLock
 
+#########IRtodo: workaround, make a proper update display
+        tic = time.time()
+        while (time.time()-tic) < self.settings["sweepstabilization"]:
+             try:
+                info = self.itc503.getData()
+             except Exception as e:
+                return [4, {"Error message" : f"{e}"}]
+             print(info)
+        return[0 , f"_{info}K"]
+
 ########Functions to be used externally
 ###############get settings from GUI 
 
@@ -283,6 +313,8 @@ class itc503GUI(QObject):
             self.settings
         """
         self._parse_settings_source()
+        self._parse_settings_display()
+        self._parse_settings_setT()
 
         try:
                 self.settings["sweepstart"] = float(self.settingsWidget.sweepStartEdit.text())
@@ -311,5 +343,19 @@ class itc503GUI(QObject):
         
         return [0, self.settings]
 
+    def setSettings(self, settings):
+        self.settings = settings
+        self._setGUIfromSettings()
+    
 ########Functions
 ########Tsweep implementation  
+
+    def getIterations(self):
+        return self.settings["sweeppts"]
+
+    def loopingIteration(self, iteration):
+        self.settings['sett'] = self.settings["sweepstart"] + iteration*(self.settings["sweepend"] - self.settings["sweepstart"])/self.settings["sweeppts"]
+        self.settingsWidget.setTEdit.setText(f"{self.settings['sett']}")
+        [status, info] = self._setT()
+        if status:
+            return [status, info]

@@ -13,6 +13,8 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, Qt
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
 from PyQt6.QtWidgets import QFileDialog
 
+from threadStopped import thread_with_exception, ThreadStopped
+
 from pathvalidate import is_valid_filename
 import json
 
@@ -132,7 +134,10 @@ class pyIVLS_seqBuilder(QObject):
                     stack = stackItem["looping"] + stack
                     self.item = nextItem
 
-        
+    def _setRunStatus(self, status):
+        self.widget.runButton.setEnabled(not status)
+        self.widget.stopButton.setEnabled(status)
+
             #### Sequence functions
     def _addInstructionAction(self):
         instructionFunc = self.widget.comboBox_function.currentText()
@@ -172,8 +177,8 @@ class pyIVLS_seqBuilder(QObject):
             data.append(step_data)
         return data
     
-    def _runAction(self):
-        ###############Main logic of iteration: 0 - no iterations, 1 - only start point, 2 - start end end point, iterstep = (end-start)/(iternum -1). Check with back voltage on sweep
+    def _runParser(self):
+        ###############Main logic of iteration: 0 - no iterations, 1 - only start point, 2 - start end end point, iterstep = (end-start)/(iternum -1).The same is used in sweepCommon for drainVoltage. !!!Adapt to logic of iteration, do not modify it!!!
         data = self.extract_data(self.model.invisibleRootItem().child(0))
         stack = copy.deepcopy(data) #### it is necessary to make sure that we did not modify original data
         looping = [] #this will keep track of the steps inside the loop, every element is a dict[{looping -the steps to repeat, loopFunction - looping Function, totalSteps - number of steps in loop, currentStep, totalIterations, currentIteration}]
@@ -182,7 +187,11 @@ class pyIVLS_seqBuilder(QObject):
 
             if not looping == []:
                 if looping[-1]["currentStep"] == 0:
-                    ####set next looping iteration with loopingFunction
+                    [status, iterText] = self.available_instructions[nextStepFunction]["functions"]["loopingIteration"](looping[-1]["currentIteration"])
+                    if status:
+                        print(f"Error: {iterText}")
+                        break
+                    looping[-1]["namePostfix"] = iterText
                     looping[-1]["currentIteration"] = looping[-1]["currentIteration"] + 1
                     looping[-1]["currentStep"] = looping[-1]["currentStep"] + 1
                 elif looping[-1]["currentStep"] == looping[-1]["totalSteps"]:
@@ -198,14 +207,25 @@ class pyIVLS_seqBuilder(QObject):
             nextStepFunction = stackItem["function"]
             nextStepSettings = stackItem["settings"]
             nextStepClass = stackItem["class"]
+            self.available_instructions[nextStepFunction]["functions"]["setSettings"](nextStepSettings)
             if nextStepClass == 'step':
-                    print(nextStepFunction)
-                    #set settings to plugin
-                    #execute step
+                    namePostfix = ''
+                    for loopItem in looping:
+                        namePostfix = namePostfix + loopItem["namePostfix"]
+                    [status, message] = self.available_instructions[nextStepFunction]["functions"]["sequenceStep"](namePostfix)
+                    if status:
+                        print(f"Error: {message}")
+                        break
             if nextStepClass == 'loop':
-                    ### set settings to plugin
-                    ### get totalItrations
-                    iter = 2
+                    iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
                     print(f"loop add steps {len(stackItem['looping'])}")
-                    looping.append({"looping":stackItem["looping"], "loopFunction": nextStepFunction,"totalSteps":len(stackItem["looping"]), "currentStep":0,"totalIterations":iter, "currentIteration":0})
+                    looping.append({"looping":stackItem["looping"], "loopFunction": nextStepFunction,"totalSteps":len(stackItem["looping"]), "currentStep":0,"totalIterations":iter, "currentIteration":0, "namePostfix":""})
                     stack = stackItem["looping"] + stack
+
+    def _runAction(self):
+        #disable controls
+        #recipe itself should be checked (i.e. no empty loops, same plugin is not used as step in the same plugins loop, etc.), but parse settings are done during the recipe formation
+        self._setRunStatus(True)
+        self.run_thread = thread_with_exception(self._runParser)
+        self.run_thread.start()
+        return [0, "OK"]
