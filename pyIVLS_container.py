@@ -249,21 +249,39 @@ class pyIVLS_container(QObject):
                     self._register(plugin)
 
     def public_function_exchange(self):
-        # get all the plugin public functions by plugin name, in case at some point there may be 2 plugins with the same function.
+        # Get all the plugin public functions by plugin name
         plugin_public_functions = self.pm.hook.get_functions()
-        available_public_functions = {}
-        # change public functions names as dict keys to plugin function, thus every plugin may find objects it needs
-        # iterate over the plugin_public_functions dict
+        function_map = {}
+
         for single_dict in plugin_public_functions:
-            for key in single_dict:
-                plugin_name = key
+            for plugin_name, methods in single_dict.items():
                 plugin_function = self.config[plugin_name + "_plugin"]["function"]
-                if plugin_function not in available_public_functions:
-                    available_public_functions[plugin_function] = {}
-                available_public_functions[plugin_function] = single_dict
+                
+                if plugin_function not in function_map:
+                    # Store first occurrence as-is
+                    function_map[plugin_function] = {plugin_name: methods}
+                else:
+                    # If already exists, check if it's the first conflict
+                    existing = function_map[plugin_function]
+                    if isinstance(existing, dict) and len(existing) == 1:
+                        # Convert from flat to nested if there's now a conflict
+                        function_map[plugin_function][plugin_name] = methods
+                    else:
+                        # Add to existing nested structure
+                        function_map[plugin_function][plugin_name] = methods
 
+        # Flatten functions with only one plugin back to function -> methods
+        final_map = {}
+        for function, plugins in function_map.items():
+            if len(plugins) == 1:
+                plugin_name = next(iter(plugins))
+                final_map[function] = plugins[plugin_name]
+            else:
+                final_map[function] = plugins
 
-        self.pm.hook.set_function(function_dict=available_public_functions)
+        print("Final function map:", final_map)  # Debugging output
+
+        self.pm.hook.set_function(function_dict=final_map)
 
     def getLogSignals(self):
         plugin_logSignals = self.pm.hook.get_log()
