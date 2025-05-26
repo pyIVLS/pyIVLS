@@ -1,5 +1,4 @@
 from datetime import datetime
-import pyIVLS_constants
 
 
 def create_file_header(settings, smu_settings, backVoltage=None):

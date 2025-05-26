@@ -10,7 +10,6 @@ import pluggy
 # Import to communicate with the GUI
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
-import pyIVLS_constants
 from plugins.pyIVLS_hookspec import pyIVLS_hookspec
 
 
@@ -20,7 +19,8 @@ class pyIVLS_container(QObject):
     """
 
     #### Signals for communication
-
+    ### main config name
+    configFileName = "pyIVLS.ini"   # FIXME: Magic path until plugin importer is implemented.
     # send available plugins to the plugin loader
     available_plugins_signal = pyqtSignal(dict)
     # update the settings widget. This goes all the way to pyIVLS.py which handles the updating of the main GUI.
@@ -239,7 +239,7 @@ class pyIVLS_container(QObject):
     def register_start_up(self):
         """Checks the .ini file for saved settings and registers all plugins that are set to load on startup."""
         self.config = ConfigParser()
-        self.config.read(self.path + pyIVLS_constants.configFileName)
+        self.config.read(self.path + self.configFileName)
 
         # FIXME: Naive implementation. If a pluginload fails on startup, it's not retried. This makes it possible for the user™ to break something.
         ##IRtodo#### it needs to be checked that there are no 2 plugins with the same name/or 2 plugins with the same function
@@ -281,7 +281,6 @@ class pyIVLS_container(QObject):
             else:
                 final_map[function] = plugins
 
-        print("Final function map:", final_map)  # Debugging output
 
         self.pm.hook.set_function(function_dict=final_map)
         self.seqComponents_signal.emit(self.get_plugin_dict(), plugin_public_functions)
@@ -406,6 +405,6 @@ class pyIVLS_container(QObject):
 
     def cleanup(self) -> None:
         """Explicitly cleanup resources, such as writing the config file."""
-        config_path = self.path + pyIVLS_constants.configFileName
+        config_path = self.path + self.configFileName
         with open(config_path, "w") as configfile:
             self.config.write(configfile)

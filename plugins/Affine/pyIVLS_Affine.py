@@ -1,7 +1,7 @@
 #!/usr/bin/python3.8
 import pluggy
 
-from plugins.Affine.AffineGUI import AffineGUI
+from AffineGUI import AffineGUI
 
 
 class pyIVLS_Affine_plugin:

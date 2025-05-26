@@ -16,6 +16,14 @@ class pyIVLS_mainWindow(QtWidgets.QMainWindow):
             parent=self, position=Qt.DockWidgetArea.BottomDockWidgetArea
         )
 
+        # add a menu for MDI windows under the view -> show menu
+        menuShow = self.findChild(QtWidgets.QMenu, "menuShow")
+        self.mdiWindowsMenu = QtWidgets.QMenu("MDI windows", self)
+        self.mdiWindowsMenu.setObjectName("mdiWindowsMenu")
+        menuShow.addMenu(self.mdiWindowsMenu)
+        
+
+
         self.closeOK = True
 
     def setCloseOK(self, value):
