@@ -14,7 +14,7 @@
 # 3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)
 # 4. implement warning messaging (implemented not tested)
 # 5. implement saving of settings to configuration file
-# 6. implement reopening of docking window and MDI windows
+#~~ 6. implement reopening of docking window and MDI windows~~
 # 7. implement autosave for long measurements
 # 8. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
 # 9. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence. 
