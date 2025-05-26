@@ -9,8 +9,10 @@ from PyQt6.QtCore import (
 
 from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 from pyIVLS_pluginloader import pyIVLS_pluginloader
+from pyIVLS_seqBuilder import pyIVLS_seqBuilder
 # move this to mainwindow?
 from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
+from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 
 
 class pyIVLS_GUI(QObject):
@@ -140,6 +142,9 @@ class pyIVLS_GUI(QObject):
                 sw.close()  # actually close
 
 
+    def setSeqBuilder(self):
+        self.window.seqBuilder_dockWidget.setWidget(self.seqBuilder.widget)
+
     def clearDockWidget(self):
         """
         Clear the dock widget by removing all tabs and setting its widget to None.
@@ -158,9 +163,11 @@ class pyIVLS_GUI(QObject):
         super(pyIVLS_GUI, self).__init__()
         self.path = dirname(__file__) + sep
 
-        #        self.window = uic.loadUi(self.path + "pyIVLS_GUI.ui")
         self.window = pyIVLS_mainWindow(self.path)
         self.pluginloader = pyIVLS_pluginloader(self.path)
+        self.seqBuilder = pyIVLS_seqBuilder(self.path)
+
+        self.setSeqBuilder()
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
         self.window.actionSequence_builder.triggered.connect(
