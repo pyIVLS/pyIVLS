@@ -1,10 +1,11 @@
 from os.path import dirname, sep
 
 from PyQt6 import QtWidgets
+from PyQt6.QtGui import QAction
 from PyQt6.QtCore import (
     QObject,
     Qt,
-    pyqtSlot,
+    pyqtSlot
 )
 
 from components.pyIVLS_mainWindow import pyIVLS_mainWindow
@@ -79,12 +80,22 @@ class pyIVLS_GUI(QObject):
             self.window.actionSequence_builder.isChecked()
         )
 
-    def actionMDI_windows(self):
-        for subwindow in self.window.mdiArea.subWindowList():
-            subwindow.setVisible(self.window.actionMDI_windows.isChecked())
-
     def actionDockWidget(self):
         self.window.dockWidget.setVisible(self.window.actionDockWidget.isChecked())
+
+    def action_MDIShow_to_open(self):
+        self.window.mdiWindowsMenu.clear()  # Clear the menu before adding actions
+
+        for subwindow in self.window.mdiArea.subWindowList():
+            # add actions for each subwindow in the MDI area.
+            action = QAction(subwindow.windowTitle(), self.window)
+            action.setCheckable(True)
+            action.setChecked(subwindow.isVisible())
+            # connect the action to the subwindow visibility toggle
+            action.toggled.connect(lambda checked, sw=subwindow: sw.setVisible(checked))
+            self.window.mdiWindowsMenu.addAction(action)
+
+
 
     ############### Settings Widget
 
@@ -122,7 +133,7 @@ class pyIVLS_GUI(QObject):
                 widget.show()
                 subwindow.setWindowTitle(name)
                 subwindow.closeSignal.connect(self.mdi_window_react_close)
-                subwindow.setVisible(self.window.actionMDI_windows.isChecked())
+                subwindow.setVisible(True) # set window to be visible upon loading.
             else:
                 # subwindow already exists, do nothing. Widget should be set and correct
                 pass
@@ -162,7 +173,9 @@ class pyIVLS_GUI(QObject):
         self.window.actionSequence_builder.triggered.connect(
             self.actionSequence_builder
         )
-        self.window.actionMDI_windows.triggered.connect(self.actionMDI_windows)
+        self.window.menuShow.aboutToShow.connect(
+            self.action_MDIShow_to_open
+        )
         self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
         self.window.closeSignal.connect(self.reactClose)
         self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
