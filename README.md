@@ -12,14 +12,12 @@
 # 1. add settings validation to GUI (partially done)
 # 2. add settings locking/unlocking to GUI (partially done)
 # 3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)
-# 4. remove constants file. The info from it may be moved to the plugin settings.
+# 4. implement warning messaging (implemented not tested)
 # 5. implement saving of settings to configuration file
 # 6. implement reopening of docking window and MDI windows
 # 7. implement autosave for long measurements
-# 8. check that logging, closeLock and messaging signals will work after loading plugins from menu. The connect functions in pyIVLS are run only in init stage, probably something should be moved/added to update_settings_widget slot
-# 9. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
-# 10. implement GUI for adding/removing plugins. This should take care that plugin info in *.ini (i.e. name, class, function. etc) corresponds to info in plugin itself
-# 11. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence
+# 8. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
+# 9. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence. 
 ##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
 ##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
 # 10. to do list to make sequence builder usable
@@ -51,41 +49,7 @@
 # 8. python3 -m pip install opencv-python
 # 9. python3 -m pip install matplotlib
 #10. python3 -m pip install datetime
-#11. python3 -m pip install pathvalidate # required for sequenceces
-#12. python3 -m pip install pyserial # required for peltierController, senseMultiplexer, etc.
 # deactivate
-
-###List of packages knowing to have working configuration
-#contourpy==1.3.1
-#cycler==0.12.1
-#DateTime==5.5
-#fonttools==4.55.3
-#ifaddr==0.2.0
-#kiwisolver==1.4.8
-#matplotlib==3.10.0
-#numpy==2.2.1
-#opencv-python==4.10.0.84
-#packaging==24.2
-#pathvalidate==3.2.3
-#pillow==11.1.0
-#pluggy==1.5.0
-#psutil==7.0.0
-#pyparsing==3.2.1
-#PyQt6==6.8.0
-#PyQt6-Qt6==6.8.1
-#PyQt6_sip==13.9.1
-#pyserial==3.5
-#python-dateutil==2.9.0.post0
-#python-usbtmc==0.8
-#pytz==2025.1
-#pyusb==1.3.1
-#PyVISA==1.14.1
-#PyVISA-py==0.7.2
-#setuptools==76.0.0
-#six==1.17.0
-#typing_extensions==4.12.2
-#zeroconf==0.137.2
-#zope.interface==7.2
 
 # change the first line of pyIVLS.py to address the virual environment 
 ## e.g.#!/home/ivls/git_pyIVLS/pyIVLS/.venv/bin/python3
@@ -106,17 +70,6 @@
 # Example for creating the group and adding the user
 ##sudo groupadd usbtmc
 ##sudo usermod -a -G usbtmc ivls
-#
-## peltierController
-# the device is detected as 1a86:7523 QinHeng Electronics CH340 serial converter. To provide access to /dev/ttyUSB0 add user to dialout group
-#sudo usermod -a -G dialout $USER
-#
-## Thorlabs CCS175 spectrometer
-#see more details in plugins/TLCCS/SETUP.md
-#shortly
-##copy fxload to /usr/sbin (sudo cp fxload /usr/sbin/fxload)
-##add execution permission if necessary (sudo chmod +x /usr/sbin/fxload)
-##make sure that rules for spectrometer discovery point to the CCS175_2.ihx file copy rules to udev directory (sudo cp 99-thorccs.rules /etc/udev/rules.d/)
 
 #### plugin conventions
 # 1. Every plugin  consists of a couple of files. 
@@ -130,27 +83,21 @@
 
 #### logging and error messaging
 # Logs messages and info messages for user should be sent only by the plugin that directly interracts with the user, i.e.
-# in case of sweep only sweep plugin should save to the log and show messages to the user not the SMU plugin,i.e. Keithley2612B. All other plugins communicate to the sweep plugin, 
-# e.g. with returned status of the functions. This is necessary to avoid multiple messaging
+# in case of sweep only run sweep plugin should save to the log and show messages to the user. All other plugins communicate to the sweep plugin, e.g. with returned status of the functions.
+# This is necessary to avoid multiple messaging
 ## standard error codes
-#0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins, 4 = harware error
-##plugins return errors in form of list [number, {"Error message":"Error text", "Exception":f"e"}], e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
+#0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins
+##plugins return errors in form of list [number, {"Error message":"Error text"}], e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
 #error text will be shown in the dialog message in the interaction plugin, so the error text should contain the plugin name, e.g. return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
-## standard names in the dicts returning errors
-# "Error message" : message to display in info box
-# "Missing functions" : list of missing functions from other plugins
-# "Exception" : exception from called function
 ##intermidiate plugins should pass the error to the plugins that interract with users as is, just changing the error code
 #e.g.return [2, self.smu_settings]
-## log should include all the content of returned dict, as that may contain unexpected exceptions, missing plugin functions, etc.
-#[status, message] = self.function_dict["smu"]["smu_connect"]()
-#if status:
-# self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : sweep plugin status={status}, {message}')
+##the plugin interracting with user adds to the log it's own name, and name of the plugin that transmitted this error 
+#(not the name of original plugin, that's why the message should contain the original plugin name, as if there will be multiple intermediate plugins some of the plugin names may be dropped)
+#e.g. self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : runsweep : the sweep plugin reported an error: {self.sweep_settings["Error message"]}')
 
 #### execution flow
-#1. When pyIVLS.py is run it initializes the pathes and creates an instance of the pyIVLS_container.py (handles all the plugins) and the main window
-##	signals (including log and user message) from pyIVLS_container.py and pyIVLS_pluginloader are connected to respective slots
-#2. register_start_up of pyIVLS_container.py is called
+#1. When pyIVLS.py is run it creates an instance of the pyIVLS_container.py (handles all the plugins) and the main window
+##2. In the initialization the pyIVLS_container.py 
 ##	reads plugin data from ini
 ##	registers the plugins marked for loading in ini (_register function)
 #3. pyIVLS.py makes initialization of main slots and signals between plugin container and GUI. This includes connecting signals from plugins to the main window

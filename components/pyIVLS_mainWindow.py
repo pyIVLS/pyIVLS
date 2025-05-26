@@ -1,7 +1,6 @@
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import pyqtSignal, Qt
-from components.pyIVLS_dockWindow import pyIVLS_dockWindow
-
+from pyIVLS_dockWindow import pyIVLS_dockWindow
 
 class pyIVLS_mainWindow(QtWidgets.QMainWindow):
 
@@ -12,6 +11,8 @@ class pyIVLS_mainWindow(QtWidgets.QMainWindow):
                 uic.loadUi(uipath + 'pyIVLS_GUI.ui', self)
                 self.seqBuilder_dockWidget = pyIVLS_dockWindow(parent = self, position = Qt.DockWidgetArea.RightDockWidgetArea)
                 self.dockWidget = pyIVLS_dockWindow(parent = self, position = Qt.DockWidgetArea.BottomDockWidgetArea)
+                self.seqBuilder_dockWidget = pyIVLS_dockWindow(parent = self, position = Qt.DockWidgetArea.RightDockWidgetArea)
+                self.dockWidget = pyIVLS_dockWindow(parent = self, position = Qt.DockWidgetArea.BottomDockWidgetArea)
                 self.closeOK = True
 
         def setCloseOK(self, value):
@@ -19,6 +20,8 @@ class pyIVLS_mainWindow(QtWidgets.QMainWindow):
 
         def closeEvent(self, event):
                 if self.closeOK:
+                        self.seqBuilder_dockWidget.setCloseLock(False)
+                        self.dockWidget.setCloseLock(False)
                         self.seqBuilder_dockWidget.setCloseLock(False)
                         self.dockWidget.setCloseLock(False)
                         event.accept()

@@ -25,6 +25,8 @@ class pyIVLS_container(QObject):
     available_plugins_signal = pyqtSignal(dict)
     # update the settings widget. This goes all the way to pyIVLS.py which handles the updating of the main GUI.
     plugins_updated_signal = pyqtSignal()
+    # send available plugins and functions to seqBuilder
+    seqComponents_signal = pyqtSignal(dict, list)
     # show a message to the user in the plugin loader GUI
     show_message_signal = pyqtSignal(str)
     # add info to log
@@ -282,6 +284,7 @@ class pyIVLS_container(QObject):
         print("Final function map:", final_map)  # Debugging output
 
         self.pm.hook.set_function(function_dict=final_map)
+        self.seqComponents_signal.emit(self.get_plugin_dict(),plugin_public_functions)
 
     def getLogSignals(self):
         plugin_logSignals = self.pm.hook.get_log()

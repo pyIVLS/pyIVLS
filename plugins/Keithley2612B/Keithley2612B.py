@@ -4,18 +4,6 @@ import time
 from threading import Lock
 
 
-from PyQt6 import uic
-from PyQt6.QtWidgets import (
-    QWidget,
-    QCheckBox,
-    QComboBox,
-    QLineEdit,
-    QPushButton,
-    QHBoxLayout,
-    QLabel,
-)
-
-
 '''
            settings dictionary for communicationg with hardware
            
@@ -201,10 +189,7 @@ class Keithley2612B:
         Returns [status, message]:
             0 - no error, ~0 - error (add error code later on if needed)
             message contains line frequency as float, or an error message otherwise
-        """
-
-        if self.k is None: 
-        	self.keithley_connect()        	
+        """    	        	
         freq = float(self.safequery('print(localnode.linefreq)'))
         return freq
         

@@ -291,6 +291,7 @@ class peltierControllerGUI(QObject):
             and not method.startswith("_")
             and method not in self.non_public_methods
         }
+        print methods
         return methods
 
     def _getLogSignal(self):

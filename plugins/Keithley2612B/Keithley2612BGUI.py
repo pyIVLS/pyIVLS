@@ -130,10 +130,13 @@ class Keithley2612BGUI:
         	self.settings["drainhighc"] = True
         else:	
 	        self.settings["drainhighc"] = False
-
-        if not "lineFreuency" in self.settings:
-        	try:        
+        if not "lineFrequency" in self.settings:
+        	try:     
+        	        [status, info] = self.smu_connect()
+        	        if status:
+        	            return [status, {"Error message": f"{info}"}]
         	        info = self.smu.getLineFrequency()
+        	        self.smu_disconnect()
         	except:
         	        return [4, {"Error message": f"Can not get line frequency from SMU"}]
         	self.settings["lineFrequency"] = info

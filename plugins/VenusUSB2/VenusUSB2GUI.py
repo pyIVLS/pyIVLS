@@ -17,8 +17,13 @@ public API:
 - camera_close() -> None
 - camera_capture_image() -> image / None
 
-version 0.4
-2025.02.28
+public API:
+- camera_open() -> "error"
+- camera_close() -> None
+- camera_capture_image() -> image / None
+
+version 0.6
+2025.05.12
 ivarad
 version 0.5
 2025.05.22
@@ -27,9 +32,10 @@ otsoha
 
 import os
 from datetime import datetime
-
-from PyQt6 import QtWidgets, uic
-from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
+from pathvalidate import is_valid_filename
+from PyQt6 import uic
+from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 from VenusUSB2 import VenusUSB2, venusStatus
 
@@ -38,12 +44,10 @@ from VenusUSB2 import VenusUSB2, venusStatus
 
 class VenusUSB2GUI(QObject):
     """GUI for the VenusUSB2 camera"""
-
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    default_timerInterval = (
-        42  # ms, it is close to 24 fps that is standard for movies and TV
-    )
-    ########Signals
+    non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
+    public_methods = [] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    default_timerInterval = 42 # ms, it is close to 24 fps that is standard for movies and TV
+########Signals
 
     # used to send messages to the main app
     log_message = pyqtSignal(str)
@@ -72,6 +76,7 @@ class VenusUSB2GUI(QObject):
                         self.previewWidget = uic.loadUi(self.path + file)
 
         self.settings = {}
+        self.q_img = None
 
         # Initialize cap as empty capture
         self.camera = VenusUSB2()
@@ -103,6 +108,15 @@ class VenusUSB2GUI(QObject):
 
     ########Functions
     ################################### internal
+
+    def _connect_signals(self):
+            # Connect widget buttons to functions
+        self.settingsWidget.cameraPreview.clicked.connect(self._previewAction)
+        self.settingsWidget.saveButton.clicked.connect(self._saveAction)
+        self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
+        
+########Functions
+################################### internal
 
     def _update_frame(self):
         exposure = self.settings["exposure"]
@@ -143,7 +157,9 @@ class VenusUSB2GUI(QObject):
         if self.preview_running:
             self.timer.stop()
             self._GUIchange_deviceConnected(self.preview_running)
+            self.closeLock.emit(not self.preview_running)
             self.preview_running = False
+            self._enableSaveButton()
             self.camera.close()
         else:
             self._parse_settings_preview()
@@ -151,28 +167,29 @@ class VenusUSB2GUI(QObject):
                 source=self.settings["source"], exposure=self.settings["exposure"]
             )
             if status:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : VenusUSB2 plugin : {message}, status = {status}"
-                )
-                self.info_message.emit(f"VenusUSB2 plugin : {message}")
-            else:
-                if self.settings["exposure"] < self.default_timerInterval:
-                    self.timer.start(self.default_timerInterval)
-                else:
-                    self.timer.start(
-                        self.default_timerInterval + self.settings["exposure"]
-                    )
-                self._GUIchange_deviceConnected(self.preview_running)
-                self.preview_running = True
+              self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : VenusUSB2 plugin : {message}, status = {status}")
+              self.info_message.emit(f"VenusUSB2 plugin : {message}")
+            else:  
+            	if self.settings["exposure"] < self.default_timerInterval:
+            		self.timer.start(self.default_timerInterval)
+            	else:
+            		self.timer.start(self.default_timerInterval + self.settings["exposure"])
+            	self.settingsWidget.saveButton.setEnabled(False)
+            	self._GUIchange_deviceConnected(self.preview_running)
+            	self.closeLock.emit(not self.preview_running)
+            	self.preview_running = True
 
-    ########Functions
-    ###############GUI setting up
+    def _saveAction(self):
+    	[status, info] = self._parseSaveData()
+    	if status:
+    		self.info_message.emit(f"VenusUSB2 plugin : {info['Error message']}")
+    		return [status, info]
+    	self.q_img.save(self.settings["address"] + os.sep + self.settings["filename"] + ".jpeg", format = 'jpeg')
 
-    def _initGUI(
-        self,
-        plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
-    ):
+########Functions
+###############GUI setting up
+           	
+    def _initGUI(self, plugin_info:"dictionary with settings obtained from plugin_data in pyIVLS_*_plugin"):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
         """
@@ -181,6 +198,17 @@ class VenusUSB2GUI(QObject):
         )
         """
         self.settingsWidget.cameraSource.setText(plugin_info["source"])
+        self.settingsWidget.saveButton.setEnabled(False)
+        self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
+        self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
+
+    def _getAddress(self):
+        address = self.settingsWidget.lineEdit_path.text()
+        if not(os.path.exists(address)):
+                address = self.path
+        address = QFileDialog.getExistingDirectory(None, "Select directory for saving", address, options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks)
+        if address:
+                self.settingsWidget.lineEdit_path.setText(address)        
 
 
     ########Functions
@@ -198,7 +226,12 @@ class VenusUSB2GUI(QObject):
             )
         # self.settingsWidget.exposureBox.setEnabled(status)
         self.settingsWidget.sourceBox.setEnabled(status)
-        self.closeLock.emit(not status)
+
+    def _enableSaveButton(self):
+    	if not self.q_img:
+        	self.settingsWidget.saveButton.setEnabled(False)
+    	else:
+        	self.settingsWidget.saveButton.setEnabled(True)
         print("camera emitted close lock signal ", not status)
 
     def _exp_slider_change(self):
@@ -232,7 +265,8 @@ class VenusUSB2GUI(QObject):
             if callable(getattr(self, method))
             and not method.startswith("__")
             and not method.startswith("_")
-            and method.startswith(f"{function.lower()}_")
+            and method not in self.non_public_methods
+            and method in self.public_methods
         }
         return methods
 
@@ -267,4 +301,15 @@ class VenusUSB2GUI(QObject):
                 + f" : VenusUSB2 plugin settings error, status = {parse_status}"
             )
 
-        return img
+        return img        
+    def _parseSaveData(self) -> "status":
+        self.settings["address"] = self.settingsWidget.lineEdit_path.text()
+        if not os.path.isdir(self.settings["address"] + os.sep):
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : VenusUSB2 plugin : address string should point to a valid directory")
+                return [1, {"Error message":f"VenusUSB2 plugin : address string should point to a valid directory"}]           
+        self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
+        if not is_valid_filename(self.settings["filename"]):
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : VenusUSB2 plugin : filename is not valid")
+                self.info_message.emit(f"VenusUSB2 plugin : filename is not valid")
+                return [1, {"Error message":f"VenusUSB2 plugin : filename is not valid"}]
+        return [0,"Ok"]

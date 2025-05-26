@@ -61,6 +61,7 @@ if __name__ == "__main__":
     pluginsContainer.show_message_signal.connect(GUI_mainWindow.show_message)
 
     pluginsContainer.log_message.connect(GUI_mainWindow.addDataLog)
+    GUI_mainWindow.seqBuilder.info_message.connect(GUI_mainWindow.show_message)
 
     pluginsContainer.register_start_up()
 
@@ -71,8 +72,10 @@ if __name__ == "__main__":
         infoSignal.connect(GUI_mainWindow.show_message)
 
     for closeLockSignal in pluginsContainer.getCloseLockSignals():
-        closeLockSignal.connect(GUI_mainWindow.setCloseLock)
-
+       closeLockSignal.connect(GUI_mainWindow.setCloseLock)
+    
+    pluginsContainer.seqComponents_signal.connect(GUI_mainWindow.seqBuilder.getPluginFunctions)
+    
     pluginsContainer.public_function_exchange()
     ### init interfaces
     whatAmI = pluginsContainer.get_plugin_info_for_settingsGUI()
