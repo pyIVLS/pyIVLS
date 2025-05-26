@@ -17,7 +17,7 @@ class AffineGUI(QObject):
     -positioning_coords(coords: tuple[float, float]) -> tuple[float, float]
 
     Revision 0.1.1
-    -
+    -Manual mode implementeted.
 
     version 0.1
     2025.05.21
@@ -53,6 +53,7 @@ class AffineGUI(QObject):
         self.expecting_img_click = False
         self.mask_points = []
         self.img_points = []
+        self.num_needed = 4 # Read from user?
 
     # GUI initialization
 
@@ -256,10 +257,7 @@ class AffineGUI(QObject):
         self._update_MDI(self.mdi_mask, img)
         
         
-        self.info_message.emit(
-            self.manual_mode
-            and "Manual mode enabled. Click on the GDS to define points in order."
-        )
+        self.info_message.emit(f"Manual mode enabled. Click on the GDS and then on the image to define points. {self.num_needed} points needed for transformation.")
 
     def _mask_button_action(self):
         """Interface for the gds mask loading button."""
@@ -384,7 +382,7 @@ class AffineGUI(QObject):
             self.img_points.append((x, y))
             self.expecting_img_click = False
 
-            if len(self.img_points) == 4:
+            if len(self.img_points) == self.num_needed:
                 try:
                     self.affine.manual_transform(self.mask_points, self.img_points, self.mdi_img, self.mdi_mask)
                     self._update_MDI(self.mdi_mask, self.mdi_img, save_internal=False)
