@@ -84,16 +84,20 @@ class pyIVLS_GUI(QObject):
         self.window.dockWidget.setVisible(self.window.actionDockWidget.isChecked())
 
     def action_MDIShow_to_open(self):
-        self.window.mdiWindowsMenu.clear()  # Clear the menu before adding actions
+        self.window.mdiWindowsMenu.clear()
 
         for subwindow in self.window.mdiArea.subWindowList():
-            # add actions for each subwindow in the MDI area.
-            action = QAction(subwindow.windowTitle(), self.window)
-            action.setCheckable(True)
-            action.setChecked(subwindow.isVisible())
-            # connect the action to the subwindow visibility toggle
-            action.toggled.connect(lambda checked, sw=subwindow: sw.setVisible(checked))
-            self.window.mdiWindowsMenu.addAction(action)
+            checkbox = QtWidgets.QCheckBox(subwindow.windowTitle())
+            checkbox.setChecked(subwindow.isVisible())
+
+            # Connect the checkbox state to the subwindow's visibility
+            checkbox.stateChanged.connect(lambda state, sw=subwindow: sw.setVisible(state))
+
+            # Wrap the checkbox in a QWidgetAction
+            widget_action = QtWidgets.QWidgetAction(self.window)
+            widget_action.setDefaultWidget(checkbox)
+
+            self.window.mdiWindowsMenu.addAction(widget_action)
 
 
 
