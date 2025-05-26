@@ -1,4 +1,4 @@
-## How to add plugins:
+## How to add plugins OUT OF DATE 26.5.2025.
 1. Add plugin info to the pyIVLS.ini 
 2. Create a folder for the plugin with the name {plugin name}
 3. Place the source files in the folder, name it {plugin name}.py
@@ -21,7 +21,3 @@ pm.hook.mm_move(speed=1, x=0, y=0, z=0) works
 Write dependencies with no spaces and comma separated values.
 
 
-# Base class Plugin
-Contains some common logic for all plugins. This class also provides a method that dynamically get all public methods. 
-When adding additional hooks to all plugins, check pyIVLS_constants.py and add the name of the new hook to the HOOKS constant. 
-This prevents it from being passed around unnecessarily.

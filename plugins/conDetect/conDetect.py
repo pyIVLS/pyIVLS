@@ -1,6 +1,7 @@
 # from pyftdi.ftdi import Ftdi
 import serial
 from threading import Lock
+CONDETECT_PORT = "ftdi://ftdi:232:UUT1/1"
 
 
 class conDetect:

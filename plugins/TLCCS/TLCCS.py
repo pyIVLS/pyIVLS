@@ -5,6 +5,9 @@ import numpy as np
 import struct
 import time
 
+### Thorspec constants
+THORSPEC_VID = 0x1313
+THORSPEC_PID = 0x8087
 
 class CCSDRV:
     #    def __init__(self):

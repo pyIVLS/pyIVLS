@@ -67,7 +67,6 @@ import usbtmc
 import numpy as np
 import time
 
-import pyIVLS_constants
 
 
 class Keithley2612B:

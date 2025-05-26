@@ -1,6 +1,6 @@
 #!/usr/bin/python3.8
 import pluggy
-from plugins.Sutter.sutterGUI import SutterGUI
+from sutterGUI import SutterGUI
 
 
 class pyIVLS_Sutter_plugin:

@@ -1,7 +1,7 @@
 #!/usr/bin/python3.8
 import pluggy
 
-from plugins.VenusUSB2.VenusUSB2GUI import VenusUSB2GUI
+from VenusUSB2GUI import VenusUSB2GUI
 
 """
 This hook implementation file should only contain the necessary hooks for the plugin.
