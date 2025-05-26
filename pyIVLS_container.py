@@ -281,7 +281,6 @@ class pyIVLS_container(QObject):
             else:
                 final_map[function] = plugins
 
-        print("Final function map:", final_map)  # Debugging output
 
         self.pm.hook.set_function(function_dict=final_map)
         self.seqComponents_signal.emit(self.get_plugin_dict(), plugin_public_functions)
