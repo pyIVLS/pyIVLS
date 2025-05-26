@@ -13,12 +13,9 @@ class pyIVLS_mdiWindow(QtWidgets.QMdiSubWindow):
         self.closeLock = status
 
     def closeEvent(self, event):
-        print("MDI WINDOW CLOSE EVENT -------------------------------------------")
         if self.closeLock:
-            print("Hiding MDI window without closing it")
             self.setVisible(False)
             self.closeSignal.emit()
             event.ignore()
         else:
-            print("Closing MDI window for real")
             event.accept()
