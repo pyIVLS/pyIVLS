@@ -292,16 +292,6 @@ class itc503GUI(QObject):
     def _getCloseLockSignal(self):
         return self.closeLock
 
-#########IRtodo: workaround, make a proper update display
-        tic = time.time()
-        while (time.time()-tic) < self.settings["sweepstabilization"]:
-             try:
-                info = self.itc503.getData()
-             except Exception as e:
-                return [4, {"Error message" : f"{e}"}]
-             print(info)
-        return[0 , f"_{info}K"]
-
 ########Functions to be used externally
 ###############get settings from GUI 
 
@@ -334,7 +324,7 @@ class itc503GUI(QObject):
                 return [2, {"Error message":"Value error: sweep points field should be greater than 0"}]
                           
         try:
-                self.settings["sweepstabilization"] = int(self.settingsWidget.periodEdit.text())
+                self.settings["sweepstabilization"] = int(self.settingsWidget.sweepStabilizationEdit.text())
         except ValueError:
                 return [1, {"Error message":"Value error: stabilization time field should be integer"}]
         if self.settings["sweepstabilization"]<1:
@@ -345,8 +335,9 @@ class itc503GUI(QObject):
 
     def setSettings(self, settings):
         self.settings = settings
-        self._setGUIfromSettings()
-    
+#this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
+#        self._setGUIfromSettings()
+
 ########Functions
 ########Tsweep implementation  
 
@@ -354,8 +345,22 @@ class itc503GUI(QObject):
         return self.settings["sweeppts"]
 
     def loopingIteration(self, iteration):
-        self.settings['sett'] = self.settings["sweepstart"] + iteration*(self.settings["sweepend"] - self.settings["sweepstart"])/self.settings["sweeppts"]
-        self.settingsWidget.setTEdit.setText(f"{self.settings['sett']}")
+        if self.settings["sweeppts"] == 1:
+            self.settings['sett'] = self.settings["sweepstart"]
+        else:
+            self.settings['sett'] = self.settings["sweepstart"] + iteration*(self.settings["sweepend"] - self.settings["sweepstart"])/(self.settings["sweeppts"]-1)
+#this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
+#        self.settingsWidget.setTEdit.setText(f"{self.settings['sett']}") 
         [status, info] = self._setT()
         if status:
             return [status, info]
+#########IRtodo: workaround, make a proper update display
+        tic = time.time()
+        while (time.time()-tic) < self.settings["sweepstabilization"]:
+             try:
+                info = self.itc503.getData()
+             except Exception as e:
+                return [4, {"Error message" : f"{e}"}]
+             print(datetime.now().strftime("%H:%M:%S.%f") + f" {info}")
+             time.sleep(20)
+        return[0 , f"_{info}K"]

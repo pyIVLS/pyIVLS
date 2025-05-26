@@ -22,7 +22,8 @@ class pyIVLS_seqBuilder(QObject):
 
     #### Signals for communication
 
-    info_message = pyqtSignal(str) 
+    info_message = pyqtSignal(str)
+    _sigSeqEnd = pyqtSignal()
 
     #### Slots for communication
     @pyqtSlot(dict, list)
@@ -55,6 +56,10 @@ class pyIVLS_seqBuilder(QObject):
         self.update_classView()
     #### external functions
     
+    #### Slots for interThread interaction
+    @pyqtSlot()
+    def _setNotRunning(self):
+        self._setRunStatus(False)
     
     #### Internal functions
     def __init__(self, path):
@@ -83,6 +88,7 @@ class pyIVLS_seqBuilder(QObject):
         self.widget.directoryButton.clicked.connect(self._getAddress)
         self.widget.runButton.clicked.connect(self._runAction)
         
+        self._sigSeqEnd.connect(self._setNotRunning)
         
             #### GUI functions
     def update_classView(self):
@@ -180,14 +186,13 @@ class pyIVLS_seqBuilder(QObject):
     def _runParser(self):
         ###############Main logic of iteration: 0 - no iterations, 1 - only start point, 2 - start end end point, iterstep = (end-start)/(iternum -1).The same is used in sweepCommon for drainVoltage. !!!Adapt to logic of iteration, do not modify it!!!
         data = self.extract_data(self.model.invisibleRootItem().child(0))
-        stack = copy.deepcopy(data) #### it is necessary to make sure that we did not modify original data
+        stackData = copy.deepcopy(data) #### it is necessary to make sure that we did not modify original data
         looping = [] #this will keep track of the steps inside the loop, every element is a dict[{looping -the steps to repeat, loopFunction - looping Function, totalSteps - number of steps in loop, currentStep, totalIterations, currentIteration}]
 
-        while ((not stack == []) or (not looping == [])):
-
+        while ((not stackData == []) or (not looping == [])):
             if not looping == []:
                 if looping[-1]["currentStep"] == 0:
-                    [status, iterText] = self.available_instructions[nextStepFunction]["functions"]["loopingIteration"](looping[-1]["currentIteration"])
+                    [status, iterText] = self.available_instructions[looping[-1]["loopFunction"]]["functions"]["loopingIteration"](looping[-1]["currentIteration"])
                     if status:
                         print(f"Error: {iterText}")
                         break
@@ -197,13 +202,13 @@ class pyIVLS_seqBuilder(QObject):
                 elif looping[-1]["currentStep"] == looping[-1]["totalSteps"]:
                     if looping[-1]["currentIteration"] < looping[-1]["totalIterations"]:
                         looping[-1]["currentStep"] = 0
-                        stack = looping[-1]["looping"] + stack
+                        stackData = looping[-1]["looping"] + stackData
                     else:
                         looping.pop(-1)
                     continue
                 else:
                     looping[-1]["currentStep"] = looping[-1]["currentStep"] + 1
-            stackItem = stack.pop(0)
+            stackItem = stackData.pop(0)
             nextStepFunction = stackItem["function"]
             nextStepSettings = stackItem["settings"]
             nextStepClass = stackItem["class"]
@@ -218,9 +223,9 @@ class pyIVLS_seqBuilder(QObject):
                         break
             if nextStepClass == 'loop':
                     iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
-                    print(f"loop add steps {len(stackItem['looping'])}")
                     looping.append({"looping":stackItem["looping"], "loopFunction": nextStepFunction,"totalSteps":len(stackItem["looping"]), "currentStep":0,"totalIterations":iter, "currentIteration":0, "namePostfix":""})
-                    stack = stackItem["looping"] + stack
+                    stackData = stackItem["looping"] + stackData
+        self._sigSeqEnd.emit()
 
     def _runAction(self):
         #disable controls

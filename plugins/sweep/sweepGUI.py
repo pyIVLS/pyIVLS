@@ -1,5 +1,6 @@
 import os
 import time
+import copy
 import numpy as np
 from pathvalidate import is_valid_filename
 from datetime import datetime
@@ -202,7 +203,7 @@ class sweepGUI(QObject):
         self.settingsWidget.lineEdit_pulsedPoints.setText(f"{self.settings['pulsedpoints']}")
         self.settingsWidget.lineEdit_pulsedLimit.setText(f"{self.settings['pulsedlimit']}")
         self.settingsWidget.lineEdit_pulsedNPLC.setText(f"{self.settings['pulsednplc']}")
-        self.settingsWidget.lineEdit_pulsedPause.setText(f"{self.settings['pulsedpause']}")
+        self.settingsWidget.lineEdit_pulsedPause.setText(f"{self.settings['pulsepause']}")
         self.settingsWidget.lineEdit_pulsedDelay.setText(f"{self.settings['pulseddelay']}")
         self.settingsWidget.lineEdit_drainStart.setText(f"{self.settings['drainstart']}")
         self.settingsWidget.lineEdit_drainEnd.setText(f"{self.settings['drainend']}")
@@ -629,8 +630,12 @@ class sweepGUI(QObject):
         return [0, self.settings]
 
     def setSettings(self, settings):
-        self.settings = settings
-        self._setGUIfromSettings()
+#the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
+        self.settings = []
+        self.settings = copy.deepcopy(settings)
+        self.smu_settings = settings["smu_settings"]
+#this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
+#        self._setGUIfromSettings()
 ###############GUI enable/disable
 
     def set_running(self, status):
@@ -774,10 +779,10 @@ class sweepGUI(QObject):
 	    			fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + f"{drainvoltage}V"+".dat"
 	    		else:
 	    			fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
-	    		np.savetxt(fulladdress, data, fmt='%.8f', delimiter=',', newline='\n', header=fileheader + columnheader, comments='#')
+	    		np.savetxt(fulladdress, data, fmt='%.12e', delimiter=',', newline='\n', header=fileheader + columnheader, comments='#')
     		return [0, "sweep finished"]
 
-    def _sequenceStep(self, postfix):
+    def sequenceStep(self, postfix):
         self.settings["filename"] = self.settings["filename"] + postfix
         [status, message] = self.function_dict["smu"]["smu_connect"]()
         if status:
