@@ -48,6 +48,12 @@ class AffineGUI(QObject):
         # init temporary point array
         self.tp_arr = []
 
+        # init state for manual mode
+        self.manual_mode = False
+        self.expecting_img_click = False
+        self.mask_points = []
+        self.img_points = []
+
     # GUI initialization
 
     # TODO: Read settings from file, for instance latest points and mask + default names for text inputs.
@@ -60,7 +66,7 @@ class AffineGUI(QObject):
         if last_mask_path is not None:
             try:
                 mask = self.affine.update_interal_mask(last_mask_path)
-                self._update_MDI(mask, None, save_interal=True)
+                self._update_MDI(mask, None)
                 self._gui_change_mask_uploaded(mask_loaded=True)
             except AffineError:
                 # I dont want to hear about this error, dont care.
@@ -230,7 +236,7 @@ class AffineGUI(QObject):
 
             # img = self.functions["camera"][camera_name]["camera_capture_image"](full_size=True)
             img = self.affine.test_image()
-            self._update_MDI(None, img, save_internal=True)
+            self._update_MDI(None, img)
 
             self.affine.try_match(img)
             timestamp = datetime.now().strftime("%H:%M:%S.%f")
@@ -245,12 +251,14 @@ class AffineGUI(QObject):
 
     # TODO: Implement manual mode
     def _manual_button_action(self):
-        """Action for the save button."""
-        self.log_message.emit(
-            "Manual mode is not implemented yet. Please use the find button."
-        )
+        self.manual_mode = True
+        img = self.affine.test_image() # FIXME: replace with camera call
+        self._update_MDI(self.mdi_mask, img)
+        
+        
         self.info_message.emit(
-            "Manual mode is not implemented yet. Please use the find button."
+            self.manual_mode
+            and "Manual mode enabled. Click on the GDS to define points in order."
         )
 
     def _mask_button_action(self):
@@ -283,64 +291,114 @@ class AffineGUI(QObject):
             pass
 
     def _gds_label_clicked(self, event):
-        # Map from view coords -> scene coords
-        pos = self.gds_label.mapToScene(event.pos())
-        x, y = pos.x(), pos.y()
 
-        # check if the mask is loaded
-        if self.affine.internal_mask is None:
-            return
+        def measurement_point_mode(x,y):
+            try:
 
-        # convert the clicked coords to the image coords
-        try:
-            # I thinks these are sometimes returned as floats from Qt
-            x = int(x)
-            y = int(y)
+                # "center on component" mode
+                if self.centerCheckbox.isChecked():
+                    x, y = self.affine.center_on_component(x, y)
 
-            # "center on component" mode
-            if self.centerCheckbox.isChecked():
-                x, y = self.affine.center_on_component(x, y)
+                # draw the point on the mask
+                self.gds_scene.addEllipse(
+                    x - 3,
+                    y - 3,
+                    6,
+                    6,
+                    brush=QBrush(Qt.GlobalColor.red),
+                    pen=QPen(Qt.GlobalColor.transparent),
+                )
 
-            # draw the point on the mask
+                # add the point to list, process point cluster if pointCount is reached
+                self.tp_arr += [(x, y)]
+                if len(self.tp_arr) == int(self.pointCount.currentText()):
+                    # Create a widget item with the name and coordinates
+                    item = QtWidgets.QListWidgetItem(self.pointName.text())
+                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+                    item.setData(self.COORD_DATA, self.tp_arr)
+                    self.definedPoints.addItem(item)
+                    self.tp_arr = []
+                    name_idx = self.definedPoints.count()
+                    self.pointName.setText("Measurement Point " + str(name_idx + 1))
+
+                img_x, img_y = self.affine.coords((x, y))
+
+                # Draw red dot on the image
+                self.camera_scene.addEllipse(
+                    img_x - 3,
+                    img_y - 3,
+                    6,
+                    6,
+                    brush=QBrush(Qt.GlobalColor.red),
+                    pen=QPen(Qt.GlobalColor.transparent),
+                )
+            except AffineError as e:
+                if e.error_code != 4:
+                    self.log_message.emit(e.message)
+
+        def manual_mode(x,y):
+            
+            # Draw the point on the mask
             self.gds_scene.addEllipse(
                 x - 3,
                 y - 3,
                 6,
                 6,
-                brush=QBrush(Qt.GlobalColor.red),
-                pen=QPen(Qt.GlobalColor.transparent),
+                brush=QBrush(Qt.GlobalColor.blue)
             )
+            self.expecting_img_click = True
+            self.mask_points.append((x, y))
+            
 
-            # add the point to list, process point cluster if pointCount is reached
-            self.tp_arr += [(x, y)]
-            if len(self.tp_arr) == int(self.pointCount.currentText()):
-                # Create a widget item with the name and coordinates
-                item = QtWidgets.QListWidgetItem(self.pointName.text())
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-                item.setData(self.COORD_DATA, self.tp_arr)
-                self.definedPoints.addItem(item)
-                self.tp_arr = []
-                name_idx = self.definedPoints.count()
-                self.pointName.setText("Measurement Point " + str(name_idx + 1))
+        # Map from view coords -> scene coords
+        pos = self.gds_label.mapToScene(event.pos())
+        x, y = pos.x(), pos.y()
+        # I thinks these are sometimes returned as floats from Qt
+        x = int(x)
+        y = int(y)
 
-            img_x, img_y = self.affine.coords((x, y))
+        # check if the mask is loaded
+        if self.affine.internal_mask is None:
+            return
 
-            # Draw red dot on the image
-            self.camera_scene.addEllipse(
-                img_x - 3,
-                img_y - 3,
-                6,
-                6,
-                brush=QBrush(Qt.GlobalColor.red),
-                pen=QPen(Qt.GlobalColor.transparent),
-            )
-        except AffineError as e:
-            if e.error_code != 4:
-                self.log_message.emit(e.message)
+        if not self.manual_mode:
+            measurement_point_mode(x, y)
+        elif  not self.expecting_img_click:
+            manual_mode(x,y)
 
     # TODO: implement this for manual mode
     def _camera_label_clicked(self, event):
-        pass
+        """Handles camera label clicks."""
+        if self.expecting_img_click:
+            scene_pos = self.camera_label.mapToScene(event.pos())  # Convert view to scene coordinates
+            x = int(scene_pos.x())
+            y = int(scene_pos.y())
+
+            self.camera_scene.addEllipse(
+                x - 3,
+                y - 3,
+                6,
+                6,
+                brush=QBrush(Qt.GlobalColor.blue)
+            )
+            self.img_points.append((x, y))
+            self.expecting_img_click = False
+
+            if len(self.img_points) == 4:
+                try:
+                    self.affine.manual_transform(self.mask_points, self.img_points, self.mdi_img, self.mdi_mask)
+                    self._update_MDI(self.mdi_mask, self.mdi_img, save_internal=False)
+                    self.info_message.emit("Manual transformation successful.")
+                except AffineError as e:
+                    self.info_message.emit(e.message)
+
+                # reset the points
+                self.mask_points = []
+                self.img_points = []
+                self.expecting_img_click = False
+                self.manual_mode = False
+
+        
 
     def _update_MDI(self, mask=None, img=None, save_internal=True):
         """Updates the MDI Widget with the given img and mask.

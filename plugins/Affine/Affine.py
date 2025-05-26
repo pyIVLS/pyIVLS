@@ -17,14 +17,7 @@ class AffineError(Exception):
     Might be easier to handle errors in the form of exceptions
     instead of returning error codes.?"""
 
-    # FIXME: Have not checked if the current codes are reasonable and consistent.
-    error_codes = {
-        1: "No image provided.",
-        2: "No mask loaded.",
-        3: "Try_match error, should output more info.",
-        4: "No transformation found.",
-        5: "Could not load image from path.",
-    }
+
 
     def __init__(self, message, error_code):
         super().__init__(message)
@@ -169,6 +162,8 @@ class Affine:
 
         # estimate affine transformation with ransac
         # OH MAN I LOVE COORDINATE SYSTEMS :)))
+        print(kp_mask[matches[:, 0]], kp_img[matches[:, 1]])
+
         src = kp_mask[matches[:, 0]][:, ::-1].astype(np.float32)  # mask keypoints
         dst = kp_img[matches[:, 1]][:, ::-1].astype(np.float32)  # image keypoints
 
@@ -199,6 +194,41 @@ class Affine:
             max_trials=1000,
         )
         return model, inliers
+    
+    def manual_transform(self, src, dst, img, mask):
+        """
+        Apply an affine transform manually, given points from the mask and image respectively.
+
+        Args:
+            src_points (list of (x, y)): Points from the mask.
+            dst_points (list of (x, y)): Corresponding points from the image.
+        """
+        try:
+            src = np.array(src, dtype=np.float32)
+            dst = np.array(dst, dtype=np.float32)
+
+            model, inliers = self.get_transformation(
+                src,
+                dst,
+            )
+            if inliers is None:
+                raise AffineError("Ransac can't find transform.", 3)
+            # Populate the class variables when a transformation is found.
+            self.A = model.params
+            self.result["img"] = img
+            self.result["mask"] = mask
+            self.result["kp1"] = src
+            self.result["kp2"] = dst
+            self.result["matches"] = np.array(
+                [[i, i] for i in range(len(src))]  # dummy matches to retain the structure
+            )
+
+        except Exception as e:
+            raise AffineError(
+                f"Error during manual transformation: {e}", 3
+            ) from e
+
+
 
     def coords(self, point: tuple[float, float]) -> tuple[float, float]:
         """
