@@ -122,7 +122,6 @@ class Affine:
         print("keypoints not impelemented yet")
         return img, mask
 
-
     def try_match(
         self,
         img: np.ndarray,
@@ -158,9 +157,7 @@ class Affine:
             sift.detect_and_extract(mask)
             kp_mask, desc_mask = sift.keypoints, sift.descriptors
         except RuntimeError as e:
-            raise AffineError(
-                f"Runtime error during SIFT detection: {e}", 3
-            ) from e
+            raise AffineError(f"Runtime error during SIFT detection: {e}", 3) from e
 
         # Match descriptors, lowes ratio test
         matches = match_descriptors(desc_mask, desc_img, max_ratio=0.75)
@@ -190,7 +187,6 @@ class Affine:
         self.result["kp2"] = kp_img
         self.result["matches"] = matches
         self.result["transform"] = model
-
 
     def get_transformation(self, src, dst) -> np.ndarray:
         # NOTE: This is using SimilarityTransform, which accounts for rotation, translation, and scaling but not perspective changes.

@@ -80,7 +80,9 @@ class SutterGUI(QObject):
         self.settingsWidget.speedComboBox.currentIndexChanged.connect(
             self.speed_changed
         )
-        self.settingsWidget.devnumCombo.currentIndexChanged.connect(self._devnum_changed)
+        self.settingsWidget.devnumCombo.currentIndexChanged.connect(
+            self._devnum_changed
+        )
 
         # save input fields. Explicit typing here just so I get type hints in vscode
         self.quickmove_input: QtWidgets.QCheckBox = self.settingsWidget.quickBox
@@ -137,7 +139,9 @@ class SutterGUI(QObject):
             )
 
         self.source_input.setEnabled(not connected)
-        self.settingsWidget.connectButton.setText("Disconnect" if connected else "Connect")
+        self.settingsWidget.connectButton.setText(
+            "Disconnect" if connected else "Connect"
+        )
         self.settingsWidget.basicBox.setEnabled(connected)
         self.settingsWidget.saveBox.setEnabled(connected)
         self.closeLock.emit(connected)
@@ -157,7 +161,7 @@ class SutterGUI(QObject):
         curr_text = self.devnum_combo.currentText()
         if curr_text == "":
             return
-        dev_num = int(curr_text) 
+        dev_num = int(curr_text)
         self.hal.change_active_device(dev_num)
 
     def speed_changed(self):

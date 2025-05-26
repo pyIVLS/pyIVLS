@@ -1,7 +1,7 @@
-'''
+"""
 This is a class for peltier controller
 
-'''
+"""
 
 import os
 import pyvisa
@@ -9,47 +9,45 @@ from threading import Lock
 
 
 class itc503:
-
     def __init__(self):
-
         self.rm = pyvisa.ResourceManager()
         self.lock = Lock()
-        
+
     def open(self, source=None):
         """Opens the itc503 device for use
 
         Returns status
             0 - no error
         """
-        if (source is None):
-            raise ValueError('Source address is empty.')
+        if source is None:
+            raise ValueError("Source address is empty.")
         with self.lock:
-                                self.device = self.rm.open_resource(source)
-                                self.device.write_termination = '\r\n'
-                                self.device.read_termination = '\r\n'
-                                #"Q2" tells ITC to use also \r as a termination character has to be used only after restarting ITC
-                                self.device.write("Q2")
-                                #"C3" tells instrument to be at REMOTE UNLOCKED state different numbers after C tell ITC to be at different states -> see ITC503 user manual
-                                self.device.write("C3")
-                                self.device.read_bytes(3)
+            self.device = self.rm.open_resource(source)
+            self.device.write_termination = "\r\n"
+            self.device.read_termination = "\r\n"
+            # "Q2" tells ITC to use also \r as a termination character has to be used only after restarting ITC
+            self.device.write("Q2")
+            # "C3" tells instrument to be at REMOTE UNLOCKED state different numbers after C tell ITC to be at different states -> see ITC503 user manual
+            self.device.write("C3")
+            self.device.read_bytes(3)
         return 0
 
     def close(self):
         """Closes connection to itc 503 and restores the device into LOCAL MODE
-        
+
         Returns status
             0 - no error
         """
         with self.lock:
-                                self.device.write("C0")
-                                #ITC wants to send confirmation after some commands so we read those after command
-                                self.device.read_bytes(3)
-                                self.device.close()
+            self.device.write("C0")
+            # ITC wants to send confirmation after some commands so we read those after command
+            self.device.read_bytes(3)
+            self.device.close()
         return 0
 
     def setT(self, temperature):
         """set the setpoint
-        
+
         Returns status
             0 - no error
         """
@@ -63,13 +61,14 @@ class itc503:
             self.device.read_bytes(3)
         return 0
 
-
     def getData(self):
         """get the data out of controller and return it as a float
-        
+
         Returns:
             temperature as a float
         """
         with self.lock:
             self.device.write("R1")
-            return float(self.device.read_bytes(8)[1:-2]) #response is of the form "Rttttt\r\n" see manual for details
+            return float(
+                self.device.read_bytes(8)[1:-2]
+            )  # response is of the form "Rttttt\r\n" see manual for details

@@ -10,6 +10,7 @@ from PyQt6.QtCore import (
 from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 from pyIVLS_pluginloader import pyIVLS_pluginloader
 from pyIVLS_seqBuilder import pyIVLS_seqBuilder
+
 # move this to mainwindow?
 from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
 from components.pyIVLS_mainWindow import pyIVLS_mainWindow
@@ -68,9 +69,6 @@ class pyIVLS_GUI(QObject):
             print("All MDI windows are hidden")
             self.window.actionMDI_windows.setChecked(False)
 
-
-
-
     ################ Menu actions
     def actionPlugins(self):
         self.pluginloader.refresh()
@@ -83,9 +81,7 @@ class pyIVLS_GUI(QObject):
 
     def actionMDI_windows(self):
         for subwindow in self.window.mdiArea.subWindowList():
-            subwindow.setVisible(
-                self.window.actionMDI_windows.isChecked()
-            )
+            subwindow.setVisible(self.window.actionMDI_windows.isChecked())
 
     def actionDockWidget(self):
         self.window.dockWidget.setVisible(self.window.actionDockWidget.isChecked())
@@ -119,7 +115,6 @@ class pyIVLS_GUI(QObject):
         subwindows = self.window.mdiArea.subWindowList()
         subwindow_names = [subwindow.windowTitle() for subwindow in subwindows]
 
-
         for name, widget in widgets.items():
             if name not in subwindow_names:
                 subwindow = pyIVLS_mdiWindow(self.window.mdiArea)
@@ -127,20 +122,19 @@ class pyIVLS_GUI(QObject):
                 widget.show()
                 subwindow.setWindowTitle(name)
                 subwindow.closeSignal.connect(self.mdi_window_react_close)
-                subwindow.setVisible(
-                self.window.actionMDI_windows.isChecked()
-                )            
+                subwindow.setVisible(self.window.actionMDI_windows.isChecked())
             else:
                 # subwindow already exists, do nothing. Widget should be set and correct
-                pass 
+                pass
 
         # close subwindows that are not in the widgets dict
         for sw in subwindows:
             if sw.windowTitle() not in widgets:
-                self.window.mdiArea.removeSubWindow(sw) # Remove subwindow because the subwindow list is used to iterate over existing windows
-                sw.setCloseLock(False) # closelock is set to False to allow closing
+                self.window.mdiArea.removeSubWindow(
+                    sw
+                )  # Remove subwindow because the subwindow list is used to iterate over existing windows
+                sw.setCloseLock(False)  # closelock is set to False to allow closing
                 sw.close()  # actually close
-
 
     def setSeqBuilder(self):
         self.window.seqBuilder_dockWidget.setWidget(self.seqBuilder.widget)
@@ -153,11 +147,6 @@ class pyIVLS_GUI(QObject):
         if isinstance(dock_widget, QtWidgets.QTabWidget):
             dock_widget.clear()  # Clear all tabs
         self.window.dockWidget.setWidget(None)
-
-
-
-
-
 
     def __init__(self):
         super(pyIVLS_GUI, self).__init__()
@@ -178,7 +167,6 @@ class pyIVLS_GUI(QObject):
         self.window.closeSignal.connect(self.reactClose)
         self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
         self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)
-
 
         self.pluginloader.request_available_plugins_signal
 

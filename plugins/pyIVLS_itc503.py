@@ -1,6 +1,6 @@
 #!/usr/bin/python3.8
 
-'''
+"""
 This is a itc503 plugin for pyIVLS. The plugin is based on peltierController for pyIVLS
 
 This file only implements the hooks for pyIVLS.
@@ -11,34 +11,35 @@ The itc503 contains
 - itc503_settingsWidget.ui a Qt widget implementation
 - itc503_MDIWidget.ui - a MDI window for displaying time dependecies of temperature
 - itc503GUI.py - code that interracts with Qt GUI elements from widgets
-        main functionality: 
+        main functionality:
                 start temperature visualization
                 set temperature
                 set power
 - itc503.py - a set of functions that may be used outside of GUI
-'''
+"""
 
 import pluggy
 
 from itc503GUI import itc503GUI
 
-class pyIVLS_itc503_plugin():
+
+class pyIVLS_itc503_plugin:
     """Hooks for itc503 plugin
-    
+
     get_log and get_info should be implemented, as the plugin may start manual temperature monitor or set tempereature
     """
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.plugin_name = 'itc503'
-        self.plugin_function = 'temperature' #e.g. smu, camera, micromanipulator, etc.
+        self.plugin_name = "itc503"
+        self.plugin_function = "temperature"  # e.g. smu, camera, micromanipulator, etc.
         self.pluginClass = itc503GUI()
         super().__init__()
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
-        """ Returns GUI plugin for the docking area (settings/buttons). This function is called from pyIVLS_container
+        """Returns GUI plugin for the docking area (settings/buttons). This function is called from pyIVLS_container
 
         Returns:
             dict: name, widget
@@ -48,8 +49,8 @@ class pyIVLS_itc503_plugin():
         return {self.plugin_name: self.pluginClass.settingsWidget}
 
     @hookimpl
-    def get_MDI_interface(self, args = None) -> dict:
-        """ Returns MDI window (visualisation). This function is called from pyIVLS_container
+    def get_MDI_interface(self, args=None) -> dict:
+        """Returns MDI window (visualisation). This function is called from pyIVLS_container
 
         Returns:
             dict: name, widget
@@ -57,7 +58,7 @@ class pyIVLS_itc503_plugin():
         return {self.plugin_name: self.pluginClass.MDIWidget}
 
     @hookimpl
-    def get_functions(self, args = None):
+    def get_functions(self, args=None):
         """Returns a dictionary of publicly accessible functions. This function is called from pyIVLS_container
 
         Args:
@@ -70,32 +71,31 @@ class pyIVLS_itc503_plugin():
             return {self.plugin_name: self.pluginClass._get_public_methods()}
 
     @hookimpl
-    def get_log(self, args = None):
+    def get_log(self, args=None):
         """provides the signal for logging to main app
 
         :return: dict that includes the log signal
         """
-        
+
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.pluginClass._getLogSignal()}
 
     @hookimpl
-    def get_info(self, args = None):
+    def get_info(self, args=None):
         """provides the signal for logging to main app
 
         :return: dict that includes the log signal
         """
-        
+
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.pluginClass._getInfoSignal()}
 
     @hookimpl
-    def get_closeLock(self, args = None):
+    def get_closeLock(self, args=None):
         """provides the signal for logging to main app
 
         :return: dict that includes the log signal
         """
-        
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.pluginClass._getCloseLockSignal()}             
 
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.pluginClass._getCloseLockSignal()}

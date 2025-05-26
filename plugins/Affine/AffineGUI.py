@@ -17,7 +17,7 @@ class AffineGUI(QObject):
     -positioning_coords(coords: tuple[float, float]) -> tuple[float, float]
 
     Revision 0.1.1
-    - 
+    -
 
     version 0.1
     2025.05.21
@@ -115,7 +115,9 @@ class AffineGUI(QObject):
             _type_: _description_
         """
         # Save inputs that are used in multiple functions
-        self.centerCheckbox = settingsWidget.findChild(QtWidgets.QCheckBox, "centerClicks")
+        self.centerCheckbox = settingsWidget.findChild(
+            QtWidgets.QCheckBox, "centerClicks"
+        )
 
         # add a custom context menu in the list widget to allow point deletion
         self.definedPoints.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -134,7 +136,9 @@ class AffineGUI(QObject):
 
         # connect the label click on gds to a function
         self.gds_label.mousePressEvent = lambda event: self._gds_label_clicked(event)
-        self.camera_label.mousePressEvent = lambda event: self._camera_label_clicked(event)
+        self.camera_label.mousePressEvent = lambda event: self._camera_label_clicked(
+            event
+        )
 
         return settingsWidget, MDIWidget
 
@@ -147,7 +151,7 @@ class AffineGUI(QObject):
     def _list_widget_context_menu(self, pos):
         def remove_item(item):
             self.definedPoints.takeItem(self.definedPoints.row(item))
-        
+
         def rename_item(item: QtWidgets.QListWidgetItem):
             item.setText("New name")
 
@@ -285,7 +289,7 @@ class AffineGUI(QObject):
 
         # check if the mask is loaded
         if self.affine.internal_mask is None:
-            return 
+            return
 
         # convert the clicked coords to the image coords
         try:
@@ -319,7 +323,6 @@ class AffineGUI(QObject):
                 name_idx = self.definedPoints.count()
                 self.pointName.setText("Measurement Point " + str(name_idx + 1))
 
-
             img_x, img_y = self.affine.coords((x, y))
 
             # Draw red dot on the image
@@ -340,12 +343,12 @@ class AffineGUI(QObject):
         pass
 
     def _update_MDI(self, mask=None, img=None, save_internal=True):
-        """Updates the MDI Widget with the given img and mask. 
+        """Updates the MDI Widget with the given img and mask.
         Only updates the scene if the img or mask is not None.
 
         Args:
-            mask (_type_, optional): 
-            img (_type_, optional): 
+            mask (_type_, optional):
+            img (_type_, optional):
             save_internal (bool, optional): Save provided img(s) to internal buffer. Defaults to True.
         """
         if img is not None:
@@ -358,7 +361,7 @@ class AffineGUI(QObject):
             # Create or update the scene
             self.camera_scene.clear()
             self.camera_scene.addItem(pixmap_item)
-            #self.camera_label.setScene(self.camera_scene)
+            # self.camera_label.setScene(self.camera_scene)
             if save_internal:
                 self.mdi_img = img
 
@@ -372,7 +375,7 @@ class AffineGUI(QObject):
             # Create or update the scene
             self.gds_scene.clear()
             self.gds_scene.addItem(pixmap_item)
-            #self.gds_label.setScene(self.gds_scene)
+            # self.gds_label.setScene(self.gds_scene)
 
             if save_internal:
                 self.mdi_mask = mask

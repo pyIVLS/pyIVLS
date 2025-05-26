@@ -3,7 +3,6 @@ import pluggy
 from plugins.Sutter.sutterGUI import SutterGUI
 
 
-
 class pyIVLS_Sutter_plugin:
     """Hooks for Sutter micromanipulator plugin"""
 
@@ -13,7 +12,6 @@ class pyIVLS_Sutter_plugin:
         self.function = "micromanipulator"
         self.name = "Sutter"
         self.gui = SutterGUI(self.name, self.function)
-
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
@@ -27,7 +25,7 @@ class pyIVLS_Sutter_plugin:
         """Returns a dictionary of publicly accessible functions."""
         if args is None or args.get("function") == self.function:
             return {self.name: self.gui._get_public_methods()}
-        
+
     @hookimpl
     def get_log(self, args=None):
         """provides the signal for logging to main app
@@ -57,8 +55,3 @@ class pyIVLS_Sutter_plugin:
 
         if args is None or args.get("function") == self.function:
             return {self.name: self.gui._get_close_lock_signal()}
-
-
-
-
-

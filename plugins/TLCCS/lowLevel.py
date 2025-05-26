@@ -3,6 +3,7 @@ import usb.core
 import usb.util
 import TLCCS_const as const
 
+
 class LLIO:
     """This class handles low level usb communication with a
     Thorlabs ccs-device. Communication is done with pyusb.
@@ -24,11 +25,11 @@ class LLIO:
             ValueError: device not found with the given vid and pid
             ConnectionError: usb error when connecting to the device
         """
-        try:      
+        try:
             if not self.connected:
                 self.dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
                 if self.dev is None:
-                    raise ValueError("Device not found")                                      
+                    raise ValueError("Device not found")
                 self.dev.set_configuration()
                 self.connected = True
                 return True

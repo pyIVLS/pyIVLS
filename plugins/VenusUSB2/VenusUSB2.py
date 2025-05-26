@@ -50,26 +50,25 @@ class VenusUSB2:
         if source is None or source == "":
             self.cap.open(0)
         else:
-            self.cap.open(source)
+            self.cap.open(source)   
         if self.cap.isOpened():
-            self.cap.read()  # read so that the camera doesn't feel sad
-            # also makes sure that the exposure is properly set, some cameras seem to need this.
-            if exposure is None:
-                exposure = 1
-            if not self.cap.set(cv.CAP_PROP_EXPOSURE, exposure):
-                self.close()
-                return [4, {"Error message": "Can not set exposure time"}]
 
-            ##IRtothink#### should the next settings be obtaines as parameters
 
-            # Set buffer size to 1.
+            # Set buffer size
             self.cap.set(cv.CAP_PROP_BUFFERSIZE, self.bufferSize)
 
-            # Set resolution / aspect ratio
-            self.cap.set(cv.CAP_PROP_FRAME_WIDTH, self.cap_width)
-            self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, self.cap_height)
+
             return [0, {"Error message": "OK"}]
         return [4, {"Error message": "Can not open camera"}]
+    
+    def set_exposure(self, exposure):
+        """Sets the exposure time of the camera.
+
+        Args:
+            exposure (int): The exposure time in milliseconds.
+        """
+        if not self.cap.set(cv.CAP_PROP_EXPOSURE, exposure):
+            return [4, {"Error message": "Can not set exposure time"}]
 
     def close(self):
         """Pretty self explanatory"""
@@ -83,11 +82,8 @@ class VenusUSB2:
         """
 
         def get_frame(full_size):
-            # FIXME: check if this creates too much overhead, I imagine changing the resolution should be constant time and not affect the performance.
-            # besides, full_size will probably be used just for single captures for Affine.
-            if full_size:
-                self.cap.set(cv.CAP_PROP_FRAME_WIDTH, self.full_size_width)
-                self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, self.full_size_height)
+
+
 
             for _ in range(self.bufferSize):
                 # empty out the buffer
@@ -95,9 +91,7 @@ class VenusUSB2:
             # get the frame
             _, frame = self.cap.read()
 
-            if full_size:
-                self.cap.set(cv.CAP_PROP_FRAME_WIDTH, self.cap_width)
-                self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, self.cap_height)
+
             return frame
 
         # if cap is open, get the frame

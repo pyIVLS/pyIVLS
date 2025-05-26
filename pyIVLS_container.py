@@ -258,7 +258,7 @@ class pyIVLS_container(QObject):
         for single_dict in plugin_public_functions:
             for plugin_name, methods in single_dict.items():
                 plugin_function = self.config[plugin_name + "_plugin"]["function"]
-                
+
                 if plugin_function not in function_map:
                     # Store first occurrence as-is
                     function_map[plugin_function] = {plugin_name: methods}
@@ -284,7 +284,7 @@ class pyIVLS_container(QObject):
         print("Final function map:", final_map)  # Debugging output
 
         self.pm.hook.set_function(function_dict=final_map)
-        self.seqComponents_signal.emit(self.get_plugin_dict(),plugin_public_functions)
+        self.seqComponents_signal.emit(self.get_plugin_dict(), plugin_public_functions)
 
     def getLogSignals(self):
         plugin_logSignals = self.pm.hook.get_log()

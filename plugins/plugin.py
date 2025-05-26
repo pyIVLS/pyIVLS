@@ -9,7 +9,7 @@ HOOKS = [
 ]
 
 
-class plugin_gui():
+class plugin_gui:
     non_public_methods = ["setup", "get_public_methods", "hookimpl"]
     non_public_methods.extend(HOOKS)
 

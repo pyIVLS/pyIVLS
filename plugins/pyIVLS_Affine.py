@@ -68,9 +68,7 @@ class pyIVLS_Affine_plugin:
         """
 
         return {
-            self.name: self.affine_control._fetch_dependency_functions(
-                function_dict
-            )
+            self.name: self.affine_control._fetch_dependency_functions(function_dict)
         }
 
     @hookimpl
