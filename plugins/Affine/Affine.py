@@ -162,7 +162,6 @@ class Affine:
 
         # estimate affine transformation with ransac
         # OH MAN I LOVE COORDINATE SYSTEMS :)))
-        print(kp_mask[matches[:, 0]], kp_img[matches[:, 1]])
 
         src = kp_mask[matches[:, 0]][:, ::-1].astype(np.float32)  # mask keypoints
         dst = kp_img[matches[:, 1]][:, ::-1].astype(np.float32)  # image keypoints

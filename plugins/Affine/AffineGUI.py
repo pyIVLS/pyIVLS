@@ -6,7 +6,7 @@ from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QBrush, QImage, QPen, QPixmap
 from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
-
+import csv
 
 class AffineGUI(QObject):
     """
@@ -42,18 +42,16 @@ class AffineGUI(QObject):
 
         # init dependency functions
         self.functions = {}
+
         self.mdi_img = None
         self.mdi_mask = None
-
-        # init temporary point array
-        self.tp_arr = []
-
-        # init state for manual mode
         self.manual_mode = False
         self.expecting_img_click = False
         self.mask_points = []
         self.img_points = []
         self.num_needed = 4 # Read from user?
+        self.tp_arr = []
+
 
     # GUI initialization
 
@@ -140,6 +138,7 @@ class AffineGUI(QObject):
         settingsWidget.manualButton.clicked.connect(self._manual_button_action)
         settingsWidget.dispKP.stateChanged.connect(self._disp_kp_state_changed)
         settingsWidget.savePoints.clicked.connect(self.save_points_action)
+        settingsWidget.importPoints.clicked.connect(self._import_points_action)
 
         # connect the label click on gds to a function
         self.gds_label.mousePressEvent = lambda event: self._gds_label_clicked(event)
@@ -174,59 +173,61 @@ class AffineGUI(QObject):
         menu.addAction(delete_action)
         menu.exec(self.definedPoints.mapToGlobal(pos))
 
-    # TODO: Fix save format
     def save_points_action(self):
         """Action for the save button."""
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(
             self.settingsWidget,
             "Save points",
             self.path + os.sep + "measurement_points",
-            "Text Files (*.txt);;All Files (*)",
+            ".csv (*.csv);;All Files (*)",
         )
         if fileName:
-            with open(fileName, "w") as f:
+            with open(fileName, "w", newline="") as csvfile:
+                cswriter = csv.writer(csvfile, delimiter=",")
+                fields = ["Name", "x_mask", "y_mask", "x_img", "y_img"]
+                cswriter.writerow(fields)
                 for i in range(self.definedPoints.count()):
                     item = self.definedPoints.item(i)
                     name = item.text()
                     points = item.data(self.COORD_DATA)
-                    f.write(f"{name}: {points}\n")
+                    for x_mask, y_mask in points:
+                        if self.affine.A is not None:
+                            img_x, img_y = self.affine.coords((x_mask, y_mask))
+                        else:
+                            img_x, img_y = -1, -1
+                        cswriter.writerow([name, x_mask, y_mask, img_x, img_y])
+
+    # TODO: add quicker back-computation of the affine if both mask and image points are defined?
+    def _import_points_action(self):
+        """Action for the import points button."""
+        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self.settingsWidget,
+            "Open points file",
+            self.path + os.sep + "measurement_points",
+            ".csv (*.csv);;All Files (*)",
+        )
+        if fileName:
+            point_dict = {}
+            with open(fileName, "r") as csvfile:
+                csreader = csv.reader(csvfile, delimiter=",")
+                next(csreader)
+                for row in csreader:
+                    # extract the name and coordinates
+                    name = row[0]
+                    x_mask = float(row[1])
+                    y_mask = float(row[2])
+                    point_dict.setdefault(name, []).append((x_mask, y_mask))
+            for name, points in point_dict.items():
+                self.update_list_widget(
+                    points, name, clear_list=False
+                )
+
 
     def _list_item_clicked_action(self, item):
         points = item.data(self.COORD_DATA)
         if not points:
             return
-        # Clear the previous points
-        self._update_MDI(self.mdi_mask, self.mdi_img, save_internal=False)
-        for x, y in points:
-            self.gds_scene.addEllipse(
-                x - 3,
-                y - 3,
-                6,
-                6,
-                brush=QBrush(Qt.GlobalColor.red),
-                pen=QPen(Qt.GlobalColor.transparent),
-            )
-
-        try:
-            for x, y in points:
-                # convert the clicked coords to the image coords
-                x = int(x)
-                y = int(y)
-
-                # draw the point on the mask
-                img_x, img_y = self.affine.coords((x, y))
-
-                # Draw red dot on the image
-                self.camera_scene.addEllipse(
-                    img_x - 3,
-                    img_y - 3,
-                    6,
-                    6,
-                    brush=QBrush(Qt.GlobalColor.red),
-                    pen=QPen(Qt.GlobalColor.transparent),
-                )
-        except AffineError as e:
-            self.log_message.emit(e.message)
+        self.draw_points_mdi(points, Qt.GlobalColor.red, clear_scene=True)
 
     def _find_button_action(self):
         """Action for the find button."""
@@ -250,7 +251,6 @@ class AffineGUI(QObject):
         except AffineError as e:
             self.log_message.emit(e.message)
 
-    # TODO: Implement manual mode
     def _manual_button_action(self):
         self.manual_mode = True
         img = self.affine.test_image() # FIXME: replace with camera call
@@ -291,48 +291,28 @@ class AffineGUI(QObject):
     def _gds_label_clicked(self, event):
 
         def measurement_point_mode(x,y):
-            try:
+            if self.settingsWidget.addPointsCheck.isChecked():
+                try:
+                    # "center on component" mode
+                    if self.centerCheckbox.isChecked():
+                        x, y = self.affine.center_on_component(x, y)
 
-                # "center on component" mode
-                if self.centerCheckbox.isChecked():
-                    x, y = self.affine.center_on_component(x, y)
+                    # draw the points
+                    self.draw_points_mdi([(x, y)], Qt.GlobalColor.red, clear_scene=False)
 
-                # draw the point on the mask
-                self.gds_scene.addEllipse(
-                    x - 3,
-                    y - 3,
-                    6,
-                    6,
-                    brush=QBrush(Qt.GlobalColor.red),
-                    pen=QPen(Qt.GlobalColor.transparent),
-                )
 
-                # add the point to list, process point cluster if pointCount is reached
-                self.tp_arr += [(x, y)]
-                if len(self.tp_arr) == int(self.pointCount.currentText()):
-                    # Create a widget item with the name and coordinates
-                    item = QtWidgets.QListWidgetItem(self.pointName.text())
-                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-                    item.setData(self.COORD_DATA, self.tp_arr)
-                    self.definedPoints.addItem(item)
-                    self.tp_arr = []
-                    name_idx = self.definedPoints.count()
-                    self.pointName.setText("Measurement Point " + str(name_idx + 1))
+                    # add the point to list, process point cluster if pointCount is reached
+                    self.tp_arr += [(x, y)]
+                    if len(self.tp_arr) == int(self.pointCount.currentText()):
+                        # Create a widget item with the name and coordinates
+                        self.update_list_widget(self.tp_arr, self.pointName.text(), clear_list=False)
+                        self.tp_arr = []
+                        name_idx = self.definedPoints.count()
+                        self.pointName.setText("Measurement Point " + str(name_idx + 1))
 
-                img_x, img_y = self.affine.coords((x, y))
-
-                # Draw red dot on the image
-                self.camera_scene.addEllipse(
-                    img_x - 3,
-                    img_y - 3,
-                    6,
-                    6,
-                    brush=QBrush(Qt.GlobalColor.red),
-                    pen=QPen(Qt.GlobalColor.transparent),
-                )
-            except AffineError as e:
-                if e.error_code != 4:
-                    self.log_message.emit(e.message)
+                except AffineError as e:
+                    if e.error_code != 4:
+                        self.log_message.emit(e.message)
 
         def manual_mode(x,y):
             
@@ -364,7 +344,6 @@ class AffineGUI(QObject):
         elif  not self.expecting_img_click:
             manual_mode(x,y)
 
-    # TODO: implement this for manual mode
     def _camera_label_clicked(self, event):
         """Handles camera label clicks."""
         if self.expecting_img_click:
@@ -395,9 +374,7 @@ class AffineGUI(QObject):
                 self.img_points = []
                 self.expecting_img_click = False
                 self.manual_mode = False
-
-        
-
+   
     def _update_MDI(self, mask=None, img=None, save_internal=True):
         """Updates the MDI Widget with the given img and mask.
         Only updates the scene if the img or mask is not None.
@@ -436,6 +413,57 @@ class AffineGUI(QObject):
             if save_internal:
                 self.mdi_mask = mask
 
+    def draw_points_mdi(self, points: list[tuple[float, float]], color, clear_scene: bool = True):
+        """
+        Draws points on the MDI scene.
+        If clear_scene is True, clears the scene before drawing the points.
+        """
+        if clear_scene:
+            self.gds_scene.clear()
+            self.camera_scene.clear()
+            self._update_MDI(self.mdi_mask, self.mdi_img, save_internal=False)
+
+        for x, y in points:
+            self.gds_scene.addEllipse(
+                x - 3,
+                y - 3,
+                6,
+                6,
+                brush=QBrush(color),
+                pen=QPen(Qt.GlobalColor.transparent),
+            )
+
+        if self.affine.A is not None:
+            for x, y in points:
+                # convert the clicked coords to the image coords
+                x = int(x)
+                y = int(y)
+
+                # draw the point on the mask
+                img_x, img_y = self.affine.coords((x, y))
+
+                # Draw colored dot on the image
+                self.camera_scene.addEllipse(
+                    img_x - 3,
+                    img_y - 3,
+                    6,
+                    6,
+                    brush=QBrush(color),
+                    pen=QPen(Qt.GlobalColor.transparent),
+                )
+
+    def update_list_widget(self, points: list[tuple[float, float]], name: str, clear_list: bool = False):
+        """
+        Updates the list widget with the given points and name.
+        If clear_list is True, clears the list before adding the new points.
+        """
+        if clear_list:
+            self.definedPoints.clear()
+
+        item = QtWidgets.QListWidgetItem(name)
+        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+        item.setData(self.COORD_DATA, points)
+        self.definedPoints.addItem(item)
     # hook implementations
 
     def _getLogSignal(self):

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1124</width>
+    <width>1139</width>
     <height>712</height>
    </rect>
   </property>
@@ -54,6 +54,13 @@
           </widget>
          </item>
          <item>
+          <widget class="QCheckBox" name="checkBox">
+           <property name="text">
+            <string>debug</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QComboBox" name="cameraComboBox"/>
          </item>
         </layout>
@@ -85,9 +92,22 @@
       <item>
        <widget class="QGroupBox" name="groupBox">
         <property name="title">
-         <string/>
+         <string>Mask measurement points</string>
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QCheckBox" name="addPointsCheck">
+           <property name="text">
+            <string>Add new points</string>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
+           <property name="tristate">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
          <item>
           <widget class="QComboBox" name="pointCount">
            <item>
@@ -120,7 +140,14 @@
          <item>
           <widget class="QPushButton" name="savePoints">
            <property name="text">
-            <string>Write points to file (W.I.P)</string>
+            <string>Write points to file</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="importPoints">
+           <property name="text">
+            <string>Read points from file</string>
            </property>
           </widget>
          </item>
@@ -128,6 +155,9 @@
           <widget class="QListWidget" name="definedPoints">
            <property name="contextMenuPolicy">
             <enum>Qt::ContextMenuPolicy::DefaultContextMenu</enum>
+           </property>
+           <property name="selectionMode">
+            <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
            </property>
           </widget>
          </item>
