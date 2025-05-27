@@ -204,7 +204,7 @@ class AffineGUI(QObject):
             self.settingsWidget,
             "Open points file",
             self.path + os.sep + "measurement_points",
-            ".csv (*.csv);;All Files (*)",
+            "comma-separated values (*.csv);;All Files (*)",
         )
         if fileName:
             point_dict = {}
