@@ -59,7 +59,7 @@ class AffineGUI(QObject):
     def _initGUI(self, settings):
         self._gui_change_mask_uploaded(False)
         self.settings = settings
-        settingsWidget = self.settingsWidget
+        settingsWidget: QtWidgets.QWidget = self.settingsWidget
         MDIWidget = self.MDIWidget
         last_mask_path = settings.get("default_mask_path", None)
         if last_mask_path is not None:
@@ -158,9 +158,6 @@ class AffineGUI(QObject):
         def remove_item(item):
             self.definedPoints.takeItem(self.definedPoints.row(item))
 
-        def rename_item(item: QtWidgets.QListWidgetItem):
-            item.setText("New name")
-
         item = self.definedPoints.itemAt(pos)
         if item is None:
             return
@@ -231,15 +228,20 @@ class AffineGUI(QObject):
 
     def _find_button_action(self):
         """Action for the find button."""
+        self.info_message.emit("Finding matches, GUI will be unresponsive until done.")
 
         try:
+        
+            # self.settingsWidget.affineBox.setEnabled(False)
+            # setting disabled does not work because it only sets a flag to update the GUI later, but the thread is taken up by the affine call.
+            # see: https://forum.qt.io/topic/124459/setvisible-doesn-t-occur-immediately
+            # Qt has functionality to multithread, but I don't think that's important right now.
+
             # get the camera name from the combobox
             camera_name = self.cameraComboBox.currentText()
-
             # img = self.functions["camera"][camera_name]["camera_capture_image"](full_size=True)
             img = self.affine.test_image()
             self._update_MDI(None, img)
-
             self.affine.try_match(img)
             timestamp = datetime.now().strftime("%H:%M:%S.%f")
             num_matches = len(self.affine.result["matches"])
@@ -315,7 +317,6 @@ class AffineGUI(QObject):
                         self.log_message.emit(e.message)
 
         def manual_mode(x,y):
-            
             # Draw the point on the mask
             self.gds_scene.addEllipse(
                 x - 3,
@@ -487,6 +488,9 @@ class AffineGUI(QObject):
                 self.functions[dep_category] = function_dict[dep_category]
 
         # self.functions["camera"] is a list of nested dictionaries, iterate through every camera
+        # FIXME: Currently the return is a dictrionary of dictionaries ONLY when multiple cameras are available.
+        
+        self.cameraComboBox.clear()
         for camera in self.functions["camera"]:
             # get the camera name (key of the dictionary)
             self.cameraComboBox.addItem(camera)
