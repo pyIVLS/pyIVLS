@@ -14,7 +14,7 @@ class pyIVLS_affineMove_plugin:
         self.type = "script"
         self.function = "move"
         self._class = "loop"
-        self.dependencies = ["positioning", "micromanipulator"]
+        self.dependencies = ["positioning", "micromanipulator", "camera"]
         self.pluginClass = affineMoveGUI()
 
 
@@ -27,6 +27,8 @@ class pyIVLS_affineMove_plugin:
         Returns:
             dict: name, widget
         """
+        settings = plugin_data.get(self.name, {}).get("settings", {})
+        self.pluginClass.setup(settings)
         return {self.name: self.pluginClass.settingsWidget}
 
     @hookimpl
@@ -79,3 +81,19 @@ class pyIVLS_affineMove_plugin:
 
         if args is None or args.get("function") == self.plugin_function:
             pass
+
+    @hookimpl
+    def set_plugin(self, plugin_list):
+        """gets a list of plugins available, fetches the ones it needs.
+
+        Args:
+            plugin_list (list): list of plugins in the form of [plugin1, plugin2, ...]
+        """
+        plugins_to_fetch = []
+        
+        for plugin, metadata in plugin_list:
+            if metadata.get("function", "") in self.dependencies:
+                plugins_to_fetch.append([plugin, metadata])
+        
+                
+        self.pluginClass.dependency = plugins_to_fetch

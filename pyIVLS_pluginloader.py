@@ -18,6 +18,8 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
     request_available_plugins_signal = pyqtSignal()
     # Tell the container to register the plugins
     register_plugins_signal = pyqtSignal(list)
+    # Signal to update the config file with a new plugin
+    update_config_signal = pyqtSignal(str)
 
     #### Slots for communication
     @pyqtSlot(dict)
@@ -80,19 +82,19 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
 
     def upload(self):
         """Uploads a plugin from a directory. opens a file dialog to select the plugin directory."""
+
         start_dir = self.path + sep + "plugins"
         plugin_dir = QtWidgets.QFileDialog.getExistingDirectory(
             self, "Select Plugin Directory", start_dir, QtWidgets.QFileDialog.Option.ShowDirsOnly
         )
         if plugin_dir:
-            # Here you would typically handle the upload logic
-            print(f"Selected plugin directory: {plugin_dir}")
-            # For now, just refresh the list to show any new plugins
-            self.refresh()
+            print(f"Selected plugin directory: {plugin_dir}. Not implemented yet.")
+
 
     #### Internal functions
     def __init__(self, path):
         super().__init__()
+        self.path = path
         ui_file_name = path + "components" + sep + "pyIVLS_pluginloader.ui"
         window_option = uic.loadUi(ui_file_name, self)
         if window_option is None:

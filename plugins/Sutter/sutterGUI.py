@@ -72,10 +72,10 @@ class SutterGUI(QObject):
         self.settingsWidget = uic.loadUi(path + "Sutter_settingsWidget.ui")
 
         # connect buttons to functions
-        self.settingsWidget.connectButton.clicked.connect(self.connect_button)
-        self.settingsWidget.statusButton.clicked.connect(self.status_button)
-        self.settingsWidget.stopButton.clicked.connect(self.stop_button)
-        self.settingsWidget.calibrateButton.clicked.connect(self.calibrate_button)
+        self.settingsWidget.connectButton.clicked.connect(self._connect_button)
+        self.settingsWidget.statusButton.clicked.connect(self._status_button)
+        self.settingsWidget.stopButton.clicked.connect(self._stop_button)
+        self.settingsWidget.calibrateButton.clicked.connect(self._calibrate_button)
         self.settingsWidget.quickBox.toggled.connect(self._quickmove_changed)
         self.settingsWidget.speedComboBox.currentIndexChanged.connect(
             self.speed_changed
@@ -144,6 +144,18 @@ class SutterGUI(QObject):
         )
         self.settingsWidget.basicBox.setEnabled(connected)
         self.settingsWidget.saveBox.setEnabled(connected)
+        if connected:
+            dev_count, dev_statuses = self.hal.get_connected_devices_status()
+            self.devnum_combo.clear()
+            for i in range(dev_count):
+                dev_status = dev_statuses[i]
+                if dev_status == 1:
+                    self.devnum_combo.addItem(f"{i + 1}")
+
+            current_dev = self.hal.get_active_device()
+            self.devnum_combo.setCurrentIndex(current_dev - 1)
+        else:
+            self.devnum_combo.clear()
         self.closeLock.emit(connected)
 
     def _quickmove_changed(self, checked: bool):
@@ -172,7 +184,7 @@ class SutterGUI(QObject):
 
     ## Button functionality:
 
-    def connect_button(self):
+    def _connect_button(self):
         """Called when the connect button is pressed. Opens the device and sets the connection indicator color."""
         try:
             if self.hal.is_connected():
@@ -187,30 +199,22 @@ class SutterGUI(QObject):
         finally:
             if self.hal.is_connected():
                 self._gui_change_device_connected(True)
-                dev_count, dev_statuses = self.hal.get_connected_devices_status()
-                self.devnum_combo.clear()
-                for i in range(dev_count):
-                    dev_status = dev_statuses[i]
-                    if dev_status == 1:
-                        self.devnum_combo.addItem(f"{i + 1}")
 
-                current_dev = self.hal.get_active_device()
-                self.devnum_combo.setCurrentIndex(current_dev - 1)
 
             else:
                 self._gui_change_device_connected(False)
 
-    def status_button(self):
+    def _status_button(self):
         print("status button pressed WIP")
         pos = self.hal.get_current_position()
         print(f"Current position: {pos}")
         self.hal.move(pos[0] + 2000, pos[1], pos[2])
 
-    def stop_button(self):
+    def _stop_button(self):
         print("stop button pressed WIP")
         self.hal.stop()
 
-    def calibrate_button(self):
+    def _calibrate_button(self):
         print("calibrate button pressed WIP")
         self.hal.calibrate()
 
@@ -251,9 +255,12 @@ class SutterGUI(QObject):
         Returns:
             status: tuple of (status, error message)
         """
+        if self.hal.is_connected():
+            return [0, {"Error message": "Sutter already connected"}]
         try:
-            self.hal.open()
+            self.hal.open(self.source_input.text())
             if self.hal.is_connected():
+                self._gui_change_device_connected(True)
                 return [0, {"Error message": "Sutter connected"}]
             return [4, {"Error message": "Sutter connection error"}]
 
@@ -306,7 +313,7 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
-    def mm_lower(self, z_change):
+    def mm_zmove(self, z_change):
         """Moves the micromanipulator in the z axis. If the move is out of bounds, it will return False.
 
         Args:
@@ -323,7 +330,21 @@ class SutterGUI(QObject):
             ):
                 return [1, {"Error message": "Sutter move out of bounds"}]
             else:
-                self.hal.slow_move_to(x, y, z + z_change, speed=0)
+                self.hal.move(x, y, z + z_change)
                 return [0, {"Error message": "Sutter moved"}]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+        
+    def mm_up_max(self):
+        """Moves to z = 0 
+        """
+        try:
+            x,y,z = self.hal.get_current_position()
+            if z == 0:
+                return [0, {"Error message": "Sutter already at max"}]
+            self.hal.move(x, y, 0)
+            return [0, {"Error message": "Sutter moved up to max"}]
+        except Exception as e:
+            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+
+

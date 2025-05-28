@@ -51,7 +51,7 @@ class pyIVLS_hookspec:
             type, function, etc. 
 
         Returns:
-            object: reference to the plugin itself. 
+            tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
         """
 
     @hookspec

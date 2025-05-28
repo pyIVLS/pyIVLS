@@ -71,6 +71,17 @@ class pyIVLS_container(QObject):
             self.plugins_updated_signal.emit()
             self.cleanup()
 
+    @pyqtSlot(str)
+    def update_config(self, plugin_dict, settings_dict=None):
+        """Unused slot to update the config file with a new plugin. 
+        # TODO: Implement this to allow the user to add plugins via the GUI.
+
+        Args:
+            plugin_dict (dict): dictionary with plugin information, format: {plugin_name: "Plugin Name", "type": "plugin type", etc.}
+            settings_dict (dict, optional): dictionary with plugin settings, format: {setting_name: setting_value}. Defaults to None.
+        """
+        pass
+
     def get_plugin_info_for_settingsGUI(self) -> dict:
         """Returns a dictionary with the plugin info for the settings widget.
 
@@ -286,6 +297,10 @@ class pyIVLS_container(QObject):
 
         self.pm.hook.set_function(function_dict=final_map)
         self.seqComponents_signal.emit(self.get_plugin_dict(), plugin_public_functions)
+        plugin_list = self.pm.hook.get_plugin()
+        if self.debug:
+            print("Available plugin objects in public_function_exchange: ", plugin_list)
+        self.pm.hook.set_plugin(plugin_list = plugin_list)
 
     def getLogSignals(self):
         plugin_logSignals = self.pm.hook.get_log()
@@ -403,7 +418,7 @@ class pyIVLS_container(QObject):
         sys.path.append(self.path + "plugins" + sep)
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
-        self.debug = True
+        self.debug = False
 
     def cleanup(self) -> None:
         """Explicitly cleanup resources, such as writing the config file."""

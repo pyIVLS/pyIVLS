@@ -79,7 +79,7 @@ class VenusUSB2GUI(QObject):
                     elif file.split("_")[1] == "previewWidget.ui":
                         self.previewWidget = uic.loadUi(self.path + file)
 
-        self.settings = {}
+        self.settings = {"source": None, "exposure": None}
         self.q_img = None
 
         # Initialize cap as empty capture
@@ -286,6 +286,7 @@ class VenusUSB2GUI(QObject):
             and method in self.public_methods
         }
         return methods
+    
 
     # HOX: Functions for the camera are exported when they have the prefix "camera_"
     def camera_open(self):

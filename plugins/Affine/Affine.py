@@ -238,6 +238,9 @@ class Affine:
 
         Returns:
             tuple: (x, y) coordinates of the transformed point on the image.
+
+        Raises:
+            AffineError: If no affine transformation has been found.
         """
         if self.A is None:
             raise AffineError("No affine transformation found.", 4)

@@ -29,6 +29,8 @@ class AffineGUI(QObject):
     closeLock = pyqtSignal(bool)
     COORD_DATA = Qt.ItemDataRole.UserRole + 1
 
+
+
     def __init__(self):
         super().__init__()
         # load ui files
@@ -515,4 +517,18 @@ class AffineGUI(QObject):
 
     def positioning_coords(self, coords: tuple[float, float]) -> tuple[float, float]:
         """Returns the transformed coordinates."""
-        return self.affine.coords(coords)
+        try:
+            transformed = self.affine.coords(coords)
+            return transformed
+        except AffineError as e:
+            self.log_message.emit(e.message)
+            return coords
+    
+    def positioning_measurement_points(self) -> list[tuple[float, float]]:
+        """Returns the measurement points defined in the list widget."""
+        points = []
+        for i in range(self.definedPoints.count()):
+            item = self.definedPoints.item(i)
+            if item is not None:
+                points.extend(item.data(self.COORD_DATA))
+        return points
