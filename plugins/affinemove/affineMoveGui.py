@@ -1,24 +1,33 @@
-"""
-This is a template for a plugin GUI implementation in pyIVLS
-
-This file should provide
-- functions for interaction with other plugins (those that will be exported on get_functions hook call, these should not start with "_")
-- functions that will implement functionality of the hooks (see pyIVLS_pluginTemplate)
-- GUI functionality - code that interracts with Qt GUI elements from widgets
-
-The standard implementation may (but not must) include
-- GUI a Qt widget implementation
-- GUI functionality (e.g. pluginTemplateGUI.py) - code that interracts with Qt GUI elements from widgets
-- plugin core implementation - a set of functions that may be used outside of GUI
-"""
-
 import os
 
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, QEventLoop, QEvent
 from PyQt6 import uic  
 from PyQt6.QtWidgets import QWidget, QComboBox, QGraphicsScene, QGraphicsView
 from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtCore import QObject, QEvent, QEventLoop, Qt
+from PyQt6.QtWidgets import QGraphicsView
 
+class ViewportClickCatcher(QObject):
+    def __init__(self, view: QGraphicsView):
+        super().__init__()
+        self.view = view
+        self._clicked_pos = None
+        self._loop = QEventLoop()
+        self.view.viewport().installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.LeftButton:
+                scene_pos = self.view.mapToScene(event.pos())
+                self._clicked_pos = (scene_pos.x(), scene_pos.y())
+                self._loop.quit()
+                return True
+        return False
+
+    def wait_for_click(self):
+        self._loop.exec()
+        self.view.viewport().removeEventFilter(self)
+        return self._clicked_pos
 
 
 class affineMoveGUI(QObject):
@@ -60,10 +69,9 @@ class affineMoveGUI(QObject):
         self.camera_box: QComboBox = self.settingsWidget.cameraBox
         self.micromanipulator_box: QComboBox = self.settingsWidget.micromanipulatorBox
         self.positioning_box: QComboBox = self.settingsWidget.positioningBox
-        camera_graphic_view: QGraphicsView = self.MDIWidget.cameraview
+        self.camera_graphic_view: QGraphicsView = self.MDIWidget.cameraview
         self.camera_graphic_scene: QGraphicsScene = QGraphicsScene()
-        camera_graphic_view.setScene(self.camera_graphic_scene)
-
+        self.camera_graphic_view.setScene(self.camera_graphic_scene)
 
 
 
@@ -77,24 +85,13 @@ class affineMoveGUI(QObject):
 
     ########Functions
     ################################### internal
-
-    def dependencies_changed(self):
-        self.camera_box.clear()
-        self.micromanipulator_box.clear()
-        self.positioning_box.clear()
-        
-        for plugin, metadata in self.dependency:
-            if metadata.get("function") == "micromanipulator":
-                self.micromanipulator_box.addItem(metadata.get("name"))
-            elif metadata.get("function") == "camera":
-                self.camera_box.addItem(metadata.get("name"))
-            elif metadata.get("function") == "positioning":
-                self.positioning_box.addItem(metadata.get("name"))
-        self.micromanipulator_box.setCurrentIndex(0)
-        self.camera_box.setCurrentIndex(0)
-        self.positioning_box.setCurrentIndex(0)
-
-    
+    def wait_for_input(self) -> tuple[float, float]:
+        """
+        Waits for a mouse click on the camera graphics view and returns the (x, y)
+        position in scene coordinates. This method blocks until a click is received.
+        """
+        catcher = ViewportClickCatcher(self.camera_graphic_view)
+        return catcher.wait_for_click()
 
     def fetch_dep_plugins(self):
         """returns the micromanipulator, camera and positioning plugins based on the current selection in the combo boxes.
@@ -107,8 +104,6 @@ class affineMoveGUI(QObject):
         camera = None
         positioning = None
         for plugin, metadata in self.dependency:
-
-
             if metadata.get("function") == "micromanipulator":
                 current_text = self.micromanipulator_box.currentText()
                 if current_text == metadata.get("name"):
@@ -119,8 +114,12 @@ class affineMoveGUI(QObject):
             elif metadata.get("function") == "positioning":
                 if self.positioning_box.currentText() == metadata.get("name"):
                     positioning = plugin
+        
+        assert micromanipulator is not None, "AffineMove: micromanipulator plugin is None"
+        assert camera is not None, "AffineMove: camera plugin is None"
+        assert positioning is not None, "AffineMove: positioning plugin is None"
+        
         return micromanipulator, camera, positioning
-
 
     def find_sutter_functionality(self):
         mm, cam, pos = self.fetch_dep_plugins()
@@ -131,44 +130,53 @@ class affineMoveGUI(QObject):
         if status:
             self.log_message.emit(state["Error message"])
 
-        status, state = mm.mm_up_max()
+
+
+        points = []
+        moves = [(0,0),(3000,0), (0, 3000),]
+        for move in moves:
+            status, state = mm.mm_up_max()
+            if status:
+                self.log_message.emit(state["Error message"])
+            status, state = mm.mm_move_relative(x_change=move[0], y_change=move[1])
+            self.update_graphics_view(cam)
+            point = self.wait_for_input()
+            print(f"Clicked at: {point}")
+            x, y, z = mm.mm_current_position()
+            print(f"Current position: {x}, {y}, {z}")
+            mm_point = (x, y)
+            points.append((mm_point, point))
+
+        import numpy as np
+        import cv2
+        # Compute the affine transformation
+        mm_points = np.array([pt[0] for pt in points], dtype=np.float32)
+        view_points = np.array([pt[1] for pt in points], dtype=np.float32)
+        affine_transform = cv2.getAffineTransform(view_points, mm_points)
+
+        print(f"Affine Transform Matrix:\n{affine_transform}")
+
+        # Wait for a new input and apply the transform
+        self.info_message.emit("Click anywhere to move manipulator to that position...")
+        click = self.wait_for_input()
+        print(f"New click: {click}")
+
+        src = np.array([[click[0], click[1], 1]], dtype=np.float32).T
+        mm_target = (affine_transform @ src).flatten()
+        print(f"Transformed to manipulator coords: {mm_target}")
+
+        status, state = mm.mm_move(mm_target[0], mm_target[1])
         if status:
             self.log_message.emit(state["Error message"])
-
-        camera_status, camera_state = cam.camera_open()
-        if camera_status:
-            self.log_message.emit(camera_state["Error message"])
-
-        img = cam.camera_capture_image()
-
-
-        # update the camera view with the captured image
-        self.camera_graphic_scene.clear()
-        if img is not None:
-            h, w, ch = img.shape
-            bytes_per_line = ch * w
-            qt_image = QImage(img.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-            pixmap = QPixmap.fromImage(qt_image)
-            self.camera_graphic_scene.addPixmap(pixmap)
-        else:
-            self.log_message.emit("Camera image is None")
-
-
-
-        coord_list = pos.positioning_measurement_points()
-        print(f"Coord list: {coord_list}")
-
-
-        
-        
+        self.update_graphics_view(cam)
 
 
 
 
-        
 
-        
-        
+
+
+
 
 
     ########Functions
@@ -188,7 +196,40 @@ class affineMoveGUI(QObject):
 
     ########Functions
     ###############GUI react to change
+    def dependencies_changed(self):
+        self.camera_box.clear()
+        self.micromanipulator_box.clear()
+        self.positioning_box.clear()
+        
+        for plugin, metadata in self.dependency:
+            if metadata.get("function") == "micromanipulator":
+                self.micromanipulator_box.addItem(metadata.get("name"))
+            elif metadata.get("function") == "camera":
+                self.camera_box.addItem(metadata.get("name"))
+            elif metadata.get("function") == "positioning":
+                self.positioning_box.addItem(metadata.get("name"))
+        self.micromanipulator_box.setCurrentIndex(0)
+        self.camera_box.setCurrentIndex(0)
+        self.positioning_box.setCurrentIndex(0)
 
+    def update_graphics_view(self, cam: object):
+        """
+        Updates the graphics view with the camera image.
+        This function is called by the camera plugin when a new image is captured.
+        """
+        if cam is None:
+            self.log_message.emit("Camera plugin is None")
+            return
+        img = cam.camera_capture_image()
+        if img is not None:
+            h, w, ch = img.shape
+            bytes_per_line = ch * w
+            qt_image = QImage(img.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+            pixmap = QPixmap.fromImage(qt_image)
+            self.camera_graphic_scene.clear()
+            self.camera_graphic_scene.addPixmap(pixmap)
+        else:
+            self.log_message.emit("Camera image is None")
 
 
     ########Functions
@@ -220,4 +261,4 @@ class affineMoveGUI(QObject):
 
 
     ########Functions to be used externally
-    
+

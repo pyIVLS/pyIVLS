@@ -48,7 +48,7 @@ class VenusUSB2:
         """
 
         if source is None or source == "":
-            self.cap.open(0)
+            self.cap.open(1)
         else:
             self.cap.open(source)   
         if self.cap.isOpened():

@@ -293,7 +293,7 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
-    def mm_move(self, x, y, z):
+    def mm_move(self, x=None, y=None, z=None):
         """Micromanipulator move.
 
         Args:
@@ -301,6 +301,19 @@ class SutterGUI(QObject):
         """
         try:
             self.hal.move(x, y, z)
+            return [0, {"Error message": "Sutter moved"}]
+        except Exception as e:
+            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+        
+    def mm_move_relative(self, x_change=0, y_change=0, z_change=0):
+        """Micromanipulator move relative.
+
+        Args:
+            *args: x_change, y_change, z_change
+        """
+        try:
+            (x, y, z) = self.hal.get_current_position()
+            self.hal.move(x + x_change, y + y_change, z + z_change)
             return [0, {"Error message": "Sutter moved"}]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
@@ -348,3 +361,13 @@ class SutterGUI(QObject):
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
 
+    def mm_current_position(self):
+        """Returns the current position of the micromanipulator.
+
+        Returns:
+            tuple: (x, y, z) position in microns
+        """
+        try:
+            return self.hal.get_current_position()
+        except Exception as e:
+            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]

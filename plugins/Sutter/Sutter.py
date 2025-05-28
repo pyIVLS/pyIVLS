@@ -341,7 +341,7 @@ class Mpc325:
         output = self.ser.read(1)
         self._validate_and_unpack("B", output)
 
-    def move(self, x, y, z):
+    def move(self, x=None, y=None, z=None):
         """Move to a position. If quick_move is set to True, the movement will be at full speed.
 
         Args:
@@ -352,10 +352,22 @@ class Mpc325:
         self._flush()  # redundant flush.
         # (Maybe. I got some errors when switching between quickmove and slowmove, so added this here)
         # no crashes since adding this.
+        curr_pos = self.get_current_position()
+        # If the position is the same, do nothing.
+        if (curr_pos[0] == x) and (curr_pos[1] == y) and (curr_pos[2] == z):
+            return 
+        # If any of the coordinates are None, use the current position.
+        if x is None:
+            x = curr_pos[0]
+        if y is None:
+            y = curr_pos[1]
+        if z is None:
+            z = curr_pos[2]
+
         if self.quick_move:
-            return self.quick_move_to(x, y, z)
+            self.quick_move_to(x, y, z)
         else:
-            return self.slow_move_to(x, y, z)
+            self.slow_move_to(x, y, z)
 
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
     def _handrail_micron(self, microns) -> np.uint32:
