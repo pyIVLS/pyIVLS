@@ -252,6 +252,8 @@ class pyIVLS_container(QObject):
 
     def public_function_exchange(self):
         # Get all the plugin public functions by plugin name
+        if self.pm.list_name_plugin() == []:
+            return # No plugins registered, nothing to do
         plugin_public_functions = self.pm.hook.get_functions()
         function_map = {}
 
@@ -401,7 +403,7 @@ class pyIVLS_container(QObject):
         sys.path.append(self.path + "plugins" + sep)
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
-        self.debug = False
+        self.debug = True
 
     def cleanup(self) -> None:
         """Explicitly cleanup resources, such as writing the config file."""

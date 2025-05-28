@@ -1,37 +1,23 @@
 #!/usr/bin/python3.8
 
-"""
-This is a template for a plugin in pyIVLS
-
-This file only implements the hooks for pyIVLS.
-The proper implementation should be placed in a directory with the same name (for this template it is "pluginTemplate") next to this file.
-The main reason to put implementation in a different calss is to allow to reuse it in other applications.
-
-The standard implementation may (but not must) include
-- GUI a Qt widget implementation
-- GUI functionality (e.g. pluginTemplateGUI.py) - code that interracts with Qt GUI elements from widgets
-- plugin core implementation - a set of functions that may be used outside of GUI
-"""
 
 import pluggy
-from pluginTemplate.pluginTemplateGUI import pluginTemplateGUI
+from affineMoveGui import affineMoveGUI
 
+class pyIVLS_affineMove_plugin:
 
-class pyIVLS_pluginTemplate_plugin:
-    """Hooks for pluginTemplate plugin
-    Not all hooks must be implemented
-    If hook is not needed it should be deleted
-    """
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.plugin_name = "pluginTemplate"
-        self.plugin_function = (
-            "pluginFunction"  # e.g. smu, camera, micromanipulator, etc.
-        )
-        self.pluginClass = pluginTemplateGUI()
-        super().__init__()
+        self.name = "affineMove"
+        self.type = "script"
+        self.function = "move"
+        self._class = "loop"
+        self.dependencies = ["positioning", "micromanipulator"]
+        self.pluginClass = affineMoveGUI()
+
+
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
@@ -41,9 +27,7 @@ class pyIVLS_pluginTemplate_plugin:
         Returns:
             dict: name, widget
         """
-        ##IRtodo#### add check if (error) show message and return error
-        self.pluginClass._initGUI(plugin_data[self.plugin_name]["settings"])
-        return {self.plugin_name: self.pluginClass.settingsWidget}
+        return {self.name: self.pluginClass.settingsWidget}
 
     @hookimpl
     def get_MDI_interface(self, args=None) -> dict:
@@ -52,8 +36,7 @@ class pyIVLS_pluginTemplate_plugin:
         Returns:
             dict: name, widget
         """
-        return {self.plugin_name: self.pluginClass.MDIWidget}
-
+        return {self.name: self.pluginClass.MDIWidget}
     @hookimpl
     def get_functions(self, args=None):
         """Returns a dictionary of publicly accessible functions. This function is called from pyIVLS_container
@@ -65,7 +48,7 @@ class pyIVLS_pluginTemplate_plugin:
             dict: functions
         """
         if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.pluginClass._get_public_methods()}
+            return {self.name: {}}
 
     @hookimpl
     def get_log(self, args=None):
@@ -75,7 +58,7 @@ class pyIVLS_pluginTemplate_plugin:
         """
 
         if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.camera_control._getLogSignal()}
+            pass
 
     @hookimpl
     def get_info(self, args=None):
@@ -85,7 +68,7 @@ class pyIVLS_pluginTemplate_plugin:
         """
 
         if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.pluginClass._getInfoSignal()}
+            pass
 
     @hookimpl
     def get_closeLock(self, args=None):
@@ -95,4 +78,4 @@ class pyIVLS_pluginTemplate_plugin:
         """
 
         if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.pluginClass._getCloseLockSignal()}
+            pass

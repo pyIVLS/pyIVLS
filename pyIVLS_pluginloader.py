@@ -78,6 +78,18 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         self.register_plugins_signal.emit(plugins)
         self.refresh()
 
+    def upload(self):
+        """Uploads a plugin from a directory. opens a file dialog to select the plugin directory."""
+        start_dir = self.path + sep + "plugins"
+        plugin_dir = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Select Plugin Directory", start_dir, QtWidgets.QFileDialog.Option.ShowDirsOnly
+        )
+        if plugin_dir:
+            # Here you would typically handle the upload logic
+            print(f"Selected plugin directory: {plugin_dir}")
+            # For now, just refresh the list to show any new plugins
+            self.refresh()
+
     #### Internal functions
     def __init__(self, path):
         super().__init__()
@@ -95,3 +107,4 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
 
             # Link buttons
             self.applyButton.clicked.connect(self.apply)
+            self.uploadButton.clicked.connect(self.upload)

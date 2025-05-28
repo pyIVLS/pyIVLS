@@ -17,15 +17,11 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>Camera preview</string>
+   <string>AffineMove preview</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QLabel" name="previewLabel">
-     <property name="text">
-      <string/>
-     </property>
-    </widget>
+    <widget class="QGraphicsView" name="cameraview"/>
    </item>
   </layout>
  </widget>

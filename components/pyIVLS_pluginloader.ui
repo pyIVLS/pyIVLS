@@ -3,7 +3,7 @@
  <class>pyIVLSpluginloader</class>
  <widget class="QDialog" name="pyIVLSpluginloader">
   <property name="windowModality">
-   <enum>Qt::WindowModal</enum>
+   <enum>Qt::WindowModality::WindowModal</enum>
   </property>
   <property name="enabled">
    <bool>true</bool>
@@ -45,6 +45,13 @@
      </property>
      <property name="text">
       <string>Apply</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="uploadButton">
+     <property name="text">
+      <string>Upload new plugin</string>
      </property>
     </widget>
    </item>
