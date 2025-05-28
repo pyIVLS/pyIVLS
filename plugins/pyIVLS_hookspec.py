@@ -42,6 +42,19 @@ class pyIVLS_hookspec:
         """
 
     @hookspec
+    def get_plugin(self, args=None):
+        """Returns the plugin as a reference to itself.
+
+        Args:
+            args (_type_, optional): can be used to specify which plugin is needed based on
+            type, function, etc. 
+
+        Returns:
+            object: reference to the plugin itself.
+        """
+
+
+    @hookspec
     def get_log(self, args=None):
         """provides the signal for logging to main app
 
