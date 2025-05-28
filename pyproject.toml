@@ -26,6 +26,7 @@ dependencies = [
     "pyqt6-qt6>=6.8.1",
     "pyqt6-sip>=13.9.1",
     "pyserial==3.5",
+    "pytest>=8.3.5",
     "python-dateutil==2.9.0.post0",
     "python-usbtmc==0.8",
     "pytz==2025.1",
@@ -38,4 +39,9 @@ dependencies = [
     "typing-extensions==4.12.2",
     "zeroconf==0.137.2",
     "zope-interface==7.2",
+]
+
+[tool.uv.workspace]
+members = [
+    "plugins/affinemove",
 ]
