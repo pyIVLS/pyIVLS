@@ -230,7 +230,6 @@ class AffineGUI(QObject):
 
     def _find_button_action(self):
         """Action for the find button."""
-        self.info_message.emit("Finding matches, GUI will be unresponsive until done.")
 
         try:
         
@@ -241,8 +240,10 @@ class AffineGUI(QObject):
 
             # get the camera name from the combobox
             camera_name = self.cameraComboBox.currentText()
-            # img = self.functions["camera"][camera_name]["camera_capture_image"](full_size=True)
-            img = self.affine.test_image()
+            img = self.functions["camera"]["camera_capture_image"]()
+            #img = self.affine.test_image() 
+            print(f"img shape: {img.shape}")
+            #img = self.affine.test_image()
             self._update_MDI(None, img)
             self.affine.try_match(img)
             timestamp = datetime.now().strftime("%H:%M:%S.%f")
@@ -257,7 +258,7 @@ class AffineGUI(QObject):
 
     def _manual_button_action(self):
         self.manual_mode = True
-        img = self.affine.test_image() # FIXME: replace with camera call
+        img = self.functions["camera"]["camera_capture_image"]()
         self._update_MDI(self.mdi_mask, img)
         
         
@@ -379,42 +380,66 @@ class AffineGUI(QObject):
                 self.manual_mode = False
    
     def _update_MDI(self, mask=None, img=None, save_internal=True):
-        """Updates the MDI Widget with the given img and mask.
-        Only updates the scene if the img or mask is not None.
+        """
+        Updates the MDI Widget with the given img and mask.
+        Handles both grayscale and RGB images.
 
         Args:
-            mask (_type_, optional):
-            img (_type_, optional):
-            save_internal (bool, optional): Save provided img(s) to internal buffer. Defaults to True.
+            mask (np.ndarray, optional): The mask image.
+            img (np.ndarray, optional): The camera image.
+            save_internal (bool, optional): Whether to save the input internally.
         """
+
+        def to_qpixmap(array):
+            """
+            Helper: Convert ndarray (grayscale or RGB) to QPixmap.
+            
+            Supports:
+            - Grayscale (H, W)
+            - RGB (H, W, 3)
+            - RGBA (H, W, 4) → Converted to RGB
+            """
+            import cv2 as cv
+
+            if array.ndim == 2:
+                # Grayscale
+                h, w = array.shape
+                bytes_per_line = w
+                qimage = QImage(array.data, w, h, bytes_per_line, QImage.Format.Format_Grayscale8)
+            else:
+                # Color image: RGB or RGBA
+                if array.shape[2] == 4:
+                    array = array[:, :, :3]  # Drop alpha
+                elif array.shape[2] == 1:
+                    array = cv.cvtColor(array, cv.COLOR_GRAY2RGB)
+
+                h, w, ch = array.shape
+                bytes_per_line = ch * w
+                qimage = QImage(array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+
+            return QPixmap.fromImage(qimage)
+
+
         if img is not None:
-            h, w, ch = img.shape
-            bytes_per_line = ch * w
-            qimg = QImage(img.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-            pixmap = QPixmap.fromImage(qimg)
+            pixmap = to_qpixmap(img)
             pixmap_item = QGraphicsPixmapItem(pixmap)
 
-            # Create or update the scene
             self.camera_scene.clear()
             self.camera_scene.addItem(pixmap_item)
-            # self.camera_label.setScene(self.camera_scene)
+
             if save_internal:
                 self.mdi_img = img
 
         if mask is not None:
-            h, w, ch = mask.shape
-            bytes_per_line = ch * w
-            qmask = QImage(mask.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-            pixmap = QPixmap.fromImage(qmask)
+            pixmap = to_qpixmap(mask)
             pixmap_item = QGraphicsPixmapItem(pixmap)
 
-            # Create or update the scene
             self.gds_scene.clear()
             self.gds_scene.addItem(pixmap_item)
-            # self.gds_label.setScene(self.gds_scene)
 
             if save_internal:
                 self.mdi_mask = mask
+
 
     def draw_points_mdi(self, points: list[tuple[float, float]], color, clear_scene: bool = True):
         """
@@ -527,8 +552,12 @@ class AffineGUI(QObject):
     def positioning_measurement_points(self) -> list[tuple[float, float]]:
         """Returns the measurement points defined in the list widget."""
         points = []
+        names = []
         for i in range(self.definedPoints.count()):
             item = self.definedPoints.item(i)
             if item is not None:
-                points.extend(item.data(self.COORD_DATA))
-        return points
+                points.append(item.data(self.COORD_DATA))
+                names.append(item.text())
+        return points, names
+    
+

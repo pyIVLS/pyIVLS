@@ -113,7 +113,7 @@
              <item>
               <widget class="QLineEdit" name="cameraSource">
                <property name="text">
-                <string>/dev/video2</string>
+                <string></string>
                </property>
               </widget>
              </item>

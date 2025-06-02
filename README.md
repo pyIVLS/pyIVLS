@@ -94,7 +94,7 @@
 # in case of sweep only run sweep plugin should save to the log and show messages to the user. All other plugins communicate to the sweep plugin, e.g. with returned status of the functions.
 # This is necessary to avoid multiple messaging
 ## standard error codes
-#0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins
+#0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins, 4 = Hardware error
 ##plugins return errors in form of list [number, {"Error message":"Error text"}], e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
 #error text will be shown in the dialog message in the interaction plugin, so the error text should contain the plugin name, e.g. return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
 ##intermidiate plugins should pass the error to the plugins that interract with users as is, just changing the error code

@@ -34,9 +34,14 @@ class SutterGUI(QObject):
 
     - mm_open
     - mm_change_active_device
+    - mm_devices
     - mm_move
+    - mm_move_relative
+    - mm_zmove
     - mm_stop
-    - mm_lower
+    - mm_up_max
+    - mm_current_position
+
 
 
     hooks:
@@ -199,8 +204,6 @@ class SutterGUI(QObject):
         finally:
             if self.hal.is_connected():
                 self._gui_change_device_connected(True)
-
-
             else:
                 self._gui_change_device_connected(False)
 
@@ -271,13 +274,14 @@ class SutterGUI(QObject):
         """Micromanipulator active device change.
 
         Args:
-            *args: device number
+            *args: device number (1-4)
 
         Returns:
             Status: tuple of (status, error message)
 
         """
         try:
+            self.devnum_combo.setCurrentIndex(dev_num - 1)
             if self.hal.change_active_device(dev_num):
                 return [
                     0,
@@ -306,7 +310,7 @@ class SutterGUI(QObject):
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
         
     def mm_move_relative(self, x_change=0, y_change=0, z_change=0):
-        """Micromanipulator move relative.
+        """Micromanipulator move relative to the current position.
 
         Args:
             *args: x_change, y_change, z_change
@@ -371,3 +375,21 @@ class SutterGUI(QObject):
             return self.hal.get_current_position()
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+        
+
+    def mm_devices(self):
+        """Returns the number of connected devices and their statuses.
+
+        Returns:
+            tuple: (number of devices, list of device statuses)
+        """
+        try:
+            code, status = self.mm_open()  # Ensure the device is open before fetching statuses
+            if code != 0:
+                return [code, status]  # Return error if opening failed
+            dev_count, dev_statuses = self.hal.get_connected_devices_status()
+            return [0, (dev_count, dev_statuses)]
+        except Exception as e:
+            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+        
+

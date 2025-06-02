@@ -47,7 +47,11 @@ class VenusUSB2GUI(QObject):
     """GUI for the VenusUSB2 camera"""
 
     non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["camera_open", "camera_close", "camera_capture_image"]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = [
+        "camera_open",
+        "camera_close",
+        "camera_capture_image",
+    ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     default_timerInterval = (
         42  # ms, it is close to 24 fps that is standard for movies and TV
     )
@@ -85,9 +89,10 @@ class VenusUSB2GUI(QObject):
         # Initialize cap as empty capture
         self.camera = VenusUSB2()
 
-
         self.exposure = self.settingsWidget.findChild(QtWidgets.QComboBox, "exposure")
-        assert self.exposure is not None, "Exposure combobox not found in settingsWidget"
+        assert self.exposure is not None, (
+            "Exposure combobox not found in settingsWidget"
+        )
 
         # get possible exposures from the camera
         exposures = self.camera.exposures
@@ -96,6 +101,7 @@ class VenusUSB2GUI(QObject):
         for exposure in exposures:
             self.exposure.addItem(str(exposure))
 
+        self._exp_slider_change()
 
         self._connect_signals()
 
@@ -120,11 +126,9 @@ class VenusUSB2GUI(QObject):
         )
 
     def _update_frame(self):
-        exposure = self.settings["exposure"]
-        source = self.settings["source"]
-        # since the camera should be opened already, these parameters are redundant.
-        # FIXME: There really should be a better way to do this but this works for now.
-        frame = self.camera.capture_image(exposure=exposure, source=source)
+
+
+        frame = self.camera.capture_buffered()  # Capture a frame from the camera
         label = self.preview_label
         h, w, ch = frame.shape
         bytes_per_line = ch * w
@@ -156,9 +160,7 @@ class VenusUSB2GUI(QObject):
 
     def _previewAction(self):
         """interface for the preview button. Opens the camera, sets the exposure and previews the feed"""
-        print("Preview button pressed")
         if self.preview_running:
-            print("I think the preview is running, so I will stop it")
             self.timer.stop()
             self._GUIchange_deviceConnected(self.preview_running)
             self.closeLock.emit(not self.preview_running)
@@ -166,7 +168,6 @@ class VenusUSB2GUI(QObject):
             self._enableSaveButton()
             self.camera.close()
         else:
-            print("I think the preview is not running, so I will start it")
             self._parse_settings_preview()
             [status, message] = self.camera.open(
                 source=self.settings["source"], exposure=self.settings["exposure"]
@@ -214,7 +215,6 @@ class VenusUSB2GUI(QObject):
         self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
         self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
 
-
     def _getAddress(self):
         address = self.settingsWidget.lineEdit_path.text()
         if not (os.path.exists(address)):
@@ -243,8 +243,6 @@ class VenusUSB2GUI(QObject):
                 "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
             )
         self.settingsWidget.sourceBox.setEnabled(status)
-        print("camera emitted close lock signal ", not status)
-
 
     def _enableSaveButton(self):
         if not self.q_img:
@@ -254,10 +252,7 @@ class VenusUSB2GUI(QObject):
 
     def _exp_slider_change(self):
         self._parse_settings_preview()
-        print("Exposure changed to", self.settings["exposure"])
-        self.camera.set_exposure(
-            self.settings["exposure"]
-        )
+        self.camera.set_exposure(self.settings["exposure"])
 
     ########Functions
     ########plugins interraction
@@ -286,7 +281,6 @@ class VenusUSB2GUI(QObject):
             and method in self.public_methods
         }
         return methods
-    
 
     # HOX: Functions for the camera are exported when they have the prefix "camera_"
     def camera_open(self):
@@ -295,12 +289,19 @@ class VenusUSB2GUI(QObject):
             0 - no error
             ~0 - error (add error code later on if needed)
         """
-        return self.camera.open(
-            source=self.settings["source"], exposure=self.settings["exposure"]
-        )
+        self._parse_settings_preview()
+        source = self.settings["source"]
+        exposure = self.settings["exposure"]
+        status, message = self.camera.open(source=source, exposure=exposure)
+        if status:
+            return status, message
+        else:
+            self._GUIchange_deviceConnected(False)
+            return [0, "VenusUSB2 ok"]
 
     def camera_close(self):
         self.camera.close()
+        self._GUIchange_deviceConnected(True)
 
     def camera_capture_image(self, full_size=False):
         parse_status, settings = self._parse_settings_preview()
@@ -320,6 +321,9 @@ class VenusUSB2GUI(QObject):
             )
 
         return img
+    
+    def camera_capture_buffered(self):
+        return self.camera.capture_buffered()
 
     def _parseSaveData(self) -> "status":
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()

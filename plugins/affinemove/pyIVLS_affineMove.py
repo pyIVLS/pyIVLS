@@ -60,7 +60,7 @@ class pyIVLS_affineMove_plugin:
         """
 
         if args is None or args.get("function") == self.plugin_function:
-            pass
+            return {self.name : self.pluginClass._getLogSignal()}
 
     @hookimpl
     def get_info(self, args=None):
@@ -70,7 +70,7 @@ class pyIVLS_affineMove_plugin:
         """
 
         if args is None or args.get("function") == self.plugin_function:
-            pass
+            return {self.name : self.pluginClass._getInfoSignal()}
 
     @hookimpl
     def get_closeLock(self, args=None):

@@ -10,6 +10,7 @@ from klayout import lay
 
 # Sift detection moved over to skimage since I prefer it.
 from skimage.feature import SIFT, match_descriptors
+from skimage.color.adapt_rgb import adapt_rgb, each_channel
 
 
 class AffineError(Exception):
@@ -73,47 +74,67 @@ class Affine:
             img = ski.color.rgb2gray(img)
         img = (img * 255).astype("uint8")
 
+        edges = ski.feature.canny(img, sigma=2.0)
+        # Convert edges to uint8 mask
+        img = (edges * 255).astype("uint8")
         return img
 
     @staticmethod
     def _preprocess_mask(mask):
-        """
-        Simple preprocessing for mask.
-            Args:
-            - mask (np.ndarray): Input mask.
+            """
+            Simple preprocessing for mask.
+                Args:
+                - mask (np.ndarray): Input mask.
 
-        Returns:
-        - mask (np.ndarray): Preprocessed mask.
-        """
+            Returns:
+            - mask (np.ndarray): Preprocessed mask.
+            """
+            @adapt_rgb(each_channel)
+            def canny_each(image, sigma):
+                return ski.feature.canny(image, sigma=sigma)
+            
+            if mask.shape[2] == 4:
+                mask = mask[:, :, :3]
 
-        if mask.shape[2] == 4:
-            mask = mask[:, :, :3]
-        if len(mask.shape) == 3:  # Check if the image is not grayscale
-            mask = ski.color.rgb2gray(mask)
-        mask = ski.exposure.equalize_hist(mask)  # Histogram equalization
+            sobel = canny_each(mask, sigma=3.0)
 
-        mask = (mask * 255).astype("uint8")
+            sobel = ski.color.rgb2gray(sobel)
+            print("Sobel shape:", sobel.shape)
 
-        return mask
+            sobel = (sobel * 255).astype('uint8')
 
-    # TODO: implement this function.
+
+            return sobel
+
+
+
+
     def draw_keypoints(self):
         """
-        Visualizes the keypoints and their matches. Projects mask keypoints to image space and shows the mapping.
+        Uses skimage's standard plot_matches to visualize matched keypoints.
+        
         Returns:
-            Tuple of annotated (img, mask).
+            Matplotlib figure showing matches.
         """
         if self.result.get("img") is None or self.result.get("mask") is None:
             raise AffineError("No affine transformation found.", 4)
 
-        img = self.result["img"].copy()
-        mask = self.result["mask"].copy()
-        kp1 = self.result["kp1"]  # image keypoints: (N, 2)
-        kp2 = self.result["kp2"]  # mask keypoints: (M, 2)
-        matches = self.result["matches"]  # shape (K, 2)
-        model = self.result["transform"]  # shape (3, 3)
-        print("keypoints not impelemented yet")
+
+        img = self.result["img"]
+        mask = self.result["mask"]
+
+        kp1 = self.result.get("kp1") # row, col
+        kp2 = self.result.get("kp2") # row, col
+
+        print(f"Shape of img: {img.shape}, mask: {mask.shape}")
+        if img.ndim == 2:
+            img = ski.color.gray2rgb(img)
+        if mask.ndim == 2:
+            mask = ski.color.gray2rgb(mask)
+
+        print(f"Shape of img after conversion: {img.shape}, mask: {mask.shape}")
         return img, mask
+
 
     def try_match(
         self,
@@ -128,8 +149,6 @@ class Affine:
         Raises:
             - AffineError: something bad has taken place
         """
-        # Initiate SIFT detector
-        sift = SIFT()
 
         mask = self.internal_mask
         if img is None:
@@ -140,6 +159,9 @@ class Affine:
         # Preprocess the images
         img = self._preprocess_img(img)
         mask = self._preprocess_mask(mask)
+
+        self.result["img"] = img
+        self.result["mask"] = mask
 
         # Detect keypoints and compute descriptors
         try:
@@ -152,8 +174,8 @@ class Affine:
         except RuntimeError as e:
             raise AffineError(f"Runtime error during SIFT detection: {e}", 3) from e
 
-        # Match descriptors, lowes ratio test
-        matches = match_descriptors(desc_mask, desc_img, max_ratio=0.75)
+        # Match descriptors, lowes ratio test. 0.75?
+        matches = match_descriptors(desc_mask, desc_img, max_ratio=0.8)
 
         if len(matches) < self.MIN_MATCHES:
             raise AffineError(
@@ -172,8 +194,7 @@ class Affine:
             raise AffineError("Ransac can't find transform.", 3)
         # Populate the class variables when a transformation is found.
         self.A = model.params
-        img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
-        mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)
+
 
         self.result["img"] = img
         self.result["mask"] = mask
@@ -273,14 +294,14 @@ class Affine:
                 self.path + os.sep + "masks" + os.sep + filename + ".png"
             )
         # Create a layout view
-        view = lay.LayoutView()
-
-        view.load_layout(input_gds_path, add_cellview=True)
-
+        view = lay.LayoutView(options=lay.LayoutView.LV_NoGrid)
+        lay.LayoutViewBase.LV_NoEditorOptionsPanel
+        view.load_layout(input_gds_path, add_cellview=False)
         # Zoom to fit the entire layout
         view.zoom_fit()
         # mystery function that makes sure all layers are visible: https://www.klayout.de/forum/discussion/1711/screenshot-with-all-the-layer-and-screenshot-only-one-layer#latest
         view.max_hier()
+
 
         # Iterate over all layers and make them visible and remove the dither pattern just in case.
         it = view.begin_layers()
@@ -338,8 +359,11 @@ class Affine:
         """
         Loads an test image.
         """
-        img = cv.imread("plugins/Affine/testImages/NC2.png")
+        img = cv.imread(r"plugins\Affine\testImages\testData.png")
+        if img is None:
+            raise AffineError("Could not load test image.", 5)
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+ 
         return img
 
     def center_on_component(self, x: int, y: int):
