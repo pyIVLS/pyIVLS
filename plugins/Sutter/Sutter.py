@@ -246,12 +246,12 @@ class Mpc325:
             return True
 
     def get_current_position(self):
-        with self._comm_lock:
-            """Get current position in microns.
+        """Get current position in microns.
 
-            Returns:
-                tuple: (x,y,z)
-            """
+        Returns:
+            tuple: (x,y,z)
+        """
+        with self._comm_lock:
             self._flush()
             self.ser.write(bytes([67]))  # Send command (ASCII: C)
             output = self.ser.read(14)
@@ -260,10 +260,10 @@ class Mpc325:
             return (self._s2m(unpacked[1]), self._s2m(unpacked[2]), self._s2m(unpacked[3]))
 
     def calibrate(self):
+        """Calibrate the device. Does the same thing as the calibrate button on the back of the control unit.
+        (moves to 0,0,0)
+        """
         with self._comm_lock:
-            """Calibrate the device. Does the same thing as the calibrate button on the back of the control unit.
-            (moves to 0,0,0)
-            """
             if self.ser.is_open:
                 self._flush()
                 self.ser.write(bytes([78]))  # Send command (ASCII: N)
@@ -271,14 +271,14 @@ class Mpc325:
                 self._validate_and_unpack("B", output)
 
     def quick_move_to(self, x: np.float64, y: np.float64, z: np.float64):
-        with self._comm_lock:
-            """Quickmove orthogonally at full speed.
+        """Quickmove orthogonally at full speed.
 
-            Args:
-                x (np.float64): x in microns
-                y (np.float64): y in microns
-                z (np.float64): z in microns
-            """
+        Args:
+            x (np.float64): x in microns
+            y (np.float64): y in microns
+            z (np.float64): z in microns
+        """
+        with self._comm_lock:
             self._flush()
             # Pack first part of command
             command1 = struct.pack("<B", 77)
@@ -300,16 +300,16 @@ class Mpc325:
             )  # Read until the end marker (ASCII: CR)
 
     def slow_move_to(self, x: np.float64, y: np.float64, z: np.float64, speed=None):
+        """Slower move in straight lines. Speed is set as a class variable. (Or given as an argument)
+
+        Args:
+            speed (int): speed in range 0-15. Enforced in the code.
+            x (np.float64): x in microns
+            y (np.float64): y in microns
+            z (np.float64): z in microns
+
+        """
         with self._comm_lock:
-            """Slower move in straight lines. Speed is set as a class variable. (Or given as an argument)
-
-            Args:
-                speed (int): speed in range 0-15. Enforced in the code.
-                x (np.float64): x in microns
-                y (np.float64): y in microns
-                z (np.float64): z in microns
-
-            """
             if speed is None:
                 speed = self.speed
             self._flush()
@@ -337,8 +337,8 @@ class Mpc325:
             )  # Read until the end marker (ASCII: CR)
 
     def stop(self):
+        """Stop the current movement"""
         with self._comm_lock:
-            """Stop the current movement"""
             self._flush()
             self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>)
             output = self.ser.read(1)

@@ -128,7 +128,13 @@ class VenusUSB2GUI(QObject):
     def _update_frame(self):
 
 
-        frame = self.camera.capture_buffered()  # Capture a frame from the camera
+        ret, frame = self.camera.capture_buffered()  # Capture a frame from the camera
+        if not ret:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + " : VenusUSB2 plugin : Error capturing frame"
+            )
+            return
         label = self.preview_label
         h, w, ch = frame.shape
         bytes_per_line = ch * w

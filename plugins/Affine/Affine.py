@@ -190,8 +190,7 @@ class Affine:
 
         model, inliers = self.get_transformation(src, dst)
 
-        if inliers is None:
-            raise AffineError("Ransac can't find transform.", 3)
+
         # Populate the class variables when a transformation is found.
         self.A = model.params
 
@@ -213,6 +212,8 @@ class Affine:
             min_samples=self.MIN_MATCHES,  # 4 seems to be a good value for this.
             max_trials=1000,
         )
+        if inliers is None:
+            raise AffineError("Ransac can't find transform.", 3)
         return model, inliers
     
     def manual_transform(self, src, dst, img, mask):
@@ -231,8 +232,7 @@ class Affine:
                 src,
                 dst,
             )
-            if inliers is None:
-                raise AffineError("Ransac can't find transform.", 3)
+
             # Populate the class variables when a transformation is found.
             self.A = model.params
             self.result["img"] = img
