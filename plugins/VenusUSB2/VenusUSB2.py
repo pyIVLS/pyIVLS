@@ -112,5 +112,6 @@ class VenusUSB2:
 
     def capture_buffered(self):
         ret, frame = self.cap.read()
-        frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-        return frame
+        if ret:
+            frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+        return ret, frame

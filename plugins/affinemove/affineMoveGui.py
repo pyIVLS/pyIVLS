@@ -51,7 +51,8 @@ class affineMoveGUI(QObject):
     info_message = pyqtSignal(str)
     def emit_log(self, message: str):
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_message.emit(f"{timestamp}: {message}")
+        plugin_name = "AffineMove"
+        self.log_message.emit(f"{timestamp}: {plugin_name} caught: {message}")
 
     @property
     def dependency(self):
@@ -107,7 +108,6 @@ class affineMoveGUI(QObject):
 
 
 
-
     ########Functions
     ########GUI Slots
 
@@ -154,34 +154,31 @@ class affineMoveGUI(QObject):
         mm, cam, _ = self._fetch_dep_plugins()
 
         status,state = mm.mm_open()
-        print(f"Status: {status}, State: {state}")
         if status:
-            self.emit_log(state["Error message"])
+            self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
+            return
         status, state = cam.camera_open()
-        print(f"Status: {status}, State: {state}")
+        if status:
+            self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
+            return
         self.timer.start(self.default_timerInterval)
         status, ret = mm.mm_devices()
         if status:
-            self.emit_log(ret["Error message"])
+            self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
             return
         dev_count, dev_statuses = ret
-        print(f"Device count: {dev_count}, Device statuses: {dev_statuses}")
         # calibrate every available manipulator
         for i, status in enumerate(dev_statuses):
-            print(f"Device {i+1} status: {status}")
             if status == 1:
-                print(f"Calibrating manipulator {i+1}")
                 code, status = mm.mm_change_active_device(i+1)
-                print(f"Status: {code}, State: {status}")
                 # move to "home"
                 status, state = mm.mm_move(12500, 12500, 0)
+
 
                 points = []
                 moves = [(0,0),(3000,0), (0, 3000)]
                 for move in moves:
                     status, state = mm.mm_up_max()
-                    if status:
-                        self.emit_log(state["Error message"])
                     status, state = mm.mm_move_relative(x_change=move[0], y_change=move[1])
                     point = self._wait_for_input()
                     x, y, z = mm.mm_current_position()
@@ -204,7 +201,7 @@ class affineMoveGUI(QObject):
         # removed timer stop so that preview keeps going. 
         # self.timer.stop()    
         
-    def _fetch__mask_functionality(self):
+    def _fetch_mask_functionality(self):
         _, _, pos = self._fetch_dep_plugins()
         if pos is None:
             return
@@ -212,8 +209,7 @@ class affineMoveGUI(QObject):
         self.measurement_points = points
         self.measurement_point_names = names
 
-        print(f"Measurement points: {self.measurement_points}")
-        print(f"Measurement point names: {self.measurement_point_names}")
+
         self.update_status()
 
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
@@ -251,7 +247,7 @@ class affineMoveGUI(QObject):
 
         # connect buttons to functions
         self.settingsWidget.findSutter.clicked.connect(self._find_sutter_functionality)
-        self.settingsWidget.fetchMaskButton.clicked.connect(self._fetch__mask_functionality)
+        self.settingsWidget.fetchMaskButton.clicked.connect(self._fetch_mask_functionality)
         self.settingsWidget.debugButton.clicked.connect(self.affine_move)
 
 
@@ -283,7 +279,10 @@ class affineMoveGUI(QObject):
         if cam is None:
             self.emit_log("Camera plugin is None")
             return
-        img = cam.camera_capture_buffered()
+        ret, img = cam.camera_capture_buffered()
+        if not ret:
+            self.emit_log("AffineMove: Camera capture failed")
+            self.timer.stop()
         if img is not None:
             h, w, ch = img.shape
             bytes_per_line = ch * w
@@ -360,34 +359,27 @@ class affineMoveGUI(QObject):
             # open mm and check for errors
             status, state = mm.mm_open()
             if status:
-                print(f"DEBUG: micromanipulator open failed with status {status} and state {state}")
                 return [1, state["Error message"]]
             
             # check if there are measurement points available
             if len(self.measurement_points) == 0:
-                print("DEBUG: No measurement points available")
                 return [3, "No measurement points available"]
             
             # reset the iteration if it exceeds the number of measurement points. The goal is in (my opinion) to be able to just call this and it works.
             if self.iter == len(self.measurement_points):
-                print("DEBUG: last point reached, resetting iteration to 0")
                 self.iter = 0
             
             points = self.measurement_points[self.iter]
             point_name = self.measurement_point_names[self.iter]
-            print(f"DEBUG: Moving to point {point_name} at {points}")
 
             # TODO: Add checking for the relative positions of the points and the manipulators. 
             # Should be done to avoid collisions if trying to reach a point on the other side.
             for i, point in enumerate(points):
-                print(f"DEBUG: Moving manipulator {i + 1} to point {point}")
                 mm.mm_change_active_device(i + 1) # manipulators indexed from 0
                 # convert the point to camera coordinates
                 x, y = pos.positioning_coords(point)
-                print(f"DEBUG: Converted point to camera coordinates: {x}, {y}")
                 # convert camera point to micromanipulator coordinates
                 x, y = self.convert_to_mm_coords((x, y), i + 1)
-                print(f"DEBUG: Converted point to micromanipulator coordinates: {x}, {y}")
                 status, state = mm.mm_move(x, y)
                 if status:
                     self.emit_log(state["Error message"])

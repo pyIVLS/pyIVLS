@@ -57,6 +57,8 @@ class SutterMoveWorker(QThread):
     def enqueue(self, cmd, args=()):
         self.command_queue.put((cmd, args))
 
+    
+
 
 class SutterGUI(QObject):
     """
@@ -102,6 +104,12 @@ class SutterGUI(QObject):
         self.plugin_function = function
         self._move_worker = SutterMoveWorker(self.hal, self.log_message)
         self._move_worker.start()
+
+    
+    def __del__(self):
+        """Destroy the worker when unregistering / garbage collecting the plugin."""
+        if hasattr(self, '_move_worker'):
+            self._move_worker.stop()
 
     def setup(self, settings):
         """
@@ -249,7 +257,8 @@ class SutterGUI(QObject):
 
     def _stop_button(self):
         print("stop button pressed WIP")
-        self.hal.stop()
+        self._move_worker.stop()
+
 
     def _calibrate_button(self):
         print("calibrate button pressed WIP")
@@ -314,22 +323,22 @@ class SutterGUI(QObject):
             Status: tuple of (status, error message)
 
         """
-        try:
+        def change_dev():
             self.devnum_combo.setCurrentIndex(dev_num - 1)
-            if self.hal.change_active_device(dev_num):
-                return [
-                    0,
-                    {"Error message": "Sutter device changed to " + str(dev_num)},
-                ]
-            return [4, {"Error message": "Sutter device change error"}]
-
-        except ValueError as e:
-            return [
-                1,
-                {"Error message": "Value error in Sutter plugin", "Exception": str(e)},
-            ]
-        except Exception as e:
-            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+            try:
+                if self.hal.change_active_device(dev_num):
+                    pass
+                else:
+                    if self.log_message:
+                        self.log_message.emit("Sutter device change error")
+            except ValueError as e:
+                if self.log_message:
+                    self.log_message.emit(f"Value error in Sutter plugin: {str(e)}")
+            except Exception as e:
+                if self.log_message:
+                    self.log_message.emit(f"Sutter HW error: {str(e)}")
+        self._move_worker.enqueue(change_dev)
+        return [0, {"Error message": "Sutter device change enqueued"}]
 
     def mm_move(self, x=None, y=None, z=None):
         self._move_worker.enqueue(self.hal.move, (x, y, z))
@@ -365,8 +374,6 @@ class SutterGUI(QObject):
         def upmax():
             x, y, z = self.hal.get_current_position()
             if z == 0:
-                if self.log_message:
-                    self.log_message.emit("Sutter already at max")
                 return
             return self.hal.move(x, y, 0)
         self._move_worker.enqueue(upmax)

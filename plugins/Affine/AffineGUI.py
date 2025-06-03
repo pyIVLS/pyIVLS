@@ -547,7 +547,6 @@ class AffineGUI(QObject):
             transformed = self.affine.coords(coords)
             return transformed
         except AffineError as e:
-            self.log_message.emit(e.message)
             return (-1, -1)
     
     def positioning_measurement_points(self) -> list[tuple[float, float]]:

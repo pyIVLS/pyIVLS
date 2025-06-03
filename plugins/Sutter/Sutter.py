@@ -191,13 +191,13 @@ class Mpc325:
             )
 
     def get_connected_devices_status(self):
-        with self._comm_lock:
-            """Get the status of connected micromanipulators
+        """Get the status of connected micromanipulators
 
-            Returns:
-                tuple: first element is how many devices connected, second element is a list representing
-                the status of connected devices
-            """
+        Returns:
+            tuple: first element is how many devices connected, second element is a list representing
+            the status of connected devices
+        """
+        with self._comm_lock:
             self._flush()
             self.ser.write(bytes([85]))  # Send command to the device (ASCII: U)
             output = self.ser.read(6)
@@ -209,12 +209,12 @@ class Mpc325:
             return (num_devices, device_statuses)
 
     def get_active_device(self):
-        with self._comm_lock:
-            """Returns the current active device.
+        """Returns the current active device.
 
-            Returns:
-                int: active device number
-            """
+        Returns:
+            int: active device number
+        """
+        with self._comm_lock:
             self._flush()
             self.ser.write(bytes([75]))  # Send command to the device (ASCII: K)
             output = self.ser.read(4)
@@ -222,15 +222,15 @@ class Mpc325:
             return unpacked[0]
 
     def change_active_device(self, dev_num: int):
+        """Change active device
+
+        Args:
+            devNum (int): Device number to be activated (1-4 on this system)
+
+        Returns:
+            bool: Change successful
+        """
         with self._comm_lock:
-            """Change active device
-
-            Args:
-                devNum (int): Device number to be activated (1-4 on this system)
-
-            Returns:
-                bool: Change successful
-            """
             self._flush()
             if dev_num < 1 or dev_num > 4:
                 raise ValueError(
@@ -294,12 +294,10 @@ class Mpc325:
             self.ser.write(command1)
             self.ser.write(command2)
 
-            print("moving")
             end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
             self.ser.read_until(
                 expected=end_marker_bytes
             )  # Read until the end marker (ASCII: CR)
-            print("done")
 
     def slow_move_to(self, x: np.float64, y: np.float64, z: np.float64, speed=None):
         with self._comm_lock:
@@ -317,7 +315,6 @@ class Mpc325:
             self._flush()
             # Enforce speed limits
             speed = max(0, min(speed, 15))
-            print(speed)
 
             # Pack first part of command
             command1 = struct.pack("<2B", 83, speed)
@@ -334,12 +331,10 @@ class Mpc325:
             time.sleep(0.03)  # wait period specified in the manual (30 ms)
             self.ser.write(command2)
 
-            print("moving")
             end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
             self.ser.read_until(
                 expected=end_marker_bytes
             )  # Read until the end marker (ASCII: CR)
-            print("done")
 
     def stop(self):
         with self._comm_lock:
