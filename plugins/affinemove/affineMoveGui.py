@@ -81,7 +81,6 @@ class affineMoveGUI(QObject):
         self.camera_box: QComboBox = self.settingsWidget.cameraBox
         self.micromanipulator_box: QComboBox = self.settingsWidget.micromanipulatorBox
         self.positioning_box: QComboBox = self.settingsWidget.positioningBox
-        self.mm_dev_box = self.settingsWidget.mmListBox
         self.camera_graphic_view: QGraphicsView = self.MDIWidget.cameraview
         self.camera_graphic_scene: QGraphicsScene = QGraphicsScene()
         self.camera_graphic_view.setScene(self.camera_graphic_scene)
@@ -96,6 +95,15 @@ class affineMoveGUI(QObject):
         self.measurement_points = []
         self.measurement_point_names = []
         self.calibrations = {} # manipulator 1, manipulator 2, ... calibration points
+
+        # find status labels and indicators
+        self.mm_status = self.settingsWidget.mmStatus
+        self.sample_status = self.settingsWidget.sampleStatus
+        self.points_status = self.settingsWidget.pointsStatus
+        self.mm_indicator = self.settingsWidget.mmIndicator
+        self.sample_indicator = self.settingsWidget.sampleIndicator
+        self.points_indicator = self.settingsWidget.pointsIndicator
+        
 
 
 
@@ -159,13 +167,14 @@ class affineMoveGUI(QObject):
         dev_count, dev_statuses = ret
         print(f"Device count: {dev_count}, Device statuses: {dev_statuses}")
         # calibrate every available manipulator
-        self.mm_dev_box.clear()
         for i, status in enumerate(dev_statuses):
             print(f"Device {i+1} status: {status}")
             if status == 1:
                 print(f"Calibrating manipulator {i+1}")
                 code, status = mm.mm_change_active_device(i+1)
                 print(f"Status: {code}, State: {status}")
+                # move to "home"
+                status, state = mm.mm_move(12500, 12500, 0)
 
                 points = []
                 moves = [(0,0),(3000,0), (0, 3000)]
@@ -185,19 +194,15 @@ class affineMoveGUI(QObject):
                 view_points = np.array([pt[1] for pt in points], dtype=np.float32)
                 affine_transform = cv2.getAffineTransform(view_points, mm_points)
                 self.calibrations[i + 1] = affine_transform
-                self.mm_dev_box.addItem(f"Manipulator {i + 1} (Calibrated)")
 
-                # Wait for a new input and apply the transform
-                self.info_message.emit("Click anywhere to move manipulator to that position...")
-                click = self._wait_for_input()
-                print(f"New click: {click}")
+                # back to home
+                mm.mm_move(12500, 12500, 0)
 
-                mm_target = self.convert_to_mm_coords(click, i + 1)
 
-                status, state = mm.mm_move(mm_target[0], mm_target[1])
-                if status:
-                    self.emit_log(state["Error message"])
-        self.timer.stop()    
+
+        self.update_status()
+        # removed timer stop so that preview keeps going. 
+        # self.timer.stop()    
         
     def _fetch__mask_functionality(self):
         _, _, pos = self._fetch_dep_plugins()
@@ -209,6 +214,7 @@ class affineMoveGUI(QObject):
 
         print(f"Measurement points: {self.measurement_points}")
         print(f"Measurement point names: {self.measurement_point_names}")
+        self.update_status()
 
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
         """
@@ -236,9 +242,6 @@ class affineMoveGUI(QObject):
         
         return tuple(mm_point)
 
-
-
-
     ########Functions
     ###############GUI setting up
 
@@ -253,8 +256,6 @@ class affineMoveGUI(QObject):
 
 
         return self.settingsWidget, self.MDIWidget
-
-
 
     ########Functions
     ###############GUI react to change
@@ -293,6 +294,26 @@ class affineMoveGUI(QObject):
         else:
             self.emit_log("Camera image is None")
 
+    def update_status(self):
+        """
+        Updates the status of the micromanipulator, sample and points.
+        This function is called by the micromanipulator plugin when the status changes.
+        """
+        mm, cam, pos = self._fetch_dep_plugins()
+        if self.calibrations == {}:
+            self.mm_indicator.setStyleSheet("background-color: red;")
+        else:
+            self.mm_indicator.setStyleSheet("background-color: green;")
+
+        if pos.positioning_coords((0,0)) == (-1, -1):
+            self.sample_indicator.setStyleSheet("background-color: red;")
+        else:
+            self.sample_indicator.setStyleSheet("background-color: green;")
+
+        if len(self.measurement_points) == 0:
+            self.points_indicator.setStyleSheet("background-color: red;")
+        else:
+            self.points_indicator.setStyleSheet("background-color: green;")
 
     ########Functions
     ########plugins interraction

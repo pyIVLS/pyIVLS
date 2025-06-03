@@ -1,8 +1,9 @@
 import os
 from datetime import datetime
+import queue
 
 from PyQt6 import QtWidgets, uic
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, QThread
 from Sutter import Mpc325
 
 """
@@ -24,6 +25,37 @@ drain nplc field should be numeric"}]
 "Exception" : exception from called function
 
 """
+
+
+class SutterMoveWorker(QThread):
+    def __init__(self, hal, log_signal=None):
+        super().__init__()
+        self.hal = hal
+        self.log_signal = log_signal
+        self.command_queue = queue.Queue()
+        self._running = True
+
+    def run(self):
+        while self._running:
+            try:
+                cmd, args = self.command_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            try:
+                result = cmd(*args)
+                if self.log_signal and result is not None:
+                    self.log_signal.emit(str(result))
+            except Exception as e:
+                if self.log_signal:
+                    self.log_signal.emit(f"Sutter HW error: {str(e)}")
+            self.command_queue.task_done()
+
+    def stop(self):
+        self._running = False
+        self.wait()
+
+    def enqueue(self, cmd, args=()):
+        self.command_queue.put((cmd, args))
 
 
 class SutterGUI(QObject):
@@ -68,6 +100,8 @@ class SutterGUI(QObject):
         self.hal = Mpc325()
         self.plugin_name = name
         self.plugin_function = function
+        self._move_worker = SutterMoveWorker(self.hal, self.log_message)
+        self._move_worker.start()
 
     def setup(self, settings):
         """
@@ -298,29 +332,15 @@ class SutterGUI(QObject):
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
     def mm_move(self, x=None, y=None, z=None):
-        """Micromanipulator move.
+        self._move_worker.enqueue(self.hal.move, (x, y, z))
+        return [0, {"Error message": "Sutter move enqueued"}]
 
-        Args:
-            *args: x, y, z
-        """
-        try:
-            self.hal.move(x, y, z)
-            return [0, {"Error message": "Sutter moved"}]
-        except Exception as e:
-            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
-        
     def mm_move_relative(self, x_change=0, y_change=0, z_change=0):
-        """Micromanipulator move relative to the current position.
-
-        Args:
-            *args: x_change, y_change, z_change
-        """
-        try:
-            (x, y, z) = self.hal.get_current_position()
-            self.hal.move(x + x_change, y + y_change, z + z_change)
-            return [0, {"Error message": "Sutter moved"}]
-        except Exception as e:
-            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+        def move_rel():
+            x, y, z = self.hal.get_current_position()
+            return self.hal.move(x + x_change, y + y_change, z + z_change)
+        self._move_worker.enqueue(move_rel)
+        return [0, {"Error message": "Sutter move_relative enqueued"}]
 
     def mm_stop(self):
         """Micromanipulator stop."""
@@ -331,39 +351,26 @@ class SutterGUI(QObject):
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
     def mm_zmove(self, z_change):
-        """Moves the micromanipulator in the z axis. If the move is out of bounds, it will return False.
+        def zmove():
+            x, y, z = self.hal.get_current_position()
+            if (z + z_change > self.hal._MAXIMUM_M or z + z_change < self.hal._MINIMUM_MS):
+                if self.log_message:
+                    self.log_message.emit("Sutter move out of bounds")
+                return
+            return self.hal.move(x, y, z + z_change)
+        self._move_worker.enqueue(zmove)
+        return [0, {"Error message": "Sutter zmove enqueued"}]
 
-        Args:
-            z_change (float): change in z axis in micron
-
-        Returns:
-            status
-        """
-        try:
-            (x, y, z) = self.hal.get_current_position()
-            if (
-                z + z_change > self.hal._MAXIMUM_M
-                or z + z_change < self.hal._MINIMUM_MS
-            ):
-                return [1, {"Error message": "Sutter move out of bounds"}]
-            else:
-                self.hal.move(x, y, z + z_change)
-                return [0, {"Error message": "Sutter moved"}]
-        except Exception as e:
-            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
-        
     def mm_up_max(self):
-        """Moves to z = 0 
-        """
-        try:
-            x,y,z = self.hal.get_current_position()
+        def upmax():
+            x, y, z = self.hal.get_current_position()
             if z == 0:
-                return [0, {"Error message": "Sutter already at max"}]
-            self.hal.move(x, y, 0)
-            return [0, {"Error message": "Sutter moved up to max"}]
-        except Exception as e:
-            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
-
+                if self.log_message:
+                    self.log_message.emit("Sutter already at max")
+                return
+            return self.hal.move(x, y, 0)
+        self._move_worker.enqueue(upmax)
+        return [0, {"Error message": "Sutter up_max enqueued"}]
 
     def mm_current_position(self):
         """Returns the current position of the micromanipulator.
@@ -375,7 +382,6 @@ class SutterGUI(QObject):
             return self.hal.get_current_position()
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
-        
 
     def mm_devices(self):
         """Returns the number of connected devices and their statuses.
@@ -391,5 +397,5 @@ class SutterGUI(QObject):
             return [0, (dev_count, dev_statuses)]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
-        
+
 

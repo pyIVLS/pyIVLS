@@ -540,6 +540,7 @@ class AffineGUI(QObject):
 
     # public API
 
+    # FIXME: non standard return type for plugin
     def positioning_coords(self, coords: tuple[float, float]) -> tuple[float, float]:
         """Returns the transformed coordinates."""
         try:
@@ -547,7 +548,7 @@ class AffineGUI(QObject):
             return transformed
         except AffineError as e:
             self.log_message.emit(e.message)
-            return coords
+            return (-1, -1)
     
     def positioning_measurement_points(self) -> list[tuple[float, float]]:
         """Returns the measurement points defined in the list widget."""
