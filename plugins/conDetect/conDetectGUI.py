@@ -94,6 +94,7 @@ class conDetectGUI(QObject):
                 + f" : conDetect plugin :  {info}, status = {status}"
             )
             self.info_message.emit(f"conDetect plugin : {info['Error message']}")
+            return
         self.connected = True
         self._GUIchange_deviceConnected(self.connected)
         self.closeLock.emit(not self.connected)

@@ -2,20 +2,20 @@
 
 
 import pluggy
-from affineMoveGui import affineMoveGUI
+from touchDetectGui import touchDetectGUI
 
-class pyIVLS_affineMove_plugin:
+class pyIVLS_touchDetect_plugin:
 
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.name = "affineMove"
+        self.name = "touchDetect"
         self.type = "script"
-        self.function = "move"
+        self.function = "contactingMove"
         self._class = "loop"
-        self.dependencies = ["positioning", "micromanipulator", "camera"]
-        self.pluginClass = affineMoveGUI()
+        self.dependencies = ["smu", "micromanipulator", "contacting"]
+        self.pluginClass = touchDetectGUI()
 
 
 
@@ -28,29 +28,8 @@ class pyIVLS_affineMove_plugin:
             dict: name, widget
         """
         settings = plugin_data.get(self.name, {}).get("settings", {})
-        self.pluginClass.setup(settings)
-        return {self.name: self.pluginClass.settingsWidget}
+        return {self.name: self.pluginClass.setup(settings)}
 
-    @hookimpl
-    def get_MDI_interface(self, args=None) -> dict:
-        """Returns MDI window (visualisation). This function is called from pyIVLS_container
-
-        Returns:
-            dict: name, widget
-        """
-        return {self.name: self.pluginClass.MDIWidget}
-    @hookimpl
-    def get_functions(self, args=None):
-        """Returns a dictionary of publicly accessible functions. This function is called from pyIVLS_container
-
-        Args:
-            args (dict): function
-
-        Returns:
-            dict: functions
-        """
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.name: {}}
 
     @hookimpl
     def get_log(self, args=None):

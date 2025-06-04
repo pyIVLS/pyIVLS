@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from Affine import Affine, AffineError
+from Affine_cv import Affine, AffineError
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QBrush, QImage, QPen, QPixmap
@@ -240,9 +240,8 @@ class AffineGUI(QObject):
 
             # get the camera name from the combobox
             camera_name = self.cameraComboBox.currentText()
-            img = self.functions["camera"]["camera_capture_image"]()
-            #img = self.affine.test_image() 
-            print(f"img shape: {img.shape}")
+            #img = self.functions["camera"]["camera_capture_image"]()
+            img = self.affine.test_image() 
             #img = self.affine.test_image()
             self._update_MDI(None, img)
             self.affine.try_match(img)

@@ -95,6 +95,7 @@ class Mpc325:
         self.quick_move = False
         self.port = ""
         self._comm_lock = threading.Lock()
+        self._stop_requested = threading.Event()
 
     # Close the connection when python garbage collection gets around to it. This seems to be implemented by pySERIAL already.
     def __del__(self):
@@ -270,6 +271,42 @@ class Mpc325:
                 output = self.ser.read(1)
                 self._validate_and_unpack("B", output)
 
+    def stop(self):
+        """Stop the current movement"""
+        self._stop_requested.set()  # Request stop (cooperative flag)
+        with self._comm_lock:
+            self._flush()
+            self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>)
+            output = self.ser.read(1)
+            self._validate_and_unpack("B", output)
+        self._stop_requested.clear()  # Reset after stop
+
+    def move(self, x=None, y=None, z=None):
+        """Move to a position. If quick_move is set to True, the movement will be at full speed.
+
+        Args:
+            x (np.float64): x in microns
+            y (np.float64): y in microns
+            z (np.float64): z in microns
+        """
+        self._flush()  # redundant flush.
+        curr_pos = self.get_current_position()
+        # If the position is the same, do nothing.
+        if (curr_pos[0] == x) and (curr_pos[1] == y) and (curr_pos[2] == z):
+            return 
+        # If any of the coordinates are None, use the current position.
+        if x is None:
+            x = curr_pos[0]
+        if y is None:
+            y = curr_pos[1]
+        if z is None:
+            z = curr_pos[2]
+
+        if self.quick_move:
+            self.quick_move_to(x, y, z)
+        else:
+            self.slow_move_to(x, y, z)
+
     def quick_move_to(self, x: np.float64, y: np.float64, z: np.float64):
         """Quickmove orthogonally at full speed.
 
@@ -295,6 +332,13 @@ class Mpc325:
             self.ser.write(command2)
 
             end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
+            # Cooperative stop: check for stop request while waiting
+            while True:
+                if self._stop_requested.is_set():
+                    break
+                if self.ser.in_waiting > 0:
+                    break
+                time.sleep(0.01)
             self.ser.read_until(
                 expected=end_marker_bytes
             )  # Read until the end marker (ASCII: CR)
@@ -332,43 +376,16 @@ class Mpc325:
             self.ser.write(command2)
 
             end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
+            # Cooperative stop: check for stop request while waiting
+            while True:
+                if self._stop_requested.is_set():
+                    break
+                if self.ser.in_waiting > 0:
+                    break
+                time.sleep(0.01)
             self.ser.read_until(
                 expected=end_marker_bytes
             )  # Read until the end marker (ASCII: CR)
-
-    def stop(self):
-        """Stop the current movement"""
-        with self._comm_lock:
-            self._flush()
-            self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>)
-            output = self.ser.read(1)
-            self._validate_and_unpack("B", output)
-
-    def move(self, x=None, y=None, z=None):
-        """Move to a position. If quick_move is set to True, the movement will be at full speed.
-
-        Args:
-            x (np.float64): x in microns
-            y (np.float64): y in microns
-            z (np.float64): z in microns
-        """
-        self._flush()  # redundant flush.
-        curr_pos = self.get_current_position()
-        # If the position is the same, do nothing.
-        if (curr_pos[0] == x) and (curr_pos[1] == y) and (curr_pos[2] == z):
-            return 
-        # If any of the coordinates are None, use the current position.
-        if x is None:
-            x = curr_pos[0]
-        if y is None:
-            y = curr_pos[1]
-        if z is None:
-            z = curr_pos[2]
-
-        if self.quick_move:
-            self.quick_move_to(x, y, z)
-        else:
-            self.slow_move_to(x, y, z)
 
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
     def _handrail_micron(self, microns) -> np.uint32:

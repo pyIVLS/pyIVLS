@@ -74,9 +74,8 @@ class Affine:
             img = ski.color.rgb2gray(img)
         img = (img * 255).astype("uint8")
 
-        edges = ski.feature.canny(img, sigma=2.0)
+        #edges = ski.feature.canny(img, sigma=2.0)
         # Convert edges to uint8 mask
-        img = (edges * 255).astype("uint8")
         return img
 
     @staticmethod
@@ -96,15 +95,20 @@ class Affine:
             if mask.shape[2] == 4:
                 mask = mask[:, :, :3]
 
-            sobel = canny_each(mask, sigma=3.0)
+            if len(mask.shape) == 3:  # Check if the mask is not grayscale
+                mask = ski.color.rgb2gray(mask)
 
-            sobel = ski.color.rgb2gray(sobel)
-            print("Sobel shape:", sobel.shape)
+            # histogram equalization
+            mask = (mask * 255).astype("uint8")
 
-            sobel = (sobel * 255).astype('uint8')
+            #sobel = canny_each(mask, sigma=3.0)
+
+            #sobel = ski.color.rgb2gray(sobel)
+
+            #sobel = (sobel * 255).astype('uint8')
 
 
-            return sobel
+            return mask
 
 
 
@@ -123,16 +127,20 @@ class Affine:
         img = self.result["img"]
         mask = self.result["mask"]
 
-        kp1 = self.result.get("kp1") # row, col
-        kp2 = self.result.get("kp2") # row, col
+        kp1 = self.result.get("kp1") # row, col mask points
+        kp2 = self.result.get("kp2") # row, col img points
 
-        print(f"Shape of img: {img.shape}, mask: {mask.shape}")
         if img.ndim == 2:
             img = ski.color.gray2rgb(img)
         if mask.ndim == 2:
             mask = ski.color.gray2rgb(mask)
 
-        print(f"Shape of img after conversion: {img.shape}, mask: {mask.shape}")
+
+        # Return the images with keypoints drawn
+        img = cv.drawKeypoints(img, self.result["kp2"], None, color=(255, 0, 0))
+        mask = cv.drawKeypoints(mask, self.result["kp1"], None, color=(0, 255, 0))
+
+
         return img, mask
 
 
@@ -173,6 +181,9 @@ class Affine:
             kp_mask, desc_mask = sift.keypoints, sift.descriptors
         except RuntimeError as e:
             raise AffineError(f"Runtime error during SIFT detection: {e}", 3) from e
+        
+        self.result["kp1"] = kp_mask
+        self.result["kp2"] = kp_img
 
         # Match descriptors, lowes ratio test. 0.75?
         matches = match_descriptors(desc_mask, desc_img, max_ratio=0.8)

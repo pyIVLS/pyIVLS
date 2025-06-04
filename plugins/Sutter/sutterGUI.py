@@ -54,6 +54,7 @@ class SutterMoveWorker(QThread):
         self._running = False
         self.wait()
 
+
     def enqueue(self, cmd, args=()):
         self.command_queue.put((cmd, args))
 
@@ -253,7 +254,7 @@ class SutterGUI(QObject):
         print("status button pressed WIP")
         pos = self.hal.get_current_position()
         print(f"Current position: {pos}")
-        self.hal.move(pos[0] + 2000, pos[1], pos[2])
+        self.hal.move(pos[0] + 4000, pos[1], pos[2])
 
     def _stop_button(self):
         print("stop button pressed WIP")
@@ -360,15 +361,20 @@ class SutterGUI(QObject):
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
     def mm_zmove(self, z_change):
-        def zmove():
-            x, y, z = self.hal.get_current_position()
-            if (z + z_change > self.hal._MAXIMUM_M or z + z_change < self.hal._MINIMUM_MS):
-                if self.log_message:
-                    self.log_message.emit("Sutter move out of bounds")
-                return
-            return self.hal.move(x, y, z + z_change)
-        self._move_worker.enqueue(zmove)
-        return [0, {"Error message": "Sutter zmove enqueued"}]
+        """Blocking call. Moves in z and returns status immediately.
+        Args:
+            z_change (int): change in z position in microns
+        Returns:
+            Status: tuple of (status, error message)
+        """
+        x, y, z = self.hal.get_current_position()
+        if (z + z_change > self.hal._MAXIMUM_M or z + z_change < self.hal._MINIMUM_MS):
+            return [1, {"Error message": "Sutter zmove out of bounds"}]
+        try:
+            self.hal.move(x, y, z + z_change)
+            return [0, {"Error message": "Sutter zmove executed"}]
+        except Exception as e:
+            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
     def mm_up_max(self):
         def upmax():

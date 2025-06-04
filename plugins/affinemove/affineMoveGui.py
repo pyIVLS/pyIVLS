@@ -173,13 +173,12 @@ class affineMoveGUI(QObject):
                 code, status = mm.mm_change_active_device(i+1)
                 self.info_message.emit(f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points")
                 # move to "home"
-                status, state = mm.mm_move(12500, 12500, 0)
+                status, state = mm.mm_move(12500, 12500)
 
 
                 points = []
                 moves = [(0,0),(3000,0), (0, 3000)]
                 for move in moves:
-                    status, state = mm.mm_up_max()
                     status, state = mm.mm_move_relative(x_change=move[0], y_change=move[1])
                     point = self._wait_for_input()
                     x, y, z = mm.mm_current_position()
@@ -194,7 +193,7 @@ class affineMoveGUI(QObject):
                 self.calibrations[i + 1] = affine_transform
 
                 # back to home
-                mm.mm_move(12500, 12500, 0)
+                mm.mm_move(12500, 12500)
 
 
 
