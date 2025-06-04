@@ -693,15 +693,19 @@ class sweepGUI(QObject):
     					fileheader = create_file_header(self.settings, self.smu_settings, backVoltage = measurement["drainvoltage"])
     				else:	
     					fileheader = create_file_header(self.settings, self.smu_settings)
+	    		if measurement["pulse"]:
+	    		    headerpostfix = "_pulsed"
+	    		else:
+	    		    headerpostfix = ""
 	    		if measurement["sourcesense"]:
-	    			columnheader = f"{columnheader}IS_4pr, VS_4pr,"
+	    			columnheader = f"{columnheader} IS_4pr{headerpostfix}, VS_4pr{headerpostfix},"
 	    		else:	
-	    			columnheader = f"{columnheader}IS_2pr, VS_2pr,"
+	    			columnheader = f"{columnheader} IS_2pr{headerpostfix}, VS_2pr{headerpostfix},"
 	    		if not measurement["single_ch"]:
 	    			if measurement["drainsense"]:
-		    			columnheader = f"{columnheader}ID_4pr, VD_4pr,"
+		    			columnheader = f"{columnheader} ID_4pr{headerpostfix}, VD_4pr{headerpostfix},"
 		    		else:	
-		    			columnheader = f"{columnheader}ID_2pr, VD_2pr,"
+		    			columnheader = f"{columnheader} ID_2pr{headerpostfix}, VD_2pr{headerpostfix},"
 	    		#running sweep
 	    		if  self.function_dict["smu"]["smu_runSweep"](measurement):
 		                raise sweepException(f"sweep plugin : smu_runSweep failed")
@@ -775,13 +779,12 @@ class sweepGUI(QObject):
 	    			if IVresize:
 	    				IV_drain = np.vstack([IV_drain, np.full((IVresize, 2), "")])
 	    			data = np.hstack([data, IV_drain])	
-	    		columnheader = f"{columnheader[:-1]}"
 	    		if drainsteps > 1:
 	    			fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + f"{drainvoltage}V"+".dat"
 	    		else:
 	    			fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
 	    		with open(fulladdress, 'w') as f:
-	    		    f.write(fileheader + columnheader +'\n')
+	    		    f.write(fileheader + f"{columnheader[1:-1]}" +'\n')
 	    		    pd.DataFrame(data).to_csv(f, index=False, header=False, float_format='%.12e', sep=',')
 #                np.savetxt(fulladdress, data, fmt='%.12e', delimiter=',', newline='\n', header=fileheader + columnheader, comments='#')
     		return [0, "sweep finished"]
