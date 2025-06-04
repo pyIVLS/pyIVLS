@@ -317,7 +317,7 @@ class itc503GUI(QObject):
                 return [1, {"Error message":"Value error: sweep end field should be numeric"}]
 
         try:
-                self.settings["sweeppts"] = int(self.settingsWidget.periodPtsEdit.text())
+                self.settings["sweeppts"] = int(self.settingsWidget.sweepPtsEdit.text())
         except ValueError:
                 return [1, {"Error message":"Value error: sweep points field should be integer"}]
         if self.settings["sweeppts"]<1:
