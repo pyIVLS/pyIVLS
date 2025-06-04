@@ -2,6 +2,7 @@ import os
 import time
 import copy
 import numpy as np
+import pandas as pd
 from pathvalidate import is_valid_filename
 from datetime import datetime
 
@@ -742,7 +743,7 @@ class sweepGUI(QObject):
       		    			self.axes.relim()
       		    			self.axes.autoscale_view()
       		    			self.sc.draw()
-      		    			if (measurement["type"] == 'i' and (abs(lastV)> self.settings["prescaler"]*abs(measurement["limit"])) ) or (measurement["type"] == 'i' and (abs(lastV)> self.settings["prescaler"]*abs(measurement["limit"])) ):
+      		    			if (measurement["type"] == 'i' and (abs(lastV)> self.settings["prescaler"]*abs(measurement["limit"])) ) or (measurement["type"] == 'v' and (abs(lastI)> self.settings["prescaler"]*abs(measurement["limit"])) ):
       		    				self.function_dict["smu"]["smu_abort"](measurement["source"])
       		    				break
       		    			buffer_prev = lastPoints
@@ -779,7 +780,10 @@ class sweepGUI(QObject):
 	    			fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + f"{drainvoltage}V"+".dat"
 	    		else:
 	    			fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
-	    		np.savetxt(fulladdress, data, fmt='%.12e', delimiter=',', newline='\n', header=fileheader + columnheader, comments='#')
+	    		with open(fulladdress, 'w') as f:
+	    		    f.write(fileheader + columnheader +'\n')
+	    		    pd.DataFrame(data).to_csv(f, index=False, header=False, float_format='%.12e', sep=',')
+#                np.savetxt(fulladdress, data, fmt='%.12e', delimiter=',', newline='\n', header=fileheader + columnheader, comments='#')
     		return [0, "sweep finished"]
 
     def sequenceStep(self, postfix):

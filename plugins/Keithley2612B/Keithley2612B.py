@@ -222,6 +222,8 @@ class Keithley2612B:
         ##IRtothink#### some check may be added to make sure that the value may be converted
         if readings is None:
 	        readings = int(float(self.safequery(f"print({channel}.nvbuffer2.n)")))
+        if readings == 0:
+             return [None, None, readings]
         i_value = float(self.safequery(f"printbuffer({readings}, {readings}, {channel}.nvbuffer1)"))
         v_value = float(self.safequery(f"printbuffer({readings}, {readings}, {channel}.nvbuffer2)"))
         return [i_value, v_value, readings]

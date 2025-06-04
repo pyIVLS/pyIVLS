@@ -361,6 +361,10 @@ class itc503GUI(QObject):
                 info = self.itc503.getData()
              except Exception as e:
                 return [4, {"Error message" : f"{e}"}]
-             print(datetime.now().strftime("%H:%M:%S.%f") + f" {info}")
+             if abs(info-self.settings['sett'])>0.2:
+                print(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")
+                tic = time.time()
+             else:
+                print(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")
              time.sleep(20)
         return[0 , f"_{info}K"]
