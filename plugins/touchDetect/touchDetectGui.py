@@ -134,6 +134,8 @@ class touchDetectGUI(QObject):
         """
         mm, smu, con = self._fetch_dep_plugins()
         self.channel_names = smu.smu_channelNames()
+        if self.channel_names is not None:
+            self.smu_indicator.setStyleSheet(self.green_style)
         status, state = mm.mm_devices()
 
         if status == 0: 
@@ -161,6 +163,7 @@ class touchDetectGUI(QObject):
 
 
 
+
     def dependencies_changed(self):
         self.smu_box.clear()
         self.micromanipulator_box.clear()
@@ -176,6 +179,7 @@ class touchDetectGUI(QObject):
         self.micromanipulator_box.setCurrentIndex(0)
         self.smu_box.setCurrentIndex(0)
         self.condet_box.setCurrentIndex(0)
+        self.update_status()
 
     ########Functions
     ########plugins interraction
@@ -208,12 +212,19 @@ class touchDetectGUI(QObject):
             box.setVisible(False)
         # save the settings dict to be used later
         self.settings = parse_ini(settings)
-        print(f"TouchDetect: settings loaded: {self.settings}")
         self.settingsWidget.initButton.clicked.connect(self.update_status)
         return self.settingsWidget
 
 
     ########Functions to be used externally
+    def move_to_contact(self):
+        def create_dict():
+            temp = []
+            for i in range(len(self.manipulator_boxes)):
+                devnum = i + 1
+                _, smu_box, con_box = self.manipulator_boxes[i]
+                temp.append((smu_box.currentText(), con_box.currentText()))
+
 
 
 

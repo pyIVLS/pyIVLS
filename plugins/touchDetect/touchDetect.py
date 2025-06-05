@@ -3,7 +3,7 @@ class touchDetect:
         self.R_WHEN_CONTACT = 1 #ohm
         self.stride_to_contact = 10
 
-    def move_to_contact(self, mm: object, con: object, smu: object, manipulator_info: dict):
+    def move_to_contact(self, mm: object, con: object, smu: object, manipulator_info: list):
         """Moves the spesified micromanipulators to contact with the sample.
 
         Args:
@@ -19,9 +19,12 @@ class touchDetect:
             return (status, {"message": f"TouchDetect: {state}"})
 
         try:
-            for manipulator_name, info in manipulator_info.items():
-                smu_channel = info["channel_smu"]
-                condet_channel = info["channel_con"]
+            for idx, info in enumerate(manipulator_info):
+                manipulator_name = idx + 1
+                smu_channel, condet_channel = info
+                # skip iteration for manipulator if nothing is set
+                if smu_channel == "" or condet_channel == ""
+                    continue
                 if condet_channel is "Hi":
                     con.deviceHiCheck(True)
                 elif condet_channel is "Lo":
