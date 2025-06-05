@@ -66,6 +66,7 @@ class conDetectGUI(QObject):
         self.settingsWidget.disconnectButton.clicked.connect(self._disconnectAction)
         self.settingsWidget.hiConnectionButton.clicked.connect(self._hiConnectionCheck)
         self.settingsWidget.loConnectionButton.clicked.connect(self._loConnectionCheck)
+        self.settingsWidget.sanityCheck.clicked.connect(self._sanity)
 
     ########Functions
     ################################### internal
@@ -97,13 +98,13 @@ class conDetectGUI(QObject):
             return
         self.connected = True
         self._GUIchange_deviceConnected(self.connected)
-        self.closeLock.emit(not self.connected)
+        self.closeLock.emit(self.connected)
 
     def _disconnectAction(self):
         [status, info] = self.deviceDisconnect()
         self.connected = False
         self._GUIchange_deviceConnected(self.connected)
-        self.closeLock.emit(not self.connected)
+        self.closeLock.emit(self.connected)
         if status:
             self.log_message.emit(
                 datetime.now().strftime("%H:%M:%S.%f")
@@ -155,7 +156,16 @@ class conDetectGUI(QObject):
             else:
                 self.loCheck = not self.loCheck
                 return [0, "OK"]
-
+                
+    def _sanity(self):
+        stat, info = self.deviceHiCheck(True)
+        while stat == 0:
+            
+            print(                    datetime.now().strftime("%H:%M:%S.%f")
+                    + f" : conDetect plugin :  {info}, status = {stat}")
+            stat, info = self.deviceHiCheck(True)
+        print("I have escaped the matrix")
+		
     ########Functions
     ###############GUI setting up
 

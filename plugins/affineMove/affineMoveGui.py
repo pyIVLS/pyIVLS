@@ -73,8 +73,8 @@ class affineMoveGUI(QObject):
         self._dependencies = [None, None]
 
 
-        self.settingsWidget = uic.loadUi(self.path + "affineMove_Settings.ui")
-        self.MDIWidget = uic.loadUi(self.path + "affineMove_MDI.ui")
+        self.settingsWidget = uic.loadUi(self.path + "affinemove_Settings.ui")
+        self.MDIWidget = uic.loadUi(self.path + "affinemove_MDI.ui")
         assert self.settingsWidget is not None, "AffineMove: settingsWidget is None"
         assert self.MDIWidget is not None, "AffineMove: MDIWidget is None"
 
