@@ -244,10 +244,10 @@ class conDetectGUI(QObject):
             self.functionality.setDefault()
             self.settingsWidget.hiConnectionIndicator.setStyleSheet(
                 "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            )
+            ) # red
             self.settingsWidget.loConnectionIndicator.setStyleSheet(
                 "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            )
+            ) # red
             self.functionality.disconnect()
             return [0, "OK"]
         except Exception as e:
@@ -259,11 +259,11 @@ class conDetectGUI(QObject):
             if status:
                 self.settingsWidget.hiConnectionIndicator.setStyleSheet(
                     "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-                )
+                ) # green
             else:
                 self.settingsWidget.hiConnectionIndicator.setStyleSheet(
                     "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-                )
+                ) # red
             return [0, "OK"]
         except Exception as e:
             return [4, {"Error message": f"{e}"}]

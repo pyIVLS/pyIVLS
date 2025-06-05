@@ -4,7 +4,7 @@ import cv2
 
 from PyQt6.QtCore import pyqtSignal, QObject, QEventLoop, QEvent
 from PyQt6 import uic  
-from PyQt6.QtWidgets import QWidget, QComboBox, QGraphicsScene, QGraphicsView
+from PyQt6.QtWidgets import QWidget, QComboBox , QGroupBox
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import QObject, QEvent, QEventLoop, Qt, QTimer
 from PyQt6.QtWidgets import QGraphicsView
@@ -12,41 +12,16 @@ from PyQt6.QtWidgets import QGraphicsView
 from datetime import datetime
 
 
-class ViewportClickCatcher(QObject):
-    def __init__(self, view: QGraphicsView):
-        super().__init__()
-        self.view = view
-        self._clicked_pos = None
-        self._loop = QEventLoop()
-        self.view.viewport().installEventFilter(self)
-
-    def eventFilter(self, obj, event):
-        if event.type() == QEvent.Type.MouseButtonPress:
-            if event.button() == Qt.MouseButton.LeftButton:
-                scene_pos = self.view.mapToScene(event.pos())
-                self._clicked_pos = (scene_pos.x(), scene_pos.y())
-                self._loop.quit()
-                return True
-        return False
-
-    def wait_for_click(self):
-        self._loop.exec()
-        self.view.viewport().removeEventFilter(self)
-        return self._clicked_pos
-
-
-
-
-
 class touchDetectGUI(QObject):
 
 
     non_public_methods = []  
     public_methods = []  
-    CT = 10  # contact threshold in Ohm, default value, can be changed in settings.
+    green_style = "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
+    red_style = "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
 
     ########Signals
-    # signals retained since this plugins needs to communicate during sutter calibration.
+    # signals retained since this plugins needs to send errors to main window.
     log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
     def emit_log(self, message: str):
@@ -85,14 +60,29 @@ class touchDetectGUI(QObject):
         self.mm_indicator = self.settingsWidget.mmIndicator
         self.con_indicator = self.settingsWidget.conIndicator
 
-        # sanity checks
-        assert self.settingsWidget is not None, "AffineMove: settingsWidget is None"
-        assert self.smu_box is not None, "touchDetect: smu_box is None"
-        assert self.micromanipulator_box is not None, "touchDetect: micromanipulator_box is None"
-        assert self.condet_box is not None, "touchDetect: condet_box is None"
-        assert self.smu_indicator is not None, "touchDetect: smu_indicator is None"
-        assert self.mm_indicator is not None, "touchDetect: mm_indicator is None"
-        assert self.con_indicator is not None, "touchDetect: con_indicator is None"
+        # find manipulator boxes
+        man1: QGroupBox = self.settingsWidget.manipulator1
+        man2: QGroupBox = self.settingsWidget.manipulator2
+        man3: QGroupBox = self.settingsWidget.manipulator3
+        man4: QGroupBox = self.settingsWidget.manipulator4
+
+        # find comboboxes in manipulator boxes
+        man1_smu_box: QComboBox = man1.findChild(QComboBox, "mansmu_1")
+        man1_con_box: QComboBox = man1.findChild(QComboBox, "mancon_1")
+        man2_smu_box: QComboBox = man2.findChild(QComboBox, "mansmu_2")
+        man2_con_box: QComboBox = man2.findChild(QComboBox, "mancon_2")
+        man3_smu_box: QComboBox = man3.findChild(QComboBox, "mansmu_3")
+        man3_con_box: QComboBox = man3.findChild(QComboBox, "mancon_3")
+        man4_smu_box: QComboBox = man4.findChild(QComboBox, "mansmu_4")
+        man4_con_box: QComboBox = man4.findChild(QComboBox, "mancon_4")
+
+        self.manipulator_boxes = [[man1, man1_smu_box, man1_con_box],
+                                  [man2, man2_smu_box, man2_con_box],
+                                  [man3, man3_smu_box, man3_con_box],
+                                  [man4, man4_smu_box, man4_con_box]]
+        
+        self.settings = [{}, {}, {}, {}]  
+        
 
         
 
@@ -107,7 +97,7 @@ class touchDetectGUI(QObject):
         """returns the micromanipulator, smu and contacting plugins based on the current selection in the combo boxes.
 
         Returns:
-            tuple[mm, smu, con]: micromanipulator, camera and positioning plugins.
+            tuple[mm, smu, con]: micromanipulator, smu and con plugins.
         Raises:
             AssertionError: if any of the plugins is not found.
         """
@@ -139,10 +129,31 @@ class touchDetectGUI(QObject):
 
     def update_status(self):
         """
-        Updates the status of the micromanipulator, sample and points.
-        This function is called by the micromanipulator plugin when the status changes.
+        Updates the status of the mm, smu and contacting plugins. 
+        This function is called when the status changes.
         """
         mm, smu, con = self._fetch_dep_plugins()
+        self.channel_names = smu.smu_channelNames()
+        status, state = mm.mm_devices()
+        if status == 0: 
+            self.mm_indicator.setStyleSheet(self.green_style)
+        for i,status in enumerate(state):
+            if status:
+                box, smu_box, con_box = self.manipulator_boxes[i]
+                box.setVisible(True)
+                smu_box.clear()
+                con_box.clear()
+                smu_box.addItems(self.channel_names)
+                con_box.addItems(["Hi", "Lo"])
+
+                settings = self.settings[i]
+                if "channel_smu" in settings:
+                    smu_box.setCurrentText(settings["channel_smu"])
+                if "channel_con" in settings:
+                    con_box.setCurrentText(settings["channel_con"])
+
+
+
 
 
     def dependencies_changed(self):
@@ -160,6 +171,7 @@ class touchDetectGUI(QObject):
         self.micromanipulator_box.setCurrentIndex(0)
         self.smu_box.setCurrentIndex(0)
         self.condet_box.setCurrentIndex(0)
+        self.update_status()
 
     ########Functions
     ########plugins interraction
@@ -174,34 +186,31 @@ class touchDetectGUI(QObject):
         """
         Sets up the GUI for the plugin. This function is called by hook to initialize the GUI.
         """
+        def parse_ini(settings: dict):
+            temp = [{}, {}, {}, {}]
+            for key, value in settings.items():
+                # split at "_"
+                number, func = key.split("_")
+                number = int(number)
+                if func == "smu":
+                    temp[number-1]["channel_smu"] = value
+                elif func == "con":
+                    temp[number-1]["channel_con"] = value
+
+            return temp
 
 
-
+        for box, _, _ in self.manipulator_boxes:
+            box.setVisible(False)
+        # save the settings dict to be used later
+        self.settings = parse_ini(settings)
+        print(f"TouchDetect: settings loaded: {self.settings}")
+        self.settingsWidget.initButton.clicked.connect(self.update_status)
         return self.settingsWidget
 
 
     ########Functions to be used externally
 
-    def contact(self, channel)-> bool:
-        """Measures the resistance to determine if contact is made with the sample.
-        Returns:
-            bool: True if contact is made, False otherwise.
-        """
-        _, smu, con = self._fetch_dep_plugins()
-        res = smu.resistance_measurement(channel=channel)
-        if res > self.CT:
-            self.emit_log(f"Contact detected on channel {channel} with resistance {res} Ohm.")
-            return True
-        else:
-            return False
-
-
-    def move_to_sample(self):
-        """Moves all (active) micromanipulators down until contact with the sample is detected. 
-        This is the main entry point for the plugin.
-        # FIXME: Add args on which manipulators to move? This does not know which manipulators are active for certain moves. :(
-        """
-        mm, smu, con = self._fetch_dep_plugins()
 
 
 
