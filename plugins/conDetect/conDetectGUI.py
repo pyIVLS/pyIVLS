@@ -230,7 +230,7 @@ class conDetectGUI(QObject):
     ########device functions
 
     def deviceConnect(self):
-        if self.settings["source"] == "":
+        if self.settings.get("source","") == "":
             return [1, {"Error message": "Source address is empty"}]
         try:
             self.functionality.connect(self.settings["source"])

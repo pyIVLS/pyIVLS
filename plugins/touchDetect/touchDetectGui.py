@@ -135,22 +135,27 @@ class touchDetectGUI(QObject):
         mm, smu, con = self._fetch_dep_plugins()
         self.channel_names = smu.smu_channelNames()
         status, state = mm.mm_devices()
+
         if status == 0: 
             self.mm_indicator.setStyleSheet(self.green_style)
-        for i,status in enumerate(state):
-            if status:
-                box, smu_box, con_box = self.manipulator_boxes[i]
-                box.setVisible(True)
-                smu_box.clear()
-                con_box.clear()
-                smu_box.addItems(self.channel_names)
-                con_box.addItems(["Hi", "Lo"])
+            for i,status in enumerate(state):
+                if status:
+                    box, smu_box, con_box = self.manipulator_boxes[i]
+                    box.setVisible(True)
+                    smu_box.clear()
+                    con_box.clear()
+                    smu_box.addItems(self.channel_names)
+                    con_box.addItems(["Hi", "Lo"])
 
-                settings = self.settings[i]
-                if "channel_smu" in settings:
-                    smu_box.setCurrentText(settings["channel_smu"])
-                if "channel_con" in settings:
-                    con_box.setCurrentText(settings["channel_con"])
+                    settings = self.settings[i]
+                    if "channel_smu" in settings:
+                        smu_box.setCurrentText(settings["channel_smu"])
+                    if "channel_con" in settings:
+                        con_box.setCurrentText(settings["channel_con"])
+        con_status, con_state = con.deviceConnect()
+        if con_status == 0:
+            self.con_indicator.setStyleSheet(self.green_style)
+            con_status, con_state = con.deviceDisconnect()
 
 
 
@@ -171,7 +176,6 @@ class touchDetectGUI(QObject):
         self.micromanipulator_box.setCurrentIndex(0)
         self.smu_box.setCurrentIndex(0)
         self.condet_box.setCurrentIndex(0)
-        self.update_status()
 
     ########Functions
     ########plugins interraction
