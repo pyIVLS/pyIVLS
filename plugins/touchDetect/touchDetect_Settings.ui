@@ -30,8 +30,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>776</width>
-        <height>256</height>
+        <width>764</width>
+        <height>274</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout_3">
@@ -49,7 +49,7 @@
          </property>
         </widget>
        </item>
-       <item row="4" column="0">
+       <item row="5" column="0">
         <widget class="QGroupBox" name="groupBox">
          <property name="title">
           <string/>
@@ -150,6 +150,13 @@ min-width: 20px;</string>
          </property>
         </widget>
        </item>
+       <item row="3" column="1">
+        <widget class="QLineEdit" name="reshold">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
        <item row="2" column="2">
         <widget class="QComboBox" name="condetBox">
          <property name="placeholderText">
@@ -157,7 +164,7 @@ min-width: 20px;</string>
          </property>
         </widget>
        </item>
-       <item row="4" column="1" colspan="2">
+       <item row="5" column="1" colspan="2">
         <widget class="QGroupBox" name="groupBox_2">
          <property name="title">
           <string/>
@@ -256,6 +263,13 @@ min-width: 20px;</string>
          </property>
         </widget>
        </item>
+       <item row="3" column="2">
+        <widget class="QLabel" name="label_5">
+         <property name="text">
+          <string>Ω</string>
+         </property>
+        </widget>
+       </item>
        <item row="3" column="0">
         <widget class="QLabel" name="label_4">
          <property name="text">
@@ -263,17 +277,20 @@ min-width: 20px;</string>
          </property>
         </widget>
        </item>
-       <item row="3" column="1">
-        <widget class="QLineEdit" name="reshold">
+       <item row="4" column="0">
+        <widget class="QLabel" name="label_6">
          <property name="text">
-          <string/>
+          <string>stride</string>
          </property>
         </widget>
        </item>
-       <item row="3" column="2">
-        <widget class="QLabel" name="label_5">
+       <item row="4" column="1">
+        <widget class="QLineEdit" name="stride"/>
+       </item>
+       <item row="4" column="2">
+        <widget class="QLabel" name="label_7">
          <property name="text">
-          <string>Ω</string>
+          <string>μm</string>
          </property>
         </widget>
        </item>

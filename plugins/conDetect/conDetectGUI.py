@@ -66,7 +66,6 @@ class conDetectGUI(QObject):
         self.settingsWidget.disconnectButton.clicked.connect(self._disconnectAction)
         self.settingsWidget.hiConnectionButton.clicked.connect(self._hiConnectionCheck)
         self.settingsWidget.loConnectionButton.clicked.connect(self._loConnectionCheck)
-        self.settingsWidget.sanityCheck.clicked.connect(self._sanity)
 
     ########Functions
     ################################### internal
@@ -157,14 +156,7 @@ class conDetectGUI(QObject):
                 self.loCheck = not self.loCheck
                 return [0, "OK"]
                 
-    def _sanity(self):
-        stat, info = self.deviceHiCheck(True)
-        while stat == 0:
-            
-            print(                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : conDetect plugin :  {info}, status = {stat}")
-            stat, info = self.deviceHiCheck(True)
-        print("I have escaped the matrix")
+
 		
     ########Functions
     ###############GUI setting up
@@ -230,6 +222,9 @@ class conDetectGUI(QObject):
     ########device functions
 
     def deviceConnect(self):
+        status, state = self._parse_settings_preview()
+        if status:
+            return [status, {"Error message": f"{state}"}]
         if self.settings.get("source","") == "":
             return [1, {"Error message": "Source address is empty"}]
         try:

@@ -86,6 +86,7 @@ class touchDetectGUI(QObject):
 
         # find threshold line edit
         self.threshold = self.settingsWidget.reshold
+        self.stride = self.settingsWidget.stride
         
 
     ########Functions
@@ -156,10 +157,14 @@ class touchDetectGUI(QObject):
                         smu_box.setCurrentText(settings["channel_smu"])
                     if "channel_con" in settings:
                         con_box.setCurrentText(settings["channel_con"])
+        else:
+            self.emit_log(state)
         con_status, con_state = con.deviceConnect()
         if con_status == 0:
             self.con_indicator.setStyleSheet(self.green_style)
             con_status, con_state = con.deviceDisconnect()
+        else:
+            self.emit_log(con_state)
 
 
     def dependencies_changed(self):
@@ -177,7 +182,6 @@ class touchDetectGUI(QObject):
         self.micromanipulator_box.setCurrentIndex(0)
         self.smu_box.setCurrentIndex(0)
         self.condet_box.setCurrentIndex(0)
-        self.update_status()
 
     ########Functions
     ########plugins interraction
@@ -195,9 +199,9 @@ class touchDetectGUI(QObject):
         def parse_ini(settings: dict):
             temp = [{}, {}, {}, {}]
             for key, value in settings.items():
-                # split at "_"
-                number, func = key.split("_")
                 try:
+                    # split at "_"
+                    number, func = key.split("_")
                     number = int(number)
                     if func == "smu":
                         temp[number-1]["channel_smu"] = value
@@ -206,16 +210,17 @@ class touchDetectGUI(QObject):
                 except ValueError:
                     # this is here to make sure that only _1, _2, etc. are parsed for manipulator settings
                     continue
-
+            stride = settings.get("stride", "")
             threshold = settings.get("res_threshold", "")
-            return temp, threshold
+            return temp, threshold, stride
 
 
         for box, _, _ in self.manipulator_boxes:
             box.setVisible(False)
         # save the settings dict to be used later
-        self.settings, threshold = parse_ini(settings)
+        self.settings, threshold, stride = parse_ini(settings)
         self.threshold.setText(threshold)
+        self.stride.setText(stride)
         self.settingsWidget.initButton.clicked.connect(self.update_status)
         self.settingsWidget.pushButton.clicked.connect(self._test)
         return self.settingsWidget
@@ -240,13 +245,19 @@ class touchDetectGUI(QObject):
         # check that the same con channel does not appear twice
         con_channels = [s[1] for s in settings]
         if len(con_channels) != len(set(con_channels)):
-            return (1, {"message": "TouchDetect: Contact detection channels must be unique across manipulators."})
+            return (1, {"message": "Contact detection channels must be unique across manipulators."})
 
         # check that the threshold is a float
         try:
             threshold = float(self.threshold.text())
         except ValueError:
             return (1, {"message": "TouchDetect: Threshold must be a number."})
+        
+        # check that the stride is an integer
+        try:
+            stride = int(self.stride.text())
+        except ValueError:
+            return (1, {"message": "TouchDetect: Stride must be an integer."})
 
 
         return (0, settings)
@@ -254,13 +265,20 @@ class touchDetectGUI(QObject):
     ########Functions to be used externally
     def move_to_contact(self):
         def create_dict():
-            temp = []
-            threshold = float(self.threshold.text())
-            for i in range(len(self.manipulator_boxes)):
-                devnum = i + 1
-                _, smu_box, con_box = self.manipulator_boxes[i]
-                temp.append((smu_box.currentText(), con_box.currentText(), threshold))
-            return temp
+            # check settings
+            status, settings = self.parse_settings_widget()
+            if status == 0:
+                temp = []
+                threshold = float(self.threshold.text())
+                stride = int(self.stride.text())
+                for i in range(len(self.manipulator_boxes)):
+                    devnum = i + 1
+                    _, smu_box, con_box = self.manipulator_boxes[i]
+                    temp.append((smu_box.currentText(), con_box.currentText(), threshold, stride))
+                return temp
+            else:
+                self.emit_log(settings.get("message", "Unknown error"))
+                return None
         manipulator_info = create_dict()
         mm, smu, con = self._fetch_dep_plugins()
         status, state = self.functionality.move_to_contact(mm, con, smu, manipulator_info)
