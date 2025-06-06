@@ -226,8 +226,8 @@ class touchDetectGUI(QObject):
         return self.settingsWidget
 
     def _test(self):
-        status, state = self.move_to_contact()        
-        print(f"con: {status} {state}")
+        status, state = self.move_to_contact()
+        print(f"{status}, {state}")        
 
 
 
@@ -243,7 +243,9 @@ class touchDetectGUI(QObject):
             settings.append((smu_channel, con_channel))
 
         # check that the same con channel does not appear twice
-        con_channels = [s[1] for s in settings]
+        con_channels = [s[1] for s in settings] 
+        # remove "" from channels
+        con_channels = [chn for chn in con_channels if chn != ""]        
         if len(con_channels) != len(set(con_channels)):
             return (1, {"message": "Contact detection channels must be unique across manipulators."})
 
@@ -279,8 +281,9 @@ class touchDetectGUI(QObject):
             else:
                 self.emit_log(settings.get("message", "Unknown error"))
                 return None
-        manipulator_info = create_dict()
         mm, smu, con = self._fetch_dep_plugins()
+        manipulator_info = create_dict()
+
         status, state = self.functionality.move_to_contact(mm, con, smu, manipulator_info)
 
         if status != 0:

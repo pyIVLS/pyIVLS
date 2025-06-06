@@ -314,6 +314,9 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
+    def mm_close(self) -> tuple:
+        self.hal.close()
+
     def mm_change_active_device(self, dev_num: int):
         """Micromanipulator active device change.
 
@@ -373,9 +376,7 @@ class SutterGUI(QObject):
                 return [1, {"Error message": "Sutter zmove out of bounds"}]
             z = z + z_change
         if absolute == True:
-            print("absolute")
             z = z_change
-            print(z)
         try:
             self.hal.move(x, y, z)
             return [0, {"Error message": "Sutter zmove executed"}]
