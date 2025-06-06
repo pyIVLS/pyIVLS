@@ -1,6 +1,6 @@
 class touchDetect:
     def __init__(self):
-        self.R_WHEN_CONTACT = 1 #ohm
+        self.R_WHEN_CONTACT = 150 #ohm
         self.stride_to_contact = 10
 
     def move_to_contact(self, mm: object, con: object, smu: object, manipulator_info: list):
@@ -43,6 +43,7 @@ class touchDetect:
                     status, state = mm.mm_zmove(self.stride_to_contact)
                     if status != 0:
                         return (status, {"message": f"TouchDetect: {state}"})
+            return (0,{"message": "TouchDetect: OK"})
             
         except Exception as e:
             return (2, {"message": f"TouchDetect: Error setting contact detection channels", "exception": str(e)})     
@@ -62,6 +63,9 @@ class touchDetect:
             status, r = smu.smu_resmes(channel)
             if status != 0:
                 return (status, {"message": f"TouchDetect: {r}"})
+            r = float(r)
+            print(f"resistance! {r}")
+
             if r < self.R_WHEN_CONTACT:
                 return (0, True)
             return (0, False)

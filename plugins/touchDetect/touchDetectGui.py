@@ -207,7 +207,18 @@ class touchDetectGUI(QObject):
         # save the settings dict to be used later
         self.settings = parse_ini(settings)
         self.settingsWidget.initButton.clicked.connect(self.update_status)
+        self.settingsWidget.pushButton.clicked.connect(self._test)
         return self.settingsWidget
+
+
+    def _test(self):
+        mm, smu, con = self._fetch_dep_plugins()
+
+        mockinfo = [("smub", "Hi")]
+        status, state = self.move_to_contact()        
+        print(f"con: {status} {state}")
+
+
 
     def parse_settings_widget(self) -> dict:
         """
@@ -241,6 +252,7 @@ class touchDetectGUI(QObject):
 
         if status != 0:
             print("???????????????????????????")
+        return (status, state)
 
 
 
