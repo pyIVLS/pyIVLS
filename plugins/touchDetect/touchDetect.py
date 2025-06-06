@@ -25,7 +25,7 @@ class touchDetect:
                 return (status_smu, {"message": f"TouchDetect: {state_smu}"})
             for idx, info in enumerate(manipulator_info):
                 manipulator_name = idx + 1
-                smu_channel, condet_channel = info
+                smu_channel, condet_channel, threshold = info
                 # skip iteration for manipulator if nothing is set
                 if smu_channel == "" or condet_channel == "":
                     continue
@@ -41,15 +41,17 @@ class touchDetect:
 
                 mm.mm_change_active_device(manipulator_name)
                 if self.last_z.get(manipulator_name) is not None:
-                    mm.mm_move(None, None, self.last_z[manipulator_name] - self.recklessness)
+                    print(f"{manipulator_name} has last z at{self.last_z[manipulator_name]}")
+                    mm.mm_zmove(z_change = self.last_z[manipulator_name] - self.recklessness, absolute=True)
 
-                while self._contacting(smu, smu_channel)[1] is False:
+                while self._contacting(smu, smu_channel, threshold)[1] is False:
                     status, state = mm.mm_zmove(self.stride_to_contact)
                     if status != 0:
                         return (status, {"message": f"TouchDetect: {state}"})
-                _, _, z = mm.mm_get_position()
+                _, _, z = mm.mm_current_position()
                 print(f"Manipulator {manipulator_name} contacted at z={z} with channel {smu_channel}")
                 self.last_z[manipulator_name] = z
+                print(self.last_z)
             return (0,{"message": "TouchDetect: OK"})
             
         except Exception as e:

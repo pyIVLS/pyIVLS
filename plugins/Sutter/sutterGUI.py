@@ -360,7 +360,7 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
-    def mm_zmove(self, z_change):
+    def mm_zmove(self, z_change, absolute=False):
         """Blocking call. Moves in z and returns status immediately.
         Args:
             z_change (int): change in z position in microns
@@ -368,10 +368,16 @@ class SutterGUI(QObject):
             Status: tuple of (status, error message)
         """
         x, y, z = self.hal.get_current_position()
-        if (z + z_change > self.hal._MAXIMUM_M or z + z_change < self.hal._MINIMUM_MS):
-            return [1, {"Error message": "Sutter zmove out of bounds"}]
+        if absolute == False:
+            if (z + z_change > self.hal._MAXIMUM_M or z + z_change < self.hal._MINIMUM_MS):
+                return [1, {"Error message": "Sutter zmove out of bounds"}]
+            z = z + z_change
+        if absolute == True:
+            print("absolute")
+            z = z_change
+            print(z)
         try:
-            self.hal.move(x, y, z + z_change)
+            self.hal.move(x, y, z)
             return [0, {"Error message": "Sutter zmove executed"}]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
