@@ -14,11 +14,13 @@ class touchDetect:
         Returns:
             tuple of (code, status)
         """
-        status, state = con.deviceConnect()
-        if status != 0:
-            return (status, {"message": f"TouchDetect: {state}"})
-
         try:
+            status, state = con.deviceConnect()
+            status_smu, state_smu = smu.smu_connect()
+            if status != 0:
+                return (status, {"message": f"TouchDetect: {state}"})
+            if status_smu != 0:
+                return (status_smu, {"message": f"TouchDetect: {state_smu}"})
             for idx, info in enumerate(manipulator_info):
                 manipulator_name = idx + 1
                 smu_channel, condet_channel = info
