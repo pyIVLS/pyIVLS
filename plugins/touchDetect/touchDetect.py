@@ -2,6 +2,8 @@ class touchDetect:
     def __init__(self):
         self.R_WHEN_CONTACT = 150 #ohm
         self.stride_to_contact = 10
+        self.last_z = {}
+        self.recklessness = 150
 
     def move_to_contact(self, mm: object, con: object, smu: object, manipulator_info: list):
         """Moves the spesified micromanipulators to contact with the sample.
@@ -38,11 +40,16 @@ class touchDetect:
                     return (status, {"message": f"TouchDetect: {state}"})
 
                 mm.mm_change_active_device(manipulator_name)
+                if self.last_z.get(manipulator_name) is not None:
+                    mm.mm_move(None, None, self.last_z[manipulator_name] - self.recklessness)
 
                 while self._contacting(smu, smu_channel)[1] is False:
                     status, state = mm.mm_zmove(self.stride_to_contact)
                     if status != 0:
                         return (status, {"message": f"TouchDetect: {state}"})
+                _, _, z = mm.mm_get_position()
+                print(f"Manipulator {manipulator_name} contacted at z={z} with channel {smu_channel}")
+                self.last_z[manipulator_name] = z
             return (0,{"message": "TouchDetect: OK"})
             
         except Exception as e:
@@ -50,7 +57,7 @@ class touchDetect:
         finally:
             con.deviceDisconnect()       
         
-    def _contacting(self, smu: object, channel:str):
+    def _contacting(self, smu: object, channel:str, threshold: float):
         """Check resistance at between manipulator probes
 
         Args:
@@ -66,7 +73,7 @@ class touchDetect:
             r = float(r)
             print(f"resistance! {r}")
 
-            if r < self.R_WHEN_CONTACT:
+            if r < threshold:
                 return (0, True)
             return (0, False)
 

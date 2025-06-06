@@ -24,6 +24,7 @@ class touchDetectGUI(QObject):
     log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
     def emit_log(self, message: str):
+        """creates a log message with timestamp and plugin name."""
         timestamp = datetime.now().strftime("%H:%M:%S")
         plugin_name = "touchDetect"
         self.log_message.emit(f"{timestamp}: {plugin_name} caught: {message}")
@@ -82,6 +83,9 @@ class touchDetectGUI(QObject):
                                   [man4, man4_smu_box, man4_con_box]]
         
         self.settings = [{}, {}, {}, {}]  
+
+        # find threshold line edit
+        self.threshold = self.settingsWidget.reshold
         
 
     ########Functions
@@ -193,28 +197,30 @@ class touchDetectGUI(QObject):
             for key, value in settings.items():
                 # split at "_"
                 number, func = key.split("_")
-                number = int(number)
-                if func == "smu":
-                    temp[number-1]["channel_smu"] = value
-                elif func == "con":
-                    temp[number-1]["channel_con"] = value
+                try:
+                    number = int(number)
+                    if func == "smu":
+                        temp[number-1]["channel_smu"] = value
+                    elif func == "con":
+                        temp[number-1]["channel_con"] = value
+                except ValueError:
+                    # this is here to make sure that only _1, _2, etc. are parsed for manipulator settings
+                    continue
 
-            return temp
+            threshold = settings.get("res_threshold", "")
+            return temp, threshold
 
 
         for box, _, _ in self.manipulator_boxes:
             box.setVisible(False)
         # save the settings dict to be used later
-        self.settings = parse_ini(settings)
+        self.settings, threshold = parse_ini(settings)
+        self.threshold.setText(threshold)
         self.settingsWidget.initButton.clicked.connect(self.update_status)
         self.settingsWidget.pushButton.clicked.connect(self._test)
         return self.settingsWidget
 
-
     def _test(self):
-        mm, smu, con = self._fetch_dep_plugins()
-
-        mockinfo = [("smub", "Hi")]
         status, state = self.move_to_contact()        
         print(f"con: {status} {state}")
 
@@ -222,8 +228,8 @@ class touchDetectGUI(QObject):
 
     def parse_settings_widget(self) -> dict:
         """
-        Parses the settings widget and returns a dictionary with the settings.
-        The keys are in format "manipulator_number_function" where function is either "smu" or "con".
+        parses settings widget, returns error code and settings.
+        TODO: Return a dict?
         """
         settings = []
         for i, (box, smu_box, con_box) in enumerate(self.manipulator_boxes):
@@ -231,27 +237,37 @@ class touchDetectGUI(QObject):
             con_channel = con_box.currentText()
             settings.append((smu_channel, con_channel))
 
-        # check tha
-        smu_channels = [s[0] for s in settings]
+        # check that the same con channel does not appear twice
         con_channels = [s[1] for s in settings]
+        if len(con_channels) != len(set(con_channels)):
+            return (1, {"message": "TouchDetect: Contact detection channels must be unique across manipulators."})
 
-        return settings
+        # check that the threshold is a float
+        try:
+            threshold = float(self.threshold.text())
+        except ValueError:
+            return (1, {"message": "TouchDetect: Threshold must be a number."})
+
+
+        return (0, settings)
 
     ########Functions to be used externally
     def move_to_contact(self):
         def create_dict():
             temp = []
+            threshold = float(self.threshold.text())
             for i in range(len(self.manipulator_boxes)):
                 devnum = i + 1
                 _, smu_box, con_box = self.manipulator_boxes[i]
-                temp.append((smu_box.currentText(), con_box.currentText()))
+                temp.append((smu_box.currentText(), con_box.currentText(), threshold))
             return temp
         manipulator_info = create_dict()
         mm, smu, con = self._fetch_dep_plugins()
         status, state = self.functionality.move_to_contact(mm, con, smu, manipulator_info)
 
         if status != 0:
-            print("???????????????????????????")
+            self.emit_log(f"{state.get('message', 'Unknown error')}, Exception: {state.get('exception', 'Not provided')}")
+            return (status, state)
         return (status, state)
 
 
