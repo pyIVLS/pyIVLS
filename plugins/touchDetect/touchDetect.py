@@ -23,11 +23,11 @@ class touchDetect:
                 manipulator_name = idx + 1
                 smu_channel, condet_channel = info
                 # skip iteration for manipulator if nothing is set
-                if smu_channel == "" or condet_channel == ""
+                if smu_channel == "" or condet_channel == "":
                     continue
-                if condet_channel is "Hi":
+                if condet_channel == "Hi":
                     con.deviceHiCheck(True)
-                elif condet_channel is "Lo":
+                elif condet_channel == "Lo":
                     con.deviceLoCheck(True)
                 else:
                     return (1, {"message": f"TouchDetect: Invalid contact detection channel {condet_channel} for manipulator {manipulator_name}"})
@@ -57,7 +57,9 @@ class touchDetect:
             tuple of (0, bool) when successful, (code, status) with errors
         """
         try:
-            r = smu.resistance_measurement(channel)
+            status, r = smu.smu_resmes(channel)
+            if status != 0:
+                return (status, {"message": f"TouchDetect: {r}"})
             if r < self.R_WHEN_CONTACT:
                 return (0, True)
             return (0, False)

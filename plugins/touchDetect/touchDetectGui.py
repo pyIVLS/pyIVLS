@@ -1,7 +1,6 @@
 import os
 import numpy as np
-import cv2
-
+from touchDetect import touchDetect
 from PyQt6.QtCore import pyqtSignal, QObject, QEventLoop, QEvent
 from PyQt6 import uic  
 from PyQt6.QtWidgets import QWidget, QComboBox , QGroupBox
@@ -47,6 +46,7 @@ class touchDetectGUI(QObject):
         self.path = os.path.dirname(__file__) + os.path.sep
         # depenenies are in format plugin: object, metadata: dict.
         self._dependencies = [None, None]
+        self.functionality = touchDetect()
 
         self.settingsWidget = uic.loadUi(self.path + "touchDetect_Settings.ui")
 
@@ -82,8 +82,6 @@ class touchDetectGUI(QObject):
                                   [man4, man4_smu_box, man4_con_box]]
         
         self.settings = [{}, {}, {}, {}]  
-        
-
         
 
     ########Functions
@@ -160,10 +158,6 @@ class touchDetectGUI(QObject):
             con_status, con_state = con.deviceDisconnect()
 
 
-
-
-
-
     def dependencies_changed(self):
         self.smu_box.clear()
         self.micromanipulator_box.clear()
@@ -215,6 +209,22 @@ class touchDetectGUI(QObject):
         self.settingsWidget.initButton.clicked.connect(self.update_status)
         return self.settingsWidget
 
+    def parse_settings_widget(self) -> dict:
+        """
+        Parses the settings widget and returns a dictionary with the settings.
+        The keys are in format "manipulator_number_function" where function is either "smu" or "con".
+        """
+        settings = []
+        for i, (box, smu_box, con_box) in enumerate(self.manipulator_boxes):
+            smu_channel = smu_box.currentText()
+            con_channel = con_box.currentText()
+            settings.append((smu_channel, con_channel))
+
+        # check tha
+        smu_channels = [s[0] for s in settings]
+        con_channels = [s[1] for s in settings]
+
+        return settings
 
     ########Functions to be used externally
     def move_to_contact(self):
@@ -224,8 +234,13 @@ class touchDetectGUI(QObject):
                 devnum = i + 1
                 _, smu_box, con_box = self.manipulator_boxes[i]
                 temp.append((smu_box.currentText(), con_box.currentText()))
+            return temp
+        manipulator_info = create_dict()
+        mm, smu, con = self._fetch_dep_plugins()
+        status, state = self.functionality.move_to_contact(mm, con, smu, manipulator_info)
 
-
+        if status != 0:
+            print("???????????????????????????")
 
 
 

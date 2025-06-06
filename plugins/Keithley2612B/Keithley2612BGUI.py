@@ -275,3 +275,18 @@ class Keithley2612BGUI:
             return [0, self.smu.setOutput(channel, outputType, value)]
         except:
             return [4, {"Error message": "Failed to set smu output"}]
+        
+    def smu_resmes(self, channel):
+        """Measures resistance on the specified channel.
+
+        Args:
+            channel (str): The channel to measure ('smua' or 'smub').
+
+        Returns:
+            tuple: (status, resistance value) where status is 0 for success, non-zero for error.
+        """
+        try:
+            resistance = self.smu.resistance_measurement(channel)
+            return (0, resistance)
+        except Exception as e:
+            return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})
