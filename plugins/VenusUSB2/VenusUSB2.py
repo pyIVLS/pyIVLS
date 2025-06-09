@@ -8,8 +8,8 @@ class VenusUSB2:
     bufferSize = 1
     cap_width = 1024
     cap_height = 768
-    full_size_width = 1920
-    full_size_height = 1080
+    full_size_width = 640 * 2
+    full_size_height = 480 * 2
 
     def __init__(self):
         # Initialize cap as empty capture
@@ -29,13 +29,21 @@ class VenusUSB2:
             self.cap.open(source)   
         if self.cap.isOpened():
 
-
+            
             # Set buffer size
             self.cap.set(cv.CAP_PROP_BUFFERSIZE, self.bufferSize)
+            # setting cap size is removed since this shape at least throws
+            # "Corrupt JPEG data: 1666 extraneous bytes before marker 0xd9"
+            # when setting to full_size.
+            print(self.cap.get(cv.CAP_PROP_FRAME_WIDTH))
+            print(self.cap.get(cv.CAP_PROP_FRAME_HEIGHT))
             # Set camera resolution
             self.cap.set(cv.CAP_PROP_FRAME_WIDTH, self.full_size_width)
             self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, self.full_size_height)
 
+            print(self.cap.get(cv.CAP_PROP_FRAME_WIDTH))
+            print(self.cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+            
             return [0, {"Error message": "OK"}]
         return [4, {"Error message": "Can not open camera"}]
     

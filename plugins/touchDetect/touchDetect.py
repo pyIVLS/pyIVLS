@@ -43,11 +43,15 @@ class touchDetect:
 
                 # change device and check if the manipulator has a previous z value
                 mm.mm_change_active_device(manipulator_name)
+                print(self.last_z)
                 if self.last_z.get(manipulator_name) is not None:
+                    print(f"fouund position for {manipulator_name}")
                     if self._contacting(smu,smu_channel, threshold)[1] is False:
                         # move 10 steps away from the last z value
                         mm.mm_zmove(z_change = self.last_z[manipulator_name] - stride * self.recklessness, absolute=True)
-
+                status, state = smu.smu_setup_resmes(smu_channel)
+                if status != 0:
+                    return (status, {"message": f"{state}"})
                 # move until contact
                 while self._contacting(smu, smu_channel, threshold)[1] is False:
                     status, state = mm.mm_zmove(stride)
@@ -57,10 +61,12 @@ class touchDetect:
                 # back to default
                 con.deviceLoCheck(False)
                 con.deviceHiCheck(False)
+                smu.smu_outputOFF()
 
                 # update the last z value for the manipulator
                 _, _, z = mm.mm_current_position()
                 self.last_z[manipulator_name] = z
+                print(f"Set last position for {manipulator_name}")
             return (0,{"message": "OK"})
             
         except Exception as e:
@@ -83,7 +89,7 @@ class touchDetect:
             if status != 0:
                 return (status, {"message": f"TouchDetect: {r}"})
             r = float(r)
-            
+
             if r < threshold:
                 return (0, True)
             return (0, False)

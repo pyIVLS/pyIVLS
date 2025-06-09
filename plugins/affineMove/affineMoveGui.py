@@ -86,10 +86,7 @@ class affineMoveGUI(QObject):
         self.camera_graphic_scene: QGraphicsScene = QGraphicsScene()
         self.camera_graphic_view.setScene(self.camera_graphic_scene)
 
-        # set up timer for camera view
-        self.timer = QTimer()
-        self.timer.setInterval(self.default_timerInterval)
-        self.timer.timeout.connect(lambda: self.update_graphics_view(self._fetch_dep_plugins()[1]))
+
 
         
 
@@ -153,17 +150,12 @@ class affineMoveGUI(QObject):
         return micromanipulator, camera, positioning
 
     def _find_sutter_functionality(self):
-        mm, cam, _ = self._fetch_dep_plugins()
+        mm, _, _ = self._fetch_dep_plugins()
 
         status,state = mm.mm_open()
         if status:
             self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
             return
-        status, state = cam.camera_open()
-        if status:
-            self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
-            return
-        self.timer.start(self.default_timerInterval)
         status, ret = mm.mm_devices()
         if status:
             self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
@@ -200,8 +192,7 @@ class affineMoveGUI(QObject):
 
 
         self.update_status()
-        # removed timer stop so that preview keeps going. 
-        # self.timer.stop()    
+  
         
     def _fetch_mask_functionality(self):
         _, _, pos = self._fetch_dep_plugins()
@@ -218,12 +209,13 @@ class affineMoveGUI(QObject):
 
     def _initialize_camera_preview(self):
         """
-        Initializes the camera preview by starting the timer and updating the graphics view.
+        Initializes the camera preview by starting the and updating the graphics view.
         This function is called when the camera plugin is selected.
         """
         _, cam, _ = self._fetch_dep_plugins()
         thread = cam.camera_thread
         thread.new_frame.connect(self.update_graphics_view)
+        cam._previewAction()
 
 
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
@@ -385,6 +377,7 @@ class affineMoveGUI(QObject):
             # Should be done to avoid collisions if trying to reach a point on the other side.
             for i, point in enumerate(points):
                 mm.mm_change_active_device(i + 1) # manipulators indexed from 0
+                mm.mm_up_max()
                 # convert the point to camera coordinates
                 x, y = pos.positioning_coords(point)
                 # convert camera point to micromanipulator coordinates

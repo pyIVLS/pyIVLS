@@ -1,9 +1,5 @@
 Name,x_mask,y_mask,x_img,y_img
-Measurement Point 1,891,307,-1,-1
-Measurement Point 1,869,444,-1,-1
-Measurement Point 2,754,307,-1,-1
-Measurement Point 2,731,444,-1,-1
-Measurement Point 3,1006,444,-1,-1
-Measurement Point 3,1028,307,-1,-1
-Measurement Point 4,1166,307,-1,-1
-Measurement Point 4,1166,444,-1,-1
+Measurement point 1,766,471,684.4824032142266,452.485457972055
+Measurement point 1,583,128,494.7334697906888,731.057691776661
+Measurement Point 2,583,471,758.1316410780362,593.0156776384823
+Measurement Point 2,766,128,421.08423192687917,590.5274721102337

@@ -82,7 +82,7 @@ class Mpc325:
     _MINIMUM_MS: Final = 0
     _MAXIMUM_M: Final = 25000
     _MAXIMUM_S: Final = 400000  # Manual says 266667, this is the actual maximum. UPDATE 23.5.2025: This has been updated in the manual aswell.
-    _TIMEOUT: Final = 30  # seconds.
+    _TIMEOUT: Final = 5  # seconds.
     # The actual maximum timeout should be set to 924 seconds,
     # since that is the longest possible move time.
     # (slowest speed, no diagonal movement, max distance of 25000 microns in every axis)

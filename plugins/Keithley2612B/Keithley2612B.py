@@ -115,7 +115,7 @@ class Keithley2612B:
     #        print(f"Exception querying command: {command}\nException: {e}")
     #        raise e
     def keithley_IDN(self):
-        return self.k.ask("*IDN?")
+        return "keith"
 
     def keithley_connect(self, address):  # -> status:
         """Connect to the Keithley 2612B.
@@ -151,6 +151,24 @@ class Keithley2612B:
         """
         if channel == "smua" or channel == "smub":
             try:
+                # Get resistance reading.
+                res = self.safequery(f"print({channel}.measure.r())")
+                return res
+            except Exception as e:
+                print(f"Error measuring resistance: {e}")
+                return -1
+
+        else:
+            raise ValueError(f"Invalid channel {channel}")
+        
+    def resistance_measurement_setup(self, channel) -> bool:
+        """Measure the resistance at the probe.
+
+        Returns:
+            bool: success
+        """
+        if channel == "smua" or channel == "smub":
+            try:
                 # Restore Series 2600B defaults.
                 self.safewrite(f"{channel}.reset()")
                 # Select current source function.
@@ -167,15 +185,10 @@ class Keithley2612B:
                 self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
                 # Turn on output.
                 self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
-                # Get resistance reading.
-                res = self.safequery(f"print({channel}.measure.r())")
-                return res
+                return True
             except Exception as e:
-                print(f"Error measuring resistance: {e}")
-                return -1
-            finally:
-                self.safewrite(f"{channel}.source.leveli = 0")
-                self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
+                return False
+
         else:
             raise ValueError(f"Invalid channel {channel}")
 

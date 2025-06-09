@@ -220,7 +220,26 @@ class touchDetectGUI(QObject):
         self.stride.setText(stride)
         self.settingsWidget.initButton.clicked.connect(self.update_status)
         self.settingsWidget.pushButton.clicked.connect(self._test)
+        self.settingsWidget.pushButton_2.clicked.connect(self._monitor)
         return self.settingsWidget
+    
+    def _monitor(self):
+        mm, smu, con = self._fetch_dep_plugins()
+        status, state = con.deviceConnect()
+        status_smu, state_smu = smu.smu_connect()
+        if status != 0:
+            return (status, {"message": f"{state}"})
+        if status_smu != 0:
+            return (status_smu, {"message": f"{state_smu}"})
+        con.deviceHiCheck(True)
+        smu.smu_setup_resmes("smub")
+        while True:
+            status, r = smu.smu_resmes("smub")
+            if status != 0:
+                return (status, {"message": f"TouchDetect: {r}"})
+            r = float(r)
+            print(r)
+
 
     def _test(self):
         status, state = self.move_to_contact()
