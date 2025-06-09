@@ -1,12 +1,9 @@
 import os
-import numpy as np
 from touchDetect import touchDetect
-from PyQt6.QtCore import pyqtSignal, QObject, QEventLoop, QEvent
+from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6 import uic  
 from PyQt6.QtWidgets import QWidget, QComboBox , QGroupBox
-from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtCore import QObject, QEvent, QEventLoop, Qt, QTimer
-from PyQt6.QtWidgets import QGraphicsView
+from PyQt6.QtCore import QObject
 
 from datetime import datetime
 

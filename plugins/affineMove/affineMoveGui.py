@@ -91,6 +91,8 @@ class affineMoveGUI(QObject):
         self.timer.setInterval(self.default_timerInterval)
         self.timer.timeout.connect(lambda: self.update_graphics_view(self._fetch_dep_plugins()[1]))
 
+        
+
         # initialize internal state:
         self.iter = 0
         self.measurement_points = []
@@ -212,8 +214,17 @@ class affineMoveGUI(QObject):
         self.measurement_points = points
         self.measurement_point_names = names
 
-
         self.update_status()
+
+    def _initialize_camera_preview(self):
+        """
+        Initializes the camera preview by starting the timer and updating the graphics view.
+        This function is called when the camera plugin is selected.
+        """
+        _, cam, _ = self._fetch_dep_plugins()
+        thread = cam.camera_thread
+        thread.new_frame.connect(self.update_graphics_view)
+
 
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
         """
@@ -252,6 +263,7 @@ class affineMoveGUI(QObject):
         self.settingsWidget.findSutter.clicked.connect(self._find_sutter_functionality)
         self.settingsWidget.fetchMaskButton.clicked.connect(self._fetch_mask_functionality)
         self.settingsWidget.debugButton.clicked.connect(self.affine_move)
+        self.settingsWidget.previewButton.clicked.connect(self._initialize_camera_preview)
 
 
         return self.settingsWidget, self.MDIWidget
@@ -274,18 +286,12 @@ class affineMoveGUI(QObject):
         self.camera_box.setCurrentIndex(0)
         self.positioning_box.setCurrentIndex(0)
 
-    def update_graphics_view(self, cam: object):
+    def update_graphics_view(self, img):
         """
         Updates the graphics view with the camera image.
         This function is called by the camera plugin when a new image is captured.
         """
-        if cam is None:
-            self.emit_log("Camera plugin is None")
-            return
-        ret, img = cam.camera_capture_buffered()
-        if not ret:
-            self.emit_log("Camera capture failed")
-            self.timer.stop()
+
         if img is not None:
             h, w, ch = img.shape
             bytes_per_line = ch * w
