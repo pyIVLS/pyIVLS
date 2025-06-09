@@ -146,7 +146,16 @@ class Affine:
             raise AffineError(f"Error during SIFT detection: {e}", 3) from e
         self.result["kp1"] = kp_mask
         self.result["kp2"] = kp_img
-        bf = cv.BFMatcher(cv.NORM_L2, crossCheck=True)
+
+        if desc_mask is not None and desc_img is not None:
+            if len(desc_mask) <= 2 and len(desc_img) <= 2:
+                raise AffineError(
+                    f"Not enough keypoints found: {len(desc_mask)} in mask, {len(desc_img)} in image. Minimum required: {self.MIN_MATCHES}", 3
+                )
+
+        
+
+        bf = cv.BFMatcher(cv.NORM_L2)
         matches = bf.knnMatch(desc_mask, desc_img, k=2)
         good_matches = []
         for m, n in matches:

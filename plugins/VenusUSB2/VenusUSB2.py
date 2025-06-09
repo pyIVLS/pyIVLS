@@ -1,29 +1,4 @@
-from datetime import datetime
-
 import cv2 as cv
-
-
-class venusStatus(Exception):
-    # exceptionlist
-    # 0 - no error
-    # 1 - something is not set that should be
-    # 2 - cannot set value for cap
-    # 3 - can't open camera
-
-    # NOTE: this is unused for now.
-
-    def __init__(self, message, error_code):
-        super().__init__(message)
-        self.error_code = error_code
-        self.message = message
-        self.timestamp = datetime.now().strftime("%H:%M:%S.%f")
-        self.message = (
-            f"{self.timestamp}: {self.message} (VenusUSB error Code: {self.error_code})"
-        )
-
-    def __str__(self):
-        return self.message
-
 
 class VenusUSB2:
     """Handles communication with the VenusUSB2 camera"""
@@ -81,37 +56,42 @@ class VenusUSB2:
         """Pretty self explanatory"""
         self.cap.release()
 
-    def capture_image(self, source, exposure, full_size=False):
+    def capture_image(self, source, exposure):
         """Captures an image from the camera. NOTE: returns color image
 
         Returns:
             matlike: The captured image as matlike object, in RGB format.
         """
-
-        def get_frame(full_size):
+        def get_frame():
             for _ in range(self.bufferSize):
                 # empty out the buffer
                 self.cap.read()
             # get the frame
-            _, frame = self.cap.read()
-            return frame
+            ret, frame = self.cap.read()
+            return ret, frame
 
         # if cap is open, get the frame
         if self.cap.isOpened():
-            frame = get_frame(full_size)
+            ret, frame = get_frame()
         else:
             status, message = self.open(source, exposure)
             if status != 0:
-                # if cap is not open, raise an error
-                raise venusStatus(message["Error message"], status)
-            frame = get_frame(full_size)
+                return [status, message]
+            ret, frame = get_frame()
 
-
+        if not ret:
+            return [4, {"message": "Can not read frame from camera"}]
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-        return frame
+        return (0, frame)
 
     def capture_buffered(self):
         ret, frame = self.cap.read()
         if ret:
             frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-        return ret, frame
+            status = 0
+        else:
+            status = 4
+            frame = {"message": "Can not read frame from camera"}
+        return status, frame
+    
+
