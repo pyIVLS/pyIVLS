@@ -83,7 +83,7 @@ class touchDetect:
             if status != 0:
                 return (status, {"message": f"TouchDetect: {r}"})
             r = float(r)
-
+            
             if r < threshold:
                 return (0, True)
             return (0, False)
