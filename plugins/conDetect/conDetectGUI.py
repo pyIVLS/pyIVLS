@@ -230,6 +230,8 @@ class conDetectGUI(QObject):
         try:
             self.functionality.connect(self.settings["source"])
             self.functionality.setDefault()
+            self.connected = True
+            self._GUIchange_deviceConnected(self.connected)
             return [0, "OK"]
         except Exception as e:
             return [4, {"Error message": f"{e}"}]
@@ -244,6 +246,8 @@ class conDetectGUI(QObject):
                 "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
             ) # red
             self.functionality.disconnect()
+            self.connected = False
+            self._GUIchange_deviceConnected(self.connected)
             return [0, "OK"]
         except Exception as e:
             return [4, {"Error message": f"{e}"}]
