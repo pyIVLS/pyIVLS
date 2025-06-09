@@ -155,11 +155,11 @@ class Keithley2612B:
                 self.safewrite(f"{channel}.reset()")
                 # Select current source function.
                 self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
-                # Set source range to 10 mA.
-                self.safewrite(f"{channel}.source.rangei = 10e-3")
-                # Set current source to 10 mA.
-                self.safewrite(f"{channel}.source.leveli = 10e-3")
-                # Set voltage limit to 10 V. FIXME: Value of 1 v is arbitrary.
+                # Set source range to 1 mA.
+                self.safewrite(f"{channel}.source.rangei = 10e-4")
+                # Set current source to 1 mA.
+                self.safewrite(f"{channel}.source.leveli = 10e-4")
+                # Set voltage limit to 1 V. FIXME: Value of 1 v is arbitrary.
                 self.safewrite(f"{channel}.source.limitv = 1")
                 # Enable 2-wire ohms. FIXME: Check this
                 self.safewrite(f"{channel}.sense = {channel}.SENSE_LOCAL")
