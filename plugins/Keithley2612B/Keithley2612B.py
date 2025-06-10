@@ -199,8 +199,9 @@ class Keithley2612B:
             0 - no error, ~0 - error (add error code later on if needed)
             message contains line frequency as float, or an error message otherwise
         """
-        freq = float(self.safequery("print(localnode.linefreq)"))
-        return freq
+        #freq = float(self.safequery("print(localnode.linefreq)"))
+        #return freq
+        return 50
 
     def getIV(self, channel):
         """gets IV data

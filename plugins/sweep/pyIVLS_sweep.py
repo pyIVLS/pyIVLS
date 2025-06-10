@@ -93,3 +93,11 @@ class pyIVLS_sweep_plugin:
 
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.sweep._getCloseLockSignal()}
+
+    @hookimpl
+    def get_plugin_settings(self, args=None):
+        """See pyIVLS_hookspec.py for details.
+        """
+        if args is None or args.get("function") == self.plugin_function:
+            status, settings = self.sweep.parse_settings_widget()
+            return (self.plugin_name, settings)

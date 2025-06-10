@@ -133,7 +133,9 @@ class Keithley2612BGUI:
             self.settings["drainhighc"] = True
         else:
             self.settings["drainhighc"] = False
-
+        if not "lineFrequency" in self.settings:
+            info = self.smu.getLineFrequency()
+            self.settings["lineFrequency"] = info
         self._parse_settings_address()
         return [0, self.settings]
 
