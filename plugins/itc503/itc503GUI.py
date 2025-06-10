@@ -366,6 +366,20 @@ class itc503GUI(QObject):
     def _getCloseLockSignal(self):
         return self.closeLock
 
+    def _get_current_gui_values(self):
+        """Returns a dictionary with the current values of all input boxes in the settings widget."""
+        values = {
+            "source": self.settingsWidget.source.text(),
+            "sett": self.settingsWidget.setTEdit.text(),
+            "period": self.settingsWidget.periodEdit.text(),
+            "periodpts": self.settingsWidget.periodPtsEdit.text(),
+            "sweepstart": self.settingsWidget.sweepStartEdit.text(),
+            "sweepend": self.settingsWidget.sweepEndEdit.text(),
+            "sweeppts": self.settingsWidget.sweepPtsEdit.text(),
+            "sweepstabilization": self.settingsWidget.sweepStabilizationEdit.text(),
+        }
+        return 0, values
+
         #########IRtodo: workaround, make a proper update display
         tic = time.time()
         while (time.time() - tic) < self.settings["sweepstabilization"]:
