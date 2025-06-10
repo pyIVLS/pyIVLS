@@ -19,9 +19,9 @@ class touchDetect:
             status, state = con.deviceConnect()
             status_smu, state_smu = smu.smu_connect()
             if status != 0:
-                return (status, {"message": f"{state}"})
+                return (status, {"Error message": f"{state}"})
             if status_smu != 0:
-                return (status_smu, {"message": f"{state_smu}"})
+                return (status_smu, {"Error message": f"{state_smu}"})
             # iterate through provided instructions for manipulators
             for idx, info in enumerate(manipulator_info):
                 manipulator_name = idx + 1
@@ -36,10 +36,10 @@ class touchDetect:
                 elif condet_channel == "Lo":
                     con.deviceLoCheck(True)
                 else:
-                    return (1, {"message": f"TouchDetect: Invalid contact detection channel {condet_channel} for manipulator {manipulator_name}"})
+                    return (1, {"Error message": f"TouchDetect: Invalid contact detection channel {condet_channel} for manipulator {manipulator_name}"})
                 status, state = mm.mm_open()
                 if status != 0:
-                    return (status, {"message": f"{state}"})
+                    return (status, {"Error message": f"{state}"})
 
                 # change device and check if the manipulator has a previous z value
                 mm.mm_change_active_device(manipulator_name)
@@ -51,12 +51,12 @@ class touchDetect:
                         mm.mm_zmove(z_change = self.last_z[manipulator_name] - stride * self.recklessness, absolute=True)
                 status, state = smu.smu_setup_resmes(smu_channel)
                 if status != 0:
-                    return (status, {"message": f"{state}"})
+                    return (status, {"Error message": f"{state}"})
                 # move until contact
                 while self._contacting(smu, smu_channel, threshold)[1] is False:
                     status, state = mm.mm_zmove(stride)
                     if status != 0:
-                        return (status, {"message": f"{state}"})
+                        return (status, {"Error message": f"{state}"})
                 
                 # back to default
                 con.deviceLoCheck(False)
@@ -67,10 +67,10 @@ class touchDetect:
                 _, _, z = mm.mm_current_position()
                 self.last_z[manipulator_name] = z
                 print(f"Set last position for {manipulator_name}")
-            return (0,{"message": "OK"})
+            return (0,{"Error message": "OK"})
             
         except Exception as e:
-            return (2, {"message": f"exception in move_to_contact", "exception": str(e)})     
+            return (2, {"Error message": f"exception in move_to_contact", "exception": str(e)})     
         finally:
             con.deviceDisconnect()
   
@@ -87,7 +87,7 @@ class touchDetect:
         try:
             status, r = smu.smu_resmes(channel)
             if status != 0:
-                return (status, {"message": f"TouchDetect: {r}"})
+                return (status, {"Error message": f"TouchDetect: {r}"})
             r = float(r)
 
             if r < threshold:
@@ -95,7 +95,7 @@ class touchDetect:
             return (0, False)
 
         except Exception as e:
-            return (3, {"message": "touchDetect error", "exception": str(e)})
+            return (3, {"Error message": "touchDetect error", "exception": str(e)})
 
 
     

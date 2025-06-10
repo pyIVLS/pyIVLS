@@ -48,7 +48,7 @@ class pyIVLS_Keithley2612B_plugin:
         """
         if args is None or args.get("function") == self.metadata["function"]:
             status, settings = self.smu.parse_settings_widget()
-            return (self.metadata["name"], settings)
+            return (self.metadata["name"],status, settings)
     
     @hookimpl
     def get_plugin(self, args=None):

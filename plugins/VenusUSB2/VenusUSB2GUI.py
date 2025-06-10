@@ -349,13 +349,13 @@ class VenusUSB2GUI(QObject):
             try:
                 status, img = self.camera.capture_image(source, exposure)
                 if status != 0:
-                    img = {"message": f"VenusUSB2 plugin : {img}"}
+                    img = {"Error message": f"VenusUSB2 plugin : {img}"}
             except Exception as e:
                 status = 4
-                img = {"message": f"VenusUSB2 plugin : exception in capturing image: {str(e)}"}
+                img = {"Error message": f"VenusUSB2 plugin : exception in capturing image: {str(e)}"}
         else:
             status = 1
-            img = {"message":"value error in parsing settings"}
+            img = {"Error message":"value error in parsing settings"}
 
 
         return status, img

@@ -99,5 +99,5 @@ class pyIVLS_sweep_plugin:
         """See pyIVLS_hookspec.py for details.
         """
         if args is None or args.get("function") == self.plugin_function:
-            status, settings = self.sweep.parse_settings_widget()
-            return (self.plugin_name, settings)
+            status, settings = self.sweep._parse_settings_raw()
+            return (self.plugin_name, status, settings)

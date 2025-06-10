@@ -228,15 +228,15 @@ class touchDetectGUI(QObject):
         status, state = con.deviceConnect()
         status_smu, state_smu = smu.smu_connect()
         if status != 0:
-            return (status, {"message": f"{state}"})
+            return (status, {"Error message": f"{state}"})
         if status_smu != 0:
-            return (status_smu, {"message": f"{state_smu}"})
+            return (status_smu, {"Error message": f"{state_smu}"})
         con.deviceHiCheck(True)
         smu.smu_setup_resmes("smub")
         while True:
             status, r = smu.smu_resmes("smub")
             if status != 0:
-                return (status, {"message": f"TouchDetect: {r}"})
+                return (status, {"Error message": f"TouchDetect: {r}"})
             r = float(r)
             print(r)
 
@@ -263,19 +263,19 @@ class touchDetectGUI(QObject):
         # remove "" from channels
         con_channels = [chn for chn in con_channels if chn != ""]        
         if len(con_channels) != len(set(con_channels)):
-            return (1, {"message": "Contact detection channels must be unique across manipulators."})
+            return (1, {"Error message": "Contact detection channels must be unique across manipulators."})
 
         # check that the threshold is a float
         try:
             threshold = float(self.threshold.text())
         except ValueError:
-            return (1, {"message": "TouchDetect: Threshold must be a number."})
+            return (1, {"Error message": "TouchDetect: Threshold must be a number."})
         
         # check that the stride is an integer
         try:
             stride = int(self.stride.text())
         except ValueError:
-            return (1, {"message": "TouchDetect: Stride must be an integer."})
+            return (1, {"Error message": "TouchDetect: Stride must be an integer."})
 
 
         return (0, settings)
@@ -295,7 +295,7 @@ class touchDetectGUI(QObject):
                     temp.append((smu_box.currentText(), con_box.currentText(), threshold, stride))
                 return temp
             else:
-                self.emit_log(settings.get("message", "Unknown error"))
+                self.emit_log(settings.get("Error message", "Unknown error"))
                 return None
         mm, smu, con = self._fetch_dep_plugins()
         manipulator_info = create_dict()

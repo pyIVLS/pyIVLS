@@ -88,7 +88,7 @@ class VenusUSB2:
             ret, frame = get_frame()
 
         if not ret:
-            return [4, {"message": "Can not read frame from camera"}]
+            return [4, {"Error message": "Can not read frame from camera"}]
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         return (0, frame)
 
@@ -99,7 +99,7 @@ class VenusUSB2:
             status = 0
         else:
             status = 4
-            frame = {"message": "Can not read frame from camera"}
+            frame = {"Error message": "Can not read frame from camera"}
         return status, frame
     
 

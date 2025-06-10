@@ -280,9 +280,9 @@ class Keithley2612BGUI:
         try:
             success = self.smu.resistance_measurement_setup(channel)
             if success:
-                return (0, {"message" : "Keithley setup resistance measurement"})
+                return (0, {"Error message" : "Keithley setup resistance measurement"})
             else:
-                return (4, {"message" : "HW issue in keithley resistance setup"})
+                return (4, {"Error message" : "HW issue in keithley resistance setup"})
         except Exception as e:
             return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})
         

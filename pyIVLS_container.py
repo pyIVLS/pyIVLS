@@ -86,11 +86,21 @@ class pyIVLS_container(QObject):
     def save_settings(self):
         modifications = set()
         current_config: list = self.pm.hook.get_plugin_settings()
-        for plugin, settings in current_config:
+        for plugin, code, settings in current_config:
             print(f"Saving settings for plugin: {plugin}, settings: {settings}")
+            if code != 0:
+                self.log_message.emit(
+                    datetime.now().strftime("%H:%M:%S.%f")
+                    + f": Error saving settings for plugin {plugin}: {code}, {settings["Error message"]}"
+                )
+                continue
             if self.config.has_section(f"{plugin}_settings"):
                 # update the settings section
                 for key, value in settings.items():
+                    # check if the key is "error message"
+                    if key == "error message":
+                        # skip this key, it is not a setting
+                        continue
                     # check if the value is the same as the current value
                     if self.config.has_option(f"{plugin}_settings", key):
                         if self.config[f"{plugin}_settings"][key] == str(value):
@@ -98,6 +108,7 @@ class pyIVLS_container(QObject):
                         else:
                             self.config[f"{plugin}_settings"][key] = str(value)
                             modifications.add(plugin)
+
         # write the config file to disk
         self.cleanup()
 
