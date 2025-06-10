@@ -71,16 +71,97 @@ class pyIVLS_container(QObject):
             self.plugins_updated_signal.emit()
             self.cleanup()
 
-    @pyqtSlot(str)
-    def update_config(self, plugin_dict, settings_dict=None):
-        """Unused slot to update the config file with a new plugin. 
-        # TODO: Implement this to allow the user to add plugins via the GUI.
+    @pyqtSlot(list)
+    def update_config(self, add_ini):
+        """Imports a new plugin from an ini file. 
 
         Args:
-            plugin_dict (dict): dictionary with plugin information, format: {plugin_name: "Plugin Name", "type": "plugin type", etc.}
-            settings_dict (dict, optional): dictionary with plugin settings, format: {setting_name: setting_value}. Defaults to None.
+            add_ini (list): address, ini_path, plugin_name
         """
-        pass
+        # load the config file
+        plugin_address, ini_path, plugin_name = add_ini 
+        new_config = ConfigParser()
+        new_config.read(ini_path)
+        # check if a plugin is already registered in the pm 
+        if self.pm.get_plugin(plugin_name) is not None:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Plugin {plugin_name} is active, disable it before adding a new version."
+            )
+            return
+        # get the plugin name from the config
+        for section in new_config.sections():
+            # if the section name is "plugin"
+            if section == "plugin":
+                section_plugin = section
+                new_section = f"{plugin_name}_plugin"
+                new_config[section]["address"] = plugin_address
+            elif section == "settings":
+                section_settings = section
+                new_section_settings = f"{plugin_name}_settings"
+
+        # check that the naming is correct
+        module_name = f"pyIVLS_{plugin_name}"
+        class_name = f"pyIVLS_{plugin_name}_plugin"   
+
+
+        sys.path.append(self.path + "plugins" + sep + new_config[section_plugin]["address"])
+        try:
+            # Dynamic import using importlib
+            module = importlib.import_module(module_name)
+            plugin_class = getattr(module, class_name)
+            
+            # if the plugin passes this, then is is probably a valid plugin. 
+            # update the section in the config file
+            if self.config.has_section(new_section):
+                # update the section
+                for key, value in new_config[section_plugin].items():
+                    self.config[new_section][key] = value
+            else:
+                # add the section
+                self.config.add_section(new_section)
+                for key, value in new_config[section_plugin].items():
+                    self.config[new_section][key] = value
+            
+            # update the settings section
+            if self.config.has_section(new_section_settings):
+                # update the section
+                for key, value in new_config[section_settings].items():
+                    self.config[new_section_settings][key] = value
+            else:
+                # add the section
+                self.config.add_section(new_section_settings)
+                for key, value in new_config[section_settings].items():
+                    self.config[new_section_settings][key] = value
+            
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Plugin {plugin_name} added to config file."
+            )
+            self.available_plugins_signal.emit(self.get_plugin_dict())
+
+            # write to file
+            self.cleanup()
+
+        except ImportError as e:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Failed to import plugin {plugin_name}: {e}"
+            )
+        except AttributeError as e:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Failed to get plugin class {class_name} from module {module_name}: {e}."
+            )
+        except Exception as e:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Failed to import plugin {plugin_name}: {e}"
+            )
+        finally:
+            sys.path.remove(self.path + "plugins" + sep + new_config[section_plugin]["address"])
+
+        
 
     @pyqtSlot()
     def save_settings(self):
@@ -117,8 +198,6 @@ class pyIVLS_container(QObject):
                 datetime.now().strftime("%H:%M:%S.%f")
                 + f": Settings saved for plugins: {', '.join(modifications)}"
             )
-
-
 
     def get_plugin_info_for_settingsGUI(self) -> dict:
         """Returns a dictionary with the plugin info for the settings widget.
@@ -166,6 +245,7 @@ class pyIVLS_container(QObject):
                     "load",
                     "dependencies",
                     "address",
+                    "version"
                 ]:
                     if self.config.has_option(plugin, option):
                         option_dict[option] = self.config[plugin][option]

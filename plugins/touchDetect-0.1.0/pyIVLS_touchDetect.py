@@ -2,21 +2,33 @@
 
 
 import pluggy
+import configparser
 from touchDetectGui import touchDetectGUI
-
+import os
 class pyIVLS_touchDetect_plugin:
 
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.name = "touchDetect"
-        self.type = "script"
-        self.function = "contactingMove"
-        self._class = "loop"
-        self.dependencies = ["smu", "micromanipulator", "contacting"]
-        self.pluginClass = touchDetectGUI()
 
+        # iterate current directory to find the .ini file
+        path = os.path.dirname(__file__)
+        for file in os.listdir(path):
+            if file.endswith(".ini"):
+                path = os.path.join(path, file)
+                break
+        config = configparser.ConfigParser()
+        # no need to close resource, since configparser handles it internally
+        # https://stackoverflow.com/questions/990867/closing-file-opened-by-configparser
+        config.read(path)
+
+        self.name = config.get("plugin", "name")
+        self.type = config.get("plugin", "type")
+        self.function = config.get("plugin", "function")
+        self._class = config.get("plugin", "class")
+        self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
+        self.pluginClass = touchDetectGUI()
 
 
     @hookimpl
@@ -38,7 +50,7 @@ class pyIVLS_touchDetect_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
+        if args is None or args.get("function") == self.function:
             return {self.name : self.pluginClass._getLogSignal()}
 
     @hookimpl
@@ -48,7 +60,7 @@ class pyIVLS_touchDetect_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
+        if args is None or args.get("function") == self.function:
             return {self.name : self.pluginClass._getInfoSignal()}
 
     @hookimpl
@@ -58,7 +70,7 @@ class pyIVLS_touchDetect_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
+        if args is None or args.get("function") == self.function:
             pass
 
     @hookimpl

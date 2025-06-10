@@ -4,6 +4,7 @@
 
 import sys
 from os.path import sep
+import os
 
 from PyQt6 import QtGui, QtWidgets, uic
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
@@ -19,7 +20,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
     # Tell the container to register the plugins
     register_plugins_signal = pyqtSignal(list)
     # Signal to update the config file with a new plugin
-    update_config_signal = pyqtSignal(str)
+    update_config_signal = pyqtSignal(list)
 
     #### Slots for communication
     @pyqtSlot(dict)
@@ -35,7 +36,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             dependencies = properties.get("dependencies", "")
             if not dependencies:
                 dependencies = "None"
-            plugin_name = f"{properties.get('type')}: {item} ({properties.get('function')}) - Dependencies: {dependencies}"
+            plugin_name = f"{properties.get('type')}: {item} {properties.get("version", "")} ({properties.get('function')}) - Dependencies: {dependencies}"
             list_item = QtGui.QStandardItem(plugin_name)
             list_item.setCheckable(True)
             list_item.setCheckState(Qt.CheckState.Unchecked)
@@ -83,14 +84,30 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
     def upload(self):
         """Uploads a plugin from a directory. opens a file dialog to select the plugin directory."""
 
-        start_dir = self.path + sep + "plugins"
+        start_dir = os.path.join(self.path, "plugins")
         plugin_dir = QtWidgets.QFileDialog.getExistingDirectory(
             self, "Select Plugin Directory", start_dir, QtWidgets.QFileDialog.Option.ShowDirsOnly
         )
-        if plugin_dir:
-            print(f"Selected plugin directory: {plugin_dir}. Not implemented yet.")
+        if not plugin_dir:
+            return  # if no directory is selected, return
+        # extract the plugin address from the directory
+        plugin_address = os.path.basename(plugin_dir)
 
-
+        # find .ini file in the plugin directory by iterating through the files
+        ini_file = None
+        # using os.listdir to find the ini file
+        for file in os.listdir(plugin_dir):
+            if file.endswith(".ini"):
+                ini_file = os.path.join(plugin_dir, file)
+                break
+            # extract the name from the file with the prefix "pyIVLS_" and the suffix ".py" 
+            elif file.startswith("pyIVLS_") and file.endswith(".py"):
+                plugin_name = file.removeprefix("pyIVLS_").removesuffix(".py")           
+        if ini_file is None:
+            return
+            # todo: add logging
+        self.update_config_signal.emit([plugin_address, ini_file, plugin_name])
+        
     #### Internal functions
     def __init__(self, path):
         super().__init__()

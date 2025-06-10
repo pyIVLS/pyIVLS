@@ -16,13 +16,14 @@ import os
 
 from PyQt6 import uic
 from PyQt6 import QtWidgets
+from PyQt6.QtCore import QObject, pyqtSignal
 from pluginTemplate import pluginTemplate
 from MplCanvas import (
     MplCanvas,
 )  # this is loaded from components directory that contains shared classes
 
 
-class pluginTemplateGUI:
+class pluginTemplateGUI(QObject):
     """GUI implementation
     this class may be a child of QObject if Signals or Slot will be needed
     """
@@ -36,7 +37,7 @@ class pluginTemplateGUI:
 
     ########Functions
     def __init__(self):
-        # super(pluginTemplateGUI,self).__init__() ### this is needed if the class is a child of QObject
+        super(pluginTemplateGUI,self).__init__() ### this is needed if the class is a child of QObject
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
 

@@ -62,6 +62,9 @@ if __name__ == "__main__":
     GUI_mainWindow.pluginloader.request_available_plugins_signal.connect(
         pluginsContainer.read_available_plugins
     )
+    GUI_mainWindow.pluginloader.update_config_signal.connect(
+        pluginsContainer.update_config
+    )
     pluginsContainer.available_plugins_signal.connect(
         GUI_mainWindow.pluginloader.populate_list
     )
