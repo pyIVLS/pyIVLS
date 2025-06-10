@@ -48,7 +48,7 @@ class pyIVLS_conDetect_plugin:
         Returns:
             dict: functions
         """
-        if args is None or args.get("function") == plugin_function:
+        if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.GUI._get_public_methods()}
 
     @hookimpl
@@ -95,3 +95,10 @@ class pyIVLS_conDetect_plugin:
         """
         if args is None or args.get("function") == self.metadata["function"]:
             return [self.GUI , self.metadata]
+
+    @hookimpl
+    def get_plugin_settings(self, args=None):
+        """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
+        if args is None or args.get("function") == self.plugin_function:
+            status, settings = self.GUI._parse_settings_preview()
+            return (self.plugin_name, status, settings)

@@ -85,3 +85,10 @@ class pyIVLS_timeIV_plugin:
                 if function_dict_key in function_dict
             }
         )
+
+    @hookimpl
+    def get_plugin_settings(self, args=None):
+        """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
+        if args is None or args.get("function") == self.plugin_function:
+            status, settings = self.pluginClass.get_current_gui_settings()
+            return (self.plugin_name, status, settings)

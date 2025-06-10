@@ -87,7 +87,6 @@ class pyIVLS_container(QObject):
         modifications = set()
         current_config: list = self.pm.hook.get_plugin_settings()
         for plugin, code, settings in current_config:
-            print(f"Saving settings for plugin: {plugin}, settings: {settings}")
             if code != 0:
                 self.log_message.emit(
                     datetime.now().strftime("%H:%M:%S.%f")

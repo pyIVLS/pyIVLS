@@ -1065,3 +1065,36 @@ class timeIVGUI(QObject):
                 )
                 self.info_message.emit(f"SMU turn off failed. Check log")
             self.set_running(False)
+
+    def get_current_gui_settings(self):
+        """Get the current settings from the GUI widgets, without conversion or validation."""
+        settings = {}
+        try:
+            settings["address"] = self.settingsWidget.lineEdit_path.text()
+            settings["filename"] = self.settingsWidget.lineEdit_filename.text()
+            settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
+            settings["comment"] = self.settingsWidget.lineEdit_comment.text()
+            settings["timestep"] = self.settingsWidget.step_lineEdit.text()
+            settings["stopafter"] = self.settingsWidget.stopAfterLineEdit.text()
+            settings["autosaveinterval"] = self.settingsWidget.autosaveLineEdit.text()
+            settings["stoptimer"] = self.settingsWidget.stopTimerCheckBox.isChecked()
+            settings["autosave"] = self.settingsWidget.autosaveCheckBox.isChecked()
+            settings["singlechannel"] = self.settingsWidget.checkBox_singleChannel.isChecked()
+            settings["channel"] = self.settingsWidget.comboBox_channel.currentText()
+            settings["inject"] = self.settingsWidget.comboBox_inject.currentText()
+            settings["sourcedelaymode"] = self.settingsWidget.comboBox_sourceDelayMode.currentText()
+            settings["sourcesensemode"] = self.settingsWidget.comboBox_sourceSenseMode.currentText()
+            settings["draindelaymode"] = self.settingsWidget.comboBox_drainDelayMode.currentText()
+            settings["draininject"] = self.settingsWidget.comboBox_drainInject.currentText()
+            settings["drainsensemode"] = self.settingsWidget.comboBox_drainSenseMode.currentText()
+            settings["sourcevalue"] = self.settingsWidget.lineEdit_sourceSetValue.text()
+            settings["sourcelimit"] = self.settingsWidget.lineEdit_sourceLimit.text()
+            settings["sourcenplc"] = self.settingsWidget.lineEdit_sourceNPLC.text()
+            settings["sourcedelay"] = self.settingsWidget.lineEdit_sourceDelay.text()
+            settings["drainvalue"] = self.settingsWidget.lineEdit_drainSetValue.text()
+            settings["drainlimit"] = self.settingsWidget.lineEdit_drainLimit.text()
+            settings["drainnplc"] = self.settingsWidget.lineEdit_drainNPLC.text()
+            settings["draindelay"] = self.settingsWidget.lineEdit_drainDelay.text()
+        except Exception as e:
+            return [1, {"Error message": f"Error reading GUI values: {e}"}]
+        return [0, settings]

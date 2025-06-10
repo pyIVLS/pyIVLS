@@ -73,3 +73,10 @@ class pyIVLS_Sutter_plugin:
         """
         if args is None or args.get("function") == self.metadata["function"]:
             return [self.gui, self.metadata]
+
+    @hookimpl
+    def get_plugin_settings(self, args=None):
+        """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
+        if args is None or args.get("function") == self.function:
+            status, settings = self.gui.get_current_gui_values()
+            return (self.name, status, settings)
