@@ -55,7 +55,7 @@ class pyIVLS_hookspec:
         """
 
     @hookspec
-    def set_plugin(self, plugin_list):
+    def set_plugin(self, plugin_list, args=None):
         """gets a list of plugins available, fetches the ones it needs.
 
         Args:
@@ -91,4 +91,14 @@ class pyIVLS_hookspec:
         :plugin_type: as all the plugins will be rolled in one loop, but plugins will be of different types, not all of them should return smth.
         This argument will allow the specific implementation of the hook to identify if any response is needed or not.
         :return: dict containing signal for logging
+        """
+    
+    @hookspec
+    def get_plugin_settings(self, args=None):
+        """Reads the current settings from the settingswidget, returns a dict. 
+
+        Args:
+            args (dict??, optional): Spesifies if a response is needed, for instance when saving a spesific plugin's settings.
+        Returns:
+            Tuple [str, dict]: name + dict containing the current settings of the plugin. (naming should be consistent with the ini-file?)
         """

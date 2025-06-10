@@ -52,7 +52,7 @@
 # deactivate
 
 #### install (OS agnostic using UV package manager)
-# 1. install UV package manager: pip install uv
+# 1. install UV package manager: pipx install uv or pip install uv
 # 2. run program with uv run pyIVLS.py, uv automatically creates venv and installs the requirements.
 # 3. if dependencies need to be added, uv add {package_name} adds the package to the requirements and checks for conflicts.
 

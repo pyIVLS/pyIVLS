@@ -13,6 +13,17 @@ resolution-markers = [
     "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 
+[manifest]
+members = [
+    "affinemove",
+    "pyivls",
+]
+
+[[package]]
+name = "affinemove"
+version = "0.1.0"
+source = { virtual = "plugins/affinemove" }
+
 [[package]]
 name = "async-timeout"
 version = "5.0.1"

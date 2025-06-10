@@ -193,6 +193,8 @@ class VenusUSB2GUI(QObject):
         """
         self.settings["exposure"] = int(self.exposure.currentText())
         self.settings["source"] = self.settingsWidget.cameraSource.text()
+        self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
+        self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         ##no value checks are possible here as the source should be just address and exposure is given by a set of values
         return [0, self.settings]
 

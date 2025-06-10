@@ -75,6 +75,10 @@ if __name__ == "__main__":
     pluginsContainer.log_message.connect(GUI_mainWindow.addDataLog)
     GUI_mainWindow.seqBuilder.info_message.connect(GUI_mainWindow.show_message)
 
+    GUI_mainWindow.window.actionWrite_settings_to_file.triggered.connect(
+        pluginsContainer.save_settings
+    )
+
     pluginsContainer.register_start_up()
 
     for logSignal in pluginsContainer.getLogSignals():

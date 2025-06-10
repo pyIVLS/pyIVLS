@@ -82,6 +82,33 @@ class pyIVLS_container(QObject):
         """
         pass
 
+    @pyqtSlot()
+    def save_settings(self):
+        modifications = set()
+        current_config: list = self.pm.hook.get_plugin_settings()
+        for plugin, settings in current_config:
+            if self.config.has_section(f"{plugin}_settings"):
+                # update the settings section
+                for key, value in settings.items():
+                    # check if the value is the same as the current value
+                    if self.config.has_option(f"{plugin}_settings", key):
+                        if self.config[f"{plugin}_settings"][key] == str(value):
+                            continue
+                        else:
+                            self.config[f"{plugin}_settings"][key] = str(value)
+                            modifications.add(plugin)
+        # write the config file to disk
+        self.cleanup()
+
+        # send some info to the log 
+        if modifications:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f": Settings saved for plugins: {', '.join(modifications)}"
+            )
+
+
+
     def get_plugin_info_for_settingsGUI(self) -> dict:
         """Returns a dictionary with the plugin info for the settings widget.
 
@@ -253,7 +280,6 @@ class pyIVLS_container(QObject):
         self.config.read(self.path + self.configFileName)
 
         # FIXME: Naive implementation. If a pluginload fails on startup, it's not retried. This makes it possible for the user™ to break something.
-        ##IRtodo#### it needs to be checked that there are no 2 plugins with the same name/or 2 plugins with the same function
         for plugin in self.config.sections():
             # sections contain at least _settings and _plugin, extract the ones that are plugins:
             _, type = plugin.rsplit("_", 1)

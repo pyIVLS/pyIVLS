@@ -33,6 +33,7 @@
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="actionWrite_settings_to_file"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -133,6 +134,11 @@
   <action name="MdiMenu">
    <property name="text">
     <string>MDI windows</string>
+   </property>
+  </action>
+  <action name="actionWrite_settings_to_file">
+   <property name="text">
+    <string>Write settings to file</string>
    </property>
   </action>
  </widget>
