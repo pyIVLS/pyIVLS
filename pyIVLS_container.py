@@ -87,6 +87,7 @@ class pyIVLS_container(QObject):
         modifications = set()
         current_config: list = self.pm.hook.get_plugin_settings()
         for plugin, settings in current_config:
+            print(f"Saving settings for plugin: {plugin}, settings: {settings}")
             if self.config.has_section(f"{plugin}_settings"):
                 # update the settings section
                 for key, value in settings.items():

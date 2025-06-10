@@ -121,7 +121,6 @@ class Keithley2612BGUI:
             status: 0 - no error, ~0 - error (add error code later on if needed)
             self.settings
         """
-        ##IRtothink#### this implementation requires that all settings (including those not needed for current sweep) to be good. This is not a bad thing, but might be an overkill. A possible implementation will be to use some default values that may be stored in plugin installation package
 
         # Determine a HighC mode for source: may be True or False
         if self.settingsWidget.checkBox_sourceHighC.isChecked():
@@ -134,16 +133,7 @@ class Keithley2612BGUI:
             self.settings["drainhighc"] = True
         else:
             self.settings["drainhighc"] = False
-        if not "lineFrequency" in self.settings:
-            try:
-                [status, info] = self.smu_connect()
-                if status:
-                    return [status, {"Error message": f"{info}"}]
-                info = self.smu.getLineFrequency()
-                self.smu_disconnect()
-            except:
-                return [4, {"Error message": f"Can not get line frequency from SMU"}]
-            self.settings["lineFrequency"] = info
+
         self._parse_settings_address()
         return [0, self.settings]
 
