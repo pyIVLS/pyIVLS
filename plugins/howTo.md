@@ -4,12 +4,15 @@
 3. Fill in the provided .ini template
 4. In the GUI, open the pluginloader subwindow
 4. import plugin, the loader handles basic checks and updates the global config.
+The name given in the ini file should match the file pyIVLS_{name}.py and the object inside pyIVLS_{name}_plugin. Otherwise naming is not important.
+The address (dir) of the plugin is read on import, so the dir can have any name. The .ini file is also loaded while importing, so the name does not matter.
 
 ## How to remove plugins:
 Currently removing plugins is only available by removing them from pyIVLS.ini
 
 # What methods should a plugin have, the necessary interface:
 - parse_settings_widget. SeqBuilder assumes this and uses it to check settings for plugins. 
+- Seqbuilder also assumes
 -TODO: complete this section. 
 
 # On writing hooks

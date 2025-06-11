@@ -51,7 +51,11 @@ class pyIVLS_seqBuilder(QObject):
                 if "loop" in plugin_dict[plugin]["class"]:
                     class_list.append("loop")
                 for functions in plugin_functions:
+                    print(f"Checking plugin {plugin} in functions")
                     if plugin in functions:
+                        print(
+                            f"Plugin {plugin} found in functions, adding to available instructions"
+                        )
                         self.available_instructions[plugin] = {
                             "class": class_list,
                             "functions": functions[plugin],
@@ -157,6 +161,9 @@ class pyIVLS_seqBuilder(QObject):
                 looping.append(len(stackItem["looping"]))
                 stack = stackItem["looping"] + stack
                 self.item = nextItem
+            
+            
+    
 
     def _setRunStatus(self, status):
         self.widget.runButton.setEnabled(not status)
@@ -178,9 +185,7 @@ class pyIVLS_seqBuilder(QObject):
             else:
                 self.item = self.item.parent()
                 return 0
-        status, instructionSettings = self.available_instructions[instructionFunc][
-            "functions"
-        ]["parse_settings_widget"]()
+        status, instructionSettings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
         if status:
             self.info_message.emit(instructionSettings["Error message"])
             return 1

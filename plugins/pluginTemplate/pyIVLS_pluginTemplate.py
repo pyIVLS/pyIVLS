@@ -54,8 +54,8 @@ class pyIVLS_pluginTemplate_plugin:
             dict: name, widget
         """
         ##IRtodo#### add check if (error) show message and return error
-        self.pluginClass._initGUI(plugin_data[self.plugin_name]["settings"])
-        return {self.plugin_name: self.pluginClass.settingsWidget}
+        self.pluginClass._initGUI(plugin_data[self.name]["settings"])
+        return {self.name: self.pluginClass.settingsWidget}
 
     @hookimpl
     def get_MDI_interface(self, args=None) -> dict:
@@ -64,7 +64,7 @@ class pyIVLS_pluginTemplate_plugin:
         Returns:
             dict: name, widget
         """
-        return {self.plugin_name: self.pluginClass.MDIWidget}
+        return {self.name: self.pluginClass.MDIWidget}
 
     @hookimpl
     def get_functions(self, args=None):
@@ -76,8 +76,42 @@ class pyIVLS_pluginTemplate_plugin:
         Returns:
             dict: functions
         """
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.pluginClass._get_public_methods()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.pluginClass._get_public_methods()}
+    
+    @hookimpl
+    def set_function(self, function_dict):
+        """provides a list of publicly available functions to the plugin as a nested dict
+        {'function1' : {'def1': object, 'def2':object},
+         'function2' : {'def1': object, 'def2':object},}
+
+        :return: list containing missed plugins or functions in form of [plg1, plg2:func3]
+        """
+        raise NotImplementedError()
+
+    @hookimpl
+    def get_plugin(self, args=None):
+        """Returns the plugin as a reference to itself.
+        NOTE: when writing implmentations of this, the plugin should contain its own metadata, such as name, type, version, etc.
+
+        Args:
+            args (_type_, optional): can be used to specify which plugin is needed based on
+            type, function, etc. 
+
+        Returns:
+            tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
+        """
+        raise NotImplementedError()
+
+
+    @hookimpl
+    def set_plugin(self, plugin_list, args=None):
+        """gets a list of plugins available, fetches the ones it needs.
+
+        Args:
+            plugin_list (list): list of plugins in the form of [plugin1, plugin2, ...]
+        """
+        raise NotImplementedError()
 
     @hookimpl
     def get_log(self, args=None):
@@ -86,8 +120,8 @@ class pyIVLS_pluginTemplate_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.camera_control._getLogSignal()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.camera_control._getLogSignal()}
 
     @hookimpl
     def get_info(self, args=None):
@@ -96,8 +130,8 @@ class pyIVLS_pluginTemplate_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.pluginClass._getInfoSignal()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.pluginClass._getInfoSignal()}
 
     @hookimpl
     def get_closeLock(self, args=None):
@@ -106,5 +140,5 @@ class pyIVLS_pluginTemplate_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.pluginClass._getCloseLockSignal()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.pluginClass._getCloseLockSignal()}

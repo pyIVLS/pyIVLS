@@ -9,11 +9,11 @@
 # 7. Execution flow is modified to allow to add messages from pluginContainer to log. Message slot from pluginloader is removed, info signal from plugin container is connected to the message slot in pyIVLS_GUI, as for all the other information windows.
 
 #### TODO list
-# 1. add settings validation to GUI (partially done)
-# 2. add settings locking/unlocking to GUI (partially done)
-# 3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)
-# 4. implement warning messaging (implemented not tested)
-# 5. implement saving of settings to configuration file
+# ~~1. add settings validation to GUI (partially done)~~
+# ~~2. add settings locking/unlocking to GUI (partially done)~~
+# ~~3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)~~
+# ~~4. implement warning messaging (implemented not tested)~~
+#~~ 5. implement saving of settings to configuration file~~
 #~~ 6. implement reopening of docking window and MDI windows~~
 # 7. implement autosave for long measurements
 # 8. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
@@ -51,8 +51,8 @@
 #10. python3 -m pip install datetime
 # deactivate
 
-#### install (OS agnostic using UV package manager)
-# 1. install UV package manager: pipx install uv or pip install uv
+#### or install (OS agnostic using UV package manager)
+# 1. install UV package manager: pipx install uv (or pip install uv)
 # 2. run program with uv run pyIVLS.py, uv automatically creates venv and installs the requirements.
 # 3. if dependencies need to be added, uv add {package_name} adds the package to the requirements and checks for conflicts.
 

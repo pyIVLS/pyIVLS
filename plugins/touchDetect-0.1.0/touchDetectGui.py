@@ -9,10 +9,10 @@ from datetime import datetime
 
 
 class touchDetectGUI(QObject):
-
+# TODO: standardize the parse_settigns_widget function to return a dict instead of a list.
 
     non_public_methods = []  
-    public_methods = []  
+    public_methods = ["move_to_contact", "parse_settings_widget"]  
     green_style = "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
     red_style = "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
 
@@ -20,11 +20,24 @@ class touchDetectGUI(QObject):
     # signals retained since this plugins needs to send errors to main window.
     log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
-    def emit_log(self, message: str):
-        """creates a log message with timestamp and plugin name."""
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        plugin_name = "touchDetect"
-        self.log_message.emit(f"{timestamp}: {plugin_name} caught: {message}")
+    def emit_log(self, status: int, state: dict) -> None:
+        """
+        Emits a standardized log message for status dicts or error lists.
+        Args:
+            status (int): status code, 0 for success, non-zero for error.
+            state (dict): dictionary in the standard pyIVLS format
+        
+        """
+        plugin_name = self.__class__.__name__
+        # only emit if error occurred
+        if status != 0:
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")
+            msg = state.get("Error message", "Unknown error")
+            exception = state.get("Exception", "Not provided")
+
+            log = f"{timestamp} : {plugin_name} : {msg} : Exception: {exception}"
+
+            self.log_message.emit(log)
 
     @property
     def dependency(self):
@@ -155,14 +168,13 @@ class touchDetectGUI(QObject):
                     if "channel_con" in settings:
                         con_box.setCurrentText(settings["channel_con"])
         else:
-            self.emit_log(state)
+            self.emit_log(status, state)
         con_status, con_state = con.deviceConnect()
         if con_status == 0:
             self.con_indicator.setStyleSheet(self.green_style)
             con_status, con_state = con.deviceDisconnect()
         else:
-            self.emit_log(con_state)
-
+            self.emit_log(con_status, con_state)
 
     def dependencies_changed(self):
         self.smu_box.clear()
@@ -188,6 +200,22 @@ class touchDetectGUI(QObject):
 
     def _getInfoSignal(self):
         return self.info_message
+
+
+    def _get_public_methods(self) -> dict:
+        """
+        Returns a nested dictionary of public methods for the plugin
+        """
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method not in self.non_public_methods
+            and method in self.public_methods
+        }
+        return methods
 
     def setup(self, settings) -> QWidget:
         """
@@ -240,43 +268,42 @@ class touchDetectGUI(QObject):
             r = float(r)
             print(r)
 
-
     def _test(self):
         status, state = self.move_to_contact()
-        print(f"{status}, {state}")        
+        self.emit_log(status, state)
 
-
-
-    def parse_settings_widget(self) -> dict:
+    def parse_settings_widget(self) -> tuple[int, dict]:
         """
-        parses settings widget, returns error code and settings.
-        TODO: Return a dict?
+        Parses the settings widget and returns error code and settings as a dictionary matching .ini keys.
         """
-        settings = []
+        settings = {}
+        # Collect manipulator settings
         for i, (box, smu_box, con_box) in enumerate(self.manipulator_boxes):
             smu_channel = smu_box.currentText()
             con_channel = con_box.currentText()
-            settings.append((smu_channel, con_channel))
+            # Only add if either is non-empty
+            if smu_channel or con_channel:
+                settings[f"{i+1}_smu"] = smu_channel
+                settings[f"{i+1}_con"] = con_channel
 
-        # check that the same con channel does not appear twice
-        con_channels = [s[1] for s in settings] 
-        # remove "" from channels
-        con_channels = [chn for chn in con_channels if chn != ""]        
+        # Check that the same con channel does not appear twice (excluding empty)
+        con_channels = [settings[f"{i+1}_con"] for i in range(4) if f"{i+1}_con" in settings and settings[f"{i+1}_con"]]
         if len(con_channels) != len(set(con_channels)):
             return (1, {"Error message": "Contact detection channels must be unique across manipulators."})
 
-        # check that the threshold is a float
+        # Check that the threshold is a float
         try:
             threshold = float(self.threshold.text())
         except ValueError:
             return (1, {"Error message": "TouchDetect: Threshold must be a number."})
-        
-        # check that the stride is an integer
+        settings["res_threshold"] = threshold
+
+        # Check that the stride is an integer
         try:
             stride = int(self.stride.text())
         except ValueError:
             return (1, {"Error message": "TouchDetect: Stride must be an integer."})
-
+        settings["stride"] = stride
 
         return (0, settings)
 
@@ -286,28 +313,30 @@ class touchDetectGUI(QObject):
             # check settings
             status, settings = self.parse_settings_widget()
             if status == 0:
+                # convert settings to a format that self.functionality expects
                 temp = []
-                threshold = float(self.threshold.text())
-                stride = int(self.stride.text())
                 for i in range(len(self.manipulator_boxes)):
-                    devnum = i + 1
-                    _, smu_box, con_box = self.manipulator_boxes[i]
-                    temp.append((smu_box.currentText(), con_box.currentText(), threshold, stride))
+                    smu_key = f"{i+1}_smu"
+                    con_key = f"{i+1}_con"
+                    smu_val = settings.get(smu_key, "")
+                    con_val = settings.get(con_key, "")
+                    threshold = float(settings["res_threshold"])
+                    stride = int(settings["stride"])
+                    temp.append((smu_val, con_val, threshold, stride))
                 return temp
             else:
-                self.emit_log(settings.get("Error message", "Unknown error"))
-                return None
+                self.emit_log(status, settings)
+                return []
         mm, smu, con = self._fetch_dep_plugins()
         manipulator_info = create_dict()
 
         status, state = self.functionality.move_to_contact(mm, con, smu, manipulator_info)
 
         if status != 0:
-            self.emit_log(f"{state.get('message', 'Unknown error')}, Exception: {state.get('exception', 'Not provided')}")
+            self.emit_log(status, state)
             return (status, state)
         return (status, state)
 
 
 
 
-        

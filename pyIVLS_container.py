@@ -110,8 +110,8 @@ class pyIVLS_container(QObject):
             # Dynamic import using importlib
             module = importlib.import_module(module_name)
             plugin_class = getattr(module, class_name)
-            
             # if the plugin passes this, then is is probably a valid plugin. 
+
             # update the section in the config file
             if self.config.has_section(new_section):
                 # update the section
@@ -384,7 +384,7 @@ class pyIVLS_container(QObject):
             return # No plugins registered, nothing to do
         plugin_public_functions = self.pm.hook.get_functions()
         function_map = {}
-
+        
         for single_dict in plugin_public_functions:
             for plugin_name, methods in single_dict.items():
                 plugin_function = self.config[plugin_name + "_plugin"]["function"]
@@ -414,6 +414,8 @@ class pyIVLS_container(QObject):
 
         self.pm.hook.set_function(function_dict=final_map)
         self.seqComponents_signal.emit(self.get_plugin_dict(), plugin_public_functions)
+        
+        # pass plugin references around
         plugin_list = self.pm.hook.get_plugin()
         if self.debug:
             print("Available plugin objects in public_function_exchange: ", plugin_list)

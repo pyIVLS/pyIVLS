@@ -88,3 +88,12 @@ class pyIVLS_touchDetect_plugin:
         
                 
         self.pluginClass.dependency = plugins_to_fetch
+
+    @hookimpl
+    def get_functions(self, args=None):
+        """returns a dict of publicly accessible functions.
+
+        :return: dict containing the functions
+        """
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.pluginClass._get_public_methods()}
