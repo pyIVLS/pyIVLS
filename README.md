@@ -13,8 +13,8 @@
 # ~~2. add settings locking/unlocking to GUI (partially done)~~
 # ~~3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)~~
 # ~~4. implement warning messaging (implemented not tested)~~
-#~~ 5. implement saving of settings to configuration file~~
-#~~ 6. implement reopening of docking window and MDI windows~~
+# ~~5. implement saving of settings to configuration file~~
+# ~~6. implement reopening of docking window and MDI windows~~
 # 7. implement autosave for long measurements
 # 8. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
 # 9. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence. 
@@ -51,7 +51,7 @@
 #10. python3 -m pip install datetime
 # deactivate
 
-#### or install (OS agnostic using UV package manager)
+#### or install (OS agnostic using UV package manager, recommended)
 # 1. install UV package manager: pipx install uv (or pip install uv)
 # 2. run program with uv run pyIVLS.py, uv automatically creates venv and installs the requirements.
 # 3. if dependencies need to be added, uv add {package_name} adds the package to the requirements and checks for conflicts.
