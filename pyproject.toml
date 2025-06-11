@@ -41,7 +41,4 @@ dependencies = [
     "zope-interface==7.2",
 ]
 
-[tool.uv.workspace]
-members = [
-    "plugins/affinemove",
-]
+
