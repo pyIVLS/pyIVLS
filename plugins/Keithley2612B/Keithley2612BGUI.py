@@ -2,7 +2,7 @@ import sys
 import os
 import time
 from threading import Lock
-from Keithley2612B_test import Keithley2612B
+from Keithley2612B import Keithley2612B
 # from Keithley2612B import Keithley2612B
 
 from PyQt6 import uic
@@ -121,7 +121,6 @@ class Keithley2612BGUI:
             status: 0 - no error, ~0 - error (add error code later on if needed)
             self.settings
         """
-        ##IRtothink#### this implementation requires that all settings (including those not needed for current sweep) to be good. This is not a bad thing, but might be an overkill. A possible implementation will be to use some default values that may be stored in plugin installation package
 
         # Determine a HighC mode for source: may be True or False
         if self.settingsWidget.checkBox_sourceHighC.isChecked():
@@ -135,14 +134,7 @@ class Keithley2612BGUI:
         else:
             self.settings["drainhighc"] = False
         if not "lineFrequency" in self.settings:
-            try:
-                [status, info] = self.smu_connect()
-                if status:
-                    return [status, {"Error message": f"{info}"}]
-                info = self.smu.getLineFrequency()
-                self.smu_disconnect()
-            except:
-                return [4, {"Error message": f"Can not get line frequency from SMU"}]
+            info = self.smu.getLineFrequency()
             self.settings["lineFrequency"] = info
         self._parse_settings_address()
         return [0, self.settings]
@@ -275,3 +267,36 @@ class Keithley2612BGUI:
             return [0, self.smu.setOutput(channel, outputType, value)]
         except:
             return [4, {"Error message": "Failed to set smu output"}]
+        
+    def smu_setup_resmes(self, channel):
+        """Sets up resistance measurement
+
+        Args:
+            channel (str): The channel to measure ('smua' or 'smub').
+
+        Returns:
+            tuple: (status, resistance value) where status is 0 for success, non-zero for error.
+        """
+        try:
+            success = self.smu.resistance_measurement_setup(channel)
+            if success:
+                return (0, {"Error message" : "Keithley setup resistance measurement"})
+            else:
+                return (4, {"Error message" : "HW issue in keithley resistance setup"})
+        except Exception as e:
+            return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})
+        
+    def smu_resmes(self, channel):
+        """Measures resistance on the specified channel.
+
+        Args:
+            channel (str): The channel to measure ('smua' or 'smub').
+
+        Returns:
+            tuple: (status, resistance value) where status is 0 for success, non-zero for error.
+        """
+        try:
+            resistance = self.smu.resistance_measurement(channel)
+            return (0, resistance)
+        except Exception as e:
+            return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})

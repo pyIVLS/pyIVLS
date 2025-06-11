@@ -63,11 +63,9 @@ class pyIVLS_GUI(QObject):
         all_hidden = True
         for subwindow in self.window.mdiArea.subWindowList():
             if subwindow.isVisible():
-                print(f"mdi window {subwindow.windowTitle()} is visible")
                 all_hidden = False
                 break
         if all_hidden:
-            print("All MDI windows are hidden")
             self.window.actionMDI_windows.setChecked(False)
 
     ################ Menu actions

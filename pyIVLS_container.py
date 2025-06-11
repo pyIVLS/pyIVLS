@@ -71,6 +71,134 @@ class pyIVLS_container(QObject):
             self.plugins_updated_signal.emit()
             self.cleanup()
 
+    @pyqtSlot(list)
+    def update_config(self, add_ini):
+        """Imports a new plugin from an ini file. 
+
+        Args:
+            add_ini (list): address, ini_path, plugin_name
+        """
+        # load the config file
+        plugin_address, ini_path, plugin_name = add_ini 
+        new_config = ConfigParser()
+        new_config.read(ini_path)
+        # check if a plugin is already registered in the pm 
+        if self.pm.get_plugin(plugin_name) is not None:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Plugin {plugin_name} is active, disable it before adding a new version."
+            )
+            return
+        # get the plugin name from the config
+        for section in new_config.sections():
+            # if the section name is "plugin"
+            if section == "plugin":
+                section_plugin = section
+                new_section = f"{plugin_name}_plugin"
+                new_config[section]["address"] = plugin_address
+            elif section == "settings":
+                section_settings = section
+                new_section_settings = f"{plugin_name}_settings"
+
+        # check that the naming is correct
+        module_name = f"pyIVLS_{plugin_name}"
+        class_name = f"pyIVLS_{plugin_name}_plugin"   
+
+
+        sys.path.append(self.path + "plugins" + sep + new_config[section_plugin]["address"])
+        try:
+            # Dynamic import using importlib
+            module = importlib.import_module(module_name)
+            plugin_class = getattr(module, class_name)
+            # if the plugin passes this, then is is probably a valid plugin. 
+
+            # update the section in the config file
+            if self.config.has_section(new_section):
+                # update the section
+                for key, value in new_config[section_plugin].items():
+                    self.config[new_section][key] = value
+            else:
+                # add the section
+                self.config.add_section(new_section)
+                for key, value in new_config[section_plugin].items():
+                    self.config[new_section][key] = value
+            
+            # update the settings section
+            if self.config.has_section(new_section_settings):
+                # update the section
+                for key, value in new_config[section_settings].items():
+                    self.config[new_section_settings][key] = value
+            else:
+                # add the section
+                self.config.add_section(new_section_settings)
+                for key, value in new_config[section_settings].items():
+                    self.config[new_section_settings][key] = value
+            
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Plugin {plugin_name} added to config file."
+            )
+            self.available_plugins_signal.emit(self.get_plugin_dict())
+
+            # write to file
+            self.cleanup()
+
+        except ImportError as e:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Failed to import plugin {plugin_name}: {e}"
+            )
+        except AttributeError as e:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Failed to get plugin class {class_name} from module {module_name}: {e}."
+            )
+        except Exception as e:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Failed to import plugin {plugin_name}: {e}"
+            )
+        finally:
+            sys.path.remove(self.path + "plugins" + sep + new_config[section_plugin]["address"])
+
+        
+
+    @pyqtSlot()
+    def save_settings(self):
+        modifications = set()
+        current_config: list = self.pm.hook.get_plugin_settings()
+        for plugin, code, settings in current_config:
+            if code != 0:
+                self.log_message.emit(
+                    datetime.now().strftime("%H:%M:%S.%f")
+                    + f": Error saving settings for plugin {plugin}: {code}, {settings["Error message"]}"
+                )
+                continue
+            if self.config.has_section(f"{plugin}_settings"):
+                # update the settings section
+                for key, value in settings.items():
+                    # check if the key is "error message"
+                    if key == "error message":
+                        # skip this key, it is not a setting
+                        continue
+                    # check if the value is the same as the current value
+                    if self.config.has_option(f"{plugin}_settings", key):
+                        if self.config[f"{plugin}_settings"][key] == str(value):
+                            continue
+                        else:
+                            self.config[f"{plugin}_settings"][key] = str(value)
+                            modifications.add(plugin)
+
+        # write the config file to disk
+        self.cleanup()
+
+        # send some info to the log 
+        if modifications:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f": Settings saved for plugins: {', '.join(modifications)}"
+            )
+
     def get_plugin_info_for_settingsGUI(self) -> dict:
         """Returns a dictionary with the plugin info for the settings widget.
 
@@ -117,6 +245,7 @@ class pyIVLS_container(QObject):
                     "load",
                     "dependencies",
                     "address",
+                    "version"
                 ]:
                     if self.config.has_option(plugin, option):
                         option_dict[option] = self.config[plugin][option]
@@ -218,7 +347,7 @@ class pyIVLS_container(QObject):
                 self.config[plugin]["load"] = "False"
                 self.log_message.emit(
                     datetime.now().strftime("%H:%M:%S.%f")
-                    + f": Plugin {plugin_name} unloaded"
+                    + f" : Plugin {plugin_name} unloaded"
                 )
                 return True
             # plugin not registered, do nothing.
@@ -242,7 +371,6 @@ class pyIVLS_container(QObject):
         self.config.read(self.path + self.configFileName)
 
         # FIXME: Naive implementation. If a pluginload fails on startup, it's not retried. This makes it possible for the user™ to break something.
-        ##IRtodo#### it needs to be checked that there are no 2 plugins with the same name/or 2 plugins with the same function
         for plugin in self.config.sections():
             # sections contain at least _settings and _plugin, extract the ones that are plugins:
             _, type = plugin.rsplit("_", 1)
@@ -252,9 +380,11 @@ class pyIVLS_container(QObject):
 
     def public_function_exchange(self):
         # Get all the plugin public functions by plugin name
+        if self.pm.list_name_plugin() == []:
+            return # No plugins registered, nothing to do
         plugin_public_functions = self.pm.hook.get_functions()
         function_map = {}
-
+        
         for single_dict in plugin_public_functions:
             for plugin_name, methods in single_dict.items():
                 plugin_function = self.config[plugin_name + "_plugin"]["function"]
@@ -284,6 +414,12 @@ class pyIVLS_container(QObject):
 
         self.pm.hook.set_function(function_dict=final_map)
         self.seqComponents_signal.emit(self.get_plugin_dict(), plugin_public_functions)
+        
+        # pass plugin references around
+        plugin_list = self.pm.hook.get_plugin()
+        if self.debug:
+            print("Available plugin objects in public_function_exchange: ", plugin_list)
+        self.pm.hook.set_plugin(plugin_list = plugin_list)
 
     def getLogSignals(self):
         plugin_logSignals = self.pm.hook.get_log()

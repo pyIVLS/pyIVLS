@@ -115,7 +115,7 @@ class Keithley2612B:
     #        print(f"Exception querying command: {command}\nException: {e}")
     #        raise e
     def keithley_IDN(self):
-        return self.k.ask("*IDN?")
+        return "keith"
 
     def keithley_connect(self, address):  # -> status:
         """Connect to the Keithley 2612B.
@@ -151,15 +151,33 @@ class Keithley2612B:
         """
         if channel == "smua" or channel == "smub":
             try:
+                # Get resistance reading.
+                res = self.safequery(f"print({channel}.measure.r())")
+                return res
+            except Exception as e:
+                print(f"Error measuring resistance: {e}")
+                return -1
+
+        else:
+            raise ValueError(f"Invalid channel {channel}")
+        
+    def resistance_measurement_setup(self, channel) -> bool:
+        """Measure the resistance at the probe.
+
+        Returns:
+            bool: success
+        """
+        if channel == "smua" or channel == "smub":
+            try:
                 # Restore Series 2600B defaults.
                 self.safewrite(f"{channel}.reset()")
                 # Select current source function.
                 self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
-                # Set source range to 10 mA.
-                self.safewrite(f"{channel}.source.rangei = 10e-3")
-                # Set current source to 10 mA.
-                self.safewrite(f"{channel}.source.leveli = 10e-3")
-                # Set voltage limit to 10 V. FIXME: Value of 1 v is arbitrary.
+                # Set source range to 1 mA.
+                self.safewrite(f"{channel}.source.rangei = 10e-4")
+                # Set current source to 1 mA.
+                self.safewrite(f"{channel}.source.leveli = 10e-4")
+                # Set voltage limit to 1 V. FIXME: Value of 1 v is arbitrary.
                 self.safewrite(f"{channel}.source.limitv = 1")
                 # Enable 2-wire ohms. FIXME: Check this
                 self.safewrite(f"{channel}.sense = {channel}.SENSE_LOCAL")
@@ -167,15 +185,10 @@ class Keithley2612B:
                 self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
                 # Turn on output.
                 self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
-                # Get resistance reading.
-                res = self.safequery(f"print({channel}.measure.r())")
-                return res
+                return True
             except Exception as e:
-                print(f"Error measuring resistance: {e}")
-                return -1
-            finally:
-                self.safewrite(f"{channel}.source.leveli = 0")
-                self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
+                return False
+
         else:
             raise ValueError(f"Invalid channel {channel}")
 
@@ -186,8 +199,9 @@ class Keithley2612B:
             0 - no error, ~0 - error (add error code later on if needed)
             message contains line frequency as float, or an error message otherwise
         """
-        freq = float(self.safequery("print(localnode.linefreq)"))
-        return freq
+        #freq = float(self.safequery("print(localnode.linefreq)"))
+        #return freq
+        return 50
 
     def getIV(self, channel):
         """gets IV data

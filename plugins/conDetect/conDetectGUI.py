@@ -94,15 +94,16 @@ class conDetectGUI(QObject):
                 + f" : conDetect plugin :  {info}, status = {status}"
             )
             self.info_message.emit(f"conDetect plugin : {info['Error message']}")
+            return
         self.connected = True
         self._GUIchange_deviceConnected(self.connected)
-        self.closeLock.emit(not self.connected)
+        self.closeLock.emit(self.connected)
 
     def _disconnectAction(self):
         [status, info] = self.deviceDisconnect()
         self.connected = False
         self._GUIchange_deviceConnected(self.connected)
-        self.closeLock.emit(not self.connected)
+        self.closeLock.emit(self.connected)
         if status:
             self.log_message.emit(
                 datetime.now().strftime("%H:%M:%S.%f")
@@ -154,7 +155,9 @@ class conDetectGUI(QObject):
             else:
                 self.loCheck = not self.loCheck
                 return [0, "OK"]
+                
 
+		
     ########Functions
     ###############GUI setting up
 
@@ -219,11 +222,16 @@ class conDetectGUI(QObject):
     ########device functions
 
     def deviceConnect(self):
-        if self.settings["source"] == "":
+        status, state = self._parse_settings_preview()
+        if status:
+            return [status, {"Error message": f"{state}"}]
+        if self.settings.get("source","") == "":
             return [1, {"Error message": "Source address is empty"}]
         try:
             self.functionality.connect(self.settings["source"])
             self.functionality.setDefault()
+            self.connected = True
+            self._GUIchange_deviceConnected(self.connected)
             return [0, "OK"]
         except Exception as e:
             return [4, {"Error message": f"{e}"}]
@@ -233,11 +241,13 @@ class conDetectGUI(QObject):
             self.functionality.setDefault()
             self.settingsWidget.hiConnectionIndicator.setStyleSheet(
                 "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            )
+            ) # red
             self.settingsWidget.loConnectionIndicator.setStyleSheet(
                 "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            )
+            ) # red
             self.functionality.disconnect()
+            self.connected = False
+            self._GUIchange_deviceConnected(self.connected)
             return [0, "OK"]
         except Exception as e:
             return [4, {"Error message": f"{e}"}]
@@ -248,11 +258,11 @@ class conDetectGUI(QObject):
             if status:
                 self.settingsWidget.hiConnectionIndicator.setStyleSheet(
                     "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-                )
+                ) # green
             else:
                 self.settingsWidget.hiConnectionIndicator.setStyleSheet(
                     "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-                )
+                ) # red
             return [0, "OK"]
         except Exception as e:
             return [4, {"Error message": f"{e}"}]

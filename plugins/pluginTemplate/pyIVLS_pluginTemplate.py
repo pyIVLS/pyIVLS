@@ -14,7 +14,9 @@ The standard implementation may (but not must) include
 """
 
 import pluggy
-from pluginTemplate.pluginTemplateGUI import pluginTemplateGUI
+from pluginTemplateGUI import pluginTemplateGUI
+import os
+import configparser
 
 
 class pyIVLS_pluginTemplate_plugin:
@@ -25,13 +27,23 @@ class pyIVLS_pluginTemplate_plugin:
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
+
     def __init__(self):
-        self.plugin_name = "pluginTemplate"
-        self.plugin_function = (
-            "pluginFunction"  # e.g. smu, camera, micromanipulator, etc.
-        )
+        # iterate current directory to find the .ini file
+        path = os.path.dirname(__file__)
+        for file in os.listdir(path):
+            if file.endswith(".ini"):
+                path = os.path.join(path, file)
+                break
+        config = configparser.ConfigParser()
+        config.read(path)
+
+        self.name = config.get("plugin", "name")
+        self.type = config.get("plugin", "type")
+        self.function = config.get("plugin", "function")
+        self._class = config.get("plugin", "class")
+        self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
         self.pluginClass = pluginTemplateGUI()
-        super().__init__()
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
@@ -42,8 +54,8 @@ class pyIVLS_pluginTemplate_plugin:
             dict: name, widget
         """
         ##IRtodo#### add check if (error) show message and return error
-        self.pluginClass._initGUI(plugin_data[self.plugin_name]["settings"])
-        return {self.plugin_name: self.pluginClass.settingsWidget}
+        self.pluginClass._initGUI(plugin_data[self.name]["settings"])
+        return {self.name: self.pluginClass.settingsWidget}
 
     @hookimpl
     def get_MDI_interface(self, args=None) -> dict:
@@ -52,7 +64,7 @@ class pyIVLS_pluginTemplate_plugin:
         Returns:
             dict: name, widget
         """
-        return {self.plugin_name: self.pluginClass.MDIWidget}
+        return {self.name: self.pluginClass.MDIWidget}
 
     @hookimpl
     def get_functions(self, args=None):
@@ -64,8 +76,42 @@ class pyIVLS_pluginTemplate_plugin:
         Returns:
             dict: functions
         """
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.pluginClass._get_public_methods()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.pluginClass._get_public_methods()}
+    
+    @hookimpl
+    def set_function(self, function_dict):
+        """provides a list of publicly available functions to the plugin as a nested dict
+        {'function1' : {'def1': object, 'def2':object},
+         'function2' : {'def1': object, 'def2':object},}
+
+        :return: list containing missed plugins or functions in form of [plg1, plg2:func3]
+        """
+        raise NotImplementedError()
+
+    @hookimpl
+    def get_plugin(self, args=None):
+        """Returns the plugin as a reference to itself.
+        NOTE: when writing implmentations of this, the plugin should contain its own metadata, such as name, type, version, etc.
+
+        Args:
+            args (_type_, optional): can be used to specify which plugin is needed based on
+            type, function, etc. 
+
+        Returns:
+            tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
+        """
+        raise NotImplementedError()
+
+
+    @hookimpl
+    def set_plugin(self, plugin_list, args=None):
+        """gets a list of plugins available, fetches the ones it needs.
+
+        Args:
+            plugin_list (list): list of plugins in the form of [plugin1, plugin2, ...]
+        """
+        raise NotImplementedError()
 
     @hookimpl
     def get_log(self, args=None):
@@ -74,8 +120,8 @@ class pyIVLS_pluginTemplate_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.camera_control._getLogSignal()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.camera_control._getLogSignal()}
 
     @hookimpl
     def get_info(self, args=None):
@@ -84,8 +130,8 @@ class pyIVLS_pluginTemplate_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.pluginClass._getInfoSignal()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.pluginClass._getInfoSignal()}
 
     @hookimpl
     def get_closeLock(self, args=None):
@@ -94,5 +140,5 @@ class pyIVLS_pluginTemplate_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.pluginClass._getCloseLockSignal()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.pluginClass._getCloseLockSignal()}

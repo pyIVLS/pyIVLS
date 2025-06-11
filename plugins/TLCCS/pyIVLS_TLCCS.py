@@ -44,7 +44,7 @@ class pyIVLS_TLCCS_plugin:
         Returns:
             dict: functions
         """
-        if args is None or args.get("function") == plugin_function:
+        if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.spectrometerGUI._get_public_methods()}
 
     @hookimpl
@@ -76,3 +76,10 @@ class pyIVLS_TLCCS_plugin:
 
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.spectrometerGUI._getCloseLockSignal()}
+
+    @hookimpl
+    def get_plugin_settings(self, args=None):
+        """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
+        if args is None or args.get("function") == self.plugin_function:
+            status, settings = self.spectrometerGUI.get_current_gui_settings()
+            return (self.plugin_name, status, settings)

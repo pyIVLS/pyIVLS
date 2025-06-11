@@ -14,8 +14,19 @@ class pyIVLS_conDetect_plugin:
     def __init__(self):
         self.plugin_name = "conDetect"
         self.plugin_function = "contacting"
+        self.dependencies = []
+        self.type = "script"  # unnecessary
+        self.address = "conDetect"  # unnecessary
+        self.metadata = {
+            "name": self.plugin_name,
+            "type": self.type,
+            "function": self.plugin_function,
+            "address": self.address,
+            "version": "placeholder",
+            "dependencies": self.dependencies
+        }
+
         self.GUI = conDetectGUI()
-        super().__init__()
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
@@ -37,7 +48,7 @@ class pyIVLS_conDetect_plugin:
         Returns:
             dict: functions
         """
-        if args is None or args.get("function") == plugin_function:
+        if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.GUI._get_public_methods()}
 
     @hookimpl
@@ -69,3 +80,25 @@ class pyIVLS_conDetect_plugin:
 
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.GUI._getCloseLockSignal()}
+
+    @hookimpl
+    def get_plugin(self, args=None):
+        """Returns the plugin as a reference to itself.
+        NOTE: when writing implmentations of this, the plugin should contain its own metadata, such as name, type, version, etc.
+
+        Args:
+            args (_type_, optional): can be used to specify which plugin is needed based on
+            type, function, etc. 
+
+        Returns:
+            tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
+        """
+        if args is None or args.get("function") == self.metadata["function"]:
+            return [self.GUI , self.metadata]
+
+    @hookimpl
+    def get_plugin_settings(self, args=None):
+        """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
+        if args is None or args.get("function") == self.plugin_function:
+            status, settings = self.GUI._parse_settings_preview()
+            return (self.plugin_name, status, settings)

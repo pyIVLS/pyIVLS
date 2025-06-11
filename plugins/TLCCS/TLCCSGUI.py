@@ -456,6 +456,21 @@ class TLCCS_GUI(QObject):
 
         return [0, self.settings]
 
+    def get_current_gui_settings(self):
+        """Get the current settings from the GUI widgets, without modifying values."""
+        settings = {}
+        try:
+            settings["integrationTime"] = self.settingsWidget.lineEdit_Integ.text()
+            settings["externalTrigger"] = self.settingsWidget.extTriggerCheck.isChecked()
+            settings["previewCorrection"] = self.settingsWidget.correctionCheck.isChecked()
+            settings["address"] = self.settingsWidget.lineEdit_path.text()
+            settings["filename"] = self.settingsWidget.lineEdit_filename.text()
+            settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
+            settings["comment"] = self.settingsWidget.lineEdit_comment.text()
+        except Exception as e:
+            return [1, {"Error message": f"Error reading GUI values: {e}"}]
+        return [0, settings]
+
     ########Functions
     ########device functions
     def spectrometerConnect(self):

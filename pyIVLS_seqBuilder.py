@@ -157,6 +157,9 @@ class pyIVLS_seqBuilder(QObject):
                 looping.append(len(stackItem["looping"]))
                 stack = stackItem["looping"] + stack
                 self.item = nextItem
+            
+            
+    
 
     def _setRunStatus(self, status):
         self.widget.runButton.setEnabled(not status)
@@ -178,9 +181,7 @@ class pyIVLS_seqBuilder(QObject):
             else:
                 self.item = self.item.parent()
                 return 0
-        status, instructionSettings = self.available_instructions[instructionFunc][
-            "functions"
-        ]["parse_settings_widget"]()
+        status, instructionSettings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
         if status:
             self.info_message.emit(instructionSettings["Error message"])
             return 1
