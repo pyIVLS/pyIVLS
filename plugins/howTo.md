@@ -12,7 +12,8 @@ Currently removing plugins is only available by removing them from pyIVLS.ini
 
 # What methods should a plugin have, the necessary interface:
 - parse_settings_widget. SeqBuilder assumes this and uses it to check settings for plugins. 
-- Seqbuilder also assumes
+- Seqbuilder also assumes "setSettings" to set current state for plugins
+-"getIterations" 
 -TODO: complete this section. 
 
 # On writing hooks

@@ -27,7 +27,7 @@ class pyIVLS_touchDetect_plugin:
         self.type = config.get("plugin", "type")
         self.function = config.get("plugin", "function")
         self._class = config.get("plugin", "class")
-        self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
+        self.dependencies = config.get("plugin", "dependencies").split(",")
         self.pluginClass = touchDetectGUI()
 
 

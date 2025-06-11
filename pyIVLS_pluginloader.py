@@ -12,7 +12,18 @@ from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 
 class pyIVLS_pluginloader(QtWidgets.QDialog):
     """Gui for the plugin loader"""
-
+    def show_message(self, str):
+        msg = QtWidgets.QMessageBox()
+        msg.setText(str)
+        msg.setWindowTitle("Warning")
+        msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+        msg.setWindowFlags(
+            Qt.WindowType.CustomizeWindowHint
+            | Qt.WindowType.WindowTitleHint
+            | Qt.WindowType.WindowShadeButtonHint
+        )
+        msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
+        msg.exec()
     #### Signals for communication
 
     # Request available plugins from the container
@@ -95,17 +106,20 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
 
         # find .ini file in the plugin directory by iterating through the files
         ini_file = None
+        plugin_name = None
         # using os.listdir to find the ini file
         for file in os.listdir(plugin_dir):
             if file.endswith(".ini"):
                 ini_file = os.path.join(plugin_dir, file)
-                break
             # extract the name from the file with the prefix "pyIVLS_" and the suffix ".py" 
             elif file.startswith("pyIVLS_") and file.endswith(".py"):
                 plugin_name = file.removeprefix("pyIVLS_").removesuffix(".py")           
         if ini_file is None:
+            self.show_message("No .ini file found in the plugin directory.")
             return
-            # todo: add logging
+        if plugin_name is None:
+            self.show_message("No file of the form 'pyIVLS_*.py' found in the plugin directory.")
+            return
         self.update_config_signal.emit([plugin_address, ini_file, plugin_name])
         
     #### Internal functions

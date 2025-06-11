@@ -9,7 +9,6 @@ from datetime import datetime
 
 
 class touchDetectGUI(QObject):
-# TODO: standardize the parse_settigns_widget function to return a dict instead of a list.
 
     non_public_methods = []  
     public_methods = ["move_to_contact", "parse_settings_widget"]  
@@ -35,7 +34,7 @@ class touchDetectGUI(QObject):
             msg = state.get("Error message", "Unknown error")
             exception = state.get("Exception", "Not provided")
 
-            log = f"{timestamp} : {plugin_name} : {msg} : Exception: {exception}"
+            log = f"{timestamp} : {plugin_name} : {status} : {msg} : Exception: {exception}"
 
             self.log_message.emit(log)
 

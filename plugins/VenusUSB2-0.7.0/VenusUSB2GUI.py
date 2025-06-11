@@ -90,6 +90,24 @@ class VenusUSB2GUI(QObject):
     log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool)
+    def emit_log(self, status: int, state: dict) -> None:
+        """
+        Emits a standardized log message for status dicts or error lists.
+        Args:
+            status (int): status code, 0 for success, non-zero for error.
+            state (dict): dictionary in the standard pyIVLS format
+        
+        """
+        plugin_name = self.__class__.__name__
+        # only emit if error occurred
+        if status != 0:
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")
+            msg = state.get("Error message", "Unknown error")
+            exception = state.get("Exception", "Not provided")
+
+            log = f"{timestamp} : {plugin_name} : {status} : {msg} : Exception: {exception}"
+
+            self.log_message.emit(log)
 
     ########Functions
 
@@ -216,10 +234,7 @@ class VenusUSB2GUI(QObject):
                 source=self.settings["source"], exposure=self.settings["exposure"]
             )
             if status:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : VenusUSB2 plugin : {message}, status = {status}"
-                )
+                self.emit_log(status, message)
                 self.info_message.emit(f"VenusUSB2 plugin : {message}")
             else:
                 self.settingsWidget.saveButton.setEnabled(False)
@@ -366,10 +381,7 @@ class VenusUSB2GUI(QObject):
     def _parseSaveData(self) -> "status":
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : VenusUSB2 plugin : address string should point to a valid directory"
-            )
+            self.emit_log(1, {"Error message": "address string should point to a valid directory"})
             return [
                 1,
                 {
@@ -378,10 +390,7 @@ class VenusUSB2GUI(QObject):
             ]
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : VenusUSB2 plugin : filename is not valid"
-            )
+            self.emit_log(1, {"Error message":  "filename is not valid"})
             self.info_message.emit(f"VenusUSB2 plugin : filename is not valid")
             return [1, {"Error message": f"VenusUSB2 plugin : filename is not valid"}]
         return [0, "Ok"]

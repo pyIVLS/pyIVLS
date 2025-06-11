@@ -347,7 +347,7 @@ class pyIVLS_container(QObject):
                 self.config[plugin]["load"] = "False"
                 self.log_message.emit(
                     datetime.now().strftime("%H:%M:%S.%f")
-                    + f": Plugin {plugin_name} unloaded"
+                    + f" : Plugin {plugin_name} unloaded"
                 )
                 return True
             # plugin not registered, do nothing.

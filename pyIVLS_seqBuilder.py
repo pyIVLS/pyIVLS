@@ -51,11 +51,7 @@ class pyIVLS_seqBuilder(QObject):
                 if "loop" in plugin_dict[plugin]["class"]:
                     class_list.append("loop")
                 for functions in plugin_functions:
-                    print(f"Checking plugin {plugin} in functions")
                     if plugin in functions:
-                        print(
-                            f"Plugin {plugin} found in functions, adding to available instructions"
-                        )
                         self.available_instructions[plugin] = {
                             "class": class_list,
                             "functions": functions[plugin],
