@@ -93,7 +93,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         self.refresh()
 
     def upload(self):
-        """Uploads a plugin from a directory. opens a file dialog to select the plugin directory."""
+        """Uploads a plugin from a directory. Opens a file dialog to select the plugin directory."""
 
         start_dir = os.path.join(self.path, "plugins")
         plugin_dir = QtWidgets.QFileDialog.getExistingDirectory(
@@ -101,19 +101,21 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         )
         if not plugin_dir:
             return  # if no directory is selected, return
-        # extract the plugin address from the directory
-        plugin_address = os.path.basename(plugin_dir)
+
+        # Make plugin_address relative to the plugins folder if possible, else use absolute path
+        try:
+            plugin_address = os.path.relpath(plugin_dir, start_dir)
+        except ValueError:
+            plugin_address = plugin_dir  # fallback to absolute path if relpath fails
 
         # find .ini file in the plugin directory by iterating through the files
         ini_file = None
         plugin_name = None
-        # using os.listdir to find the ini file
         for file in os.listdir(plugin_dir):
             if file.endswith(".ini"):
                 ini_file = os.path.join(plugin_dir, file)
-            # extract the name from the file with the prefix "pyIVLS_" and the suffix ".py" 
             elif file.startswith("pyIVLS_") and file.endswith(".py"):
-                plugin_name = file.removeprefix("pyIVLS_").removesuffix(".py")           
+                plugin_name = file.removeprefix("pyIVLS_").removesuffix(".py")
         if ini_file is None:
             self.show_message("No .ini file found in the plugin directory.")
             return

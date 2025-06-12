@@ -146,7 +146,7 @@ class pyIVLS_container(QObject):
         except ImportError as e:
             self.log_message.emit(
                 datetime.now().strftime("%H:%M:%S.%f")
-                + f" : Failed to import plugin {plugin_name}: {e}"
+                + f" : Failed to import plugin {plugin_name} from {plugin_address}: {e}"
             )
         except AttributeError as e:
             self.log_message.emit(
@@ -156,7 +156,7 @@ class pyIVLS_container(QObject):
         except Exception as e:
             self.log_message.emit(
                 datetime.now().strftime("%H:%M:%S.%f")
-                + f" : Failed to import plugin {plugin_name}: {e}"
+                + f" : Unknown exception when importing {plugin_name}: {e}"
             )
         finally:
             sys.path.remove(self.path + "plugins" + sep + new_config[section_plugin]["address"])
