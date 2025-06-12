@@ -624,8 +624,8 @@ class timeIVGUI(QObject):
                 
                 [status, message] = self.smuInit()
                 if status:
-        	        raise timeIVexception(f"{message['Error message']}")
-        	        
+                    raise timeIVexception(f"{message['Error message']}")
+                    
                 self.function_dict["smu"]["smu_outputOFF"]()
                 self.function_dict["smu"]["smu_setOutput"](self.settings["channel"], 'v' if self.settings['inject']=='voltage' else 'i', self.settings["sourcevalue"])
                 if not self.settings["singlechannel"]:

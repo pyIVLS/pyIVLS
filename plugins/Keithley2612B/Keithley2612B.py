@@ -398,6 +398,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.measure.delay = {s['draindelayduration']}")
         
             # set limits and modes
+            ##IRtodo#### drain limits are not set, probably it should be done the same way as for the source
             if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (s["type"] == "v" and abs(s["limit"]) >= 1.5):
                         self.safewrite(f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF")
                         self.safewrite(f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF")

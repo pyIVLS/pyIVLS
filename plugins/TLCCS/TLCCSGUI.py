@@ -15,6 +15,12 @@ Because of (i) it requires to send log and message signals, i.e. it is a child o
 version 0.2
 2025.03.07
 ivarad
+
+version 0.3
+added spectrometerGetIntegrationTime
+added auto detection for integration time
+ivarad
+2025.06.11
 '''
 import TLCCS_const as const
 
@@ -35,7 +41,7 @@ from TLCCS import CCSDRV
 class TLCCS_GUI(QObject):
     """spectrometer plugin for pyIVLS"""
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_preview" , "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_preview" , "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
 ########Signals
 
@@ -43,7 +49,15 @@ class TLCCS_GUI(QObject):
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool) 
     
+    filedelimeter = "\t"
+    
     default_timerInterval = 20 # ms, it is close to 24*2 fps (twice the standard for movies and TV)
+#limits for auto time detection
+    autoTime_min = 4
+    autoTime_max = 10000
+    autoValue_min = 0.2
+    autoValue_max = 0.8
+    intTimeMaxIterations = 10
 
 ########Functions       
     def __init__(self):
@@ -68,15 +82,17 @@ class TLCCS_GUI(QObject):
 
         correction_file = r'SC175_correction'
         self.correction = np.loadtxt(self.path + correction_file)
-	
+    
     def _connect_signals(self):
         self.settingsWidget.connectButton.clicked.connect(self._connectAction)
         self.settingsWidget.disconnectButton.clicked.connect(self._disconnectAction)
         self.settingsWidget.setIntegrationTimeButton.clicked.connect(self._setIntTimeAction)
-        self.settingsWidget.previewButton.clicked.connect(self._previewAction)    
+        self.settingsWidget.previewButton.clicked.connect(self._previewAction)
         self.settingsWidget.saveButton.clicked.connect(self._saveAction)
         self.settingsWidget.correctionCheck.stateChanged.connect(self._correctionChanged)
         self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
+        self.settingsWidget.getIntegrationTime_combo.currentIndexChanged.connect(self._integrationTime_mode_changed)
+        self.settingsWidget.getTime_button.clicked.connect(self._getTimeAction)
 
     def _create_plt(self):
         self.sc = MplCanvas(self, width=5, height=4, dpi=100)
@@ -96,50 +112,45 @@ class TLCCS_GUI(QObject):
 ################################### internal
 
     def _update_spectrum(self):
-    	[status, info] = self.spectrometerGetSpectrum()
-    	if status:
-    		return [status, info]	
-    	self.scanRunning = False
-    	if self.settings["previewCorrection"]:
-    		preview_data = [m * n * 1000 for m, n in zip(info, self.correction[:, 1])]
-    	else:
-    		preview_data = info
-    	xmin, xmax = self.axes.get_xlim()
-    	ymin, ymax = self.axes.get_ylim()
-    	self.axes.cla()
-    	self.axes.set_xlabel('Wavelength (nm)')
-    	self.axes.set_ylabel('Intensity (calib. arb. un.)')
-    	self.axes.plot(self.correction[:,0], preview_data, 'b-')
-    	self.axes.set_xlim(xmin,xmax)
-    	self.axes.set_ylim(ymin,ymax)
-    	self.sc.draw()
-    	self.lastspectrum = [info, self.settings]
-    	return [0, [self.correction[:,0], info]]
+        [status, info] = self.spectrometerGetSpectrum()
+        if status:
+            return [status, info]    
+        self.scanRunning = False
+        if self.settings["previewCorrection"]:
+            preview_data = [m * n * 1000 for m, n in zip(info, self.correction[:, 1])]
+        else:
+            preview_data = info
+        xmin, xmax = self.axes.get_xlim()
+        ymin, ymax = self.axes.get_ylim()
+        self.axes.cla()
+        self.axes.set_xlabel('Wavelength (nm)')
+        self.axes.set_ylabel('Intensity (calib. arb. un.)')
+        self.axes.plot(self.correction[:,0], preview_data, 'b-')
+        self.axes.set_xlim(xmin,xmax)
+        self.axes.set_ylim(ymin,ymax)
+        self.sc.draw()
+        self.lastspectrum = [info, self.settings]
+        return [0, [self.correction[:,0], info]]
 
 ########Functions 
 ########GUI Slots
 
     def _connectAction(self):
-    	[status, info] = self.parse_settings_preview()
-    	if status:
+        [status, info] = self.spectrometerConnect()
+        if status:
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                 self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
-                return [status, info]	
-    	[status, info] = self.spectrometerConnect()
-    	if status:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-                self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
-                return [status, info]	
-    	self._GUIchange_deviceConnected(True)#see comment in _GUIchange_deviceConnected
+                return [status, info]    
+        self._GUIchange_deviceConnected(True)#see comment in _GUIchange_deviceConnected
 
     def _disconnectAction(self):
-    	if self.preview_running:
-                self.info_message.emit(f"Stop preview before disconnecting")    	
-    	else:
+        if self.preview_running:
+                self.info_message.emit(f"Stop preview before disconnecting")        
+        else:
                 [status, info] = self.spectrometerDisconnect()
                 if status: ##IRtodo## some error handling is necessary, as connected devices will not allow to switch off the GUI
-                	self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-                	self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
+                    self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+                    self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
                 self._GUIchange_deviceConnected(False)#see comment in _GUIchange_deviceConnected
                 
     def _previewAction(self):
@@ -147,7 +158,7 @@ class TLCCS_GUI(QObject):
         if self.preview_running:
             self.run_thread.thread_stop()
             if self.scanRunning:
-            	self.scanRunning = False
+                self.scanRunning = False
             self.preview_running = False
             self._enableSaveButton()
             self.closeLock.emit(not self.preview_running)
@@ -162,74 +173,148 @@ class TLCCS_GUI(QObject):
             self.closeLock.emit(not self.preview_running)
             self.settingsWidget.saveButton.setEnabled(False)
             self.run_thread = thread_with_exception(self._previewIteration)
-            self.run_thread.start()	
+            self.run_thread.start()    
 
     def _previewIteration(self):
-    	try:    	
-    		while True:
-    			if self.integrationTimeChanged:
-    				[status, info] = self.spectrometerSetIntegrationTime(self.settings["integrationTime"])
-    				self.integrationTimeChanged = False
-    				if self.settings["integrationTime"]*1000 < self.default_timerInterval:
-    					self.sleep_time = self.default_timerInterval/1000
-    				else:
-    					self.sleep_time = self.settings["integrationTime"]
-    				if status:
-    					self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-    					self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
-    					self.preview_running = False
-    					return [status, info]
-    			[status, info] = self.spectrometerStartScan()
-    			if status:
-    				self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-    				self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
-    				self.preview_running = False
-    				return [status, info]
-    			time.sleep(self.sleep_time)
-    			[status, info] = self._update_spectrum()
-    			if status:
-    				self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-    				if not status==1:                
-    					self.info_message.emit(f"TLCCS plugin : {info}")
-    				return [status, info]
-    	except ThreadStopped:  	
-    		## spectrometer status shuld be checked here, if not IDLE some action may be considered
-    		return [0, "preview stopped"]
+        try:        
+            while True:
+                if self.integrationTimeChanged:
+                    [status, info] = self.spectrometerSetIntegrationTime(self.settings["integrationTime"])
+                    self.integrationTimeChanged = False
+                    if self.settings["integrationTime"]*1000 < self.default_timerInterval:
+                        self.sleep_time = self.default_timerInterval/1000
+                    else:
+                        self.sleep_time = self.settings["integrationTime"]
+                    if status:
+                        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+                        self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
+                        self.preview_running = False
+                        return [status, info]
+                [status, info] = self.spectrometerStartScan()
+                if status:
+                    self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+                    self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
+                    self.preview_running = False
+                    return [status, info]
+                time.sleep(self.sleep_time)
+                [status, info] = self._update_spectrum()
+                if status:
+                    self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+                    if not status==1:                
+                        self.info_message.emit(f"TLCCS plugin : {info}")
+                    return [status, info]
+        except ThreadStopped:      
+            ## spectrometer status shuld be checked here, if not IDLE some action may be considered
+            return [0, "preview stopped"]
 
     def _setIntTimeAction(self):
-	    if self.preview_running: #this function is useful only in preview mode
-	    	[status, info] = self._parse_settings_integrationTime()
-	    	if status:
-	    		self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-	    		self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
-	    		return [status, info]
-	    	self.integrationTimeChanged = True
-	    	return [0, "OK"]
+        if self.preview_running: #this function is useful only in preview mode
+            [status, info] = self._parse_settings_integrationTime()
+            if status:
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+                self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
+                return [status, info]
+            self.integrationTimeChanged = True
+            return [0, "OK"]
 
     def _saveAction(self):
-    	filedelimeter = "\t"
-    	[status, info] = self._parseSaveData()
-    	if status:
-    		self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
-    		return [status, info]
-    	varDict ={}
-    	varDict['integrationtime'] = self.lastspectrum[1]['integrationTime']
-    	varDict['triggermode'] = 1 if self.lastspectrum[1]['externalTrigger'] else 0
-    	varDict['name'] = self.settings["samplename"]
-    	varDict['comment'] = self.settings["comment"]
-    	fileheader = self._spectrometerMakeHeader(varDict, separator = filedelimeter)
-    	np.savetxt(self.settings["address"] + os.sep + self.settings["filename"] + ".csv", list(zip(self.correction[:,0], self.lastspectrum[0])), fmt='%.9e', delimiter=filedelimeter, newline='\n', header=fileheader, footer='#[EndOfFile]', comments='#')
+        [status, info] = self._parseSaveData()
+        if status:
+            self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
+            return [status, info]
+        varDict ={}
+        varDict['integrationtime'] = self.lastspectrum[1]['integrationTime']
+        varDict['triggermode'] = 1 if self.lastspectrum[1]['externalTrigger'] else 0
+        varDict['name'] = self.settings["samplename"]
+        varDict['comment'] = self.settings["comment"]
+        self._createFile(varDict, self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + ".csv", data = self.lastspectrum[0])
+        return [0, "OK"]
+
+    def _getTimeAction(self):
+        [status, info] = self._parse_settings_autoTime()
+        if status:
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+            self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
+            return [status, info]
+        if self.preview_running:
+            preview_status = self.preview_running
+            self._previewAction()
+        self.settingsWidget.saveButton.setEnabled(False)
+        self.closeLock.emit(False)
+        #check if get time may be used (spectrometer IDLE)
+        autoTime = self.getAutoTime()
+        self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime*1000)}")
+        if preview_status:
+            self._previewAction()
+        else:
+            self.settingsWidget.saveButton.setEnabled(True)
+            self.closeLock.emit(True)
+        return [0, "OK"]
+
+    def getAutoTime(self):
+        low = self.autoValue_min/1000
+        high = self.autoValue_max/1000
+        if self.settings["integrationtimetype"] == 'auto':
+            if self.settings["useintegrationtimeguess"]
+                guessIntTime = self.settings["integrationTime"]
+            else:
+                guessIntTime = (self.autoTime_min + self.autoTime_max)/2
+            for _ in range(self.intTimeMaxIterations):
+                self.settings["integrationTime"] = guessIntTime #needed for keeping self.lastspectrum in order
+                [status, info] = self.spectrometerSetIntegrationTime(guessIntTime)
+                if status:
+                    return [status, info]
+                [status, info] = self.spectrometerStartScan()
+                if status:
+                    return [status, info]
+                time.sleep(guessIntTime)
+                [status, info] = self._update_spectrum()
+                if status:
+                    return [status, info]
+                ################ check that info is [wv, spectrum] !!!!!
+                if self.settings["saveautoattmepts"]
+                    varDict ={}
+                    varDict['integrationtime'] = guessIntTime
+                    varDict['triggermode'] = 1 if self.settings['externalTrigger'] else 0
+                    varDict['name'] = self.settings["samplename"]
+                    varDict['comment'] = self.settings["comment"] + " Auto adjust of integration time."
+                    self._createFile(varDict, self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + f"_{guessIntTime*1000}ms.csv", data = info[1])
+                if self.autoValue_min <= max(info[1]) <= self.autoValue_max:
+                    return [0, guessIntTime]
+                if max(info[1])< self.autoValue_min:
+                    if guessIntTime == self.autoValue_max:
+                        return [0, guessIntTime]
+                    low = guessIntTime
+                else:
+                    if guessIntTime == self.autoValue_min:
+                        return [0, guessIntTime]
+                    high = guessIntTime
+                guessIntTime = round((low+high)/2)
+                digits = len(str(int(guessIntTime))) ### getting number of digits for rounding
+                base = 10 ** (digits - 1)
+                guessIntTime =  round(guessIntTime / base) * base
+            return [0, guessIntTime]
+
+
+
 ########Functions
 ###############GUI setting up
-           	
+               
     def _initGUI(self, plugin_info:"dictionary with settings obtained from plugin_data in pyIVLS_*_plugin"):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
         self.settingsWidget.lineEdit_Integ.setText(plugin_info["integrationtime"])
         if plugin_info["externatrigger"]:
-        	self.settingsWidget.extTriggerCheck.setChecked(True)
+            self.settingsWidget.extTriggerCheck.setChecked(True)
         if plugin_info["usecorrection"]:
-        	self.settingsWidget.correctionCheck.setChecked(True)
+            self.settingsWidget.correctionCheck.setChecked(True)
+        currentIndex = self.settingsWidget.getIntegrationTime_combo.findText(plugin_info["integrationtimetype"], Qt.MatchFlag.MatchFixedString)
+        if currentIndex > -1:
+           self.settingsWidget.getIntegrationTime_combo.setCurrentIndex(currentIndex)
+        if plugin_info["useintegrationtimeguess"]:
+            self.settingsWidget.useIntegrationTimeGuess_check.setChecked(True)
+        if plugin_info["saveAttempts_check"]:
+            self.settingsWidget.saveAttempts_check.setChecked(True)
         self._GUIchange_deviceConnected(False)
         self.settingsWidget.saveButton.setEnabled(False)
         self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
@@ -255,18 +340,29 @@ class TLCCS_GUI(QObject):
                         self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
         self.settingsWidget.setIntegrationTimeButton.setEnabled(status)
         self.settingsWidget.previewBox.setEnabled(status)
+        if status:
+            self._integrationTime_mode_changed()
         self.settingsWidget.disconnectButton.setEnabled(status)
         self.settingsWidget.connectButton.setEnabled(not status)
 
     def _enableSaveButton(self):
-    	if not self.lastspectrum:
-        	self.settingsWidget.saveButton.setEnabled(False)
-    	else:
-        	self.settingsWidget.saveButton.setEnabled(True)
+        if not self.lastspectrum:
+            self.settingsWidget.saveButton.setEnabled(False)
+        else:
+            self.settingsWidget.saveButton.setEnabled(True)
 
     def _correctionChanged(self, int):
-    	if self.preview_running: #this function is useful only in preview mode
-    		self.settings["previewCorrection"] = self._parse_spectrumCorrection()
+        if self.preview_running: #this function is useful only in preview mode
+            self.settings["previewCorrection"] = self._parse_spectrumCorrection()
+            
+    def _integrationTime_mode_changed(self):
+        integrationTimeMode = self.settingsWidget.getIntegrationTime_combo.currentText()
+        if integrationTimeMode == 'manual':
+            autoIntegrationTime_box.setEnabled(False)
+            self.settingsWidget.getTime_button.setEnabled(False)
+        else:
+            autoIntegrationTime_box.setEnabled(True)
+            self.settingsWidget.getTime_button.setEnabled(True)
 ########Functions
 ########plugins interraction
         
@@ -298,21 +394,37 @@ class TLCCS_GUI(QObject):
 
     def _parse_settings_integrationTime(self) -> "status":
         try:
-	         self.settings["integrationTime"] = int(self.settingsWidget.lineEdit_Integ.text())
+             self.settings["integrationTime"] = int(self.settingsWidget.lineEdit_Integ.text())
         except ValueError:
-	         return [1, {"Error message":"Value error in TLCCS plugin: integration time field should be integer"}]
+             return [1, {"Error message":"Value error in TLCCS plugin: integration time field should be integer"}]
         if self.settings["integrationTime"]>const.CCS_SERIES_MAX_INT_TIME*1000:
-	         return [1, {"Error message":"Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"}]
+             return [1, {"Error message":"Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"}]
         if self.settings["integrationTime"]<1:
-	         return [1, {"Error message":"Value error in TLCCS plugin: integration time should can not be smaller than 1 ms"}]
+             return [1, {"Error message":"Value error in TLCCS plugin: integration time should can not be smaller than 1 ms"}]
         self.settings["integrationTime"] = self.settings["integrationTime"]/1000
         return [0, "OK"]
 
+    def _parse_settings_autoTime(self) -> "status":
+        self.settings["integrationtimetype"] =  self.settingsWidget.getIntegrationTime_combo.currentText()
+        self.settings["saveautoattmepts"] = self.settingsWidget.saveAttempts_check.isChecked()
+        self.settings["useintegrationtimeguess"] = self.settingsWidget.useIntegrationTimeGuess_check.isChecked()
+        
+        if self.settings["saveautoattmepts"]:
+            [status, info] = self._parseSaveData()
+            if status:
+                return [status, info]
+        if self.settings["useintegrationtimeguess"]:
+            [status, info] = _parse_settings_integrationTime()
+            if status:
+                return [status, info]
+        
+        return [0, "OK"]
+    
     def _parse_spectrumCorrection(self):
         if self.settingsWidget.correctionCheck.isChecked():
-	        return True
+            return True
         else:    
-	        return False
+            return False
 
     def _parseSaveData(self) -> "status":
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
@@ -337,132 +449,155 @@ class TLCCS_GUI(QObject):
             ~0 - error (add error code later on if needed)
         """   
         self.settings = {}
-        [status, info] = self._parse_settings_integrationTime()
+        [status, info] = self._parse_settings_autoTime(self)
         if status:
-        	return [status, info]	
+             return [status, info]
+        if not self.settings["useintegrationtimeguess"]:
+            [status, info] = self._parse_settings_integrationTime()
+            if status:
+                return [status, info]
+        if not self.settings["saveautoattmepts"]:
+            [status, info] = self._parseSaveData()
+            if status:
+                return [status, info]    
         if self.settingsWidget.extTriggerCheck.isChecked():
-	        self.settings["externalTrigger"] = True
+            self.settings["externalTrigger"] = True
         else:    
-	        self.settings["externalTrigger"] = False
+            self.settings["externalTrigger"] = False
         self.settings["previewCorrection"] = self._parse_spectrumCorrection()
-        [status, info] = self._parseSaveData()
-        if status:
-        	return [status, info]	
-
+        self.settings["autoTime_min"]= self.autoTime_min
+        self.settings["autoTime_max"] = self.autoTime_max
+        self.settings["autoValue_min"] = self.autoValue_min
+        self.settings["autoValue_max"] = self.autoValue_max
+        self.settings["intTimeMaxIterations"] = self.intTimeMaxIterations
         return [0, self.settings]
 
 ########Functions
 ########device functions
     def spectrometerConnect(self):
-    	try:    
-	    	status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationTime"])
-	    	if not status:
-	    		self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : can not connect to spectrometer")
-	    		self.info_message.emit(f"peltierController plugin : can not connect to spectrometer")
-	    		return [4, {"Error message":"Can not connect to spectrometer"}]
-	    	return [0, "OK"]
-    	except Exception as e:
-	    	return [4, {"Error message":f"{e}"}]
+        try:    
+            status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationTime"])
+            if not status:
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : can not connect to spectrometer")
+                self.info_message.emit(f"peltierController plugin : can not connect to spectrometer")
+                return [4, {"Error message":"Can not connect to spectrometer"}]
+            return [0, "OK"]
+        except Exception as e:
+            return [4, {"Error message":f"{e}"}]
 
     def spectrometerDisconnect(self):
-    	try:
-    		self.drv.close()
-    		return [0, "OK"]
-    	except:
+        try:
+            self.drv.close()
+            return [0, "OK"]
+        except:
                 return [4, {"Error message":"Can not disconnect the spectrometer"}]
 
     def spectrometerSetIntegrationTime(self, integrationTime):
-    	try:
-	    	self.drv.set_integration_time(integrationTime)
-	    	return[0, 'OK']
-    	except ThreadStopped: 
-    		pass
-    	except Exception as e:
-	    	return [4, {"Error message":f"{e}"}]
+        try:
+            self.drv.set_integration_time(integrationTime)
+            return[0, 'OK']
+        except ThreadStopped: 
+            pass
+        except Exception as e:
+            return [4, {"Error message":f"{e}"}]
+
+    def spectrometerGetIntegrationTime(self):
+        #return current integration time in seconds
+        try:
+            intTime = self.drv.get_integration_time()
+            return[0, intTime]
+        except ThreadStopped: 
+            pass
+        except Exception as e:
+            return [4, {"Error message":f"{e}"}]
 
     def spectrometerStartScan(self):
-    	try:
-	    	if self.scanRunning:
-		    	return [1, {"Error message":"Scan is already running"}]	    		
-	    	self.drv.start_scan()
-	    	self.scanRunning = True
-	    	return[0, 'OK']
-    	except ThreadStopped: 
-    		return[0, 'ThreadStopped']
-    	except:
-	    	return [4, {"Error message":"Can not start scan"}]
-	    	
+        try:
+            if self.scanRunning:
+                return [1, {"Error message":"Scan is already running"}]                
+            self.drv.start_scan()
+            self.scanRunning = True
+            return[0, 'OK']
+        except ThreadStopped: 
+            return[0, 'ThreadStopped']
+        except:
+            return [4, {"Error message":"Can not start scan"}]
+            
     def spectrometerGetSpectrum(self):
-    	try:
-	    	while self.scanRunning:	 
-	    		if not("SCAN_TRANSFER" in self.drv.get_device_status()):
-	    			time.sleep(self.settings["integrationTime"])
-	    		else:
-	    			break 
-	    	if not self.scanRunning:
-	    		return [1, {"Error message":"Scan stopped"}]
-	    	else:
-	    		return[0, self.drv.get_scan_data()]
-    	except ThreadStopped: 
-    		pass
-    	except:
-    		self.scanRunning = False
-    		return [4, {"Error message":"Can not get spectrum"}]
+        try:
+            while self.scanRunning:     
+                if not("SCAN_TRANSFER" in self.drv.get_device_status()):
+                    time.sleep(self.settings["integrationTime"])
+                else:
+                    break 
+            if not self.scanRunning:
+                return [1, {"Error message":"Scan stopped"}]
+            else:
+                return[0, self.drv.get_scan_data()]
+        except ThreadStopped: 
+            pass
+        except:
+            self.scanRunning = False
+            return [4, {"Error message":"Can not get spectrum"}]
 
 ########Functions
 ###############save data
 
+    def _createFile(varDict, filedelimeter, address, data):
+        fileheader = self._spectrometerMakeHeader(varDict, separator = filedelimeter)
+        np.savetxt(address, list(zip(self.correction[:,0], data)), fmt='%.9e', delimiter=filedelimeter, newline='\n', header=fileheader, footer='#[EndOfFile]', comments='#')
+
     def _spectrometerMakeHeader(self, varDict = {}, separator = ';'):
-    	###following the structure of files generated by Thorlabs software
-    	### a part of values are just const, they may be replaces with real values
-    	#
-    	#structure of the varDict
-    	#
-    	#varDict['average'] - int:averaging
-    	#varDict['integrationtime'] - float:integration time in seconds
-    	#varDict['triggermode'] - external trigger = 1 / internal = 0
-    	#varDict['name'] - str:sample name
-    	#varDict['comment'] - str:comment
-    	comment = "Thorlabs FTS operated by pyIVSL\n"
-    	comment = f"{comment}#[SpectrumHeader]\n"
-    	comment = f"{comment}Date{separator}{datetime.now().strftime('%Y%m%d')}\n"
-    	comment = f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
-    	comment = f"{comment}GMTTime{separator}{datetime.utcnow().strftime('%H%M%S%f')[:-4]}\n"
-    	comment = f"{comment}XAxisUnit{separator}nm_air\n"
-    	comment = f"{comment}YAxisUnit{separator}intensity\n"
-    	if "average" in varDict:
-    		comment = f"{comment}Average{separator}{varDict['average']}\n"
-    	else:
-    		comment = f"{comment}Average{separator}0\n"
-    	comment = f"{comment}RollingAverage{separator}0\n"
-    	comment = f"{comment}SpectrumSmooth{separator}0\n"
-    	comment = f"{comment}SSmoothParam1{separator}0\n"
-    	comment = f"{comment}SSmoothParam2{separator}0\n"
-    	comment = f"{comment}SSmoothParam3{separator}0\n"
-    	comment = f"{comment}SSmoothParam4{separator}0\n"
-    	comment = f"{comment}IntegrationTime{separator}{varDict['integrationtime']}\n"
-    	comment = f"{comment}TriggerMode{separator}{varDict['triggermode']}\n"
-    	comment = f"{comment}InterferometerSerial{separator}M00903839\n"
-    	comment = f"{comment}Source\n"
-    	comment = f"{comment}AirMeasureOpt{separator}0\n"
-    	comment = f"{comment}WnrMin{separator}0\n"
-    	comment = f"{comment}WnrMax{separator}0\n"
-    	comment = f"{comment}Length{separator}3648\n"
-    	comment = f"{comment}Resolution{separator}0\n"
-    	comment = f"{comment}ADC{separator}0\n"
-    	comment = f"{comment}Instrument{separator}0\n"
-    	comment = f"{comment}Model{separator}CCS175\n"
-    	comment = f"{comment}Type{separator}emission\n"
-    	comment = f"{comment}AirTemp{separator}0\n"
-    	comment = f"{comment}AirPressure{separator}0\n"
-    	comment = f"{comment}AirRelHum{separator}0\n"
-    	if "name" in varDict:
-    		comment = f"{comment}Name{separator}{varDict['name']}\n"
-    	else:
-    		comment = f"{comment}Name{separator}\n"
-    	if "comment" in varDict:
-    		comment = f"{comment}Comment{separator}\"{varDict['comment']}\"\n"
-    	else:
-    		comment = f"{comment}Comment{separator} \"\"\n"
-    	comment = f"{comment}#[Data]\n"
-    	return comment
+        ###following the structure of files generated by Thorlabs software
+        ### a part of values are just const, they may be replaces with real values
+        #
+        #structure of the varDict
+        #
+        #varDict['average'] - int:averaging
+        #varDict['integrationtime'] - float:integration time in seconds
+        #varDict['triggermode'] - external trigger = 1 / internal = 0
+        #varDict['name'] - str:sample name
+        #varDict['comment'] - str:comment
+        comment = "Thorlabs FTS operated by pyIVSL\n"
+        comment = f"{comment}#[SpectrumHeader]\n"
+        comment = f"{comment}Date{separator}{datetime.now().strftime('%Y%m%d')}\n"
+        comment = f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
+        comment = f"{comment}GMTTime{separator}{datetime.utcnow().strftime('%H%M%S%f')[:-4]}\n"
+        comment = f"{comment}XAxisUnit{separator}nm_air\n"
+        comment = f"{comment}YAxisUnit{separator}intensity\n"
+        if "average" in varDict:
+            comment = f"{comment}Average{separator}{varDict['average']}\n"
+        else:
+            comment = f"{comment}Average{separator}0\n"
+        comment = f"{comment}RollingAverage{separator}0\n"
+        comment = f"{comment}SpectrumSmooth{separator}0\n"
+        comment = f"{comment}SSmoothParam1{separator}0\n"
+        comment = f"{comment}SSmoothParam2{separator}0\n"
+        comment = f"{comment}SSmoothParam3{separator}0\n"
+        comment = f"{comment}SSmoothParam4{separator}0\n"
+        comment = f"{comment}IntegrationTime{separator}{varDict['integrationtime']}\n"
+        comment = f"{comment}TriggerMode{separator}{varDict['triggermode']}\n"
+        comment = f"{comment}InterferometerSerial{separator}M00903839\n"
+        comment = f"{comment}Source\n"
+        comment = f"{comment}AirMeasureOpt{separator}0\n"
+        comment = f"{comment}WnrMin{separator}0\n"
+        comment = f"{comment}WnrMax{separator}0\n"
+        comment = f"{comment}Length{separator}3648\n"
+        comment = f"{comment}Resolution{separator}0\n"
+        comment = f"{comment}ADC{separator}0\n"
+        comment = f"{comment}Instrument{separator}0\n"
+        comment = f"{comment}Model{separator}CCS175\n"
+        comment = f"{comment}Type{separator}emission\n"
+        comment = f"{comment}AirTemp{separator}0\n"
+        comment = f"{comment}AirPressure{separator}0\n"
+        comment = f"{comment}AirRelHum{separator}0\n"
+        if "name" in varDict:
+            comment = f"{comment}Name{separator}{varDict['name']}\n"
+        else:
+            comment = f"{comment}Name{separator}\n"
+        if "comment" in varDict:
+            comment = f"{comment}Comment{separator}\"{varDict['comment']}\"\n"
+        else:
+            comment = f"{comment}Comment{separator} \"\"\n"
+        comment = f"{comment}#[Data]\n"
+        return comment
