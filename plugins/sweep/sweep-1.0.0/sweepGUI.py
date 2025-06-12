@@ -511,15 +511,11 @@ class sweepGUI(QObject):
         self.settingsWidget.update()
 
     def _smu_plugin_changed(self):
-        print("SMU plugin changed WIP")
         """Handles the visibility of the SMU settings based on the selected SMU plugin."""
         smu_selection = self.settingsWidget.smuBox.currentText()
-        print(f"SMU plugin changed to {smu_selection}")
         self.settingsWidget.comboBox_channel.clear()
         if smu_selection in self.function_dict["smu"]:
-            print(f"SMU plugin {smu_selection} found in function_dict")
             available_channels = self.function_dict["smu"][smu_selection]["smu_channelNames"]()
-            print(f"Available channels: {available_channels}")
             # get channel names from the selected SMU plugin
             self.settingsWidget.comboBox_channel.addItems(available_channels)
     ########Functions

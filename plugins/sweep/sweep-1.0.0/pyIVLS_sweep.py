@@ -80,9 +80,9 @@ class pyIVLS_sweep_plugin:
             for function_dict_key in self.dependencies
             if function_dict_key in function_dict
         }
-        ret = self.sweep.function_dict = pruned
+        self.sweep.function_dict = pruned
 
-        return ret
+        return self.sweep.function_dict
 
     @hookimpl
     def get_log(self, args=None):
