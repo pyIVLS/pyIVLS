@@ -684,7 +684,8 @@ class sweepGUI(QObject):
 
         # continuous nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            self.settings["continuousnplc"] = (float(self.settingsWidget.lineEdit_continuousNPLC.text()))
+            line_freq = self.smu_settings.get("lineFrequency", 50)  # fallback to 50Hz if not present
+            self.settings["continuousnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_continuousNPLC.text())
         except ValueError:
             return [1,{"Error message": "Value error in sweep plugin: continuous nplc field should be numeric"}]
         if self.settings["continuousnplc"] <= 0:
@@ -692,7 +693,7 @@ class sweepGUI(QObject):
 
         # delay (in fact it is stabilization time before the measurement), should be >0
         try:
-            self.settings["continuousdelay"] = (float(self.settingsWidget.lineEdit_continuousDelay.text()))
+            self.settings["continuousdelay"] = float(self.settingsWidget.lineEdit_continuousDelay.text()) / 1000
         except ValueError:
             return [1,{"Error message": "Value error in sweep plugin: continuous delay field should be numeric"}]
         if self.settings["continuousdelay"] <= 0:
@@ -729,7 +730,8 @@ class sweepGUI(QObject):
 
         # pulsed nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            self.settings["pulsednplc"] = (float(self.settingsWidget.lineEdit_pulsedNPLC.text()))
+            line_freq = self.smu_settings.get("lineFrequency", 50)  # fallback to 50Hz if not present
+            self.settings["pulsednplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_pulsedNPLC.text())
         except ValueError:
             return [1,{"Error message": "Value error in sweep plugin: pulsed nplc field should be numeric"}]
         if self.settings["pulsednplc"] <= 0:
@@ -737,7 +739,7 @@ class sweepGUI(QObject):
 
         # delay (in fact it is stabilization time before the measurement) should be >0
         try:
-            self.settings["pulseddelay"] = (float(self.settingsWidget.lineEdit_pulsedDelay.text()))
+            self.settings["pulseddelay"] = float(self.settingsWidget.lineEdit_pulsedDelay.text()) / 1000
         except ValueError:
             return [1,{"Error message": "Value error in sweep plugin: pulsed delay field should be numeric"}]
         if self.settings["pulseddelay"] <= 0:
@@ -782,7 +784,8 @@ class sweepGUI(QObject):
 
         # drain nplc (in fact it is integration time for the measurement) should be float >0
         try:
-            self.settings["drainnplc"] = (float(self.settingsWidget.lineEdit_drainNPLC.text()))
+            line_freq = self.smu_settings.get("lineFrequency", 50)  # fallback to 50Hz if not present
+            self.settings["drainnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_drainNPLC.text())
         except ValueError:
             return [1,{"Error message": "Value error in sweep plugin: drain nplc field should be numeric"}]
         if self.settings["drainnplc"] <= 0:
@@ -790,7 +793,7 @@ class sweepGUI(QObject):
 
         # delay (in fact it is stabilization time before the measurement) should be >0
         try:
-            self.settings["draindelay"] = (float(self.settingsWidget.lineEdit_drainDelay.text()))
+            self.settings["draindelay"] = float(self.settingsWidget.lineEdit_drainDelay.text()) / 1000
         except ValueError:
             return [1,{"Error message": "Value error in sweep plugin: drain delay field should be numeric"}]
         if self.settings["draindelay"] <= 0:
@@ -834,6 +837,7 @@ class sweepGUI(QObject):
         self.settingsWidget.fileBox.setEnabled(not status)
         self.settingsWidget.stopButton.setEnabled(status)
         self.settingsWidget.runButton.setEnabled(not status)
+        self.settingsWidget.groupBox_dep.setEnabled(not status)
         self.closeLock.emit(status)
 
     ########sweep implementation

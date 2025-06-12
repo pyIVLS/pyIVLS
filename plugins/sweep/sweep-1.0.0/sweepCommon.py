@@ -246,10 +246,7 @@ def create_sweep_reciepe(settings, settings_smu):
                     "pulsedlimit"
                 ]  # limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
                 # compute nplc and delay values
-                s["sourcenplc"] = s["sourcenplc"] * 0.001 * line_freq
-                s["drainnplc"] = s["drainnplc"] * 0.001 * line_freq
-                s["delayduration"] = s["delayduration"] / 1000  # convert to seconds
-                s["draindelayduration"] = s["draindelayduration"] / 1000  # convert to seconds
+
                 recipe.append(s)
   
     return [
