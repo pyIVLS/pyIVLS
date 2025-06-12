@@ -113,6 +113,11 @@ class TLCCS_GUI(QObject):
 ################################### internal
 
     def _update_spectrum(self):
+        """Updates the spectrum in the preview window.
+
+        Returns:
+            _type_: _description_
+        """
         [status, info] = self.spectrometerGetSpectrum()
         if status:
             return [status, info]    
@@ -557,6 +562,11 @@ class TLCCS_GUI(QObject):
             return [4, {"Error message":"Can not start scan"}]
             
     def spectrometerGetSpectrum(self):
+        """Gets the spectrum from the spectrometer. It waits until the scan is finished.
+
+        Returns:
+            list[int, np.array|dict]: 
+        """
         try:
             while self.scanRunning:     
                 if not("SCAN_TRANSFER" in self.drv.get_device_status()):

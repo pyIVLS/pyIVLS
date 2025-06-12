@@ -373,8 +373,16 @@ class specSMU_GUI():
     def _SpecSMUImplementation(self):
         def set_integ_get_spectrum(integration_time):
             """Sets the integration time for the spectrometer and gets a spectrum."""
-            self.function_dict["spectrometer"]["spectrometerSetIntegrationTime"](integration_time)
-            return self.function_dict["spectrometer"]["spectrometerGetSpectrum"]()
+            status, message = self.function_dict["spectrometer"]["spectrometerSetIntegrationTime"](integration_time)
+            if status:
+                return [status, message]
+            status, message = self.function_dict["spectrometer"]["spectrometerStartScan"]()
+            if status:
+                return [status, message]
+            status, spectrum = self.function_dict["spectrometer"]["spectrometerGetSpectrum"]()
+            if status:
+                return [status, spectrum]
+            return [0, spectrum]
         self.parse_settings_widget() # FIXME: remove
         self.smuInit()
         smuLoop = self.settings["points"]
@@ -404,8 +412,10 @@ class specSMU_GUI():
                 status, spectrum = set_integ_get_spectrum(integration_time_setting)
                 if status:
                     raise NotImplementedError(f"Error in setting integration time or getting spectrum: {spectrum}")
-            if self.settings["spectorometer_settings"]["integrationtimetype"] == "auto":
-                integration_time = self.function_dict["spectrometer"]["spectrometerGetIntegrationTime"]()[1]
+                if self.settings["spectorometer_settings"]["integrationtimetype"] == "auto":
+                    status, integration_time = self.function_dict["spectrometer"]["spectrometerGetIntegrationTime"]()
+
+                
             self.function_dict["smu"]["smu_outputON"](self.settings["channel"])
             self.function_dict["smu"]["smu_setOutput"](self.settings["channel"], 'v' if self.settings['inject']=='voltage' else 'i', smuSetValue)
             status, sourceIV = self.function_dict["smu"]["smu_getIV"](self.settings["channel"])
