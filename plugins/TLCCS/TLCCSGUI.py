@@ -30,7 +30,7 @@ import numpy as np
 from datetime import datetime
 from pathvalidate import is_valid_filename
 from PyQt6 import uic
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
 from MplCanvas import MplCanvas
 from threadStopped import ThreadStopped, thread_with_exception 
@@ -41,7 +41,7 @@ from TLCCS import CCSDRV
 class TLCCS_GUI(QObject):
     """spectrometer plugin for pyIVLS"""
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_preview" , "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_preview" ,"parse_settings_widget", "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
 ########Signals
 
@@ -82,6 +82,7 @@ class TLCCS_GUI(QObject):
 
         correction_file = r'SC175_correction'
         self.correction = np.loadtxt(self.path + correction_file)
+        self.settings = {}
     
     def _connect_signals(self):
         self.settingsWidget.connectButton.clicked.connect(self._connectAction)
@@ -242,8 +243,9 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.saveButton.setEnabled(False)
         self.closeLock.emit(False)
         #check if get time may be used (spectrometer IDLE)
-        autoTime = self.getAutoTime()
-        self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime*1000)}")
+        status, autoTime = self.getAutoTime()
+        if not status:
+            self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime*1000)}")
         if preview_status:
             self._previewAction()
         else:
@@ -251,11 +253,11 @@ class TLCCS_GUI(QObject):
             self.closeLock.emit(True)
         return [0, "OK"]
 
-    def getAutoTime(self):
+    def getAutoTime(self) -> tuple[int, float|dict]:
         low = self.autoValue_min/1000
         high = self.autoValue_max/1000
         if self.settings["integrationtimetype"] == 'auto':
-            if self.settings["useintegrationtimeguess"]
+            if self.settings["useintegrationtimeguess"]:
                 guessIntTime = self.settings["integrationTime"]
             else:
                 guessIntTime = (self.autoTime_min + self.autoTime_max)/2
@@ -272,7 +274,7 @@ class TLCCS_GUI(QObject):
                 if status:
                     return [status, info]
                 ################ check that info is [wv, spectrum] !!!!!
-                if self.settings["saveautoattmepts"]
+                if self.settings["saveautoattmepts"]:
                     varDict ={}
                     varDict['integrationtime'] = guessIntTime
                     varDict['triggermode'] = 1 if self.settings['externalTrigger'] else 0
@@ -293,6 +295,7 @@ class TLCCS_GUI(QObject):
                 digits = len(str(int(guessIntTime))) ### getting number of digits for rounding
                 base = 10 ** (digits - 1)
                 guessIntTime =  round(guessIntTime / base) * base
+                print(f"guessIntTime = {guessIntTime}, low = {low}, high = {high}")
             return [0, guessIntTime]
 
 
@@ -303,6 +306,7 @@ class TLCCS_GUI(QObject):
     def _initGUI(self, plugin_info:"dictionary with settings obtained from plugin_data in pyIVLS_*_plugin"):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
+        print(plugin_info)
         self.settingsWidget.lineEdit_Integ.setText(plugin_info["integrationtime"])
         if plugin_info["externatrigger"]:
             self.settingsWidget.extTriggerCheck.setChecked(True)
@@ -313,7 +317,7 @@ class TLCCS_GUI(QObject):
            self.settingsWidget.getIntegrationTime_combo.setCurrentIndex(currentIndex)
         if plugin_info["useintegrationtimeguess"]:
             self.settingsWidget.useIntegrationTimeGuess_check.setChecked(True)
-        if plugin_info["saveAttempts_check"]:
+        if plugin_info["saveattempts_check"]:
             self.settingsWidget.saveAttempts_check.setChecked(True)
         self._GUIchange_deviceConnected(False)
         self.settingsWidget.saveButton.setEnabled(False)
@@ -358,10 +362,10 @@ class TLCCS_GUI(QObject):
     def _integrationTime_mode_changed(self):
         integrationTimeMode = self.settingsWidget.getIntegrationTime_combo.currentText()
         if integrationTimeMode == 'manual':
-            autoIntegrationTime_box.setEnabled(False)
+            self.settingsWidget.autoIntegrationTime_box.setEnabled(False)
             self.settingsWidget.getTime_button.setEnabled(False)
         else:
-            autoIntegrationTime_box.setEnabled(True)
+            self.settingsWidget.autoIntegrationTime_box.setEnabled(True)
             self.settingsWidget.getTime_button.setEnabled(True)
 ########Functions
 ########plugins interraction
@@ -414,7 +418,7 @@ class TLCCS_GUI(QObject):
             if status:
                 return [status, info]
         if self.settings["useintegrationtimeguess"]:
-            [status, info] = _parse_settings_integrationTime()
+            [status, info] = self._parse_settings_integrationTime()
             if status:
                 return [status, info]
         
@@ -470,6 +474,35 @@ class TLCCS_GUI(QObject):
         self.settings["autoValue_min"] = self.autoValue_min
         self.settings["autoValue_max"] = self.autoValue_max
         self.settings["intTimeMaxIterations"] = self.intTimeMaxIterations
+        return [0, self.settings]
+    
+
+    def parse_settings_widget(self) -> tuple[int, dict]:
+        """Parses the settings widget for the spectrometer. Extracts current values
+
+        Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+        """   
+        self.settings = {}
+        [status, info] = self._parse_settings_autoTime()
+        if status:
+             return [status, info]
+        if not self.settings["useintegrationtimeguess"]:
+            [status, info] = self._parse_settings_integrationTime()
+            if status:
+                return [status, info]
+        if not self.settings["saveautoattmepts"]:
+            [status, info] = self._parseSaveData()
+            if status:
+                return [status, info]    
+        if self.settingsWidget.extTriggerCheck.isChecked():
+            self.settings["externalTrigger"] = True
+        else:    
+            self.settings["externalTrigger"] = False
+        self.settings["previewCorrection"] = self._parse_spectrumCorrection()
+        print("settings in TLCCS plugin")
+        print(self.settings)
         return [0, self.settings]
 
 ########Functions

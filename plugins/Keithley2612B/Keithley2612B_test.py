@@ -63,7 +63,7 @@ from PyQt6.QtWidgets import (
 # At the moment all the pyvisa methods are commented
 
 #import pyvisa
-import usbtmc
+#import usbtmc
 import numpy as np
 import time
 
@@ -247,7 +247,7 @@ class Keithley2612B:
         """
         ##IRtothink#### some check may be added
         #self.safewrite(f"{source}.source.level{outputType} = {value}")
-        print(f"{source}.source.level{outputType} = {value}")
+        print(f"{channel}.source.level{outputType} = {value}")
 
     def get_last_buffer_value(self, channel):
         """

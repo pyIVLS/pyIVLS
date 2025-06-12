@@ -2,8 +2,8 @@ import sys
 import os
 import time
 from threading import Lock
-#from Keithley2612B_test import Keithley2612B
-from Keithley2612B import Keithley2612B
+from Keithley2612B_test import Keithley2612B
+#from Keithley2612B import Keithley2612B
 
 from PyQt6 import uic
 
