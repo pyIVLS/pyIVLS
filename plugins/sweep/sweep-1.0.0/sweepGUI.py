@@ -361,6 +361,55 @@ class sweepGUI(QObject):
         self.settingsWidget.lineEdit_sampleName.setText(self.settings["samplename"])
         self.settingsWidget.lineEdit_comment.setText(self.settings["comment"])
 
+    def get_current_gui_settings(self):
+        """Return the current settings from the GUI widgets as a dict, without validation or conversion."""
+        settings = {}
+        settings["smu"] = self.settingsWidget.smuBox.currentText()
+        settings["channel"] = self.settingsWidget.comboBox_channel.currentText().lower()
+        currentIndex = self.settingsWidget.comboBox_channel.currentIndex()
+        if self.settingsWidget.comboBox_channel.count() > 1:
+            if currentIndex == 0:
+                settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(1)
+            else:
+                settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(0)
+        else:
+            settings["drainchannel"] = "xxx"
+        settings["inject"] = self.settingsWidget.comboBox_inject.currentText().lower()
+        settings["mode"] = self.settingsWidget.comboBox_mode.currentText().lower()
+        settings["continuousdelaymode"] = self.settingsWidget.comboBox_continuousDelayMode.currentText().lower()
+        settings["pulseddelaymode"] = self.settingsWidget.comboBox_pulsedDelayMode.currentText().lower()
+        settings["draindelaymode"] = self.settingsWidget.comboBox_drainDelayMode.currentText().lower()
+        settings["sourcesensemode"] = self.settingsWidget.comboBox_sourceSenseMode.currentText().lower()
+        settings["drainsensemode"] = self.settingsWidget.comboBox_drainSenseMode.currentText().lower()
+        settings["singlechannel"] = self.settingsWidget.checkBox_singleChannel.isChecked()
+        settings["repeat"] = self.settingsWidget.lineEdit_repeat.text()
+        settings["continuousstart"] = self.settingsWidget.lineEdit_continuousStart.text()
+        settings["continuousend"] = self.settingsWidget.lineEdit_continuousEnd.text()
+        settings["continuouspoints"] = self.settingsWidget.lineEdit_continuousPoints.text()
+        settings["continuouslimit"] = self.settingsWidget.lineEdit_continuousLimit.text()
+        settings["continuousnplc"] = self.settingsWidget.lineEdit_continuousNPLC.text()
+        settings["continuousdelay"] = self.settingsWidget.lineEdit_continuousDelay.text()
+        settings["pulsedstart"] = self.settingsWidget.lineEdit_pulsedStart.text()
+        settings["pulsedend"] = self.settingsWidget.lineEdit_pulsedEnd.text()
+        settings["pulsedpoints"] = self.settingsWidget.lineEdit_pulsedPoints.text()
+        settings["pulsedlimit"] = self.settingsWidget.lineEdit_pulsedLimit.text()
+        settings["pulsednplc"] = self.settingsWidget.lineEdit_pulsedNPLC.text()
+        settings["pulsedpause"] = self.settingsWidget.lineEdit_pulsedPause.text()
+        settings["pulseddelay"] = self.settingsWidget.lineEdit_pulsedDelay.text()
+        settings["drainstart"] = self.settingsWidget.lineEdit_drainStart.text()
+        settings["drainend"] = self.settingsWidget.lineEdit_drainEnd.text()
+        settings["drainpoints"] = self.settingsWidget.lineEdit_drainPoints.text()
+        settings["drainlimit"] = self.settingsWidget.lineEdit_drainLimit.text()
+        settings["drainnplc"] = self.settingsWidget.lineEdit_drainNPLC.text()
+        settings["draindelay"] = self.settingsWidget.lineEdit_drainDelay.text()
+        settings["plotUpdate"] = self.settingsWidget.spinBox_plotUpdate.value()
+        settings["prescaler"] = self.settingsWidget.prescalerEdit.text()
+        settings["address"] = self.settingsWidget.lineEdit_path.text()
+        settings["filename"] = self.settingsWidget.lineEdit_filename.text()
+        settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
+        settings["comment"] = self.settingsWidget.lineEdit_comment.text()
+        return 0, settings
+
     def _getAddress(self):
         address = self.settingsWidget.lineEdit_path.text()
         if not (os.path.exists(address)):

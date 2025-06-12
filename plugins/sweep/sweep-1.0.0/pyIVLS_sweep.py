@@ -116,8 +116,7 @@ class pyIVLS_sweep_plugin:
 
     @hookimpl
     def get_plugin_settings(self, args=None):
-        """See pyIVLS_hookspec.py for details.
-        """
+        """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
         if args is None or args.get("function") == self.function:
-            status, settings = self.sweep.parse_settings_widget()
+            status, settings = self.sweep.get_current_gui_settings()
             return (self.name, status, settings)
