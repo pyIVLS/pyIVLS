@@ -476,6 +476,8 @@ class sweepGUI(QObject):
 
         self.settingsWidget.update()
 
+    def _smu_plugin_changed(self):
+        print("SMU plugin changed WIP")
     ########Functions
     ########plugins interraction
 
@@ -531,19 +533,13 @@ class sweepGUI(QObject):
             status: 0 - no error, ~0 - error
             self.settings
         """
+        smu_selection = self.settingsWidget.smuBox.currentText()
+        self.
         if not self.function_dict:
-            return [
-                3,
-                {
-                    "Error message": "Missing functions in sweep plugin. Check log",
-                    "Missing functions": self.missing_functions,
-                },
-            ]
+            return [3,{"Error message": "Missing functions in sweep plugin. Check log","Missing functions": self.missing_functions}]
         self.settings = {}
 
-        [status, self.smu_settings] = self.function_dict["smu"][
-            "parse_settings_widget"
-        ]()
+        [status, self.smu_settings] = self.function_dict["smu"]["parse_settings_widget"]()
         if status:
             return [2, self.smu_settings]
 
@@ -606,408 +602,169 @@ class sweepGUI(QObject):
         try:
             self.settings["repeat"] = int(self.settingsWidget.lineEdit_repeat.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: repeat field should be integer"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: repeat field should be integer"}]
         if self.settings["repeat"] < 1:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: repeat field can not be less than 1"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: repeat field can not be less than 1"}]
 
         # Determine settings for continuous mode
         # start should be float
         try:
-            self.settings["continuousstart"] = float(
-                self.settingsWidget.lineEdit_continuousStart.text()
-            )
+            self.settings["continuousstart"] = float(self.settingsWidget.lineEdit_continuousStart.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: continuous start field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: continuous start field should be numeric"}]
 
         # end should be float
         try:
-            self.settings["continuousend"] = float(
-                self.settingsWidget.lineEdit_continuousEnd.text()
-            )
+            self.settings["continuousend"] = float(self.settingsWidget.lineEdit_continuousEnd.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: continuous end field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: continuous end field should be numeric"}]
 
         # number of points should be int >0
         try:
-            self.settings["continuouspoints"] = int(
-                self.settingsWidget.lineEdit_continuousPoints.text()
-            )
+            self.settings["continuouspoints"] = int(self.settingsWidget.lineEdit_continuousPoints.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: continuous number of points field should be integer"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: continuous number of points field should be integer"}]
         if self.settings["continuouspoints"] < 1:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: continuous number of points field can not be less than 1"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: continuous number of points field can not be less than 1"}]
 
         # limit should be float >0
         try:
-            self.settings["continuouslimit"] = float(
-                self.settingsWidget.lineEdit_continuousLimit.text()
-            )
+            self.settings["continuouslimit"] = float(self.settingsWidget.lineEdit_continuousLimit.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: continuous limit field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: continuous limit field should be numeric"}]
         if self.settings["continuouslimit"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: continuous limit field should be positive"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: continuous limit field should be positive"}]
 
         # continuous nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            self.settings["continuousnplc"] = (
-                0.001
-                * self.smu_settings["lineFrequency"]
-                * float(self.settingsWidget.lineEdit_continuousNPLC.text())
-            )
+            self.settings["continuousnplc"] = (float(self.settingsWidget.lineEdit_continuousNPLC.text()))
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: continuous nplc field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: continuous nplc field should be numeric"}]
         if self.settings["continuousnplc"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: continuous nplc field should be positive"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: continuous nplc field should be positive"}]
 
-        # delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
+        # delay (in fact it is stabilization time before the measurement), should be >0
         try:
-            self.settings["continuousdelay"] = (
-                float(self.settingsWidget.lineEdit_continuousDelay.text()) / 1000
-            )
+            self.settings["continuousdelay"] = (float(self.settingsWidget.lineEdit_continuousDelay.text()))
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: continuous delay field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: continuous delay field should be numeric"}]
         if self.settings["continuousdelay"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: continuous delay field should be positive"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: continuous delay field should be positive"}]
 
         # Determine settings for pulsed mode
         # start should be float
         try:
-            self.settings["pulsedstart"] = float(
-                self.settingsWidget.lineEdit_pulsedStart.text()
-            )
+            self.settings["pulsedstart"] = float(self.settingsWidget.lineEdit_pulsedStart.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulsed start field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulsed start field should be numeric"}]
 
         # end should be float
         try:
-            self.settings["pulsedend"] = float(
-                self.settingsWidget.lineEdit_pulsedEnd.text()
-            )
+            self.settings["pulsedend"] = float(self.settingsWidget.lineEdit_pulsedEnd.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulsed end field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulsed end field should be numeric"}]
 
         # number of points should be int >0
         try:
-            self.settings["pulsedpoints"] = int(
-                self.settingsWidget.lineEdit_pulsedPoints.text()
-            )
+            self.settings["pulsedpoints"] = int(self.settingsWidget.lineEdit_pulsedPoints.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulsed number of points field should be integer"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulsed number of points field should be integer"}]
         if self.settings["pulsedpoints"] < 1:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulsed number of points field can not be less than 1"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulsed number of points field can not be less than 1"}]
 
         # limit should be float >0
         try:
-            self.settings["pulsedlimit"] = float(
-                self.settingsWidget.lineEdit_pulsedLimit.text()
-            )
+            self.settings["pulsedlimit"] = float(self.settingsWidget.lineEdit_pulsedLimit.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulsed limit field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulsed limit field should be numeric"}]
         if self.settings["pulsedlimit"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulsed limit field should be positive"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulsed limit field should be positive"}]
 
         # pulsed nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            self.settings["pulsednplc"] = (
-                0.001
-                * self.smu_settings["lineFrequency"]
-                * float(self.settingsWidget.lineEdit_pulsedNPLC.text())
-            )
+            self.settings["pulsednplc"] = (float(self.settingsWidget.lineEdit_pulsedNPLC.text()))
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulsed nplc field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulsed nplc field should be numeric"}]
         if self.settings["pulsednplc"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulsed nplc field should be positive"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulsed nplc field should be positive"}]
 
-        # delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
+        # delay (in fact it is stabilization time before the measurement) should be >0
         try:
-            self.settings["pulseddelay"] = (
-                float(self.settingsWidget.lineEdit_pulsedDelay.text()) / 1000
-            )
+            self.settings["pulseddelay"] = (float(self.settingsWidget.lineEdit_pulsedDelay.text()))
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulsed delay field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulsed delay field should be numeric"}]
         if self.settings["pulseddelay"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulsed delay field should be positive"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulsed delay field should be positive"}]
 
         # pause between pulses should be >0
         try:
-            self.settings["pulsepause"] = float(
-                self.settingsWidget.lineEdit_pulsedPause.text()
-            )
+            self.settings["pulsepause"] = float(self.settingsWidget.lineEdit_pulsedPause.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulse pause field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulse pause field should be numeric"}]
         if self.settings["pulsepause"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: pulse pause field should be positive"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: pulse pause field should be positive"}]
 
         # Determine settings for drain mode
         # start should be float
         try:
-            self.settings["drainstart"] = float(
-                self.settingsWidget.lineEdit_drainStart.text()
-            )
+            self.settings["drainstart"] = float(self.settingsWidget.lineEdit_drainStart.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: drain start field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: drain start field should be numeric"}]
 
         # end should be float
         try:
-            self.settings["drainend"] = float(
-                self.settingsWidget.lineEdit_drainEnd.text()
-            )
+            self.settings["drainend"] = float(self.settingsWidget.lineEdit_drainEnd.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: drain end field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: drain end field should be numeric"}]
 
         # number of points should be int >0
         try:
-            self.settings["drainpoints"] = int(
-                self.settingsWidget.lineEdit_drainPoints.text()
-            )
+            self.settings["drainpoints"] = int(self.settingsWidget.lineEdit_drainPoints.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: drain number of points field should be integer"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: drain number of points field should be integer"}]
         if self.settings["drainpoints"] < 1:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: drain number of points field can not be less than 1"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: drain number of points field can not be less than 1"}]
 
         # limit should be float >0
         try:
-            self.settings["drainlimit"] = float(
-                self.settingsWidget.lineEdit_drainLimit.text()
-            )
+            self.settings["drainlimit"] = float(self.settingsWidget.lineEdit_drainLimit.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: drain limit field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: drain limit field should be numeric"}]
         if self.settings["drainlimit"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: drain limit field should be positive"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: drain limit field should be positive"}]
 
-        # drain nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
+        # drain nplc (in fact it is integration time for the measurement) should be float >0
         try:
-            self.settings["drainnplc"] = (
-                0.001
-                * self.smu_settings["lineFrequency"]
-                * float(self.settingsWidget.lineEdit_drainNPLC.text())
-            )
+            self.settings["drainnplc"] = (float(self.settingsWidget.lineEdit_drainNPLC.text()))
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: drain nplc field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: drain nplc field should be numeric"}]
         if self.settings["drainnplc"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: drain nplc field should be positive"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: drain nplc field should be positive"}]
 
-        # delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
+        # delay (in fact it is stabilization time before the measurement) should be >0
         try:
-            self.settings["draindelay"] = (
-                float(self.settingsWidget.lineEdit_drainDelay.text()) / 1000
-            )
+            self.settings["draindelay"] = (float(self.settingsWidget.lineEdit_drainDelay.text()))
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: drain delay field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: drain delay field should be numeric"}]
         if self.settings["draindelay"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: drain delay field should be positive"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: drain delay field should be positive"}]
 
         self.settings["plotUpdate"] = self.settingsWidget.spinBox_plotUpdate.value()
         try:
             self.settings["prescaler"] = float(self.settingsWidget.prescalerEdit.text())
         except ValueError:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: SMU limit prescaler field should be numeric"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
         if self.settings["prescaler"] > 1:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: SMU limit prescaler can not be greater than 1"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: SMU limit prescaler can not be greater than 1"}]
         if self.settings["prescaler"] <= 0:
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: SMU limit prescaler should be greater than 0"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: SMU limit prescaler should be greater than 0"}]
 
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: address string should point to a valid directory"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: address string should point to a valid directory"}]
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
-            return [
-                1,
-                {
-                    "Error message": "Value error in sweep plugin: File name is not valid"
-                },
-            ]
+            return [1,{"Error message": "Value error in sweep plugin: File name is not valid"}]
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
@@ -1018,53 +775,6 @@ class sweepGUI(QObject):
         self.settings = settings
         self._setGUIfromSettings()
 
-    def _parse_settings_raw(self) -> tuple[int, dict]:
-        """Parses the settings without modifying the values. This is only useful for writing to the ini file.
-        The settings are checked for basic validity. NOTE: DONT USE THIS TO GET THE ACTUAL SETTINGS FOR SWEEPING.
-        Returns [status, settings_dict]:
-            status: 0 - no error, ~0 - error
-            settings_dict: dictionary of settings without any checks.
-        """
-        settings = {}
-        try:
-            settings["channel"] = self.settingsWidget.comboBox_channel.currentText().lower()
-            settings["inject"] = self.settingsWidget.comboBox_inject.currentText().lower()
-            settings["mode"] = self.settingsWidget.comboBox_mode.currentText().lower()
-            settings["continuousdelaymode"] = self.settingsWidget.comboBox_continuousDelayMode.currentText().lower()
-            settings["pulseddelaymode"] = self.settingsWidget.comboBox_pulsedDelayMode.currentText().lower()
-            settings["draindelaymode"] = self.settingsWidget.comboBox_drainDelayMode.currentText().lower()
-            settings["sourcesensemode"] = self.settingsWidget.comboBox_sourceSenseMode.currentText().lower()
-            settings["drainsensemode"] = self.settingsWidget.comboBox_drainSenseMode.currentText().lower()
-            settings["singlechannel"] = self.settingsWidget.checkBox_singleChannel.isChecked()
-            settings["repeat"] = self.settingsWidget.lineEdit_repeat.text()
-            settings["continuousstart"] = self.settingsWidget.lineEdit_continuousStart.text()
-            settings["continuousend"] = self.settingsWidget.lineEdit_continuousEnd.text()
-            settings["continuouspoints"] = self.settingsWidget.lineEdit_continuousPoints.text()
-            settings["continuouslimit"] = self.settingsWidget.lineEdit_continuousLimit.text()
-            settings["continuousnplc"] = self.settingsWidget.lineEdit_continuousNPLC.text()
-            settings["continuousdelay"] = self.settingsWidget.lineEdit_continuousDelay.text()
-            settings["pulsedstart"] = self.settingsWidget.lineEdit_pulsedStart.text()
-            settings["pulsedend"] = self.settingsWidget.lineEdit_pulsedEnd.text()
-            settings["pulsedpoints"] = self.settingsWidget.lineEdit_pulsedPoints.text()
-            settings["pulsedlimit"] = self.settingsWidget.lineEdit_pulsedLimit.text()
-            settings["pulsednplc"] = self.settingsWidget.lineEdit_pulsedNPLC.text()
-            settings["pulsedpause"] = self.settingsWidget.lineEdit_pulsedPause.text()
-            settings["pulseddelay"] = self.settingsWidget.lineEdit_pulsedDelay.text()
-            settings["drainstart"] = self.settingsWidget.lineEdit_drainStart.text()
-            settings["drainend"] = self.settingsWidget.lineEdit_drainEnd.text()
-            settings["drainpoints"] = self.settingsWidget.lineEdit_drainPoints.text()
-            settings["drainlimit"] = self.settingsWidget.lineEdit_drainLimit.text()
-            settings["drainnplc"] = self.settingsWidget.lineEdit_drainNPLC.text()
-            settings["draindelay"] = self.settingsWidget.lineEdit_drainDelay.text()
-            settings["plotUpdate"] = self.settingsWidget.spinBox_plotUpdate.value()
-            settings["prescaler"] = self.settingsWidget.prescalerEdit.text()
-            settings["address"] = self.settingsWidget.lineEdit_path.text()
-            settings["filename"] = self.settingsWidget.lineEdit_filename.text()
-            settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
-            settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-            return (0, settings)
-        except Exception as e:
-            return (1, {"Error message": f"Error parsing raw settings: {e}"})
 
     ###############GUI enable/disable
 
@@ -1121,13 +831,7 @@ class sweepGUI(QObject):
         )
         data = np.array([])
         for recipeStep, measurement in enumerate(recipe):
-            if self.function_dict[
-                "smu"
-            ][
-                "smu_init"
-            ](
-                measurement
-            ):  # reinitialization at every step is needed because limits for pused and continuous may be deffierent
+            if self.function_dict["smu"]["smu_init"](measurement):  # reinitialization at every step is needed because limits for pused and continuous may be deffierent
                 raise sweepException("sweep plugin : smu_init failed")
             # creating a new header
             if recipeStep % (sensesteps * modesteps) == 0:

@@ -1,7 +1,8 @@
 #!/usr/bin/python3.8
 import pluggy
 from sweepGUI import sweepGUI
-
+import os
+import configparser
 
 class pyIVLS_sweep_plugin:
     """Hooks for the tester plugin"""
@@ -9,10 +10,29 @@ class pyIVLS_sweep_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        ##IRtothink#### there should be some kind of configuration file for installing the plugins. This config file may be stored in the plugin folder, and the plugin data may be read from there
-        self.plugin_name = "sweep"
-        self.plugin_function = "ivsweep"
-        self.plugin_dependencies = ["smu", "camera"]
+        # iterate current directory to find the .ini file
+        path = os.path.dirname(__file__)
+        for file in os.listdir(path):
+            if file.endswith(".ini"):
+                path = os.path.join(path, file)
+                break
+        config = configparser.ConfigParser()
+        config.read(path)
+
+        self.name = config.get("plugin", "name")
+        self.type = config.get("plugin", "type",)
+        self.function = config.get("plugin", "function", fallback="")
+        self._class = config.get("plugin", "class", fallback="")
+        self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
+        self.version = config.get("plugin", "version", fallback="")
+        self.metadata = {
+            "name": self.name,
+            "type": self.type,
+            "function": self.function,
+            "version": self.version,
+            "dependencies": self.dependencies
+        }
+        
         self.sweep = sweepGUI()
 
     @hookimpl
@@ -23,8 +43,8 @@ class pyIVLS_sweep_plugin:
         This argument will allow the specific implementation of the hook to identify if any response is needed or not.
         :return: dict containing widget and setup structure
         """
-        self.sweep._initGUI(plugin_data[self.plugin_name]["settings"])
-        return {self.plugin_name: self.sweep.settingsWidget}
+        self.sweep._initGUI(plugin_data[self.name]["settings"])
+        return {self.name: self.sweep.settingsWidget}
 
     @hookimpl
     def get_MDI_interface(self, args=None) -> dict:
@@ -33,7 +53,7 @@ class pyIVLS_sweep_plugin:
         Returns:
             dict: name, widget
         """
-        return {self.plugin_name: self.sweep.MDIWidget}
+        return {self.name: self.sweep.MDIWidget}
 
     @hookimpl
     def get_functions(self, args=None):
@@ -45,8 +65,8 @@ class pyIVLS_sweep_plugin:
         Returns:
             dict: functions
         """
-        if args is None or args.get("function") == plugin_function:
-            return {self.plugin_name: self.sweep._get_public_methods()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.sweep._get_public_methods()}
 
     @hookimpl
     def set_function(self, function_dict):
@@ -57,7 +77,7 @@ class pyIVLS_sweep_plugin:
         """
         pruned = {
             function_dict_key: function_dict[function_dict_key]
-            for function_dict_key in self.plugin_dependencies
+            for function_dict_key in self.dependencies
             if function_dict_key in function_dict
         }
         ret = self.sweep._getPublicFunctions(pruned)
@@ -71,8 +91,8 @@ class pyIVLS_sweep_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.sweep._getLogSignal()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.sweep._getLogSignal()}
 
     @hookimpl
     def get_info(self, args=None):
@@ -81,8 +101,8 @@ class pyIVLS_sweep_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.sweep._getInfoSignal()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.sweep._getInfoSignal()}
 
     @hookimpl
     def get_closeLock(self, args=None):
@@ -91,13 +111,13 @@ class pyIVLS_sweep_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.sweep._getCloseLockSignal()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.sweep._getCloseLockSignal()}
 
     @hookimpl
     def get_plugin_settings(self, args=None):
         """See pyIVLS_hookspec.py for details.
         """
-        if args is None or args.get("function") == self.plugin_function:
-            status, settings = self.sweep._parse_settings_raw()
-            return (self.plugin_name, status, settings)
+        if args is None or args.get("function") == self.function:
+            status, settings = self.sweep.parse_settings_widget()
+            return (self.name, status, settings)

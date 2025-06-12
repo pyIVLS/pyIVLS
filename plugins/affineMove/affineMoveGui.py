@@ -42,7 +42,7 @@ class affineMoveGUI(QObject):
 
 
     non_public_methods = []  
-    public_methods = []  
+    public_methods = ["parse_settings_widget", "affine_move", "setSettings", "getIterations", "sequenceStep", "loopingIteration"]  
     default_timerInterval = 42 # ms
 
     ########Signals
@@ -193,7 +193,6 @@ class affineMoveGUI(QObject):
 
         self.update_status()
   
-        
     def _fetch_mask_functionality(self):
         _, _, pos = self._fetch_dep_plugins()
         if pos is None:
@@ -216,7 +215,6 @@ class affineMoveGUI(QObject):
         thread = cam.camera_thread
         thread.new_frame.connect(self.update_graphics_view)
         cam._previewAction()
-
 
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
         """
@@ -340,7 +338,20 @@ class affineMoveGUI(QObject):
     def _getInfoSignal(self):
         return self.info_message
 
-
+    def parse_settings_widget(self) -> tuple[int, dict]:
+        """
+        Parses the settings widget and returns the settings as a dictionary.
+        This function is called by the seq builder to get the settings for the plugin.
+        """
+        settings = {
+            "micromanipulator": self.micromanipulator_box.currentText(),
+            "camera": self.camera_box.currentText(),
+            "positioning": self.positioning_box.currentText(),
+        }
+        # if any of the settings are empty, return an error code
+        if not all(settings.values()):
+            return 1, {"Error message": "AffineMove : Some dependencies are not set."}
+        return 0, settings
 
 
     ########Functions to be used externally
@@ -393,3 +404,30 @@ class affineMoveGUI(QObject):
             self.iter += 1
 
         
+    # dummy:
+    def setSettings(self, settings):
+        """
+        Dummy function to set settings. Not used in this plugin.
+        """
+        print(f"set affineMove settings: {settings}")
+
+    def getIterations(self):
+        return 10
+    
+    def sequenceStep(self, namePostfix):
+        """
+        Dummy implementation for sequenceStep.
+        Simulates a successful step execution.
+        """
+        print(f"sequenceStep called with namePostfix: {namePostfix}")
+        return [0, "affineMove: sequenceStep executed"]
+
+    def loopingIteration(self, currentIteration):
+        """
+        Dummy implementation for loopingIteration.
+        Returns a postfix string for the current iteration.
+        """
+        print(f"loopingIteration called with currentIteration: {currentIteration}")
+        return [0, f"_iter{currentIteration}"]
+    
+    

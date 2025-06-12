@@ -132,13 +132,9 @@ class VenusUSB2GUI(QObject):
         I thinks this is easier than to just hardcode the names, now they just have to be in 
         the same directory and have the correct suffixes. This can be copied to other plugins.
         """
-        for _, _, files in os.walk(self.path):
-            for file in files:
-                if file.endswith(".ui"):
-                    if file.split("_")[1] == "settingsWidget.ui":
-                        self.settingsWidget = uic.loadUi(self.path + file)
-                    elif file.split("_")[1] == "previewWidget.ui":
-                        self.previewWidget = uic.loadUi(self.path + file)
+        self.settingsWidget = uic.loadUi(self.path + os.path.sep +"VenusUSB2_settingsWidget.ui")  
+        self.previewWidget = uic.loadUi(self.path + "VenusUSB2_previewWidget.ui")  
+
 
         self.settings = {"source": None, "exposure": None}
         self.q_img = None

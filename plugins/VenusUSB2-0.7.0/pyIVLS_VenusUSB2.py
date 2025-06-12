@@ -29,8 +29,6 @@ class pyIVLS_VenusUSB2_plugin:
                 path = os.path.join(path, file)
                 break
         config = configparser.ConfigParser()
-        # no need to close resource, since configparser handles it internally
-        # https://stackoverflow.com/questions/990867/closing-file-opened-by-configparser
         config.read(path)
 
         self.name = config.get("plugin", "name")
@@ -43,7 +41,7 @@ class pyIVLS_VenusUSB2_plugin:
             "name": self.name,
             "type": self.type,
             "function": self.function,
-            "version": "placeholder",
+            "version": self.version,
             "dependencies": self.dependencies
         }
         

@@ -50,7 +50,7 @@ class pyIVLS_affineMove_plugin:
             dict: functions
         """
         if args is None or args.get("function") == self.plugin_function:
-            return {self.name: {}}
+            return {self.name: self.pluginClass._get_public_methods()}
 
     @hookimpl
     def get_log(self, args=None):

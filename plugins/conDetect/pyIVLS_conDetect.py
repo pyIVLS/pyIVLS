@@ -100,5 +100,5 @@ class pyIVLS_conDetect_plugin:
     def get_plugin_settings(self, args=None):
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
         if args is None or args.get("function") == self.plugin_function:
-            status, settings = self.GUI._parse_settings_preview()
+            status, settings = self.GUI.parse_settings_widget()
             return (self.plugin_name, status, settings)

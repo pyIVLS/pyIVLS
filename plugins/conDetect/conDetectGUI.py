@@ -70,7 +70,7 @@ class conDetectGUI(QObject):
     ########Functions
     ################################### internal
 
-    def _parse_settings_preview(self) -> "status":
+    def parse_settings_widget(self) -> "status":
         """Parses the settings widget for the conDetect. Extracts current values
 
         Returns:
@@ -85,7 +85,7 @@ class conDetectGUI(QObject):
     ########GUI Slots
 
     def _connectAction(self):
-        self._parse_settings_preview()
+        self.parse_settings_widget()
         # try to open device
         [status, info] = self.deviceConnect()
         if status:

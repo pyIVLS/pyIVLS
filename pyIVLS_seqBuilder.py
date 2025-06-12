@@ -218,9 +218,7 @@ class pyIVLS_seqBuilder(QObject):
         while (not stack == []) or (not looping == []):
             if not looping == []:
                 if looping[-1]["currentStep"] == 0:
-                    [status, iterText] = self.available_instructions[nextStepFunction][
-                        "functions"
-                    ]["loopingIteration"](looping[-1]["currentIteration"])
+                    [status, iterText] = self.available_instructions[nextStepFunction]["functions"]["loopingIteration"](looping[-1]["currentIteration"])
                     if status:
                         print(f"Error: {iterText}")
                         break

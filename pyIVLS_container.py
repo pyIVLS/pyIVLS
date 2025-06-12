@@ -404,15 +404,19 @@ class pyIVLS_container(QObject):
 
         # Flatten functions with only one plugin back to function -> methods
         final_map = {}
+
+        # NOTE: API CHANGE. BROKEN PLUGINS ARE SWEEP, TIMEIV 
+        """
         for function, plugins in function_map.items():
             if len(plugins) == 1:
                 plugin_name = next(iter(plugins))
                 final_map[function] = plugins[plugin_name]
             else:
                 final_map[function] = plugins
-
-
-        self.pm.hook.set_function(function_dict=final_map)
+        print("Final function map: ", final_map)
+        """
+        
+        self.pm.hook.set_function(function_dict=function_map)
         self.seqComponents_signal.emit(self.get_plugin_dict(), plugin_public_functions)
         
         # pass plugin references around

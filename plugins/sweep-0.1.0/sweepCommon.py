@@ -164,7 +164,7 @@ def create_sweep_reciepe(settings, settings_smu):
     s["drainlimit"] = settings[
         "drainlimit"
     ]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
-
+    line_freq = settings_smu['lineFrequency']
     s["sourcehighc"] = settings_smu["sourcehighc"]
     s["drainhighc"] = settings_smu["drainhighc"]
     if settings["singlechannel"]:
@@ -245,8 +245,13 @@ def create_sweep_reciepe(settings, settings_smu):
                 s["limit"] = settings[
                     "pulsedlimit"
                 ]  # limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
+                # compute nplc and delay values
+                s["sourcenplc"] = s["sourcenplc"] * 0.001 * line_freq
+                s["drainnplc"] = s["drainnplc"] * 0.001 * line_freq
+                s["delayduration"] = s["delayduration"] / 1000  # convert to seconds
+                s["draindelayduration"] = s["draindelayduration"] / 1000  # convert to seconds
                 recipe.append(s)
-
+  
     return [
         recipe,
         loopdrain,

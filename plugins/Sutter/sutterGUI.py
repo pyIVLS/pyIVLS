@@ -152,8 +152,7 @@ class SutterGUI(QObject):
         self.speed_input.setCurrentIndex(speed)
 
         # read the default settings from the GUI
-        quickmove, speed, source = self.parse_settings_widget()
-        self.hal.update_internal_state(quickmove, speed, source)
+        self.parse_settings_widget()
 
         self._gui_change_device_connected(self.hal.is_connected())
 
@@ -161,19 +160,23 @@ class SutterGUI(QObject):
 
     # GUI interactions
 
-    def parse_settings_widget(self):
+    def parse_settings_widget(self) -> tuple[int, dict]:
         """Parses the settings widget and sets the values in the class."""
+        try:
+            quick_move = bool(self.quickmove_input.isChecked())
+            speed_text = self.speed_input.currentText()
+            speed = int(speed_text.split(":")[0])
+            source = self.source_input.text()
+            settings = {
+                "quickmove": quick_move,
+                "speed": speed,
+                "address": source
+            }
+            self.hal.update_internal_state(quick_move, speed, source)
 
-        quick_move = False
-        if self.quickmove_input.isChecked():
-            quick_move = True
-
-        speed_text = self.speed_input.currentText()
-        speed = int(speed_text.split(":")[0])
-
-        source = self.source_input.text()
-
-        return quick_move, speed, source
+            return [0, settings]
+        except Exception as e:
+            return [1, {"Error message": f"SutterGUI: {str(e)}"}]
 
     def _gui_change_device_connected(self, connected: bool):
         if connected:
@@ -295,21 +298,7 @@ class SutterGUI(QObject):
         """Returns the close lock signal."""
         return self.closeLock
     
-    def get_current_gui_values(self):
-        """Reads all relevant GUI fields and returns [status, settings_dict] (status 0 for success, nonzero for error)."""
-        try:
-            quick_move = bool(self.quickmove_input.isChecked())
-            speed_text = self.speed_input.currentText()
-            speed = int(speed_text.split(":")[0])
-            source = self.source_input.text()
-            settings = {
-                "quickmove": quick_move,
-                "speed": speed,
-                "address": source
-            }
-            return [0, settings]
-        except Exception as e:
-            return [1, {"Error message": f"SutterGUI: {str(e)}"}]
+
     ## function API
     def mm_open(self) -> tuple:
         """Open the device.
