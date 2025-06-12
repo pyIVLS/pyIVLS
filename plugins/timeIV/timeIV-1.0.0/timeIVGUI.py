@@ -1152,5 +1152,6 @@ class timeIVGUI(QObject):
         settings["drainlimit"] = self.settingsWidget.lineEdit_drainLimit.text()
         settings["drainnplc"] = self.settingsWidget.lineEdit_drainNPLC.text()
         settings["draindelay"] = self.settingsWidget.lineEdit_drainDelay.text()
+        settings["smu"] = self.settingsWidget.smuBox.currentText()
         # Add any additional fields as needed
         return 0, settings
