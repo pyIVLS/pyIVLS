@@ -235,13 +235,12 @@ class Keithley2612B:
         """
         ##IRtothink#### some check may be added to make sure that the value may be converted
         if readings is None:
-            readings = int(float(self.safequery(f"print({channel}.nvbuffer2.n)")))
-        i_value = float(
-            self.safequery(f"printbuffer({readings}, {readings}, {channel}.nvbuffer1)")
-        )
-        v_value = float(
-            self.safequery(f"printbuffer({readings}, {readings}, {channel}.nvbuffer2)")
-        )
+	        readings = int(float(self.safequery(f"print({channel}.nvbuffer2.n)")))
+        if readings == 0:
+             return [None, None, readings]
+        i_value = float(self.safequery(f"printbuffer({readings}, {readings}, {channel}.nvbuffer1)"))
+        v_value = float(self.safequery(f"printbuffer({readings}, {readings}, {channel}.nvbuffer2)"))
+
         return [i_value, v_value, readings]
 
     def read_buffers(self, channel) -> np.ndarray:
@@ -327,8 +326,113 @@ class Keithley2612B:
 
             self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
 
+	####set stabilization times for source
+	##IRtodo#### add delay factor to GUI
+        if s["delay"]:
+            self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
+            if not s["pulse"]:
+                self.safewrite(f"{s['source']}.measure.delayfactor = 28.0")
+            else:
+                self.safewrite(f"{s['source']}.measure.delayfactor = 1.0")
+        else:
+            self.safewrite(f"{s['source']}.measure.delay = {s['delayduration']}")
+        
+	# set limits and modes
+        if s["type"] == "i": # if current injection
+                    if abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5:
+                        # if the sweep maximum is under 1.5 A, set the limit from the GUI.
+                        # 10A limit is available only in pulse mode (see 2-83, p108 of manual)
+                        self.safewrite(f"{s['source']}.trigger.source.limitv = {s['limit']}")
+                        self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
+                        
+                        # Set filter for source
+                        ##IRtodo#### create filter section in GUI
+                        self.safewrite(f"{s['source']}.measure.filter.count = 4")
+                        self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
+                        self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.FILTER_REPEAT_AVG")
+                        
+                        # set autoranges on for source. see ranges on 2-83 (108) of the manual
+                        self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_ON")
+                        self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_ON")
+                    else:
+                        # If the sweep maximum is over 1.5 A, make sure pulses are as short as possible, i.e. no range adjust, no delays, no filtering:
+                        self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF")
+                        self.safewrite(f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['source']}.source.delay = 100e-6")
+                        self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
+                        self.safewrite(f"{s['source']}.source.rangei = 10")
+                        self.safewrite(f"{s['source']}.source.leveli = 0")
+                        self.safewrite(f"{s['source']}.source.limitv = 6")
+                        self.safewrite(f"{s['source']}.trigger.source.limiti = 10")
+                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")               
+        else:  # if voltage injection
+                    if abs(s["limit"]) < 1.5:
+                        # if the sweep maximum is under 1.5 A, set the limit from the GUI.
+                        # 10A limit is available only in pulse mode (see 2-83, p108 of manual)
+                        self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
+                        self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
+                    else:
+                        # If the current limit is over 1.5 A, make sure pulses are as short as possible, i.e. no range adjust, no delays, no filtering:
+                        self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF")
+                        self.safewrite(f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['source']}.measure.rangei = 10")
+                        self.safewrite(f"{s['source']}.source.delay = 100e-6")
+                        self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
+                        self.safewrite(f"{s['source']}.source.rangev = 6")
+                        self.safewrite(f"{s['source']}.source.levelv = 0")
+                        self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
+                        self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
+                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
+   
+        ####################setting up drain
+        if not s["single_ch"]:
+            self.safewrite(f"{s['drain']}.reset()")
+            
+            if s["drainsense"]:
+                self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_REMOTE")
+            else:
+                self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_LOCAL")
+            
+            self.safewrite(f"{s['drain']}.measure.nplc = {s['drainnplc']}")
+            
+            if s["drainhighc"]:
+	            self.safewrite(f"{s['drain']}.source.highc = {s['drain']}.ENABLE")
+        
+            self.safewrite(f"{s['drain']}.source.settling = {s['drain']}.SETTLE_FAST_RANGE")
+        
+            self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
+            ###set stabilization times for source
+            ##IRtodo#### add delay factor to GUI
+            if s["draindelay"]:
+                 self.safewrite(f"{s['drain']}.measure.delay = {s['drain']}.DELAY_AUTO")
+                 if not s["pulse"]:
+                     self.safewrite(f"{s['drain']}.measure.delayfactor = 28.0")
+                 else:
+                    self.safewrite(f"{s['drain']}.measure.delayfactor = 1.0")
+            else:
+                    self.safewrite(f"{s['drain']}.measure.delay = {s['draindelayduration']}")
+        
+            # set limits and modes
+            ##IRtodo#### drain limits are not set, probably it should be done the same way as for the source
+            if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (s["type"] == "v" and abs(s["limit"]) >= 1.5):
+                        self.safewrite(f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF")
+                        self.safewrite(f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
+                        self.safewrite(f"{s['drain']}.source.rangei = 10")
+            else:
+                        ##IRtodo#### create filter section in GUI
+                        self.safewrite(f"{s['drain']}.measure.filter.count = 4")
+                        self.safewrite(f"{s['drain']}.measure.filter.enable = {s['drain']}.FILTER_ON")
+                        self.safewrite(f"{s['drain']}.measure.filter.type = {s['drain']}.FILTER_REPEAT_AVG")
+                        # set autoranges on for drain. see ranges on 2-83 (108) of the manual
+                        self.safewrite(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_ON")
+                        self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_ON")     
             if s["sourcehighc"]:
                 self.safewrite(f"{s['source']}.source.highc = {s['source']}.ENABLE")
+
+      
 
             self.safewrite(
                 f"{s['source']}.source.settling = {s['source']}.SETTLE_FAST_RANGE"

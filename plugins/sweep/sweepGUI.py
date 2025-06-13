@@ -1,5 +1,9 @@
 import os
 import time
+import copy
+import numpy as np
+import pandas as pd
+from pathvalidate import is_valid_filename
 from datetime import datetime
 
 import numpy as np
@@ -287,24 +291,13 @@ class sweepGUI(QObject):
             f"{self.settings['pulsedstart']}"
         )
         self.settingsWidget.lineEdit_pulsedEnd.setText(f"{self.settings['pulsedend']}")
-        self.settingsWidget.lineEdit_pulsedPoints.setText(
-            f"{self.settings['pulsedpoints']}"
-        )
-        self.settingsWidget.lineEdit_pulsedLimit.setText(
-            f"{self.settings['pulsedlimit']}"
-        )
-        self.settingsWidget.lineEdit_pulsedNPLC.setText(
-            f"{self.settings['pulsednplc']}"
-        )
-        self.settingsWidget.lineEdit_pulsedPause.setText(
-            f"{self.settings['pulsedpause']}"
-        )
-        self.settingsWidget.lineEdit_pulsedDelay.setText(
-            f"{self.settings['pulseddelay']}"
-        )
-        self.settingsWidget.lineEdit_drainStart.setText(
-            f"{self.settings['drainstart']}"
-        )
+        self.settingsWidget.lineEdit_pulsedPoints.setText(f"{self.settings['pulsedpoints']}")
+        self.settingsWidget.lineEdit_pulsedLimit.setText(f"{self.settings['pulsedlimit']}")
+        self.settingsWidget.lineEdit_pulsedNPLC.setText(f"{self.settings['pulsednplc']}")
+        self.settingsWidget.lineEdit_pulsedPause.setText(f"{self.settings['pulsepause']}")
+        self.settingsWidget.lineEdit_pulsedDelay.setText(f"{self.settings['pulseddelay']}")
+        self.settingsWidget.lineEdit_drainStart.setText(f"{self.settings['drainstart']}")
+
         self.settingsWidget.lineEdit_drainEnd.setText(f"{self.settings['drainend']}")
         self.settingsWidget.lineEdit_drainPoints.setText(
             f"{self.settings['drainpoints']}"
@@ -1015,8 +1008,14 @@ class sweepGUI(QObject):
         return [0, self.settings]
 
     def setSettings(self, settings):
-        self.settings = settings
-        self._setGUIfromSettings()
+#the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
+        self.settings = []
+        self.settings = copy.deepcopy(settings)
+        self.smu_settings = settings["smu_settings"]
+#this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
+#        self._setGUIfromSettings()
+###############GUI enable/disable
+
 
     def _parse_settings_raw(self) -> tuple[int, dict]:
         """Parses the settings without modifying the values. This is only useful for writing to the ini file.
@@ -1068,6 +1067,7 @@ class sweepGUI(QObject):
 
     ###############GUI enable/disable
 
+
     def set_running(self, status):
         self.settingsWidget.groupBox_general.setEnabled(not status)
         self.settingsWidget.groupBox_sweep.setEnabled(not status)
@@ -1116,168 +1116,116 @@ class sweepGUI(QObject):
         return [0, "OK"]
 
     def _sweepImplementation(self):
-        [recipe, drainsteps, sensesteps, modesteps] = create_sweep_reciepe(
-            self.settings, self.smu_settings
-        )
-        data = np.array([])
-        for recipeStep, measurement in enumerate(recipe):
-            if self.function_dict[
-                "smu"
-            ][
-                "smu_init"
-            ](
-                measurement
-            ):  # reinitialization at every step is needed because limits for pused and continuous may be deffierent
-                raise sweepException("sweep plugin : smu_init failed")
-            # creating a new header
-            if recipeStep % (sensesteps * modesteps) == 0:
-                columnheader = ""
-                if not measurement["single_ch"]:
-                    fileheader = create_file_header(
-                        self.settings,
-                        self.smu_settings,
-                        backVoltage=measurement["drainvoltage"],
-                    )
-                else:
-                    fileheader = create_file_header(self.settings, self.smu_settings)
-            if measurement["sourcesense"]:
-                columnheader = f"{columnheader}IS_4pr, VS_4pr,"
-            else:
-                columnheader = f"{columnheader}IS_2pr, VS_2pr,"
-            if not measurement["single_ch"]:
-                if measurement["drainsense"]:
-                    columnheader = f"{columnheader}ID_4pr, VD_4pr,"
-                else:
-                    columnheader = f"{columnheader}ID_2pr, VD_2pr,"
-            # running sweep
-            if self.function_dict["smu"]["smu_runSweep"](measurement):
-                raise sweepException("sweep plugin : smu_runSweep failed")
+    		[recipe, drainsteps, sensesteps, modesteps] = create_sweep_reciepe(self.settings, self.smu_settings)
+    		data = np.array([])                
+    		for recipeStep,measurement in enumerate(recipe):
+    			if  self.function_dict["smu"]["smu_init"](measurement): #reinitialization at every step is needed because limits for pused and continuous may be deffierent
+    				raise sweepException(f"sweep plugin : smu_init failed")
+    			#creating a new header
+    			if recipeStep % (sensesteps*modesteps) == 0:
+    				columnheader = ''
+    				if not measurement["single_ch"]:
+    					fileheader = create_file_header(self.settings, self.smu_settings, backVoltage = measurement["drainvoltage"])
+    				else:	
+    					fileheader = create_file_header(self.settings, self.smu_settings)
+	    		if measurement["pulse"]:
+	    		    headerpostfix = "_pulsed"
+	    		else:
+	    		    headerpostfix = ""
+	    		if measurement["sourcesense"]:
+	    			columnheader = f"{columnheader} IS_4pr{headerpostfix}, VS_4pr{headerpostfix},"
+	    		else:	
+	    			columnheader = f"{columnheader} IS_2pr{headerpostfix}, VS_2pr{headerpostfix},"
+	    		if not measurement["single_ch"]:
+	    			if measurement["drainsense"]:
+		    			columnheader = f"{columnheader} ID_4pr{headerpostfix}, VD_4pr{headerpostfix},"
+		    		else:	
+		    			columnheader = f"{columnheader} ID_2pr{headerpostfix}, VD_2pr{headerpostfix},"
+	    		#running sweep
+	    		if  self.function_dict["smu"]["smu_runSweep"](measurement):
+		                raise sweepException(f"sweep plugin : smu_runSweep failed")
+		                
+	    		#plotting while measuring
+	    		self.axes.cla()
+	    		self.axes.set_xlabel('Voltage (V)')
+	    		self.axes.set_ylabel('Current (A)')
+	    		self.sc.draw()
+	    		buffer_prev = 0
+	    		while True:
+      		    		time.sleep(self.settings["plotUpdate"])
+      		    		[lastI, lastV, lastPoints] = self.function_dict["smu"]["smu_getLastBufferValue"](measurement["source"])
+      		    		if lastPoints >= measurement["steps"]*measurement["repeat"]:
+      		    			break
+      		    		if lastPoints >	buffer_prev:
+      		    			if buffer_prev == 0:
+      		    				Xdata_source = [lastV]
+      		    				Ydata_source = [lastI]
+      		    				plot_refs = self.axes.plot(Xdata_source, Ydata_source, 'bo')
+      		    				_plot_ref_source = plot_refs[0]
+      		    				if not measurement["single_ch"]:
+      		    					[lastI_drain, lastV_drain, lastPoints_drain] = self.function_dict["smu"]["smu_getLastBufferValue"](measurement["source"], lastPoints)
+      		    					Xdata_drain = [lastV]
+      		    					Ydata_drain = [lastI]
+      		    					plot_refs = self.axes.plot(Xdata_drain, Ydata_drain, 'go')
+      		    					_plot_ref_drain = plot_refs[0]
+      		    			else:
+      		    				Xdata_source.append(lastV)
+      		    				Ydata_source.append(lastI)
+      		    				_plot_ref_source.set_xdata(Xdata_source)
+      		    				_plot_ref_source.set_ydata(Ydata_source)
+      		    				if not measurement["single_ch"]:
+      		    					[lastI_drain, lastV_drain, lastPoints_drain] = self.function_dict["smu"]["smu_getLastBufferValue"](measurement["drain"], lastPoints)
+      		    					Xdata_drain.append(lastV_drain)
+      		    					Ydata_drain.append(lastI_drain)
+      		    					_plot_ref_drain.set_xdata(Xdata_source)
+      		    					_plot_ref_drain.set_ydata(Ydata_drain)
+      		    			self.axes.relim()
+      		    			self.axes.autoscale_view()
+      		    			self.sc.draw()
+      		    			if (measurement["type"] == 'i' and (abs(lastV)> self.settings["prescaler"]*abs(measurement["limit"])) ) or (measurement["type"] == 'v' and (abs(lastI)> self.settings["prescaler"]*abs(measurement["limit"])) ):
+      		    				self.function_dict["smu"]["smu_abort"](measurement["source"])
+      		    				break
+      		    			buffer_prev = lastPoints
+	    		#### Keithley may produce a 5042 error, so make a delay here
+	    		time.sleep(self.settings["plotUpdate"])
+	    		self.function_dict["smu"]["smu_outputOFF"]()
+	    		IV_source = self.function_dict["smu"]["smu_bufferRead"](measurement["source"])
+	    		self.axes.cla()
+	    		self.axes.set_xlabel('Voltage (V)')
+	    		self.axes.set_ylabel('Current (A)')
+	    		plot_refs = self.axes.plot(IV_source[:,1], IV_source[:,0], 'bo')
+	    		if not measurement["single_ch"]:
+	    			IV_drain = self.function_dict["smu"]["smu_bufferRead"](measurement["drain"])
+	    			plot_refs = self.axes.plot(IV_source[:,1], IV_drain[:,0], 'go')
+	    		self.sc.draw()
+	    		IVresize = 0	
+	    		if data.size == 0:
+	    			data = IV_source
+	    		else:
+	    			dataLength = np.size(data,0)
+	    			IVLength = np.size(IV_source,0)
+	    			if dataLength < IVLength:
+	    				data = np.vstack([data, np.full((IVLength - dataLength, np.size(data,1)), "")])
+	    			else:	
+	    				IVresize = dataLength - IVLength
+	    				IV_source = np.vstack([IV_source, np.full((IVresize, 2), "")])
+	    			data = np.hstack([data, IV_source])	
+	    		if not measurement["single_ch"]:
+	    			if IVresize:
+	    				IV_drain = np.vstack([IV_drain, np.full((IVresize, 2), "")])
+	    			data = np.hstack([data, IV_drain])	
+	    		if drainsteps > 1:
+	    			fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + f"{drainvoltage}V"+".dat"
+	    		else:
+	    			fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
+	    		with open(fulladdress, 'w') as f:
+	    		    f.write(fileheader + f"{columnheader[1:-1]}" +'\n')
+	    		    pd.DataFrame(data).to_csv(f, index=False, header=False, float_format='%.12e', sep=',')
+#                np.savetxt(fulladdress, data, fmt='%.12e', delimiter=',', newline='\n', header=fileheader + columnheader, comments='#')
+    		return [0, "sweep finished"]
 
-            # plotting while measuring
-            self.axes.cla()
-            self.axes.set_xlabel("Voltage (V)")
-            self.axes.set_ylabel("Current (A)")
-            self.sc.draw()
-            buffer_prev = 0
-            while True:
-                time.sleep(self.settings["plotUpdate"])
-                [lastI, lastV, lastPoints] = self.function_dict["smu"][
-                    "smu_getLastBufferValue"
-                ](measurement["source"])
-                if lastPoints >= measurement["steps"] * measurement["repeat"]:
-                    break
-                if lastPoints > buffer_prev:
-                    if buffer_prev == 0:
-                        Xdata_source = [lastV]
-                        Ydata_source = [lastI]
-                        plot_refs = self.axes.plot(Xdata_source, Ydata_source, "bo")
-                        _plot_ref_source = plot_refs[0]
-                        if not measurement["single_ch"]:
-                            [lastI_drain, lastV_drain, lastPoints_drain] = (
-                                self.function_dict["smu"]["smu_getLastBufferValue"](
-                                    measurement["source"], lastPoints
-                                )
-                            )
-                            Xdata_drain = [lastV]
-                            Ydata_drain = [lastI]
-                            plot_refs = self.axes.plot(Xdata_drain, Ydata_drain, "go")
-                            _plot_ref_drain = plot_refs[0]
-                    else:
-                        Xdata_source.append(lastV)
-                        Ydata_source.append(lastI)
-                        _plot_ref_source.set_xdata(Xdata_source)
-                        _plot_ref_source.set_ydata(Ydata_source)
-                        if not measurement["single_ch"]:
-                            [lastI_drain, lastV_drain, lastPoints_drain] = (
-                                self.function_dict["smu"]["smu_getLastBufferValue"](
-                                    measurement["drain"], lastPoints
-                                )
-                            )
-                            Xdata_drain.append(lastV_drain)
-                            Ydata_drain.append(lastI_drain)
-                            _plot_ref_drain.set_xdata(Xdata_source)
-                            _plot_ref_drain.set_ydata(Ydata_drain)
-                    self.axes.relim()
-                    self.axes.autoscale_view()
-                    self.sc.draw()
-                    if (
-                        measurement["type"] == "i"
-                        and (
-                            abs(lastV)
-                            > self.settings["prescaler"] * abs(measurement["limit"])
-                        )
-                    ) or (
-                        measurement["type"] == "i"
-                        and (
-                            abs(lastV)
-                            > self.settings["prescaler"] * abs(measurement["limit"])
-                        )
-                    ):
-                        self.function_dict["smu"]["smu_abort"](measurement["source"])
-                        break
-                    buffer_prev = lastPoints
-            #### Keithley may produce a 5042 error, so make a delay here
-            time.sleep(self.settings["plotUpdate"])
-            self.function_dict["smu"]["smu_outputOFF"]()
-            IV_source = self.function_dict["smu"]["smu_bufferRead"](
-                measurement["source"]
-            )
-            self.axes.cla()
-            self.axes.set_xlabel("Voltage (V)")
-            self.axes.set_ylabel("Current (A)")
-            plot_refs = self.axes.plot(IV_source[:, 1], IV_source[:, 0], "bo")
-            if not measurement["single_ch"]:
-                IV_drain = self.function_dict["smu"]["smu_bufferRead"](
-                    measurement["drain"]
-                )
-                plot_refs = self.axes.plot(IV_source[:, 1], IV_drain[:, 0], "go")
-            self.sc.draw()
-            IVresize = 0
-            if data.size == 0:
-                data = IV_source
-            else:
-                dataLength = np.size(data, 0)
-                IVLength = np.size(IV_source, 0)
-                if dataLength < IVLength:
-                    data = np.vstack(
-                        [data, np.full((IVLength - dataLength, np.size(data, 1)), "")]
-                    )
-                else:
-                    IVresize = dataLength - IVLength
-                    IV_source = np.vstack([IV_source, np.full((IVresize, 2), "")])
-                data = np.hstack([data, IV_source])
-            if not measurement["single_ch"]:
-                if IVresize:
-                    IV_drain = np.vstack([IV_drain, np.full((IVresize, 2), "")])
-                data = np.hstack([data, IV_drain])
-            columnheader = f"{columnheader[:-1]}"
-            if drainsteps > 1:
-                fulladdress = (
-                    self.settings["address"]
-                    + os.sep
-                    + self.settings["filename"]
-                    + f"{drainvoltage}V"
-                    + ".dat"
-                )
-            else:
-                fulladdress = (
-                    self.settings["address"]
-                    + os.sep
-                    + self.settings["filename"]
-                    + ".dat"
-                )
-            np.savetxt(
-                fulladdress,
-                data,
-                fmt="%.8f",
-                delimiter=",",
-                newline="\n",
-                header=fileheader + columnheader,
-                comments="#",
-            )
-        return [0, "sweep finished"]
 
-    def _sequenceStep(self, postfix):
+    def sequenceStep(self, postfix):
         self.settings["filename"] = self.settings["filename"] + postfix
         [status, message] = self.function_dict["smu"]["smu_connect"]()
         if status:

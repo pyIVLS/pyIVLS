@@ -958,22 +958,16 @@ class timeIVGUI(QObject):
                     self.settings["drainchannel"]
                 )
                 if status:
-                    raise timeIVexception(drainIV["Error message"])
-            currentTime = time.time()
-            toc = currentTime - startTic
-            if not timeData:
-                self.axes.cla()
-                self.axes_twinx.cla()
-                timeData.append(toc)
-                sourceV = [sourceIV[dataOrder.V.value]]
-                plot_refs = self.axes.plot(timeData, sourceV, "bo")
-                self.axes.set_xlabel("time (s)")
-                self.axes.set_ylabel("Voltage (V)")
-                self._plot_sourceV = plot_refs[0]
-                self.axes_twinx.set_ylabel("Current (A)")
-                sourceI = [sourceIV[dataOrder.I.value]]
-                plot_refs = self.axes_twinx.plot(timeData, sourceI, "b*")
-                self._plot_sourceI = plot_refs[0]
+                    raise timeIVexception(f"{message['Error message']}")
+                    
+                self.function_dict["smu"]["smu_outputOFF"]()
+                self.function_dict["smu"]["smu_setOutput"](self.settings["channel"], 'v' if self.settings['inject']=='voltage' else 'i', self.settings["sourcevalue"])
+                if not self.settings["singlechannel"]:
+                        self.function_dict["smu"]["smu_setOutput"](self.settings["drainchannel"], 'v' if self.settings['draininject']=='voltage' else 'i', self.settings["drainvalue"])
+                timeData = []
+                startTic = time.time()
+                saveTic = startTic
+
                 if not self.settings["singlechannel"]:
                     drainV = [drainIV[dataOrder.V.value]]
                     plot_refs = self.axes.plot(timeData, drainV, "go")

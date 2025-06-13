@@ -235,7 +235,8 @@ class Keithley2612BGUI:
         Returns:
             list [i, v, number of point in the buffer]
         """
-        return self.smu.get_last_buffer_value(channel)
+        return  self.smu.get_last_buffer_value(channel, readings)
+        
 
     def smu_bufferRead(self, channel):
         """an interface for an externall calling function to get the content of a channel buffer from Keithley

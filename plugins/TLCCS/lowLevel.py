@@ -94,7 +94,7 @@ class LLIO:
         """Reads the bulk_in_pipe until timeout and throws out the result."""
         try:
             full_flush_size = const.CCS_SERIES_NUM_RAW_PIXELS * 2
-            self.dev.read(self.bulk_in_pipe, full_flush_size, timeout=self.timeout)
+            self.dev.read(self.bulk_in_pipe, full_flush_size, timeout=2000)
             return True
         except Exception:
             return True
