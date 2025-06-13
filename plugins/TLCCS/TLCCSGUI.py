@@ -22,10 +22,8 @@ added auto detection for integration time
 ivarad
 2025.06.11
 
-version 0.4beta
-added spectrometerGetScan as atomic method to get spectrum
-Deprecated spectrometerGetSpectrum?
-Deprecated spectrometerStartScan?
+version 0.4
+added spectrometerGetScan as a safer way to start a scan and get a spectrum
 
 
 '''
@@ -271,41 +269,44 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.saveButton.setEnabled(False)
         self.closeLock.emit(False)
         #check if get time may be used (spectrometer IDLE)
-        status, autoTime = self.getAutoTime()
-        if not status:
-            self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime*1000)}")
+        status, info = self.drv.get_device_status()
+        if status == 0 and "SCAN_IDLE" in info:
+            status, autoTime = self.getAutoTime()
+            if not status:
+                self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime*1000)}")
+            if preview_status:
+                self._previewAction()
+            else:
+                self.settingsWidget.saveButton.setEnabled(True)
+                self.closeLock.emit(True)
+            return [0, "OK"]
         else:
-            print(f"Error in getting auto time: {status} {info}")
-        if preview_status:
-            self._previewAction()
-        else:
-            self.settingsWidget.saveButton.setEnabled(True)
-            self.closeLock.emit(True)
-        return [0, "OK"]
+            return [4, {"Error message":"TLCCSGUI: spectrometer is not in IDLE state when setting auto integration time"}]
 
     def getAutoTime(self) -> tuple[int, float|dict]:
-        low = self.autoValue_min  # spectrum low
-        high = self.autoValue_max # spectrum high
+        low = self.autoTime_min * 1000 # time min ms
+        high = self.autoTime_max * 1000 # time max ms
+        low_spectrum = self.autoValue_min # min spectrum value
+        high_spectrum = self.autoValue_max # max spectrum value
+
         if self.settings["integrationtimetype"] == 'auto':
             if self.settings["useintegrationtimeguess"]:
-                guessIntTime = self.settings["integrationTime"] # s
+                # guess from current value
+                guessIntTime = self.settings["integrationTime"] * 1000 # ms
             else:
-                guessIntTime = (self.autoTime_min + self.autoTime_max)/2 # s
+                # guess from min and max
+                guessIntTime = (self.autoTime_min + self.autoTime_max)/2 * 1000 # ms
             for iter in range(self.intTimeMaxIterations):
-                print(f"iteration {iter+1} of {self.intTimeMaxIterations}")
-                self.settings["integrationTime"] = guessIntTime #needed for keeping self.lastspectrum in order
-                [status, info] = self.spectrometerSetIntegrationTime(guessIntTime) # convert to seconds
+                self.settings["integrationTime"] = guessIntTime / 1000.0 #needed for keeping self.lastspectrum in order
+                [status, info] = self.spectrometerSetIntegrationTime(guessIntTime / 1000.0) # s
                 if status:
-                    print(f"tried to set:{guessIntTime}. Error in setting integration time inside AutoTime: {status} {info}")
                     return [status, info]
                 [status, info] = self.spectrometerStartScan()
                 if status:
-                    print(f"Error in starting scan inside AutoTime: {status} {info}")
                     return [status, info]
-                time.sleep(guessIntTime) # seconds
+                time.sleep(guessIntTime / 1000.0) # seconds
                 [status, info] = self._update_spectrum()
                 if status:
-                    print(f"Error in getting spectrum inside AutoTime: {status} {info}")
                     return [status, info]
                 ################ check that info is [wv, spectrum] !!!!!
                 if self.settings["saveautoattmepts"]:
@@ -314,32 +315,25 @@ class TLCCS_GUI(QObject):
                     varDict['triggermode'] = 1 if self.settings['externalTrigger'] else 0
                     varDict['name'] = self.settings["samplename"]
                     varDict['comment'] = self.settings["comment"] + " Auto adjust of integration time."
-                    self.createFile(varDict = varDict, filedelimeter=self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + f"_{guessIntTime*1000}ms.csv", data = info[1])
-                if self.autoValue_min <= max(info[1]) <= self.autoValue_max:
-                    print(f"max(info[1]) = {max(info[1])}, guessIntTime = {guessIntTime}")
-                    print("integration time is OK")
-                    return [0, guessIntTime]
-                if max(info[1])< self.autoValue_min:
-                    if guessIntTime == self.autoValue_max:
-                        print(f"max(info[1]) = {max(info[1])}, guessIntTime = {guessIntTime}")
-                        print("integration time is too low, but it is already at maximum")
-                        return [0, guessIntTime]
-                    print(f"max(info[1]) = {max(info[1])}, guessIntTime = {guessIntTime}")
-                    print("integration time is too low, increasing it")
+                    self.createFile(varDict = varDict, filedelimeter=self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + f"_{int(guessIntTime*1000)}ms.csv", data = info[1])
+                target = max(info[1]) # target value to optimize
+                # if spectrum is in the range, found good integration time
+                if low_spectrum <= target <= high_spectrum:
+                    return [0, guessIntTime / 1000.0]  # return in seconds
+                # if spectrum is below the range, increase integration time
+                if target < self.autoValue_min:
+                    if guessIntTime >= high:
+                        return [0, guessIntTime / 1000.0]  # return in seconds
                     low = guessIntTime
+                # if spectrum is above the range, decrease integration time
                 else:
-                    if guessIntTime == self.autoValue_min:
-                        print(f"max(info[1]) = {max(info[1])}, guessIntTime = {guessIntTime}")
-                        print("integration time is too high, but it is already at minimum")
-                        return [0, guessIntTime]
+                    if guessIntTime <= low:
+                        return [0, guessIntTime / 1000.0]  # return in seconds
                     high = guessIntTime
-                guessIntTime = round((low+high)/2)
-                digits = len(str(int(guessIntTime))) ### getting number of digits for rounding
-                base = 10 ** (digits - 1)
-                guessIntTime =  round(guessIntTime / base) * base
-                print(f"guessIntTime = {guessIntTime}, low = {low}, high = {high}")
-            print("end of iterations")
-            return [0, guessIntTime]
+                # Compute new guess in milliseconds, rounded to nearest millisecond
+                guessIntTime = int(round((low + high) / 2))  
+
+            return [0, guessIntTime / 1000.0]  # return in seconds
 
 
 
@@ -594,20 +588,15 @@ class TLCCS_GUI(QObject):
             return [4, {"Error message":f"{e}"}]
 
     def spectrometerStartScan(self):
-        print("someone called spectrometerStartScan >:(")
         try:
             if self.scanRunning:
-                print("scan is already running")
                 return [1, {"Error message":"Scan is already running"}]                
             self.drv.start_scan()
             self.scanRunning = True
-            print("ok, scan started")
             return[0, 'OK']
         except ThreadStopped: 
-            print("thread stopped")
             return[0, 'ThreadStopped']
         except:
-            print("can not start scan")
             return [4, {"Error message":"Can not start scan"}]
             
     def spectrometerGetSpectrum(self):
@@ -623,10 +612,8 @@ class TLCCS_GUI(QObject):
                 else:
                     break 
             if not self.scanRunning:
-                print("scan is not running, returning empty data")
                 return [1, {"Error message":"Scan stopped"}]
             else:
-                print("scan is finished, getting data")
                 return[0, self.drv.get_scan_data()]
         except ThreadStopped: 
             pass
@@ -635,7 +622,7 @@ class TLCCS_GUI(QObject):
             return [4, {"Error message":"Can not get spectrum"}]
         
     def spectrometerGetScan(self):
-        """Atomically get a spectrum"""
+        """Atomically get a spectrum to prevent weird behavior when a scan is already running."""
         with self._scan_lock:
             try:
                 statuses = self.drv.get_device_status()
@@ -644,8 +631,7 @@ class TLCCS_GUI(QObject):
                     stale = self.drv.get_scan_data()
                 # No scan running, start a new scan
                 self.drv.start_scan()
-                data = self.drv.get_scan_data()
-                return [0, data]
+                return[0, self.drv.get_scan_data()]
             except ThreadStopped:
                 return [0, 'ThreadStopped']
             except Exception as e:
