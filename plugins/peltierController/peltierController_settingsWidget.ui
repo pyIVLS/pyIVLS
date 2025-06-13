@@ -552,7 +552,7 @@ min-width: 20px;</string>
                 </size>
                </property>
                <property name="text">
-                <string>600</string>
+                <string></string>
                </property>
               </widget>
              </item>

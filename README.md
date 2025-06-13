@@ -6,14 +6,15 @@
 # 5. Changed the structure of ini file, now it allows to save plugin settings
 # 6. class option is added to the plugin descriptor in the ini file. This is related to suggested implementation of the built-in functionality of run and address selection. (class = step for measurement, class = loop for looping the steps, class = none for support plugins not directly used in recipe)
 # 7. Sequence buoilder implmented. This required some changes to pyIVLS and pluginContainer.
+# 7. Execution flow is modified to allow to add messages from pluginContainer to log. Message slot from pluginloader is removed, info signal from plugin container is connected to the message slot in pyIVLS_GUI, as for all the other information windows.
 
 #### TODO list
-# 1. add settings validation to GUI (partially done)
-# 2. add settings locking/unlocking to GUI (partially done)
-# 3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)
-# 4. implement warning messaging (implemented not tested)
-# 5. implement saving of settings to configuration file
-# 6. implement reopening of docking window and MDI windows
+# ~~1. add settings validation to GUI (partially done)~~
+# ~~2. add settings locking/unlocking to GUI (partially done)~~
+# ~~3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)~~
+# ~~4. implement warning messaging (implemented not tested)~~
+# ~~5. implement saving of settings to configuration file~~
+# ~~6. implement reopening of docking window and MDI windows~~
 # 7. implement autosave for long measurements
 # 8. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
 # 9. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence. 
@@ -50,6 +51,14 @@
 #10. python3 -m pip install datetime
 # deactivate
 
+#### or install (OS agnostic using UV package manager, recommended)
+# 1. install UV package manager: pipx install uv (or pip install uv)
+# 2. run program with uv run pyIVLS.py, uv automatically creates venv and installs the requirements.
+# 3. if dependencies need to be added, uv add {package_name} adds the package to the requirements and checks for conflicts.
+
+
+
+
 # change the first line of pyIVLS.py to address the virual environment 
 ## e.g.#!/home/ivls/git_pyIVLS/pyIVLS/.venv/bin/python3
 #run with
@@ -85,7 +94,7 @@
 # in case of sweep only run sweep plugin should save to the log and show messages to the user. All other plugins communicate to the sweep plugin, e.g. with returned status of the functions.
 # This is necessary to avoid multiple messaging
 ## standard error codes
-#0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins
+#0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins, 4 = Hardware error
 ##plugins return errors in form of list [number, {"Error message":"Error text"}], e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
 #error text will be shown in the dialog message in the interaction plugin, so the error text should contain the plugin name, e.g. return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
 ##intermidiate plugins should pass the error to the plugins that interract with users as is, just changing the error code
