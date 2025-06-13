@@ -22,16 +22,14 @@ class itc503:
         if source is None:
             raise ValueError("Source address is empty.")
         with self.lock:
-                                self.device = self.rm.open_resource(source)
-                                self.device.write_termination = '\r\n'
-                                self.device.read_termination = '\r\n'
-                                #"Q2" tells ITC to use also \r as a termination character has to be used only after restarting ITC
-                                self.device.write("Q2")
-                                #"C3" tells instrument to be at REMOTE UNLOCKED state different numbers after C tell ITC to be at different states -> see ITC503 user manual
-                                self.device.write("C3")
-                                self.device.read_bytes(3)
-                                self.device.clear()
-
+            self.device = self.rm.open_resource(source)
+            self.device.write_termination = "\r\n"
+            self.device.read_termination = "\r\n"
+            # "Q2" tells ITC to use also \r as a termination character has to be used only after restarting ITC
+            self.device.write("Q2")
+            # "C3" tells instrument to be at REMOTE UNLOCKED state different numbers after C tell ITC to be at different states -> see ITC503 user manual
+            self.device.write("C3")
+            self.device.read_bytes(3)
         return 0
 
     def close(self):
@@ -61,7 +59,6 @@ class itc503:
             else:
                 self.device.write(f"T{temperature:.1f}")
             self.device.read_bytes(3)
-            self.device.clear()
         return 0
 
     def getData(self):
@@ -71,13 +68,7 @@ class itc503:
             temperature as a float
         """
         with self.lock:
-            self.device.clear() # it may be an exageration, but it feels that sometimes there are some bytes left in buffer
             self.device.write("R1")
-            str = self.device.read_bytes(8)  # a workaround, as the number of bytes is different, and self.device.read does not work
-            if str[-1] == ord('\r'):
-                temp = float(str[1:-1])
-                self.device.clear()
-            else:
-                temp = float(str[1:-2])
-            return temp
-
+            return float(
+                self.device.read_bytes(8)[1:-2]
+            )  # response is of the form "Rttttt\r\n" see manual for details
