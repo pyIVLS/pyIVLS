@@ -35,7 +35,7 @@ class specSMU_GUI():
         self.path = os.path.dirname(__file__) + os.path.sep
         self.dependency = {
         "smu": ["parse_settings_widget", "smu_connect", "smu_init", "smu_outputOFF",  "smu_outputON", "smu_disconnect", "set_running", "smu_setOutput", "smu_channelNames"], 
-        "spectrometer" : ["parse_settings_preview" , "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum"]
+        "spectrometer" : ["parse_settings_preview" , "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum", "spectrometerGetScan"]
         }
         self.settingsWidget = uic.loadUi(self.path + "specSMU_settingsWidget.ui")
 
@@ -381,16 +381,10 @@ class specSMU_GUI():
             status, message = self.function_dict["spectrometer"]["spectrometerSetIntegrationTime"](integration_time)
             if status:
                 return [status, message]
-            status, message = self.function_dict["spectrometer"]["spectrometerStartScan"]()
+            status, spectrum_option = self.function_dict["spectrometer"]["spectrometerGetScan"]()
             if status:
-                return [status, message]
-            status, spectrum = self.function_dict["spectrometer"]["spectrometerGetSpectrum"]()
-            if status:
-                return [status, spectrum]
-            return [0, spectrum]
-        self.parse_settings_widget() # FIXME: remove
-        print("parsing settings inside specmu impl")
-        print(self.settings)
+                return [status, spectrum_option]
+            return [0, spectrum_option]
         self.smuInit()
         smuLoop = self.settings["points"]
         if smuLoop > 1:
@@ -402,7 +396,7 @@ class specSMU_GUI():
             smuSetValue = self.settings["start"] + smuLoopStep*smuChange
             ####get spectrometer Integration time from settings
 
-            integration_time_setting = self.settings["spectrometer_settings"]["integrationTime"]
+            integration_time_setting = self.spectrometer_settings["integrationTime"]
             print("------------------------")
             print(f"Integ time from spectro: {integration_time_setting}")
 
@@ -412,50 +406,47 @@ class specSMU_GUI():
             ####if auto integration time
             ########## run get integration time loop (more or less the getAutoTime function fom TLCCS), but with pauses if needed
 
-            status, integration_time = self.function_dict["spectrometer"]["spectrometerGetIntegrationTime"]()
+            status, integration_time_seconds = self.function_dict["spectrometer"]["spectrometerGetIntegrationTime"]()
             print("------------------------")
+            integration_time = integration_time_seconds
             print(f"Integ time from spectro read: {integration_time}")
             if status:
                 raise NotImplementedError(f"Error in getting integration time from spectrometer: {integration_time}")
             
 
             if integration_time != integration_time_setting:
-                # if auto mode, fetch automatic time 
-                if self.settings["spectrometer_settings"]["integrationTimeType"] == "auto":
-                    status, auto_time = self.function_dict["spectrometer"]["getAutoTime"]()
-                    print("auto")
-                    if not status:
-                        integration_time_setting = auto_time
-                        print(f"autotime found: {auto_time}")
+
                 # set and get spectrum
                 status, spectrum = set_integ_get_spectrum(integration_time_setting)
                 if status:
                     raise NotImplementedError(f"Error in setting integration time or getting spectrum: {spectrum}")
                 # is this stupid???
-                self.settings["spectrometer_settings"]["integrationTime"] = integration_time_setting 
-
+            if self.spectrometer_settings["integrationtimetype"] == "auto":
+                status, auto_time = self.function_dict["spectrometer"]["getAutoTime"]()
+                print("auto")
+                if not status:
+                    integration_time_setting = auto_time
+                    print(f"autotime found: {auto_time}")
 
 
                 
             self.function_dict["smu"]["smu_outputON"](self.settings["channel"])
             self.function_dict["smu"]["smu_setOutput"](self.settings["channel"], 'v' if self.settings['inject']=='voltage' else 'i', smuSetValue)
             # get spectrum
-            status, message = self.function_dict["spectrometer"]["spectrometerStartScan"]()
-            if status:
-                raise NotImplementedError(f"Error in starting scan: {message}")
-            status, spectrum = self.function_dict["spectrometer"]["spectrometerGetSpectrum"]()
+            status, spectrum = self.function_dict["spectrometer"]["spectrometerGetScan"]()
             if status:
                 raise NotImplementedError(f"Error in getting spectrum: {spectrum}")
             status, sourceIV = self.function_dict["smu"]["smu_getIV"](self.settings["channel"])
             self.function_dict["smu"]["smu_outputOFF"]()
             
-            spectro_shorthand = self.settings["spectrometer_settings"] 
+
             varDict = {}
-            varDict['integrationtime'] = spectro_shorthand['integrationTime']
-            varDict['triggermode'] = 1 if spectro_shorthand['externalTrigger'] else 0
-            varDict['name'] = spectro_shorthand["samplename"]
+            varDict['integrationtime'] = self.spectrometer_settings['integrationTime']
+            varDict['triggermode'] = 1 if self.spectrometer_settings['externalTrigger'] else 0
+            varDict['name'] = self.spectrometer_settings["samplename"]
             varDict['comment'] = str(sourceIV)
-            self.function_dict["spectrometer"]["createFile"](varDict=varDict, filedelimeter=";",address=self.settings["spectrometer_settings"]["filename"], data=spectrum)
+            address = self.spectrometer_settings["filename"] + f"_{smuSetValue:04f}" + " iv"
+            self.function_dict["spectrometer"]["createFile"](varDict=varDict, filedelimeter=";",address=address, data=spectrum)
             
             ##measure
             ##save

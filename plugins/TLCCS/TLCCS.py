@@ -179,7 +179,6 @@ class CCSDRV:
 
     def start_scan(self):
         """Starts a single scan"""
-        print("scan started")
         self.io.control_out(
             const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_INTERN_SINGLE_SHOT
         )
@@ -203,7 +202,6 @@ class CCSDRV:
         Returns:
             np.array(np.float64): scan data
         """
-        print("getting scan data")
         # Get raw data
         raw = self._get_raw_data()
 
