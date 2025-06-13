@@ -21,7 +21,7 @@ class specSMU_GUI():
     """GUI implementation
     """
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_widget", "sequenceStep"] # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_widget", "sequenceStep", "setSettings"] # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 ########Signals
 ##not needed for sequence implementation, may be added later only for standalone mode
     #log_message = pyqtSignal(str)     
@@ -58,7 +58,6 @@ class specSMU_GUI():
 
         delayComboBox.currentIndexChanged.connect(self._delay_mode_changed)
         
-        self.settingsWidget.pushButton.clicked.connect(self._SpecSMUImplementation)
 
 
 
@@ -114,8 +113,12 @@ class specSMU_GUI():
             self.settingsWidget.label_DelayUnits.setEnabled(True)
 
         self.settingsWidget.update()
+
+    
 ########Functions
 ################################### internal
+    def _pushButton(self):
+        self.sequenceStep("aa")
 
 ########Functions
 ###############GUI setting up               
@@ -319,11 +322,12 @@ class specSMU_GUI():
             return [status, message]
         [status, message] = self.function_dict["spectrometer"]["spectrometerConnect"]()
         if status:
+            print(f"Error in connecting to spectrometer: {message}")
             return [status, message]
         ##IRtothink####error detection should be implemented
         self._SpecSMUImplementation()
         self.function_dict["smu"]["smu_disconnect"]()
-        self.function_dict["spectrometer"]["spectrometerDisonnect"]()
+        self.function_dict["spectrometer"]["spectrometerDisconnect"]()
         return [0, "specSMU action finished"]
     
     def smuInit(self): 
@@ -371,6 +375,7 @@ class specSMU_GUI():
         return {0, "OK"}
     
     def _SpecSMUImplementation(self):
+
         def set_integ_get_spectrum(integration_time):
             """Sets the integration time for the spectrometer and gets a spectrum."""
             status, message = self.function_dict["spectrometer"]["spectrometerSetIntegrationTime"](integration_time)
@@ -384,6 +389,8 @@ class specSMU_GUI():
                 return [status, spectrum]
             return [0, spectrum]
         self.parse_settings_widget() # FIXME: remove
+        print("parsing settings inside specmu impl")
+        print(self.settings)
         self.smuInit()
         smuLoop = self.settings["points"]
         if smuLoop > 1:
@@ -394,10 +401,10 @@ class specSMU_GUI():
             # set smu set value according to current iteration.
             smuSetValue = self.settings["start"] + smuLoopStep*smuChange
             ####get spectrometer Integration time from settings
-            print("Spectrometer settings:")
-            print(self.settings["spectrometer_settings"])
-            print("---------")
-            integration_time_setting = self.settings["spectrometer_settings"]["integration_time"]
+
+            integration_time_setting = self.settings["spectrometer_settings"]["integrationTime"]
+            print("------------------------")
+            print(f"Integ time from spectro: {integration_time_setting}")
 
             ####get spectrometer Integration time
             ####if different
@@ -406,21 +413,50 @@ class specSMU_GUI():
             ########## run get integration time loop (more or less the getAutoTime function fom TLCCS), but with pauses if needed
 
             status, integration_time = self.function_dict["spectrometer"]["spectrometerGetIntegrationTime"]()
+            print("------------------------")
+            print(f"Integ time from spectro read: {integration_time}")
             if status:
                 raise NotImplementedError(f"Error in getting integration time from spectrometer: {integration_time}")
+            
+
             if integration_time != integration_time_setting:
+                # if auto mode, fetch automatic time 
+                if self.settings["spectrometer_settings"]["integrationTimeType"] == "auto":
+                    status, auto_time = self.function_dict["spectrometer"]["getAutoTime"]()
+                    print("auto")
+                    if not status:
+                        integration_time_setting = auto_time
+                        print(f"autotime found: {auto_time}")
+                # set and get spectrum
                 status, spectrum = set_integ_get_spectrum(integration_time_setting)
                 if status:
                     raise NotImplementedError(f"Error in setting integration time or getting spectrum: {spectrum}")
-                if self.settings["spectorometer_settings"]["integrationtimetype"] == "auto":
-                    status, integration_time = self.function_dict["spectrometer"]["spectrometerGetIntegrationTime"]()
+                # is this stupid???
+                self.settings["spectrometer_settings"]["integrationTime"] = integration_time_setting 
+
+
 
                 
             self.function_dict["smu"]["smu_outputON"](self.settings["channel"])
             self.function_dict["smu"]["smu_setOutput"](self.settings["channel"], 'v' if self.settings['inject']=='voltage' else 'i', smuSetValue)
+            # get spectrum
+            status, message = self.function_dict["spectrometer"]["spectrometerStartScan"]()
+            if status:
+                raise NotImplementedError(f"Error in starting scan: {message}")
+            status, spectrum = self.function_dict["spectrometer"]["spectrometerGetSpectrum"]()
+            if status:
+                raise NotImplementedError(f"Error in getting spectrum: {spectrum}")
             status, sourceIV = self.function_dict["smu"]["smu_getIV"](self.settings["channel"])
             self.function_dict["smu"]["smu_outputOFF"]()
-
+            
+            spectro_shorthand = self.settings["spectrometer_settings"] 
+            varDict = {}
+            varDict['integrationtime'] = spectro_shorthand['integrationTime']
+            varDict['triggermode'] = 1 if spectro_shorthand['externalTrigger'] else 0
+            varDict['name'] = spectro_shorthand["samplename"]
+            varDict['comment'] = str(sourceIV)
+            self.function_dict["spectrometer"]["createFile"](varDict=varDict, filedelimeter=";",address=self.settings["spectrometer_settings"]["filename"], data=spectrum)
+            
             ##measure
             ##save
         
