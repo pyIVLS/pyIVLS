@@ -41,7 +41,16 @@ from TLCCS import CCSDRV
 class TLCCS_GUI(QObject):
     """spectrometer plugin for pyIVLS"""
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_preview" ,"parse_settings_widget", "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_preview" ,
+                      "parse_settings_widget", 
+                      "spectrometerConnect", 
+                      "spectrometerDisconnect", 
+                      "spectrometerSetIntegrationTime", 
+                      "spectrometerGetIntegrationTime", 
+                      "spectrometerStartScan", 
+                      "spectrometerGetSpectrum",
+                      "createFile"
+                    ] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
 ########Signals
 
@@ -142,6 +151,7 @@ class TLCCS_GUI(QObject):
 ########GUI Slots
 
     def _connectAction(self):
+        self.parse_settings_widget()
         [status, info] = self.spectrometerConnect()
         if status:
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
@@ -233,10 +243,11 @@ class TLCCS_GUI(QObject):
         varDict['triggermode'] = 1 if self.lastspectrum[1]['externalTrigger'] else 0
         varDict['name'] = self.settings["samplename"]
         varDict['comment'] = self.settings["comment"]
-        self._createFile(varDict, self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + ".csv", data = self.lastspectrum[0])
+        self.createFile(varDict, self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + ".csv", data = self.lastspectrum[0])
         return [0, "OK"]
 
     def _getTimeAction(self):
+        preview_status = False
         [status, info] = self._parse_settings_autoTime()
         if status:
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
@@ -266,7 +277,8 @@ class TLCCS_GUI(QObject):
                 guessIntTime = self.settings["integrationTime"]
             else:
                 guessIntTime = (self.autoTime_min + self.autoTime_max)/2
-            for _ in range(self.intTimeMaxIterations):
+            for iter in range(self.intTimeMaxIterations):
+                print(iter)
                 self.settings["integrationTime"] = guessIntTime #needed for keeping self.lastspectrum in order
                 [status, info] = self.spectrometerSetIntegrationTime(guessIntTime)
                 if status:
@@ -285,7 +297,7 @@ class TLCCS_GUI(QObject):
                     varDict['triggermode'] = 1 if self.settings['externalTrigger'] else 0
                     varDict['name'] = self.settings["samplename"]
                     varDict['comment'] = self.settings["comment"] + " Auto adjust of integration time."
-                    self._createFile(varDict, self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + f"_{guessIntTime*1000}ms.csv", data = info[1])
+                    self.createFile(varDict = varDict, filedelimeter=self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + f"_{guessIntTime*1000}ms.csv", data = info[1])
                 if self.autoValue_min <= max(info[1]) <= self.autoValue_max:
                     return [0, guessIntTime]
                 if max(info[1])< self.autoValue_min:
@@ -301,6 +313,7 @@ class TLCCS_GUI(QObject):
                 base = 10 ** (digits - 1)
                 guessIntTime =  round(guessIntTime / base) * base
                 print(f"guessIntTime = {guessIntTime}, low = {low}, high = {high}")
+            print("end of iterations")
             return [0, guessIntTime]
 
 
@@ -311,7 +324,6 @@ class TLCCS_GUI(QObject):
     def _initGUI(self, plugin_info:"dictionary with settings obtained from plugin_data in pyIVLS_*_plugin"):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
-        print(plugin_info)
         self.settingsWidget.lineEdit_Integ.setText(plugin_info["integrationtime"])
         if plugin_info["externatrigger"]:
             self.settingsWidget.extTriggerCheck.setChecked(True)
@@ -458,7 +470,7 @@ class TLCCS_GUI(QObject):
             ~0 - error (add error code later on if needed)
         """   
         self.settings = {}
-        [status, info] = self._parse_settings_autoTime(self)
+        [status, info] = self._parse_settings_autoTime()
         if status:
              return [status, info]
         if not self.settings["useintegrationtimeguess"]:
@@ -506,13 +518,12 @@ class TLCCS_GUI(QObject):
         else:    
             self.settings["externalTrigger"] = False
         self.settings["previewCorrection"] = self._parse_spectrumCorrection()
-        print("settings in TLCCS plugin")
-        print(self.settings)
         return [0, self.settings]
 
 ########Functions
 ########device functions
     def spectrometerConnect(self):
+        self._parse_settings_integrationTime()
         try:    
             status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationTime"])
             if not status:
@@ -586,7 +597,7 @@ class TLCCS_GUI(QObject):
 ########Functions
 ###############save data
 
-    def _createFile(varDict, filedelimeter, address, data):
+    def createFile(self, varDict, filedelimeter, address, data):
         fileheader = self._spectrometerMakeHeader(varDict, separator = filedelimeter)
         np.savetxt(address, list(zip(self.correction[:,0], data)), fmt='%.9e', delimiter=filedelimeter, newline='\n', header=fileheader, footer='#[EndOfFile]', comments='#')
 

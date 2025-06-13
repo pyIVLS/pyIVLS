@@ -22,18 +22,18 @@ class CCSDRV:
         # Set class vars
         self.io = LLIO(spectrometerVID, spectrometerPID)
         if self.io.open():
-         	self.dev = self.io.dev
-         	self.set_integration_time(integration_time)
-         	state = self.get_device_status()
-         	self.integration_time = integration_time
+            self.dev = self.io.dev
+            self.set_integration_time(integration_time)
+            state = self.get_device_status()
+            self.integration_time = integration_time
 
-         	if "SCAN_IDLE" not in state:
-         		# FIXME: This is a workaround for the device not being in idle state
-         		# after opening connection for first time. Look into reset.
-                	time.sleep(3)
-                	self.start_scan()
-                	self.get_scan_data()
-         	return True
+            if "SCAN_IDLE" not in state:
+                # FIXME: This is a workaround for the device not being in idle state
+                # after opening connection for first time. Look into reset.
+                time.sleep(3)
+                self.start_scan()
+                self.get_scan_data()
+            return True
         return False
 
     def close(self):
@@ -179,6 +179,7 @@ class CCSDRV:
 
     def start_scan(self):
         """Starts a single scan"""
+        print("scan started")
         self.io.control_out(
             const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_INTERN_SINGLE_SHOT
         )
@@ -202,6 +203,7 @@ class CCSDRV:
         Returns:
             np.array(np.float64): scan data
         """
+        print("getting scan data")
         # Get raw data
         raw = self._get_raw_data()
 
