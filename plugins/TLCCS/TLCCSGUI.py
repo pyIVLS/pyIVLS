@@ -21,6 +21,13 @@ added spectrometerGetIntegrationTime
 added auto detection for integration time
 ivarad
 2025.06.11
+
+version 0.4beta
+added spectrometerGetScan as atomic method to get spectrum
+Deprecated spectrometerGetSpectrum?
+Deprecated spectrometerStartScan?
+
+
 '''
 import TLCCS_const as const
 
@@ -34,6 +41,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
 from MplCanvas import MplCanvas
 from threadStopped import ThreadStopped, thread_with_exception 
+from threading import Lock, Event
 
 from TLCCS import CCSDRV
 
@@ -41,7 +49,15 @@ from TLCCS import CCSDRV
 class TLCCS_GUI(QObject):
     """spectrometer plugin for pyIVLS"""
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_preview" ,"parse_settings_widget", "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_preview",
+                      "parse_settings_widget", 
+                      "spectrometerConnect", 
+                      "spectrometerDisconnect", 
+                      "spectrometerSetIntegrationTime", 
+                      "spectrometerGetIntegrationTime", 
+                      "spectrometerStartScan", 
+                      "spectrometerGetScan",
+                      "spectrometerGetSpectrum"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
 ########Signals
 
@@ -83,6 +99,8 @@ class TLCCS_GUI(QObject):
         correction_file = r'SC175_correction'
         self.correction = np.loadtxt(self.path + correction_file)
         self.settings = {}
+
+        self._scan_lock = Lock()  
     
     def _connect_signals(self):
         self.settingsWidget.connectButton.clicked.connect(self._connectAction)
@@ -582,6 +600,14 @@ class TLCCS_GUI(QObject):
         except:
             self.scanRunning = False
             return [4, {"Error message":"Can not get spectrum"}]
+        
+    def spectrometerGetScan(self) -> tuple[int, np.array|dict]:
+        """Atomically start a scan and get the spectrum. Thread-safe and race-free using threading.Event."""
+        with self._scan_lock:
+            status, info = self.spectrometerStartScan()
+            if status:
+                return status, info
+            return self.spectrometerGetSpectrum()
 
 ########Functions
 ###############save data
