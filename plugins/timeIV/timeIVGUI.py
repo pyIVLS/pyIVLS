@@ -20,6 +20,8 @@ from MplCanvas import MplCanvas # this should be moved to some pluginsShare
 from threadStopped import thread_with_exception, ThreadStopped
 from enum import Enum
 import numpy as np
+import copy
+import pandas as pd
 
 class timeIVexception(Exception): pass
 
@@ -33,7 +35,7 @@ class timeIVGUI(QObject):
     this class may be a child of QObject if Signals or Slot will be needed
     """
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_widget", "set_running"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_widget", "set_running", "setSettings", "sequenceStep"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     
 ########Signals
 ##remove this if plugin will only provide functions to another plugins, but will not interract with the user directly
@@ -121,6 +123,7 @@ class timeIVGUI(QObject):
         [status, self.smu_settings] = self.function_dict["smu"]["parse_settings_widget"]()
         if status:
             return [2, self.smu_settings]
+        self.settings["smu_settings"] = self.smu_settings
 
         status, message = self._parseSaveData()
         if status:
@@ -411,6 +414,7 @@ class timeIVGUI(QObject):
         
         if status:
         	self._update_GUI_state()
+                
         
 ########Functions
 ########plugins interraction        
@@ -432,7 +436,36 @@ class timeIVGUI(QObject):
             self.settingsWidget.runButton.setDisabled(True)   
             self.function_dict = {}
         return self.missing_functions
- 
+    
+    def setSettings(self, settings):
+        """Sets the settings for the plugin. Workflow from seqBuilder:
+        1. Parse_settings_widget is called when step added to sequence
+        2. When running, set_settings is called to set the settings for the plugin
+
+        Args:
+            settings (dict): outputs from parse_settings_widget function
+        """
+        self.settings = []
+        self.settings = copy.deepcopy(settings)
+        self.smu_settings = settings["smu_settings"]
+
+    def _get_public_methods(self):
+        """
+        Returns a nested dictionary of public methods for the plugin
+        """
+        # if the plugin type matches the requested type, return the functions
+
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method not in self.non_public_methods
+            and method in self.public_methods
+        }
+        return methods
+    
     def _getLogSignal(self):
         return self.log_message
 
@@ -615,10 +648,25 @@ class timeIVGUI(QObject):
     def _saveData(self, fileheader, time, sourceI, sourceV, drainI = None, drainV = None) :   
         fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
         if drainI == None:
-                np.savetxt(fulladdress, np.hstack([time, sourceI, sourceV]).T, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')        
-        else:
-                np.savetxt(fulladdress, np.hstack([time, sourceI, sourceV, drainI, drainV]).T, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')
+                data = list(zip(time, sourceI, sourceV))
 
+                #data = np.hstack([time, sourceI, sourceV])
+                np.savetxt(fulladdress, data, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')        
+        else:
+                data = list(zip(time, sourceI, sourceV, drainI, drainV))
+                #data = np.hstack([time, sourceI, sourceV, drainI, drainV])
+                np.savetxt(fulladdress, data, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')
+
+    
+    def sequenceStep(self, postfix):
+        self.settings["filename"] = self.settings["filename"] + postfix
+        [status, message] = self.function_dict["smu"]["smu_connect"]()
+        if status:
+            return [status, message]
+        self._sequenceImplementation()
+        self.function_dict["smu"]["smu_disconnect"]()
+        return [0, "sweep finished"]
+    
     def _timeIVimplementation(self) :
                 header = self.create_file_header(self.settings, self.smu_settings)
                 
@@ -645,6 +693,7 @@ class timeIVGUI(QObject):
                                 status, drainIV = self.function_dict["smu"]["smu_getIV"](self.settings["drainchannel"])
                                 if status:
                                         raise timeIVexception(drainIV["Error message"])
+                        
                         currentTime =  time.time() 
                         toc = currentTime - startTic                                      
                         if not timeData:
@@ -683,7 +732,6 @@ class timeIVGUI(QObject):
                                 #####https://github.com/matplotlib/matplotlib/issues/28268
                                 self.axes_twinx.cla()
                                 self.axes_twinx.plot(timeData, sourceI, 'b*')
-                                
                                 if not self.settings["singlechannel"]:
                                         drainV.append(drainIV[dataOrder.V.value])
                                         drainI.append(drainIV[dataOrder.I.value])
