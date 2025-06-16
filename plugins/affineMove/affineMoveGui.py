@@ -53,7 +53,6 @@ class affineMoveGUI(QObject):
 
     non_public_methods = []  
     public_methods = ["parse_settings_widget", "affine_move", "setSettings", "getIterations", "sequenceStep", "loopingIteration"]  
-    default_timerInterval = 42 # ms
 
     ########Signals
     # signals retained since this plugins needs to communicate during sutter calibration.
@@ -81,7 +80,7 @@ class affineMoveGUI(QObject):
         super().__init__()
         self.path = os.path.dirname(__file__) + os.path.sep
         self._dependencies = [None, None]
-
+        self.calibration_path = os.path.join(self.path, "calibration_data.npy")
 
         self.settingsWidget = uic.loadUi(self.path + "affinemove_Settings.ui")
         self.MDIWidget = uic.loadUi(self.path + "affinemove_MDI.ui")
@@ -95,10 +94,6 @@ class affineMoveGUI(QObject):
         self.camera_graphic_view: QGraphicsView = self.MDIWidget.cameraview
         self.camera_graphic_scene: QGraphicsScene = QGraphicsScene()
         self.camera_graphic_view.setScene(self.camera_graphic_scene)
-
-
-
-        
 
         # initialize internal state:
         self.iter = 0
@@ -226,6 +221,35 @@ class affineMoveGUI(QObject):
         thread.new_frame.connect(self.update_graphics_view)
         cam._previewAction()
 
+    def _save_calibration(self):
+        """Write the current calibration data to a file. This implemetation keeps a single calibration file 
+        for all manipulators instead of multiple files to choose from. TODO: implement a way to choose where to save and with what name (if really necessary)
+        """
+        if not self.calibrations:
+            self.emit_log("No calibration data to save.")
+            return
+        
+        # Define the file path
+        file_path = os.path.join(self.calibration_path)
+        
+        # Save the calibration data
+        np.save(file_path, self.calibrations)
+        self.emit_log(f"Calibration data saved to {file_path}")
+
+    def _load_calibration(self):
+        """Load the calibration data from a file. This implemetation keeps a single calibration file 
+        for all manipulators instead of multiple files to choose from. TODO: implement a way to choose where to load from and with what name (if really necessary)
+        """
+        file_path = os.path.join(self.calibration_path)
+        
+        if not os.path.exists(file_path):
+            self.emit_log(f"No calibration data found at {file_path}")
+            return
+        
+        # Load the calibration data
+        self.calibrations = np.load(file_path).item()
+        self.emit_log(f"Calibration data loaded from {file_path}")
+
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
         """
         Converts a point from camera coordinates to micromanipulator coordinates
@@ -264,6 +288,8 @@ class affineMoveGUI(QObject):
         self.settingsWidget.fetchMaskButton.clicked.connect(self._fetch_mask_functionality)
         self.settingsWidget.debugButton.clicked.connect(self.affine_move)
         self.settingsWidget.previewButton.clicked.connect(self._initialize_camera_preview)
+        self.settingsWidget.saveCalibrationButton.clicked.connect(self._save_calibration)
+        self.settingsWidget.loadCalibrationButton.clicked.connect(self._load_calibration)
 
 
         return self.settingsWidget, self.MDIWidget
@@ -358,7 +384,7 @@ class affineMoveGUI(QObject):
             "camera": self.camera_box.currentText(),
             "positioning": self.positioning_box.currentText(),
         }
-        # if any of the settings are empty, return an error code
+        # check if some dependencies are not set
         if not all(settings.values()):
             return 1, {"Error message": "AffineMove : Some dependencies are not set."}
         return 0, settings
@@ -416,27 +442,16 @@ class affineMoveGUI(QObject):
         
     # dummy:
     def setSettings(self, settings):
-        """
-        Dummy function to set settings. Not used in this plugin.
-        """
         print(f"set affineMove settings: {settings}")
 
     def getIterations(self):
         return 10
     
     def sequenceStep(self, namePostfix):
-        """
-        Dummy implementation for sequenceStep.
-        Simulates a successful step execution.
-        """
         print(f"sequenceStep called with namePostfix: {namePostfix}")
         return [0, "affineMove: sequenceStep executed"]
 
     def loopingIteration(self, currentIteration):
-        """
-        Dummy implementation for loopingIteration.
-        Returns a postfix string for the current iteration.
-        """
         print(f"loopingIteration called with currentIteration: {currentIteration}")
         return [0, f"_iter{currentIteration}"]
 
