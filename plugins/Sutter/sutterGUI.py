@@ -28,6 +28,11 @@ drain nplc field should be numeric"}]
 
 
 class SutterMoveWorker(QThread):
+    """CURRENTLY UNUSED
+
+    Args:
+        QThread (_type_): _description_
+    """
     def __init__(self, hal, log_signal=None):
         super().__init__()
         self.hal = hal
@@ -103,8 +108,7 @@ class SutterGUI(QObject):
         self.hal = Mpc325()
         self.plugin_name = name
         self.plugin_function = function
-        self._move_worker = SutterMoveWorker(self.hal, self.log_message)
-        self._move_worker.start()
+        #self._move_worker = SutterMoveWorker(self.hal, self.log_message)
 
     
     def __del__(self):
@@ -250,8 +254,11 @@ class SutterGUI(QObject):
         finally:
             if self.hal.is_connected():
                 self._gui_change_device_connected(True)
+                # self._move_worker.start()  # Removed move worker from public API
+
             else:
                 self._gui_change_device_connected(False)
+                #self._move_worker.stop()
 
     def _status_button(self):
         print("status button pressed WIP")
@@ -261,7 +268,7 @@ class SutterGUI(QObject):
 
     def _stop_button(self):
         print("stop button pressed WIP")
-        self._move_worker.stop()
+        #self._move_worker.stop()
 
 
     def _calibrate_button(self):
@@ -331,17 +338,11 @@ class SutterGUI(QObject):
         try:
             self.devnum_combo.setCurrentIndex(dev_num - 1)
             if self.hal.change_active_device(dev_num):
-                return [
-                    0,
-                    {"Error message": "Sutter device changed to " + str(dev_num)},
-                ]
+                return [0,{"Error message": "Sutter device changed to " + str(dev_num)}]
             return [4, {"Error message": "Sutter device change error"}]
 
         except ValueError as e:
-            return [
-                1,
-                {"Error message": "Value error in Sutter plugin", "Exception": str(e)},
-            ]
+            return [1,{"Error message": "Value error in Sutter plugin", "Exception": str(e)}]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
@@ -378,7 +379,7 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
-    def mm_zmove(self, z_change):
+    def mm_zmove(self, z_change, absolute=False):
         """Moves the micromanipulator in the z axis. If the move is out of bounds, it will return False.
 
         Args:
@@ -394,9 +395,13 @@ class SutterGUI(QObject):
                 or z + z_change < self.hal._MINIMUM_MS
             ):
                 return [1, {"Error message": "Sutter move out of bounds"}]
-            else:
-                self.hal.move(x, y, z + z_change)
-                return [0, {"Error message": "Sutter moved"}]
+            else: 
+                if absolute: 
+                    self.hal.move(x,y,z)
+                    return [0, {"Error message": "Sutter moved"}]
+                else:
+                    self.hal.move(x, y, z + z_change)
+                    return [0, {"Error message": "Sutter moved"}]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
         
@@ -439,5 +444,5 @@ class SutterGUI(QObject):
             return [0, (dev_count, dev_statuses)]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
-        
+
 

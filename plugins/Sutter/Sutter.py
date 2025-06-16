@@ -35,7 +35,7 @@ class SutterError(Exception):
         self.message = (
             f"{self.timestamp}: {self.message} (Sutter error Code: {self.error_code})"
         )
-
+        self.end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
     def __str__(self):
         return self.message
 
@@ -96,6 +96,7 @@ class Mpc325:
         self.port = ""
         self._comm_lock = threading.Lock()
         self._stop_requested = threading.Event()
+        self.end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
 
     # Close the connection when python garbage collection gets around to it. This seems to be implemented by pySERIAL already.
     def __del__(self):
@@ -175,21 +176,23 @@ class Mpc325:
         """Flushes i/o buffers. Also applies a wait time between commands. Every method should call this before sending a command."""
         input_waiting = self.ser.in_waiting
         output_waiting = self.ser.out_waiting
-
-        self.ser.reset_input_buffer()
-        self.ser.reset_output_buffer()
-        # NOTE: added some more waittime to try out.
-        time.sleep(
-            0.003
-        )  # Hardcoded wait time (2 ms) between commands from the manual.
         if input_waiting > 0:
             print(
                 f"WARNING: Input buffer was not empty. {input_waiting} bytes were waiting to be read."
             )
+            stuff = self.ser.read(input_waiting)
+            print(stuff)
         if output_waiting > 0:
             print(
                 f"WARNING: Output buffer was not empty. {output_waiting} bytes were waiting to be read."
             )
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
+        # NOTE: added some more waittime to try out.
+        time.sleep(
+            0.002
+        )  # Hardcoded wait time (2 ms) between commands from the manual.
+
 
     def get_connected_devices_status(self):
         """Get the status of connected micromanipulators
@@ -201,12 +204,10 @@ class Mpc325:
         with self._comm_lock:
             self._flush()
             self.ser.write(bytes([85]))  # Send command to the device (ASCII: U)
-            output = self.ser.read(6)
-
+            output = self.ser.read_until(expected=self.end_marker_bytes)
             unpacked_data = self._validate_and_unpack("6B", output)
             num_devices = unpacked_data[0]  # Number of devices connected
             device_statuses = unpacked_data[1:5]  # Status of each device (0 or 1)
-
             return (num_devices, device_statuses)
 
     def get_active_device(self):
@@ -218,7 +219,7 @@ class Mpc325:
         with self._comm_lock:
             self._flush()
             self.ser.write(bytes([75]))  # Send command to the device (ASCII: K)
-            output = self.ser.read(4)
+            output = self.ser.read_until(expected=self.end_marker_bytes)
             unpacked = self._validate_and_unpack("4B", output)
             return unpacked[0]
 
@@ -240,7 +241,7 @@ class Mpc325:
             command = struct.pack("<2B", 73, dev_num)
             self.ser.write(command)  # Send command to the device (ASCII: I )
 
-            output = self.ser.read(2)
+            output = self.ser.read_until(expected=self.end_marker_bytes)
             unpacked = self._validate_and_unpack("2B", output)
             if unpacked[0] == 69:  # If error
                 return False
@@ -255,7 +256,7 @@ class Mpc325:
         with self._comm_lock:
             self._flush()
             self.ser.write(bytes([67]))  # Send command (ASCII: C)
-            output = self.ser.read(14)
+            output = self.ser.read_until(expected=self.end_marker_bytes)
             unpacked = self._validate_and_unpack("=BIIIB", output)
 
             return (self._s2m(unpacked[1]), self._s2m(unpacked[2]), self._s2m(unpacked[3]))
@@ -268,18 +269,21 @@ class Mpc325:
             if self.ser.is_open:
                 self._flush()
                 self.ser.write(bytes([78]))  # Send command (ASCII: N)
-                output = self.ser.read(1)
-                self._validate_and_unpack("B", output)
+
+                end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
+
+                output = self.ser.read_until(expected=self.end_marker_bytes)
+
+
+
 
     def stop(self):
         """Stop the current movement"""
-        self._stop_requested.set()  # Request stop (cooperative flag)
         with self._comm_lock:
             self._flush()
             self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>)
-            output = self.ser.read(1)
+            output = self.ser.read_until(expected=self.end_marker_bytes)
             self._validate_and_unpack("B", output)
-        self._stop_requested.clear()  # Reset after stop
 
     def move(self, x=None, y=None, z=None):
         """Move to a position. If quick_move is set to True, the movement will be at full speed.
@@ -289,7 +293,6 @@ class Mpc325:
             y (np.float64): y in microns
             z (np.float64): z in microns
         """
-        self._flush()  # redundant flush.
         curr_pos = self.get_current_position()
         # If the position is the same, do nothing.
         if (curr_pos[0] == x) and (curr_pos[1] == y) and (curr_pos[2] == z):
@@ -332,13 +335,7 @@ class Mpc325:
             self.ser.write(command2)
 
             end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
-            # Cooperative stop: check for stop request while waiting
-            while True:
-                if self._stop_requested.is_set():
-                    break
-                if self.ser.in_waiting > 0:
-                    break
-                time.sleep(0.01)
+
             self.ser.read_until(
                 expected=end_marker_bytes
             )  # Read until the end marker (ASCII: CR)
@@ -376,13 +373,7 @@ class Mpc325:
             self.ser.write(command2)
 
             end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
-            # Cooperative stop: check for stop request while waiting
-            while True:
-                if self._stop_requested.is_set():
-                    break
-                if self.ser.in_waiting > 0:
-                    break
-                time.sleep(0.01)
+
             self.ser.read_until(
                 expected=end_marker_bytes
             )  # Read until the end marker (ASCII: CR)

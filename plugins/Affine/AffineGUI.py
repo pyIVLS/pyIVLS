@@ -240,7 +240,7 @@ class AffineGUI(QObject):
 
             # get the camera name from the combobox
             camera_name = self.cameraComboBox.currentText()
-            status, img = self.functions["camera"]["camera_capture_image"]()
+            status, img = self.functions["camera"][camera_name]["camera_capture_image"]()
             if status != 0:
                 self.log_message.emit(f"Affine: Error capturing image: {img}")
                 return
@@ -260,7 +260,8 @@ class AffineGUI(QObject):
 
     def _manual_button_action(self):
         self.manual_mode = True
-        status, img = self.functions["camera"]["camera_capture_image"]()
+        camera_name = self.cameraComboBox.currentText()
+        status, img = self.functions["camera"][camera_name]["camera_capture_image"]()
         if status != 0:
             self.log_message.emit(f"Affine: Error capturing image: {img}")
             return

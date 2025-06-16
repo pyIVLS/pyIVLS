@@ -53,6 +53,9 @@ class affineMoveGUI(QObject):
 
     non_public_methods = []  
     public_methods = ["parse_settings_widget", "affine_move", "setSettings", "getIterations", "sequenceStep", "loopingIteration"]  
+    green_style = "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
+    red_style = "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
+
 
     ########Signals
     # signals retained since this plugins needs to communicate during sutter calibration.
@@ -109,7 +112,7 @@ class affineMoveGUI(QObject):
         self.sample_indicator = self.settingsWidget.sampleIndicator
         self.points_indicator = self.settingsWidget.pointsIndicator
         
-
+        
 
 
     ########Functions
@@ -234,7 +237,7 @@ class affineMoveGUI(QObject):
         
         # Save the calibration data
         np.save(file_path, self.calibrations)
-        self.emit_log(f"Calibration data saved to {file_path}")
+        self.info_message.emit(f"Calibration data saved to {file_path}")
 
     def _load_calibration(self):
         """Load the calibration data from a file. This implemetation keeps a single calibration file 
@@ -247,8 +250,9 @@ class affineMoveGUI(QObject):
             return
         
         # Load the calibration data
-        self.calibrations = np.load(file_path).item()
-        self.emit_log(f"Calibration data loaded from {file_path}")
+        self.calibrations = np.load(file_path, allow_pickle=True).item()
+        self.info_message.emit(f"Calibration data loaded from {file_path}")
+        self.update_status()
 
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
         """
@@ -335,19 +339,19 @@ class affineMoveGUI(QObject):
         """
         mm, cam, pos = self._fetch_dep_plugins()
         if self.calibrations == {}:
-            self.mm_indicator.setStyleSheet("background-color: red;")
+            self.mm_indicator.setStyleSheet(self.red_style)
         else:
-            self.mm_indicator.setStyleSheet("background-color: green;")
+            self.mm_indicator.setStyleSheet(self.green_style)
 
         if pos.positioning_coords((0,0)) == (-1, -1):
-            self.sample_indicator.setStyleSheet("background-color: red;")
+            self.sample_indicator.setStyleSheet(self.red_style)
         else:
-            self.sample_indicator.setStyleSheet("background-color: green;")
+            self.sample_indicator.setStyleSheet(self.green_style)
 
         if len(self.measurement_points) == 0:
-            self.points_indicator.setStyleSheet("background-color: red;")
+            self.points_indicator.setStyleSheet(self.red_style)
         else:
-            self.points_indicator.setStyleSheet("background-color: green;")
+            self.points_indicator.setStyleSheet(self.green_style)
 
     ########Functions
     ########plugins interraction
