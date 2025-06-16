@@ -17,8 +17,10 @@ class ViewportClickCatcher(QObject):
         super().__init__()
         self.view = view
         self._clicked_pos = None
+        self._cancelled = False
         self._loop = QEventLoop()
         self.view.viewport().installEventFilter(self)
+        self.view.installEventFilter(self)  # To catch key events
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.Type.MouseButtonPress:
@@ -27,11 +29,19 @@ class ViewportClickCatcher(QObject):
                 self._clicked_pos = (scene_pos.x(), scene_pos.y())
                 self._loop.quit()
                 return True
+        elif event.type() == QEvent.Type.KeyPress:
+            if event.key() == Qt.Key.Key_Escape:
+                self._cancelled = True
+                self._loop.quit()
+                return True
         return False
 
     def wait_for_click(self):
         self._loop.exec()
         self.view.viewport().removeEventFilter(self)
+        self.view.removeEventFilter(self)
+        if self._cancelled:
+            return None
         return self._clicked_pos
 
 
@@ -113,10 +123,11 @@ class affineMoveGUI(QObject):
 
     ########Functions
     ################################### internal
-    def _wait_for_input(self) -> tuple[float, float]:
+    def _wait_for_input(self) -> tuple[float, float] | None:
         """
         Waits for a mouse click on the camera graphics view and returns the (x, y)
-        position in scene coordinates. This method blocks until a click is received.
+        position in scene coordinates. This method blocks until a click is received or Esc is pressed.
+        Returns None if cancelled.
         """
         catcher = ViewportClickCatcher(self.camera_graphic_view)
         return catcher.wait_for_click()
@@ -165,20 +176,21 @@ class affineMoveGUI(QObject):
         for i, status in enumerate(dev_statuses):
             if status == 1:
                 code, status = mm.mm_change_active_device(i+1)
-                self.info_message.emit(f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points")
+                self.info_message.emit(f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)")
                 # move to "home"
                 status, state = mm.mm_move(12500, 12500)
-
 
                 points = []
                 moves = [(0,0),(3000,0), (0, 3000)]
                 for move in moves:
                     status, state = mm.mm_move_relative(x_change=move[0], y_change=move[1])
                     point = self._wait_for_input()
+                    if point is None:
+                        self.info_message.emit("Calibration cancelled by user.")
+                        return
                     x, y, z = mm.mm_current_position()
                     mm_point = (x, y)
                     points.append((mm_point, point))
-
 
                 # Compute the affine transformation
                 mm_points = np.array([pt[0] for pt in points], dtype=np.float32)
@@ -188,8 +200,6 @@ class affineMoveGUI(QObject):
 
                 # back to home
                 mm.mm_move(12500, 12500)
-
-
 
         self.update_status()
   
@@ -429,5 +439,4 @@ class affineMoveGUI(QObject):
         """
         print(f"loopingIteration called with currentIteration: {currentIteration}")
         return [0, f"_iter{currentIteration}"]
-    
-    
+
