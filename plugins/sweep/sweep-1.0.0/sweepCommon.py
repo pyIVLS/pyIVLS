@@ -148,7 +148,7 @@ def create_sweep_reciepe(settings, settings_smu):
     ]  # single channel mode: may be True or False
     s["repeat"] = settings["repeat"]  # repeat count: should be int >0
     s["pulsepause"] = settings[
-        "pulsepause"
+        "pulsedpause"
     ]  # pause between pulses in sweep (may not be used in continuous)
 
     s["drainnplc"] = settings[

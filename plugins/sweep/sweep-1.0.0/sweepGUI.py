@@ -253,6 +253,7 @@ class sweepGUI(QObject):
 
     def _setGUIfromSettings(self):
         ##populates GUI with values stored in settings
+        self.settingsWidget.smuBox.setCurrentText(self.settings["smu"])
         if self.settings["singlechannel"]:
             self.settingsWidget.checkBox_singleChannel.setChecked(True)
         else:
@@ -792,10 +793,10 @@ class sweepGUI(QObject):
 
         # pause between pulses should be >0
         try:
-            self.settings["pulsepause"] = float(self.settingsWidget.lineEdit_pulsedPause.text())
+            self.settings["pulsedpause"] = float(self.settingsWidget.lineEdit_pulsedPause.text())
         except ValueError:
             return [1,{"Error message": "Value error in sweep plugin: pulse pause field should be numeric"}]
-        if self.settings["pulsepause"] <= 0:
+        if self.settings["pulsedpause"] <= 0:
             return [1,{"Error message": "Value error in sweep plugin: pulse pause field should be positive"}]
 
         # Determine settings for drain mode
@@ -1078,7 +1079,7 @@ class sweepGUI(QObject):
             )
         return [0, "sweep finished"]
 
-    def _sequenceStep(self, postfix):
+    def sequenceStep(self, postfix):
         self.settings["filename"] = self.settings["filename"] + postfix
         [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
         if status:

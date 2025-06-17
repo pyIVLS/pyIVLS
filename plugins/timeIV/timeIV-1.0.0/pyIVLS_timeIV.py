@@ -113,3 +113,15 @@ class pyIVLS_timeIV_plugin:
         if args is None or args.get("function") == self.function:
             status, settings = self.pluginClass.get_current_gui_settings()
             return (self.name, status, settings)
+    @hookimpl
+    def get_functions(self, args=None):
+        """Returns a dictionary of publicly accessible functions.
+
+        Args:
+            args (dict): function
+
+        Returns:
+            dict: functions
+        """
+        if args is None or args.get("function") == self.metadata["function"]:
+            return {self.metadata["name"]: self.pluginClass._get_public_methods()}
