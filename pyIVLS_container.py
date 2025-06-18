@@ -20,7 +20,9 @@ class pyIVLS_container(QObject):
 
     #### Signals for communication
     ### main config name
-    configFileName = "pyIVLS.ini"   # FIXME: Magic path until plugin importer is implemented.
+    configFileName = (
+        "pyIVLS.ini"  # FIXME: Magic path until plugin importer is implemented.
+    )
     # send available plugins to the plugin loader
     available_plugins_signal = pyqtSignal(dict)
     # update the settings widget. This goes all the way to pyIVLS.py which handles the updating of the main GUI.
@@ -73,20 +75,20 @@ class pyIVLS_container(QObject):
 
     @pyqtSlot(list)
     def update_config(self, add_ini):
-        """Imports a new plugin from an ini file. 
+        """Imports a new plugin from an ini file.
 
         Args:
             add_ini (list): address, ini_path, plugin_name
         """
         # load the config file
-        plugin_address, ini_path, plugin_name = add_ini 
+        plugin_address, ini_path, plugin_name = add_ini
         new_config = ConfigParser()
         new_config.read(ini_path)
         section_plugin = None
         section_settings = None
         new_section = None
         new_section_settings = None
-        # check if a plugin is already registered in the pm 
+        # check if a plugin is already registered in the pm
         if self.pm.get_plugin(plugin_name) is not None:
             self.log_message.emit(
                 datetime.now().strftime("%H:%M:%S.%f")
@@ -103,7 +105,6 @@ class pyIVLS_container(QObject):
             elif section == "settings":
                 section_settings = section
                 new_section_settings = f"{plugin_name}_settings"
-        
 
         if section_plugin is None or new_section is None:
             self.log_message.emit(
@@ -114,15 +115,16 @@ class pyIVLS_container(QObject):
 
         # check that the naming is correct
         module_name = f"pyIVLS_{plugin_name}"
-        class_name = f"pyIVLS_{plugin_name}_plugin"   
+        class_name = f"pyIVLS_{plugin_name}_plugin"
 
-
-        sys.path.append(self.path + "plugins" + sep + new_config[section_plugin]["address"])
+        sys.path.append(
+            self.path + "plugins" + sep + new_config[section_plugin]["address"]
+        )
         try:
             # Dynamic import using importlib
             module = importlib.import_module(module_name)
-            plugin_class = getattr(module, class_name)
-            # if the plugin passes this, then is is probably a valid plugin. 
+            getattr(module, class_name)
+            # if the plugin throws no errors here, it's probably a valid plugin.
 
             # update the section in the config file
             if self.config.has_section(new_section):
@@ -134,7 +136,7 @@ class pyIVLS_container(QObject):
                 self.config.add_section(new_section)
                 for key, value in new_config[section_plugin].items():
                     self.config[new_section][key] = value
-            
+
             if new_section_settings is not None and section_settings is not None:
                 # update the settings section
                 if self.config.has_section(new_section_settings):
@@ -146,7 +148,7 @@ class pyIVLS_container(QObject):
                     self.config.add_section(new_section_settings)
                     for key, value in new_config[section_settings].items():
                         self.config[new_section_settings][key] = value
-                
+
             self.log_message.emit(
                 datetime.now().strftime("%H:%M:%S.%f")
                 + f" : Plugin {plugin_name} added to config file."
@@ -172,9 +174,9 @@ class pyIVLS_container(QObject):
                 + f" : Unknown exception when importing {plugin_name}: {e}"
             )
         finally:
-            sys.path.remove(self.path + "plugins" + sep + new_config[section_plugin]["address"])
-
-        
+            sys.path.remove(
+                self.path + "plugins" + sep + new_config[section_plugin]["address"]
+            )
 
     @pyqtSlot()
     def save_settings(self):
@@ -184,7 +186,7 @@ class pyIVLS_container(QObject):
             if code != 0:
                 self.log_message.emit(
                     datetime.now().strftime("%H:%M:%S.%f")
-                    + f": Error saving settings for plugin {plugin}: {code}, {settings["Error message"]}"
+                    + f": Error saving settings for plugin {plugin}: {code}, {settings['Error message']}"
                 )
                 continue
             if self.config.has_section(f"{plugin}_settings"):
@@ -205,7 +207,7 @@ class pyIVLS_container(QObject):
         # write the config file to disk
         self.cleanup()
 
-        # send some info to the log 
+        # send some info to the log
         if modifications:
             self.log_message.emit(
                 datetime.now().strftime("%H:%M:%S.%f")
@@ -258,7 +260,7 @@ class pyIVLS_container(QObject):
                     "load",
                     "dependencies",
                     "address",
-                    "version"
+                    "version",
                 ]:
                     if self.config.has_option(plugin, option):
                         option_dict[option] = self.config[plugin][option]
@@ -394,10 +396,10 @@ class pyIVLS_container(QObject):
     def public_function_exchange(self):
         # Get all the plugin public functions by plugin name
         if self.pm.list_name_plugin() == []:
-            return # No plugins registered, nothing to do
+            return  # No plugins registered, nothing to do
         plugin_public_functions = self.pm.hook.get_functions()
         function_map = {}
-        
+
         for single_dict in plugin_public_functions:
             for plugin_name, methods in single_dict.items():
                 plugin_function = self.config[plugin_name + "_plugin"]["function"]
@@ -415,28 +417,14 @@ class pyIVLS_container(QObject):
                         # Add to existing nested structure
                         function_map[plugin_function][plugin_name] = methods
 
-        # Flatten functions with only one plugin back to function -> methods
-        final_map = {}
-
-        # NOTE: API CHANGE. BROKEN PLUGINS ARE SWEEP, TIMEIV 
-        """
-        for function, plugins in function_map.items():
-            if len(plugins) == 1:
-                plugin_name = next(iter(plugins))
-                final_map[function] = plugins[plugin_name]
-            else:
-                final_map[function] = plugins
-        print("Final function map: ", final_map)
-        """
-        
         self.pm.hook.set_function(function_dict=function_map)
         self.seqComponents_signal.emit(self.get_plugin_dict(), plugin_public_functions)
-        
+
         # pass plugin references around
         plugin_list = self.pm.hook.get_plugin()
         if self.debug:
             print("Available plugin objects in public_function_exchange: ", plugin_list)
-        self.pm.hook.set_plugin(plugin_list = plugin_list)
+        self.pm.hook.set_plugin(plugin_list=plugin_list)
 
     def getLogSignals(self):
         plugin_logSignals = self.pm.hook.get_log()
@@ -547,7 +535,7 @@ class pyIVLS_container(QObject):
 
         return False, ""
 
-    def __init__(self, config_file_name:str|None = None):
+    def __init__(self, config_file_name: str | None = None):
         """initializes the container and the plugin manager. Reads the config file and registers all plugins set to load on startup."""
         super().__init__()
         if config_file_name is None:
