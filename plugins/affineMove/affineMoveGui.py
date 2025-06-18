@@ -175,6 +175,8 @@ class affineMoveGUI(QObject):
             if status == 1:
                 code, status = mm.mm_change_active_device(i+1)
                 self.info_message.emit(f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)")
+                # calibrate
+                status, state = mm.mm_calibrate()
                 # move to "home"
                 status, state = mm.mm_move(12500, 12500)
 
@@ -253,6 +255,27 @@ class affineMoveGUI(QObject):
         self.calibrations = np.load(file_path, allow_pickle=True).item()
         self.info_message.emit(f"Calibration data loaded from {file_path}")
         self.update_status()
+
+
+        # calibrate all manipulators
+        mm, _, _ = self._fetch_dep_plugins()
+        status,state = mm.mm_open()
+        if status:
+            self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
+            return
+        status, ret = mm.mm_devices()
+        if status:
+            self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
+            return
+        dev_count, dev_statuses = ret
+        # calibrate every available manipulator
+        for i, status in enumerate(dev_statuses):
+            if status == 1:
+                code, status = mm.mm_change_active_device(i+1)
+                status, state = mm.mm_calibrate()
+
+
+
 
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
         """

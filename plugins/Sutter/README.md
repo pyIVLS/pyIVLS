@@ -12,5 +12,4 @@ Add 99-suttermpc325.rules to /etc/udev/rules.d to automatically load basic drive
 You might need to fiddle around with the ports a bit to find the correct one, default is set to access the instrument by id. see: mpc-hal.py
 
 # Notes
-Best command to run after plugging in is to calibrate, since other commands seem to crash on the first run. 
-This doesn't matter on subsequent runs. Commands and more info available in the Manual for the manipulators.
+I have a theory: Sutter dislikes getting manual inputs from the ROE-200 while it is being externally controlled. Pure software controls seem to work fine, but adding manual moves and device changes during external control seems to decrease stability. Is the ROE-200 buffering something into the serial port during manual moves??

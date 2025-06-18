@@ -111,10 +111,6 @@ class SutterGUI(QObject):
         #self._move_worker = SutterMoveWorker(self.hal, self.log_message)
 
     
-    def __del__(self):
-        """Destroy the worker when unregistering / garbage collecting the plugin."""
-        if hasattr(self, '_move_worker'):
-            self._move_worker.stop()
 
     def setup(self, settings):
         """
@@ -258,7 +254,7 @@ class SutterGUI(QObject):
 
             else:
                 self._gui_change_device_connected(False)
-                #self._move_worker.stop()
+                timestamp = datetime.now().strftime("%H:%M:%S")
 
     def _status_button(self):
         print("status button pressed WIP")
@@ -317,10 +313,9 @@ class SutterGUI(QObject):
             return [0, {"Error message": "Sutter already connected"}]
         try:
             self.hal.open(self.source_input.text())
-            if self.hal.is_connected():
-                self._gui_change_device_connected(True)
-                return [0, {"Error message": "Sutter connected"}]
-            return [4, {"Error message": "Sutter connection error"}]
+            
+            self._gui_change_device_connected(True)
+            return [0, {"Error message": "Sutter connected"}]
 
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
@@ -370,7 +365,14 @@ class SutterGUI(QObject):
             return [0, {"Error message": "Sutter moved"}]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
-
+    def mm_calibrate(self, all = False):
+        if not all:
+            try:
+                self.hal.calibrate()
+                return [0, {"Error message": "Sutter calibrated"}]
+            except Exception as e:
+                return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+        
     def mm_stop(self):
         """Micromanipulator stop."""
         try:

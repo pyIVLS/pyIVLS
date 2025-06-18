@@ -81,11 +81,9 @@ class Mpc325:
     _M2SCONV: Final = np.float64(16.0)
     _MINIMUM_MS: Final = 0
     _MAXIMUM_M: Final = 25000
-    _MAXIMUM_S: Final = 400000  # Manual says 266667, this is the actual maximum. UPDATE 23.5.2025: This has been updated in the manual aswell.
+    _MAXIMUM_S: Final = 400000  # Manual says 266667, this is the actual maximum. UPDATE 23.5.2025: This has been updated in the manual as well.
     _TIMEOUT: Final = 5  # seconds.
-    # The actual maximum timeout should be set to 924 seconds,
-    # since that is the longest possible move time.
-    # (slowest speed, no diagonal movement, max distance of 25000 microns in every axis)
+
 
     def __init__(self):
         # vars for a single instance
@@ -100,8 +98,7 @@ class Mpc325:
 
     # Close the connection when python garbage collection gets around to it. This seems to be implemented by pySERIAL already.
     def __del__(self):
-        if self.ser.is_open:
-            self._flush()
+        if self.is_connected():
             self.ser.close()
 
     def update_internal_state(
@@ -131,15 +128,20 @@ class Mpc325:
             if port is None:
                 port = self.port
             if not self.is_connected():
-                self.ser = serial.Serial(
-                    port=port,
-                    baudrate=self._BAUDRATE,
-                    stopbits=self._STOPBITS,
-                    parity=self._PARITY,
-                    timeout=self._TIMEOUT,
-                    bytesize=self._DATABITS,
-                )
-                self._flush()
+                self.ser.port = port
+                self.ser.baudrate = self._BAUDRATE
+                self.ser.parity = self._PARITY
+                self.ser.stopbits = self._STOPBITS
+                self.ser.timeout = self._TIMEOUT  
+                self.ser.bytesize = self._DATABITS
+                self.ser.open()
+                time.sleep(0.2)  # wait for the port to open??
+                self._flush()  # Flush the buffers after opening the port??
+
+                # ok so these are here just because the connection sometimes hangs on first open after turning sutter on.
+
+
+
 
     def close(self):
         with self._comm_lock:
@@ -255,9 +257,8 @@ class Mpc325:
         with self._comm_lock:
             self._flush()
             self.ser.write(bytes([67]))  # Send command (ASCII: C)
-            output = self.ser.read_until(expected=self.end_marker_bytes)
+            output = self.ser.read(14)
             unpacked = self._validate_and_unpack("=BIIIB", output)
-
             return (self._s2m(unpacked[1]), self._s2m(unpacked[2]), self._s2m(unpacked[3]))
 
     def calibrate(self):
@@ -265,7 +266,7 @@ class Mpc325:
         (moves to 0,0,0)
         """
         with self._comm_lock:
-            if self.ser.is_open:
+            if self.is_connected:
                 self._flush()
                 self.ser.write(bytes([78]))  # Send command (ASCII: N)
                 output = self.ser.read_until(expected=self.end_marker_bytes)
@@ -350,7 +351,7 @@ class Mpc325:
             if speed is None:
                 speed = self.speed
             self._flush()
-            # Enforce speed limits
+            # Enforce speed limitss
             speed = max(0, min(speed, 15))
 
             # Pack first part of command
@@ -372,7 +373,7 @@ class Mpc325:
 
             self.ser.read_until(
                 expected=end_marker_bytes
-            )  # Read until the end marker (ASCII: CR)
+            )  # Read until the end marker (ASCII: CR)        
 
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
     def _handrail_micron(self, microns) -> np.uint32:

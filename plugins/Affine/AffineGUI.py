@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from Affine_cv import Affine, AffineError
+from Affine_skimage import Affine, AffineError
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QBrush, QImage, QPen, QPixmap
