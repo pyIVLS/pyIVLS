@@ -82,6 +82,10 @@ class pyIVLS_container(QObject):
         plugin_address, ini_path, plugin_name = add_ini 
         new_config = ConfigParser()
         new_config.read(ini_path)
+        section_plugin = None
+        section_settings = None
+        new_section = None
+        new_section_settings = None
         # check if a plugin is already registered in the pm 
         if self.pm.get_plugin(plugin_name) is not None:
             self.log_message.emit(
@@ -99,6 +103,14 @@ class pyIVLS_container(QObject):
             elif section == "settings":
                 section_settings = section
                 new_section_settings = f"{plugin_name}_settings"
+        
+
+        if section_plugin is None or new_section is None:
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : Plugin {plugin_name} does not have a plugin section."
+            )
+            return
 
         # check that the naming is correct
         module_name = f"pyIVLS_{plugin_name}"
@@ -123,17 +135,18 @@ class pyIVLS_container(QObject):
                 for key, value in new_config[section_plugin].items():
                     self.config[new_section][key] = value
             
-            # update the settings section
-            if self.config.has_section(new_section_settings):
-                # update the section
-                for key, value in new_config[section_settings].items():
-                    self.config[new_section_settings][key] = value
-            else:
-                # add the section
-                self.config.add_section(new_section_settings)
-                for key, value in new_config[section_settings].items():
-                    self.config[new_section_settings][key] = value
-            
+            if new_section_settings is not None and section_settings is not None:
+                # update the settings section
+                if self.config.has_section(new_section_settings):
+                    # update the section
+                    for key, value in new_config[section_settings].items():
+                        self.config[new_section_settings][key] = value
+                else:
+                    # add the section
+                    self.config.add_section(new_section_settings)
+                    for key, value in new_config[section_settings].items():
+                        self.config[new_section_settings][key] = value
+                
             self.log_message.emit(
                 datetime.now().strftime("%H:%M:%S.%f")
                 + f" : Plugin {plugin_name} added to config file."
@@ -534,9 +547,13 @@ class pyIVLS_container(QObject):
 
         return False, ""
 
-    def __init__(self):
+    def __init__(self, config_file_name:str|None = None):
         """initializes the container and the plugin manager. Reads the config file and registers all plugins set to load on startup."""
         super().__init__()
+        if config_file_name is None:
+            self.configFileName = self.configFileName
+        else:
+            self.configFileName = config_file_name
         self.path = dirname(__file__) + sep
         sys.path.append(self.path + "plugins" + sep)
         self.pm = pluggy.PluginManager("pyIVLS")

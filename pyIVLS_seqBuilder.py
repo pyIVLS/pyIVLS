@@ -10,8 +10,8 @@ import copy
 
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, Qt
-from PyQt6.QtGui import QStandardItemModel, QStandardItem
-from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtGui import QStandardItemModel, QStandardItem, QAction
+from PyQt6.QtWidgets import QFileDialog, QMenu
 
 from components.threadStopped import thread_with_exception, ThreadStopped
 
@@ -19,7 +19,23 @@ from pathvalidate import is_valid_filename
 import json
 
 
+
 class pyIVLS_seqBuilder(QObject):
+    #### Properties
+    @property
+    def item(self):
+        return self._item
+    
+    @item.setter
+    def item(self, value):
+        if isinstance(value, QStandardItem):
+            self._item = value
+            # find the instance of the item in the model
+            index = self.model.indexFromItem(value)
+            if index.isValid(): # catch invisible root item
+                self.widget.treeView.setCurrentIndex(index)
+        else:
+            raise TypeError("seqBuilder: Tried to assign a non-QStandardItem")
     #### Signals for communication
 
     info_message = pyqtSignal(str)
@@ -65,7 +81,7 @@ class pyIVLS_seqBuilder(QObject):
 
     #### Internal functions
     def __init__(self, path):
-        super(pyIVLS_seqBuilder, self).__init__()
+        super().__init__()
         ui_file_name = path + "components" + sep + "pyIVLS_seqBuilder.ui"
         self.widget = uic.loadUi(ui_file_name)
         self.path = path
@@ -74,12 +90,15 @@ class pyIVLS_seqBuilder(QObject):
         self._init_treeView()
 
     def _init_treeView(self):
-        self.model = QStandardItemModel()
+        self.model = QStandardItemModel(self.widget.treeView)
         self.model.setHorizontalHeaderLabels(["Step function", "Step class"])
-        self.item = QStandardItem("pyIVLS measurement sequence")
+        self._item = QStandardItem("pyIVLS measurement sequence")
+        self.item.setEditable(False)
         self.model.appendRow(self.item)
+        # set the item as active
         self.update_treeView()
-
+        self.widget.treeView.setCurrentIndex(self.model.index(0, 0))
+        #
     def _connect_signals(self):
         self.widget.comboBox_function.currentIndexChanged.connect(self.update_classView)
         self.widget.addInstructionButton.clicked.connect(self._addInstructionAction)
@@ -87,8 +106,66 @@ class pyIVLS_seqBuilder(QObject):
         self.widget.readButton.clicked.connect(self._readRecipeAction)
         self.widget.directoryButton.clicked.connect(self._getAddress)
         self.widget.runButton.clicked.connect(self._runAction)
+        # connect the label click on gds to a function
+       # add a custom context menu in the list widget to allow point deletion
+        self.widget.treeView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.widget.treeView.customContextMenuRequested.connect(
+            self._tree_context_menu
+        )
+        self.widget.treeView.clicked.connect(self._root_item_changed)
+    #### GUI functions
+    def _tree_context_menu(self, position):
+        def remove_item(row, idx_parent):
+            # check if the row has children
+            item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
+            if item.rowCount() > 0:
+                self.info_message.emit("Can not delete item with children")
+                return
+            if item == self.model.invisibleRootItem().child(0):
+                self.info_message.emit("Can not delete root item")
+                return
+            self.model.removeRow(row, idx_parent)
+            # get the root item
+            root_item = self.model.invisibleRootItem()
+            # get the first child of the root item
+            self.item = root_item.child(0)
+            
+        from PyQt6.QtCore import QModelIndex
+        idx: QModelIndex = self.widget.treeView.indexAt(position)
+        # get parent index
+        idx_parent = idx.parent()
+        # get the row number of the index
+        row = idx.row()
+        
+    
 
-        #### GUI functions
+        menu = QMenu()
+        delete_action = QAction("Delete", self.widget.treeView)
+        delete_action.triggered.connect(lambda: remove_item(row, idx_parent))
+        menu.addAction(delete_action)
+        menu.exec(self.widget.treeView.mapToGlobal(position))
+
+    def _root_item_changed(self, idx):
+        if idx.column() != 0:
+            # modify the index to point to the first column
+            idx = idx.siblingAtColumn(0)
+        # read the contents of the entire line, aka column 0 and 1
+
+        selected_item = self.model.itemFromIndex(idx)
+        if selected_item is not None:
+            function_text = selected_item.text()
+            item_idx = selected_item.index()
+            # get the class text from the second column
+            class_text = self.model.itemFromIndex(item_idx.siblingAtColumn(1)).text()
+
+            if class_text == "step":
+                # if the class is a step, set the item to be the parent item
+                if self.item.parent() is not None:
+                    self.item = self.item.parent()
+                else:
+                    self.item = self.model.invisibleRootItem().child(0)
+            else:
+                self.item = self.model.itemFromIndex(idx)
 
     def update_classView(self):
         self.widget.comboBox_class.clear()
@@ -96,9 +173,7 @@ class pyIVLS_seqBuilder(QObject):
             self.widget.comboBox_function.currentText() == ""
             or self.widget.comboBox_function.currentText() == "loop end"
         ):
-            for item in self.available_instructions[
-                self.widget.comboBox_function.currentText()
-            ]["class"]:
+            for item in self.available_instructions[self.widget.comboBox_function.currentText()]["class"]:
                 self.widget.comboBox_class.addItem(item)
 
     def update_treeView(self):
@@ -135,6 +210,8 @@ class pyIVLS_seqBuilder(QObject):
         filename = QFileDialog.getOpenFileName(
             None, "Open pyIVLS sequence file", self.path, "json (*.json);; all (*.*)"
         )
+        if not filename[0]:
+            return 1
         with open(filename[0], "r") as file:
             data = json.load(file)
         self._init_treeView()
@@ -157,15 +234,12 @@ class pyIVLS_seqBuilder(QObject):
                 looping.append(len(stackItem["looping"]))
                 stack = stackItem["looping"] + stack
                 self.item = nextItem
-            
-            
-    
 
     def _setRunStatus(self, status):
         self.widget.runButton.setEnabled(not status)
         self.widget.stopButton.setEnabled(status)
 
-        #### Sequence functions
+    #### Sequence functions
 
     def _addInstructionAction(self):
         instructionFunc = self.widget.comboBox_function.currentText()
@@ -174,9 +248,7 @@ class pyIVLS_seqBuilder(QObject):
             return 1
         if instructionFunc == "loop end":
             if self.item.parent() == None:
-                self.info_message.emit(
-                    "Can not end loop as there are no not finished loops"
-                )
+                self.info_message.emit("Can not end loop as there are no not finished loops")
                 return 1
             else:
                 self.item = self.item.parent()
@@ -185,10 +257,14 @@ class pyIVLS_seqBuilder(QObject):
         if status:
             self.info_message.emit(instructionSettings["Error message"])
             return 1
+        # check the instruction class of self.item
+
         instructionClass = self.widget.comboBox_class.currentText()
+    
         nextItem = QStandardItem(instructionFunc)
         nextItem.setData(instructionSettings, Qt.ItemDataRole.UserRole)
         self.item.appendRow([nextItem, QStandardItem(instructionClass)])
+        # update the parent item to be the newly added item if it is a loop
         if instructionClass == "loop":
             self.item = nextItem
         self.update_treeView()

@@ -22,7 +22,7 @@ class pyIVLS_VenusUSB2_plugin:
         Initialize the plugin and set up properties.
         """
 
-            # iterate current directory to find the .ini file
+        # iterate current directory to find the .ini file
         path = os.path.dirname(__file__)
         for file in os.listdir(path):
             if file.endswith(".ini"):

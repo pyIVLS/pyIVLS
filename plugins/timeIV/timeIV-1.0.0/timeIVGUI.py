@@ -670,12 +670,9 @@ class timeIVGUI(QObject):
     def _smu_plugin_changed(self):
         """Handles the visibility of the SMU settings based on the selected SMU plugin."""
         smu_selection = self.settingsWidget.smuBox.currentText()
-        print(f"SMU plugin changed to {smu_selection}")
         self.settingsWidget.comboBox_channel.clear()
         if smu_selection in self.function_dict["smu"]:
-            print(f"SMU plugin {smu_selection} found in function_dict")
             available_channels = self.function_dict["smu"][smu_selection]["smu_channelNames"]()
-            print(f"Available channels: {available_channels}")
             # get channel names from the selected SMU plugin
             self.settingsWidget.comboBox_channel.addItems(available_channels)
 
@@ -725,7 +722,23 @@ class timeIVGUI(QObject):
 
     def _getInfoSignal(self):
         return self.info_message
+    
+    def _get_public_methods(self):
+        """
+        Returns a nested dictionary of public methods for the plugin
+        """
+        # if the plugin type matches the requested type, return the functions
 
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method not in self.non_public_methods
+            and method in self.public_methods
+        }
+        return methods
     ########Functions
     ############### run preparations
     def smuInit(self):

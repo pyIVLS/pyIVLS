@@ -68,8 +68,6 @@ class CameraThread(QThread):
         self._running = False
         self.wait()
 
-    def __del__(self):
-        self.stop()  # Ensure the thread is stopped when the object is deleted
 
 
 class VenusUSB2GUI(QObject):
