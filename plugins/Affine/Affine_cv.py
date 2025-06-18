@@ -261,12 +261,8 @@ class Affine:
             lp = it.current()
             new_layer = lp.dup()
             new_layer.visible = True
-            if i == 0 or i == 1:
-                new_layer.clear_dither_pattern()
-                new_layer.dither_pattern = 0
-            else:
-                new_layer.clear_dither_pattern()
-                new_layer.dither_pattern = 1
+            new_layer.clear_dither_pattern()
+
 
             view.set_layer_properties(it, new_layer)
             i += 1

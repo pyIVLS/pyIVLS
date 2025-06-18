@@ -188,9 +188,10 @@ class Mpc325:
             )
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
+        self.ser.flush()
         # NOTE: added some more waittime to try out.
         time.sleep(
-            0.002
+            0.002 * 3
         )  # Hardcoded wait time (2 ms) between commands from the manual.
 
 
@@ -242,9 +243,7 @@ class Mpc325:
             self.ser.write(command)  # Send command to the device (ASCII: I )
 
             output = self.ser.read_until(expected=self.end_marker_bytes)
-            unpacked = self._validate_and_unpack("2B", output)
-            if unpacked[0] == 69:  # If error
-                return False
+
             return True
 
     def get_current_position(self):
@@ -269,9 +268,6 @@ class Mpc325:
             if self.ser.is_open:
                 self._flush()
                 self.ser.write(bytes([78]))  # Send command (ASCII: N)
-
-                end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
-
                 output = self.ser.read_until(expected=self.end_marker_bytes)
 
 
