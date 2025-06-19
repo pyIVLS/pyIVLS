@@ -70,6 +70,9 @@ class AffineGUI(QObject):
             try:
                 mask = self.affine.update_internal_mask(last_mask_path)
                 self._update_MDI(mask, None)
+                self.settingsWidget.label.setText(
+                    f"Mask loaded: {os.path.basename(last_mask_path)}"
+                )
                 self._gui_change_mask_uploaded(mask_loaded=True)
             except AffineError:
                 # I dont want to hear about this error, dont care.
@@ -284,6 +287,9 @@ class AffineGUI(QObject):
             )
             if fileName:
                 mask = self.affine.update_internal_mask(fileName)
+                self.settingsWidget.label.setText(
+                    f"Mask loaded: {os.path.basename(fileName)}"
+                )
                 self._update_MDI(mask, None)
                 self._gui_change_mask_uploaded(mask_loaded=True)
 

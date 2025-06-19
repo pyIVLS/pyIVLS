@@ -228,7 +228,7 @@ class Affine:
         Raises:
             - AffineError: something bad has taken place
         """
-        max_ratio = 0.75
+        max_ratio = 0.90
         cross_check = True
         mask = self.internal_mask
         if img is None:
@@ -275,8 +275,9 @@ class Affine:
 
         # Populate the class variables when a transformation is found.
         self.A = model.params
-
-
+        
+        # only keep inliers
+        matches = matches[inliers]
         self.result["img"] = img
         self.result["mask"] = mask
         self.result["kp1"] = kp_mask
@@ -291,7 +292,7 @@ class Affine:
         model, inliers = ski.measure.ransac(
             (src, dst),
             ski.transform.SimilarityTransform,
-            residual_threshold=5,  # this can be increased to maybe get more inliers on difficult images, at the cost of accuracy.
+            residual_threshold=10,  # this can be increased to maybe get more inliers on difficult images, at the cost of accuracy.
             min_samples=self.MIN_MATCHES,  # 4 seems to be a good value for this.
             max_trials=1000,
         )

@@ -148,6 +148,8 @@ class dialog(QDialog):
             out_img[:h2, w1:w1+w2] = img_img if img_img.ndim == 3 else np.stack([img_img]*3, axis=-1)
             fig, ax = plt.subplots(figsize=(10, 5))
             ax.imshow(out_img)
+
+
             # Draw matches (fix: use (col, row) = (x, y) for plotting)
             for m in matches:
                 idx1, idx2 = m  # mask index, image index
