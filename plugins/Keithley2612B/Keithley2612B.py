@@ -200,7 +200,9 @@ class Keithley2612B:
             list [i, v]
         """
         ##IRtothink#### some check may be added
-        return list(np.array(self.safequery(f"print ({channel}.measure.iv())'").split(",")).astype(float))
+        test = self.safequery(f"print ({channel}.measure.iv())").split("\t")
+#        print(test)
+        return list(np.array(test).astype(float))
 
     def setOutput(self, channel, outputType, value):
         """sets smu output but does not switch it ON
@@ -209,7 +211,7 @@ class Keithley2612B:
 	value = float
         """
         ##IRtothink#### some check may be added
-        self.safewrite(f"{source}.source.level{outputType} = {value}")
+        self.safewrite(f"{channel}.source.level{outputType} = {value}")
 
     def get_last_buffer_value(self, channel, readings = None):
         """

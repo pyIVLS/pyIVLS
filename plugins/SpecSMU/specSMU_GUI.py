@@ -36,7 +36,7 @@ class specSMU_GUI():
         self.path = os.path.dirname(__file__) + os.path.sep
         self.dependency = {
         "smu": ["parse_settings_widget", "smu_connect", "smu_init", "smu_outputOFF",  "smu_outputON", "smu_disconnect", "set_running", "smu_setOutput", "smu_channelNames"], 
-        "spectrometer" : ["parse_settings_preview" , "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum", "spectrometerGetScan"]
+        "spectrometer" : ["parse_settings_preview" ,"setSettings", "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum", "spectrometerGetScan"]
         }
         self.settingsWidget = uic.loadUi(self.path + "specSMU_settingsWidget.ui")
 
@@ -320,6 +320,7 @@ class specSMU_GUI():
         [status, message] = self.function_dict["smu"]["smu_connect"]()
         if status:
             return [status, message]
+        self.function_dict["spectrometer"]["setSettings"](self.spectrometer_settings)
         [status, message] = self.function_dict["spectrometer"]["spectrometerConnect"]()
         if status:
             return [status, message]
@@ -396,6 +397,7 @@ class specSMU_GUI():
         for smuLoopStep in range(smuLoop):
             # set smu set value according to current iteration.
             smuSetValue = self.settings["start"] + smuLoopStep*smuChange
+            self.function_dict["smu"]["smu_setOutput"](self.settings["channel"], 'v' if self.settings['inject']=='voltage' else 'i', smuSetValue)
             ####get spectrometer Integration time from settings
             integration_time_setting = self.spectrometer_settings["integrationTime"]
   
@@ -404,7 +406,6 @@ class specSMU_GUI():
             ####if auto integration time
             ########## run get integration time loop (more or less the getAutoTime function fom TLCCS), but with pauses if needed
             ####get spectrometer Integration time
-
             status, integration_time_seconds = self.function_dict["spectrometer"]["spectrometerGetIntegrationTime"]()
             integration_time = integration_time_seconds
             if status:
@@ -417,14 +418,15 @@ class specSMU_GUI():
                     raise NotImplementedError(f"Error in setting integration time or getting spectrum: {spectrum}, no handling provided")
 
             if self.spectrometer_settings["integrationtimetype"] == "auto":
+                self.function_dict["smu"]["smu_outputON"](self.settings["channel"])
                 status, auto_time = self.function_dict["spectrometer"]["getAutoTime"]()
+                self.function_dict["smu"]["smu_outputOFF"]()
                 if not status:
                     integration_time_setting = auto_time
 
 
             ##measure
             self.function_dict["smu"]["smu_outputON"](self.settings["channel"])
-            self.function_dict["smu"]["smu_setOutput"](self.settings["channel"], 'v' if self.settings['inject']=='voltage' else 'i', smuSetValue)
             # get spectrum
             status, spectrum = self.function_dict["spectrometer"]["spectrometerGetScan"]()
             if status:
