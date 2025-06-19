@@ -22,18 +22,18 @@ class CCSDRV:
         # Set class vars
         self.io = LLIO(spectrometerVID, spectrometerPID)
         if self.io.open():
-         	self.dev = self.io.dev
-         	self.set_integration_time(integration_time)
-         	state = self.get_device_status()
-         	self.integration_time = integration_time
+            self.dev = self.io.dev
+            self.set_integration_time(integration_time)
+            state = self.get_device_status()
+            self.integration_time = integration_time
 
-         	if "SCAN_IDLE" not in state:
-         		# FIXME: This is a workaround for the device not being in idle state
-         		# after opening connection for first time. Look into reset.
-                	time.sleep(3)
-                	self.start_scan()
-                	self.get_scan_data()
-         	return True
+            if "SCAN_IDLE" not in state:
+                # FIXME: This is a workaround for the device not being in idle state
+                # after opening connection for first time. Look into reset.
+                time.sleep(3)
+                self.start_scan()
+                self.get_scan_data()
+            return True
         return False
 
     def close(self):

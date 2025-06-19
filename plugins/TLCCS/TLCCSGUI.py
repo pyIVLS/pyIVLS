@@ -21,6 +21,11 @@ added spectrometerGetIntegrationTime
 added auto detection for integration time
 ivarad
 2025.06.11
+
+version 0.4
+added spectrometerGetScan as a safer way to start a scan and get a spectrum
+
+
 '''
 import TLCCS_const as const
 
@@ -30,10 +35,12 @@ import numpy as np
 from datetime import datetime
 from pathvalidate import is_valid_filename
 from PyQt6 import uic
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
 from MplCanvas import MplCanvas
 from threadStopped import ThreadStopped, thread_with_exception 
+from threading import Lock, Event
+import copy
 
 from TLCCS import CCSDRV
 
@@ -41,7 +48,19 @@ from TLCCS import CCSDRV
 class TLCCS_GUI(QObject):
     """spectrometer plugin for pyIVLS"""
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_preview" , "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum"] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_preview",
+                      "parse_settings_widget", 
+                      "setSettings",
+                      "spectrometerConnect", 
+                      "spectrometerDisconnect", 
+                      "spectrometerSetIntegrationTime", 
+                      "spectrometerGetIntegrationTime", 
+                      "spectrometerStartScan", 
+                      "spectrometerGetScan",
+                      "spectrometerGetSpectrum",
+                      "createFile",
+                      "getAutoTime"
+                    ] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
 ########Signals
 
@@ -53,10 +72,10 @@ class TLCCS_GUI(QObject):
     
     default_timerInterval = 20 # ms, it is close to 24*2 fps (twice the standard for movies and TV)
 #limits for auto time detection
-    autoTime_min = 4
-    autoTime_max = 10000
-    autoValue_min = 0.2
-    autoValue_max = 0.8
+    autoTime_min = 0.04 # s, used to be 4
+    autoTime_max = 10 #s, used to be 10000
+    autoValue_min = 0.2 # spectrum value in arb.(?) units
+    autoValue_max = 0.8 # spectrum value in arb.(?) units
     intTimeMaxIterations = 10
 
 ########Functions       
@@ -82,6 +101,9 @@ class TLCCS_GUI(QObject):
 
         correction_file = r'SC175_correction'
         self.correction = np.loadtxt(self.path + correction_file)
+        self.settings = {}
+
+        self._scan_lock = Lock()  
     
     def _connect_signals(self):
         self.settingsWidget.connectButton.clicked.connect(self._connectAction)
@@ -112,6 +134,11 @@ class TLCCS_GUI(QObject):
 ################################### internal
 
     def _update_spectrum(self):
+        """Updates the spectrum in the preview window.
+
+        Returns:
+            _type_: _description_
+        """
         [status, info] = self.spectrometerGetSpectrum()
         if status:
             return [status, info]    
@@ -136,6 +163,7 @@ class TLCCS_GUI(QObject):
 ########GUI Slots
 
     def _connectAction(self):
+        self.parse_settings_widget()
         [status, info] = self.spectrometerConnect()
         if status:
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
@@ -227,10 +255,11 @@ class TLCCS_GUI(QObject):
         varDict['triggermode'] = 1 if self.lastspectrum[1]['externalTrigger'] else 0
         varDict['name'] = self.settings["samplename"]
         varDict['comment'] = self.settings["comment"]
-        self._createFile(varDict, self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + ".csv", data = self.lastspectrum[0])
+        self.createFile(varDict, self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + ".csv", data = self.lastspectrum[0])
         return [0, "OK"]
 
     def _getTimeAction(self):
+        preview_status = False
         [status, info] = self._parse_settings_autoTime()
         if status:
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
@@ -242,58 +271,71 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.saveButton.setEnabled(False)
         self.closeLock.emit(False)
         #check if get time may be used (spectrometer IDLE)
-        autoTime = self.getAutoTime()
-        self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime*1000)}")
-        if preview_status:
-            self._previewAction()
-        else:
-            self.settingsWidget.saveButton.setEnabled(True)
-            self.closeLock.emit(True)
-        return [0, "OK"]
-
-    def getAutoTime(self):
-        low = self.autoValue_min/1000
-        high = self.autoValue_max/1000
-        if self.settings["integrationtimetype"] == 'auto':
-            if self.settings["useintegrationtimeguess"]
-                guessIntTime = self.settings["integrationTime"]
+        statuses = self.drv.get_device_status()
+        if "SCAN_IDLE" in statuses:
+            status, autoTime = self.getAutoTime()
+            if not status:
+                self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime*1000)}")
+            if preview_status:
+                self._previewAction()
             else:
-                guessIntTime = (self.autoTime_min + self.autoTime_max)/2
-            for _ in range(self.intTimeMaxIterations):
-                self.settings["integrationTime"] = guessIntTime #needed for keeping self.lastspectrum in order
-                [status, info] = self.spectrometerSetIntegrationTime(guessIntTime)
+                self.settingsWidget.saveButton.setEnabled(True)
+                self.closeLock.emit(True)
+            return [0, "OK"]
+        else:
+            return [4, {"Error message":"TLCCSGUI: spectrometer is not in IDLE state when setting auto integration time"}]
+
+    def getAutoTime(self) -> tuple[int, float|dict]:
+        low = self.autoTime_min * 1000 # time min ms
+        high = self.autoTime_max * 1000 # time max ms
+        low_spectrum = self.autoValue_min # min spectrum value
+        high_spectrum = self.autoValue_max # max spectrum value
+
+        if self.settings["integrationtimetype"] == 'auto':
+            if self.settings["useintegrationtimeguess"]:
+                # guess from current value
+                guessIntTime = self.settings["integrationTime"] * 1000 # ms
+            else:
+                # guess from min and max
+                guessIntTime = (self.autoTime_min + self.autoTime_max)/2 * 1000 # ms
+            for iter in range(self.intTimeMaxIterations):
+                self.settings["integrationTime"] = guessIntTime / 1000.0 #needed for keeping self.lastspectrum in order
+                [status, info] = self.spectrometerSetIntegrationTime(guessIntTime / 1000.0) # s
                 if status:
                     return [status, info]
                 [status, info] = self.spectrometerStartScan()
                 if status:
                     return [status, info]
-                time.sleep(guessIntTime)
+                time.sleep(guessIntTime / 1000.0) # seconds
                 [status, info] = self._update_spectrum()
                 if status:
                     return [status, info]
                 ################ check that info is [wv, spectrum] !!!!!
-                if self.settings["saveautoattmepts"]
+                if self.settings["saveautoattmepts"]:
                     varDict ={}
                     varDict['integrationtime'] = guessIntTime
                     varDict['triggermode'] = 1 if self.settings['externalTrigger'] else 0
                     varDict['name'] = self.settings["samplename"]
                     varDict['comment'] = self.settings["comment"] + " Auto adjust of integration time."
-                    self._createFile(varDict, self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + f"_{guessIntTime*1000}ms.csv", data = info[1])
-                if self.autoValue_min <= max(info[1]) <= self.autoValue_max:
-                    return [0, guessIntTime]
-                if max(info[1])< self.autoValue_min:
-                    if guessIntTime == self.autoValue_max:
-                        return [0, guessIntTime]
+                    self.createFile(varDict = varDict, filedelimeter=self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + f"_{int(guessIntTime)}ms.csv", data = info[1])
+                target = max(info[1]) # target value to optimize
+                # if spectrum is in the range, found good integration time
+                if low_spectrum <= target <= high_spectrum:
+                    return [0, guessIntTime / 1000.0]  # return in seconds
+                # if spectrum is below the range, increase integration time
+                if target < self.autoValue_min:
+                    if guessIntTime >= high:
+                        return [0, guessIntTime / 1000.0]  # return in seconds
                     low = guessIntTime
+                # if spectrum is above the range, decrease integration time
                 else:
-                    if guessIntTime == self.autoValue_min:
-                        return [0, guessIntTime]
+                    if guessIntTime <= low:
+                        return [0, guessIntTime / 1000.0]  # return in seconds
                     high = guessIntTime
-                guessIntTime = round((low+high)/2)
-                digits = len(str(int(guessIntTime))) ### getting number of digits for rounding
-                base = 10 ** (digits - 1)
-                guessIntTime =  round(guessIntTime / base) * base
-            return [0, guessIntTime]
+                # Compute new guess in milliseconds, rounded to nearest millisecond
+                guessIntTime = int(round((low + high) / 2))  
+
+            return [0, guessIntTime / 1000.0]  # return in seconds
 
 
 
@@ -313,7 +355,7 @@ class TLCCS_GUI(QObject):
            self.settingsWidget.getIntegrationTime_combo.setCurrentIndex(currentIndex)
         if plugin_info["useintegrationtimeguess"]:
             self.settingsWidget.useIntegrationTimeGuess_check.setChecked(True)
-        if plugin_info["saveAttempts_check"]:
+        if plugin_info["saveattempts_check"]:
             self.settingsWidget.saveAttempts_check.setChecked(True)
         self._GUIchange_deviceConnected(False)
         self.settingsWidget.saveButton.setEnabled(False)
@@ -358,10 +400,10 @@ class TLCCS_GUI(QObject):
     def _integrationTime_mode_changed(self):
         integrationTimeMode = self.settingsWidget.getIntegrationTime_combo.currentText()
         if integrationTimeMode == 'manual':
-            autoIntegrationTime_box.setEnabled(False)
+            self.settingsWidget.autoIntegrationTime_box.setEnabled(False)
             self.settingsWidget.getTime_button.setEnabled(False)
         else:
-            autoIntegrationTime_box.setEnabled(True)
+            self.settingsWidget.autoIntegrationTime_box.setEnabled(True)
             self.settingsWidget.getTime_button.setEnabled(True)
 ########Functions
 ########plugins interraction
@@ -393,6 +435,14 @@ class TLCCS_GUI(QObject):
         return self.closeLock           
 
     def _parse_settings_integrationTime(self) -> "status":
+        """
+        Parses the integration time from the GUI line edit and stores it in the settings dictionary.
+
+        stored in self.settings["integrationTime"] as float in seconds
+
+        Returns:
+            list: [0, "OK"] on success, or [1, {"Error message": ...}] on error.
+        """
         try:
              self.settings["integrationTime"] = int(self.settingsWidget.lineEdit_Integ.text())
         except ValueError:
@@ -414,7 +464,7 @@ class TLCCS_GUI(QObject):
             if status:
                 return [status, info]
         if self.settings["useintegrationtimeguess"]:
-            [status, info] = _parse_settings_integrationTime()
+            [status, info] = self._parse_settings_integrationTime()
             if status:
                 return [status, info]
         
@@ -449,7 +499,7 @@ class TLCCS_GUI(QObject):
             ~0 - error (add error code later on if needed)
         """   
         self.settings = {}
-        [status, info] = self._parse_settings_autoTime(self)
+        [status, info] = self._parse_settings_autoTime()
         if status:
              return [status, info]
         if not self.settings["useintegrationtimeguess"]:
@@ -471,10 +521,44 @@ class TLCCS_GUI(QObject):
         self.settings["autoValue_max"] = self.autoValue_max
         self.settings["intTimeMaxIterations"] = self.intTimeMaxIterations
         return [0, self.settings]
+    
+
+    def parse_settings_widget(self) -> tuple[int, dict]:
+        """Parses the settings widget for the spectrometer. Extracts current values
+
+        Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+        """   
+        self.settings = {}
+        [status, info] = self._parse_settings_autoTime()
+        if status:
+             return [status, info]
+        if not self.settings["useintegrationtimeguess"]:
+            [status, info] = self._parse_settings_integrationTime()
+            if status:
+                return [status, info]
+        if not self.settings["saveautoattmepts"]:
+            [status, info] = self._parseSaveData()
+            if status:
+                return [status, info]    
+        if self.settingsWidget.extTriggerCheck.isChecked():
+            self.settings["externalTrigger"] = True
+        else:    
+            self.settings["externalTrigger"] = False
+        self.settings["previewCorrection"] = self._parse_spectrumCorrection()
+        return [0, self.settings]
+
+    def setSettings(self, settings): #### settings from external call
+        self.settings = []
+        self.settings = copy.deepcopy(settings)
 
 ########Functions
 ########device functions
-    def spectrometerConnect(self):
+    def spectrometerConnect(self, integrationTime=None):
+        #self._parse_settings_integrationTime()
+        if integrationTime:
+            self.settings["integrationTime"] = integrationTime
         try:    
             status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationTime"])
             if not status:
@@ -524,6 +608,11 @@ class TLCCS_GUI(QObject):
             return [4, {"Error message":"Can not start scan"}]
             
     def spectrometerGetSpectrum(self):
+        """Gets the spectrum from the spectrometer. It waits until the scan is finished.
+
+        Returns:
+            list[int, np.array|dict]: 
+        """
         try:
             while self.scanRunning:     
                 if not("SCAN_TRANSFER" in self.drv.get_device_status()):
@@ -539,11 +628,27 @@ class TLCCS_GUI(QObject):
         except:
             self.scanRunning = False
             return [4, {"Error message":"Can not get spectrum"}]
+        
+    def spectrometerGetScan(self):
+        """Atomically get a spectrum to prevent weird behavior when a scan is already running."""
+        with self._scan_lock:
+            try:
+                statuses = self.drv.get_device_status()
+                if "SCAN_TRANSFER" in statuses:
+                    # Scan is running, read the data
+                    stale = self.drv.get_scan_data()
+                # No scan running, start a new scan
+                self.drv.start_scan()
+                return[0, self.drv.get_scan_data()]
+            except ThreadStopped:
+                return [0, 'ThreadStopped']
+            except Exception as e:
+                return [4, {"Error message": f"Can not get scan: {e}"}]
 
 ########Functions
 ###############save data
 
-    def _createFile(varDict, filedelimeter, address, data):
+    def createFile(self, varDict, filedelimeter, address, data):
         fileheader = self._spectrometerMakeHeader(varDict, separator = filedelimeter)
         np.savetxt(address, list(zip(self.correction[:,0], data)), fmt='%.9e', delimiter=filedelimeter, newline='\n', header=fileheader, footer='#[EndOfFile]', comments='#')
 
