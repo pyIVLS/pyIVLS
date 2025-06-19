@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'affineMatchDialog.ui'
+## Form generated from reading UI file 'affineMatchDialogTGyopU.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.1
+## Created by: Qt User Interface Compiler version 6.4.3
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -16,8 +16,9 @@ from PyQt6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
-    QGraphicsView, QGridLayout, QGroupBox, QLabel,
-    QLineEdit, QPushButton, QSizePolicy, QWidget)
+    QGraphicsView, QGridLayout, QGroupBox, QHBoxLayout,
+    QLabel, QLineEdit, QPushButton, QSizePolicy,
+    QSplitter, QVBoxLayout, QWidget)
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -26,23 +27,6 @@ class Ui_Dialog(object):
         Dialog.resize(845, 756)
         self.gridLayout = QGridLayout(Dialog)
         self.gridLayout.setObjectName(u"gridLayout")
-        self.groupBox_3 = QGroupBox(Dialog)
-        self.groupBox_3.setObjectName(u"groupBox_3")
-        self.gridLayout_2 = QGridLayout(self.groupBox_3)
-        self.gridLayout_2.setObjectName(u"gridLayout_2")
-        self.matchButton = QPushButton(self.groupBox_3)
-        self.matchButton.setObjectName(u"matchButton")
-
-        self.gridLayout_2.addWidget(self.matchButton, 0, 0, 1, 1)
-
-        self.manualButton = QPushButton(self.groupBox_3)
-        self.manualButton.setObjectName(u"manualButton")
-
-        self.gridLayout_2.addWidget(self.manualButton, 0, 1, 1, 1)
-
-
-        self.gridLayout.addWidget(self.groupBox_3, 6, 0, 1, 2)
-
         self.groupBox = QGroupBox(Dialog)
         self.groupBox.setObjectName(u"groupBox")
         self.gridLayout_3 = QGridLayout(self.groupBox)
@@ -100,20 +84,48 @@ class Ui_Dialog(object):
 
         self.gridLayout.addWidget(self.groupBox, 0, 0, 1, 2)
 
-        self.maskView = QGraphicsView(Dialog)
+        self.groupBox_4 = QGroupBox(Dialog)
+        self.groupBox_4.setObjectName(u"groupBox_4")
+        self.verticalLayout = QVBoxLayout(self.groupBox_4)
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.splitter_2 = QSplitter(self.groupBox_4)
+        self.splitter_2.setObjectName(u"splitter_2")
+        self.splitter_2.setOrientation(Qt.Orientation.Vertical)
+        self.splitter = QSplitter(self.splitter_2)
+        self.splitter.setObjectName(u"splitter")
+        self.splitter.setOrientation(Qt.Orientation.Horizontal)
+        self.maskView = QGraphicsView(self.splitter)
         self.maskView.setObjectName(u"maskView")
-
-        self.gridLayout.addWidget(self.maskView, 2, 0, 1, 1)
-
-        self.resultView = QGraphicsView(Dialog)
-        self.resultView.setObjectName(u"resultView")
-
-        self.gridLayout.addWidget(self.resultView, 5, 0, 1, 2)
-
-        self.imgView = QGraphicsView(Dialog)
+        self.splitter.addWidget(self.maskView)
+        self.imgView = QGraphicsView(self.splitter)
         self.imgView.setObjectName(u"imgView")
+        self.splitter.addWidget(self.imgView)
+        self.splitter_2.addWidget(self.splitter)
+        self.resultView = QGraphicsView(self.splitter_2)
+        self.resultView.setObjectName(u"resultView")
+        self.splitter_2.addWidget(self.resultView)
 
-        self.gridLayout.addWidget(self.imgView, 2, 1, 1, 1)
+        self.verticalLayout.addWidget(self.splitter_2)
+
+
+        self.gridLayout.addWidget(self.groupBox_4, 2, 0, 1, 2)
+
+        self.groupBox_3 = QGroupBox(Dialog)
+        self.groupBox_3.setObjectName(u"groupBox_3")
+        self.gridLayout_2 = QGridLayout(self.groupBox_3)
+        self.gridLayout_2.setObjectName(u"gridLayout_2")
+        self.matchButton = QPushButton(self.groupBox_3)
+        self.matchButton.setObjectName(u"matchButton")
+
+        self.gridLayout_2.addWidget(self.matchButton, 0, 0, 1, 1)
+
+        self.manualButton = QPushButton(self.groupBox_3)
+        self.manualButton.setObjectName(u"manualButton")
+
+        self.gridLayout_2.addWidget(self.manualButton, 0, 1, 1, 1)
+
+
+        self.gridLayout.addWidget(self.groupBox_3, 8, 0, 1, 2)
 
         self.groupBox_2 = QGroupBox(Dialog)
         self.groupBox_2.setObjectName(u"groupBox_2")
@@ -137,6 +149,13 @@ class Ui_Dialog(object):
 
         self.gridLayout.addWidget(self.groupBox_2, 1, 0, 1, 2)
 
+        self.groupBox_5 = QGroupBox(Dialog)
+        self.groupBox_5.setObjectName(u"groupBox_5")
+        self.horizontalLayout_2 = QHBoxLayout(self.groupBox_5)
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+
+        self.gridLayout.addWidget(self.groupBox_5, 4, 0, 1, 1)
+
 
         self.retranslateUi(Dialog)
 
@@ -145,9 +164,6 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         Dialog.setWindowTitle(QCoreApplication.translate("Dialog", u"Affine conversion", None))
-        self.groupBox_3.setTitle("")
-        self.matchButton.setText(QCoreApplication.translate("Dialog", u"Match", None))
-        self.manualButton.setText(QCoreApplication.translate("Dialog", u"Manual", None))
         self.groupBox.setTitle(QCoreApplication.translate("Dialog", u"Preprocessing settings", None))
         self.equalizeImage.setText(QCoreApplication.translate("Dialog", u"equalize img", None))
         self.cannyMask.setText(QCoreApplication.translate("Dialog", u"edge detect mask", None))
@@ -157,8 +173,13 @@ class Ui_Dialog(object):
         self.invertMask.setText(QCoreApplication.translate("Dialog", u"invert mask", None))
         self.equalizeMask.setText(QCoreApplication.translate("Dialog", u"equalize mask", None))
         self.cannyImage.setText(QCoreApplication.translate("Dialog", u"edge detect image", None))
+        self.groupBox_4.setTitle("")
+        self.groupBox_3.setTitle("")
+        self.matchButton.setText(QCoreApplication.translate("Dialog", u"Match", None))
+        self.manualButton.setText(QCoreApplication.translate("Dialog", u"Manual", None))
         self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", u"SIFT settings", None))
         self.label.setText(QCoreApplication.translate("Dialog", u"ratio test (larger ratio, less matches) ", None))
         self.crossCheck.setText(QCoreApplication.translate("Dialog", u"Crosscheck", None))
+        self.groupBox_5.setTitle("")
     # retranslateUi
 

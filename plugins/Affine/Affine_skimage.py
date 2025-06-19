@@ -17,47 +17,58 @@ import skimage as ski
 class Preprocessor:
     def __init__(self):
         self.settings = {
-            'equalizeImage': False,
-            'cannyMask': False,
-            'blurImage': False,
-            'invertImage': False,
-            'blurMask': False,
-            'invertMask': False,
-            'sigmaImage': 1.0,
-            'sigmaMask': 1.0,
+            "blurMask": False,
+            "invertMask": False,
+            "equalizeMask": False,
+            "cannyMask": False,
+            "blurImage": False,
+            "invertImage": False,
+            "equalizeImage": False,
+            "cannyImage": False,
+            "sigmaImage": 1.0,
+            "sigmaMask": 1.0,
         }
 
     def update_settings(self, settings_dict):
         self.settings.update(settings_dict)
 
     def preprocess_img(self, img):
+        print("Preprocessing image")
         s = self.settings
-        if img.shape[2] == 4:
-            img = img[:, :, :3]
         if len(img.shape) == 3:
             img = ski.color.rgb2gray(img)
         if s['invertImage']:
+            print("Inverting image")
             img = 1.0 - img
         if s['equalizeImage']:
+            print("Equalizing image")
             img = ski.exposure.equalize_hist(img)
         if s['blurImage']:
-            img = ski.filters.gaussian(img, sigma=s['sigmaImage'])
+            print("Blurring image")
+            img = ski.filters.median(img)
+        if s['cannyImage']:
+            print("Applying Canny edge detection to image")
+            img = ski.feature.canny(img, sigma=s['sigmaImage'])
+            img = img.astype(float)
         img = (img * 255).astype("uint8")
         return img
 
     def preprocess_mask(self, mask):
+        print("Preprocessing mask")
         s = self.settings
-        if mask.shape[2] == 4:
-            mask = mask[:, :, :3]
         if len(mask.shape) == 3:
             mask = ski.color.rgb2gray(mask)
         if s['invertMask']:
+            print("Inverting mask")
             mask = 1.0 - mask
-        if s['equalizeImage']:
+        if s['equalizeMask']:
+            print("Equalizing mask")
             mask = ski.exposure.equalize_hist(mask)
         if s['blurMask']:
-            mask = ski.filters.gaussian(mask, sigma=s['sigmaMask'])
+            print("Blurring mask")
+            mask = ski.filters.median(mask)
         if s['cannyMask']:
+            print("Applying Canny edge detection to mask")
             mask = ski.feature.canny(mask, sigma=s['sigmaMask'])
             mask = mask.astype(float)
         mask = (mask * 255).astype("uint8")
@@ -344,12 +355,13 @@ class Affine:
 
         return float(transformed[0]), float(transformed[1])
 
-    def update_interal_mask(self, path):
+    def update_internal_mask(self, path):
         if path.endswith(".gds"):
             mask, filename = self.io.load_and_save_gds(path)
         else:
             mask, filename = self.io.load_image(path)
         self.mask_filename = filename
+        # saves the mask in color 
         self.internal_mask = mask
         self.result.clear()
         return mask

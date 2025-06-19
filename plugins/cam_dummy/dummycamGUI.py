@@ -120,7 +120,11 @@ class DummyCameraGUI(QObject):
 
         # Fill lineEdit from saved path if available
         saved_path = self._load_saved_path()
+        print(f"Loaded saved path: {saved_path}")
         self.settings["image_path"] = saved_path
+        self.settingsWidget.lineEdit.setPlaceholderText("Select an image file")
+
+
         self.settingsWidget.lineEdit.setText(saved_path)
 
         self.settingsWidget.pushButton.clicked.connect(self._select_image)
@@ -163,6 +167,8 @@ class DummyCameraGUI(QObject):
 
     def camera_capture_image(self):
         image_path = self.settingsWidget.lineEdit.text()
+        if image_path == "":
+            image_path = self._load_saved_path()
         status, img = self.camera.capture_image(source=image_path)
         return status, img
 

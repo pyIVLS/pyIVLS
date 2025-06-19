@@ -6,6 +6,7 @@ from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QBrush, QImage, QPen, QPixmap
 from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
+from PyQt6.QtWidgets import QDialog, QCheckBox, QComboBox, QLineEdit, QListWidget
 import csv
 from affineDialog import dialog
 
@@ -54,7 +55,7 @@ class AffineGUI(QObject):
         self.img_points = []
         self.num_needed = 4 # Read from user?
         self.tp_arr = []
-        self.dialog = dialog()
+        self.dialog = None
 
     # GUI initialization
 
@@ -67,7 +68,7 @@ class AffineGUI(QObject):
         last_mask_path = settings.get("default_mask_path", None)
         if last_mask_path is not None:
             try:
-                mask = self.affine.update_interal_mask(last_mask_path)
+                mask = self.affine.update_internal_mask(last_mask_path)
                 self._update_MDI(mask, None)
                 self._gui_change_mask_uploaded(mask_loaded=True)
             except AffineError:
@@ -282,7 +283,7 @@ class AffineGUI(QObject):
                 "Mask Files (*.gds);;Images (*.png *.jpg)",
             )
             if fileName:
-                mask = self.affine.update_interal_mask(fileName)
+                mask = self.affine.update_internal_mask(fileName)
                 self._update_MDI(mask, None)
                 self._gui_change_mask_uploaded(mask_loaded=True)
 
@@ -290,6 +291,23 @@ class AffineGUI(QObject):
             self.log_message.emit(e.message)
 
     def _open_dialog(self):
+        def _on_close():
+            self._update_MDI(self.dialog.mask, self.dialog.img, save_internal=True)
+            self.dialog = None
+        img = self.functions["camera"][self.cameraComboBox.currentText()]["camera_capture_image"]()
+        if img[0] != 0:
+            self.log_message.emit(f"Affine: Error capturing image: {img[1]}")
+            return
+        # Get defined points as a flat list of (x_mask, y_mask)
+        pointslist = []
+        for i in range(self.definedPoints.count()):
+            pts = self.definedPoints.item(i).data(self.COORD_DATA)
+            if pts:
+                pointslist.extend(pts)
+        if not pointslist:
+            pointslist = None
+        self.dialog = dialog(self.affine, img[1], self.affine.internal_mask, pointslist)
+        self.dialog.finished.connect(_on_close)
         self.dialog.exec()
 
     def _gds_label_clicked(self, event):
@@ -335,8 +353,8 @@ class AffineGUI(QObject):
         pos = self.gds_label.mapToScene(event.pos())
         x, y = pos.x(), pos.y()
         # I thinks these are sometimes returned as floats from Qt
-        x = float(x)
-        y = float(y)
+        x = int(x)
+        y = int(y)
 
         # check if the mask is loaded
         if self.affine.internal_mask is None:
@@ -561,5 +579,5 @@ class AffineGUI(QObject):
                 points.append(item.data(self.COORD_DATA))
                 names.append(item.text())
         return points, names
-    
+
 
