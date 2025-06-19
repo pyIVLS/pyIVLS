@@ -55,23 +55,9 @@
               </widget>
              </item>
              <item>
-              <widget class="QCheckBox" name="dispKP">
+              <widget class="QLabel" name="label">
                <property name="text">
-                <string>Display keypoints (W.I.P)</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="centerClicks">
-               <property name="text">
-                <string>Center clicks on patch</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="checkBox">
-               <property name="text">
-                <string>debug</string>
+                <string>No mask loaded</string>
                </property>
               </widget>
              </item>
@@ -101,6 +87,13 @@
                </property>
               </widget>
              </item>
+             <item>
+              <widget class="QPushButton" name="showButton">
+               <property name="text">
+                <string>show!</string>
+               </property>
+              </widget>
+             </item>
             </layout>
            </widget>
           </item>
@@ -120,6 +113,16 @@
                </property>
                <property name="tristate">
                 <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="centerClicks">
+               <property name="text">
+                <string>Center clicks on patch</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
@@ -169,10 +172,10 @@
              <item>
               <widget class="QListWidget" name="definedPoints">
                <property name="contextMenuPolicy">
-                <enum>Qt::ContextMenuPolicy::DefaultContextMenu</enum>
+                <enum>Qt::NoContextMenu</enum>
                </property>
                <property name="selectionMode">
-                <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
+                <enum>QAbstractItemView::NoSelection</enum>
                </property>
               </widget>
              </item>

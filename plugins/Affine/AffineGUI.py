@@ -7,6 +7,7 @@ from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QBrush, QImage, QPen, QPixmap
 from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
 import csv
+from affineDialog import dialog
 
 class AffineGUI(QObject):
     """
@@ -28,7 +29,7 @@ class AffineGUI(QObject):
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool)
     COORD_DATA = Qt.ItemDataRole.UserRole + 1
-
+    
 
 
     def __init__(self):
@@ -53,7 +54,7 @@ class AffineGUI(QObject):
         self.img_points = []
         self.num_needed = 4 # Read from user?
         self.tp_arr = []
-
+        self.dialog = dialog()
 
     # GUI initialization
 
@@ -82,10 +83,13 @@ class AffineGUI(QObject):
         for _, _, files in os.walk(self.path):
             for file in files:
                 if file.endswith(".ui"):
-                    if file.split("_")[1].lower() == "settingswidget.ui":
-                        settingsWidget = uic.loadUi(self.path + file)
-                    elif file.split("_")[1].lower() == "mdiwidget.ui":
-                        MDIWidget = uic.loadUi(self.path + file)
+                    try:
+                        if file.split("_")[1].lower() == "settingswidget.ui":
+                            settingsWidget = uic.loadUi(self.path + file)
+                        elif file.split("_")[1].lower() == "mdiwidget.ui":
+                            MDIWidget = uic.loadUi(self.path + file)
+                    except IndexError:
+                        continue
 
         self._find_labels(settingsWidget, MDIWidget)
         settingsWidget, MDIWidget = self._connect_buttons(settingsWidget, MDIWidget)
@@ -138,10 +142,9 @@ class AffineGUI(QObject):
         settingsWidget.maskButton.clicked.connect(self._mask_button_action)
         settingsWidget.findButton.clicked.connect(self._find_button_action)
         settingsWidget.manualButton.clicked.connect(self._manual_button_action)
-        settingsWidget.dispKP.stateChanged.connect(self._disp_kp_state_changed)
         settingsWidget.savePoints.clicked.connect(self.save_points_action)
         settingsWidget.importPoints.clicked.connect(self._import_points_action)
-
+        settingsWidget.showButton.clicked.connect(self._open_dialog)
         # connect the label click on gds to a function
         self.gds_label.mousePressEvent = lambda event: self._gds_label_clicked(event)
         self.camera_label.mousePressEvent = lambda event: self._camera_label_clicked(
@@ -221,7 +224,6 @@ class AffineGUI(QObject):
                     points, name, clear_list=False
                 )
 
-
     def _list_item_clicked_action(self, item):
         points = item.data(self.COORD_DATA)
         if not points:
@@ -287,17 +289,8 @@ class AffineGUI(QObject):
         except AffineError as e:
             self.log_message.emit(e.message)
 
-    def _disp_kp_state_changed(self):
-        """Action for the dispKP checkbox."""
-        try:
-            if self.dispKP.isChecked():
-                img, mask = self.affine.draw_keypoints()
-                self._update_MDI(mask, img, save_internal=False)
-            else:
-                img, mask = self.mdi_img, self.mdi_mask
-                self._update_MDI(mask, img)
-        except AffineError:
-            pass
+    def _open_dialog(self):
+        self.dialog.exec()
 
     def _gds_label_clicked(self, event):
 
@@ -309,7 +302,7 @@ class AffineGUI(QObject):
                         x, y = self.affine.center_on_component(x, y)
 
                     # draw the points
-                    self.draw_points_mdi([(x, y)], Qt.GlobalColor.red, clear_scene=False)
+                    self.draw_points_mdi([(x, y)], Qt.GlobalColor.red, clear_scene=True)
 
 
                     # add the point to list, process point cluster if pointCount is reached
@@ -342,8 +335,8 @@ class AffineGUI(QObject):
         pos = self.gds_label.mapToScene(event.pos())
         x, y = pos.x(), pos.y()
         # I thinks these are sometimes returned as floats from Qt
-        x = int(x)
-        y = int(y)
+        x = float(x)
+        y = float(y)
 
         # check if the mask is loaded
         if self.affine.internal_mask is None:
@@ -446,7 +439,6 @@ class AffineGUI(QObject):
             if save_internal:
                 self.mdi_mask = mask
 
-
     def draw_points_mdi(self, points: list[tuple[float, float]], color, clear_scene: bool = True):
         """
         Draws points on the MDI scene.
@@ -524,9 +516,13 @@ class AffineGUI(QObject):
         # FIXME: Currently the return is a dictrionary of dictionaries ONLY when multiple cameras are available.
         
         self.cameraComboBox.clear()
-        for camera in self.functions["camera"]:
-            # get the camera name (key of the dictionary)
-            self.cameraComboBox.addItem(camera)
+        cameras = self.functions.get("camera", {})
+        if not cameras:
+            return self.missing_functions
+        else:
+            for camera in self.functions["camera"]:
+                # get the camera name (key of the dictionary)
+                self.cameraComboBox.addItem(camera)
 
         return self.missing_functions
 

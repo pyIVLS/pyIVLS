@@ -8,3 +8,4 @@ __pycache__/
 pyIVLS.ini.old
 widgets_list
 .ruff_cache
+.*

@@ -12,6 +12,57 @@ from klayout import lay
 from skimage.feature import SIFT, match_descriptors
 from skimage.color.adapt_rgb import adapt_rgb, each_channel
 
+import skimage as ski
+
+class Preprocessor:
+    def __init__(self):
+        self.settings = {
+            'equalizeImage': False,
+            'cannyMask': False,
+            'blurImage': False,
+            'invertImage': False,
+            'blurMask': False,
+            'invertMask': False,
+            'sigmaImage': 1.0,
+            'sigmaMask': 1.0,
+        }
+
+    def update_settings(self, settings_dict):
+        self.settings.update(settings_dict)
+
+    def preprocess_img(self, img):
+        s = self.settings
+        if img.shape[2] == 4:
+            img = img[:, :, :3]
+        if len(img.shape) == 3:
+            img = ski.color.rgb2gray(img)
+        if s['invertImage']:
+            img = 1.0 - img
+        if s['equalizeImage']:
+            img = ski.exposure.equalize_hist(img)
+        if s['blurImage']:
+            img = ski.filters.gaussian(img, sigma=s['sigmaImage'])
+        img = (img * 255).astype("uint8")
+        return img
+
+    def preprocess_mask(self, mask):
+        s = self.settings
+        if mask.shape[2] == 4:
+            mask = mask[:, :, :3]
+        if len(mask.shape) == 3:
+            mask = ski.color.rgb2gray(mask)
+        if s['invertMask']:
+            mask = 1.0 - mask
+        if s['equalizeImage']:
+            mask = ski.exposure.equalize_hist(mask)
+        if s['blurMask']:
+            mask = ski.filters.gaussian(mask, sigma=s['sigmaMask'])
+        if s['cannyMask']:
+            mask = ski.feature.canny(mask, sigma=s['sigmaMask'])
+            mask = mask.astype(float)
+        mask = (mask * 255).astype("uint8")
+        return mask
+
 
 class AffineError(Exception):
     """Trying out a custom error class.
@@ -31,6 +82,80 @@ class AffineError(Exception):
 
     def __str__(self):
         return self.message
+
+
+class Affine_IO:
+    def __init__(self, path):
+        self.path = path
+
+    def load_and_save_gds(
+        self,
+        input_gds_path,
+        output_image_path=None,
+        width=1920,
+        height=1080,
+    ):
+        """Loads a GDS file and saves it as a large PNG image.
+
+        Args:
+            input_gds_path (str): path to .gds file
+            output_image_path (str, optional): Where to save results. Defaults to None.
+            width (int, optional): image width.
+            height (int, optional): image height.
+        """
+        filename = os.path.basename(input_gds_path)
+        filename = filename.split(".")[0]
+        if output_image_path is None:
+            output_image_path = (
+                self.path + os.sep + "masks" + os.sep + filename + ".png"
+            )
+        # Create a layout view
+        view = lay.LayoutView(options=lay.LayoutView.LV_NoGrid)
+        lay.LayoutViewBase.LV_NoEditorOptionsPanel
+        view.load_layout(input_gds_path, add_cellview=False)
+        # Zoom to fit the entire layout
+        view.zoom_fit()
+        # mystery function that makes sure all layers are visible: https://www.klayout.de/forum/discussion/1711/screenshot-with-all-the-layer-and-screenshot-only-one-layer#latest
+        view.max_hier()
+
+
+        # Iterate over all layers and make them visible and remove the dither pattern just in case.
+        it = view.begin_layers()
+        while not it.at_end():
+            lp = it.current()
+            new_layer = lp.dup()
+            new_layer.visible = True
+            new_layer.clear_dither_pattern()  # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA why is this called dither pattern instead of stipple like in the GUI. I'm intensely mad about this
+            view.set_layer_properties(it, new_layer)
+
+            it.next()
+
+        # Save the layout view as an image
+        view.save_image(output_image_path, width, height)
+
+        internal_mask = cv.imread(output_image_path)
+        internal_mask = cv.cvtColor(internal_mask, cv.COLOR_BGR2RGB)
+
+        return internal_mask, filename
+
+    def load_image(self, path):
+        """
+        Loads an mask image from the specified path.
+
+        Args:
+            path (str): Path to the image file.
+
+        Returns:
+            cv.matlike: Loaded image.
+        """
+
+        img = cv.imread(path)
+        filename = os.path.basename(path)
+        filename = filename.split(".")[0]
+        if img is None:
+            raise AffineError(f"Could not load image from {path}", 5)
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        return img, filename
 
 
 class Affine:
@@ -57,61 +182,8 @@ class Affine:
         self.internal_img = None  # Internal image
         self.internal_mask = None  # Internal mask
         self.MIN_MATCHES = 4
-
-    @staticmethod
-    def _preprocess_img(img):
-        """
-        Simple preprocessing for img.
-            Args:
-            - img (np.ndarray): Input image.
-
-            Returns:
-            - img (np.ndarray): Preprocessed image.
-        """
-        if img.shape[2] == 4:
-            img = img[:, :, :3]
-        if len(img.shape) == 3:  # Check if the image is not grayscale
-            img = ski.color.rgb2gray(img)
-        img = (img * 255).astype("uint8")
-
-        #edges = ski.feature.canny(img, sigma=2.0)
-        # Convert edges to uint8 mask
-        return img
-
-    @staticmethod
-    def _preprocess_mask(mask):
-            """
-            Simple preprocessing for mask.
-                Args:
-                - mask (np.ndarray): Input mask.
-
-            Returns:
-            - mask (np.ndarray): Preprocessed mask.
-            """
-            @adapt_rgb(each_channel)
-            def canny_each(image, sigma):
-                return ski.feature.canny(image, sigma=sigma)
-            
-            if mask.shape[2] == 4:
-                mask = mask[:, :, :3]
-
-            if len(mask.shape) == 3:  # Check if the mask is not grayscale
-                mask = ski.color.rgb2gray(mask)
-
-            # histogram equalization
-            mask = (mask * 255).astype("uint8")
-
-            #sobel = canny_each(mask, sigma=3.0)
-
-            #sobel = ski.color.rgb2gray(sobel)
-
-            #sobel = (sobel * 255).astype('uint8')
-
-
-            return mask
-
-
-
+        self.preprocessor = Preprocessor()
+        self.io = Affine_IO(self.path)
 
     def draw_keypoints(self):
         """
@@ -126,24 +198,12 @@ class Affine:
 
         img = self.result["img"]
         mask = self.result["mask"]
-
-        kp1 = self.result.get("kp1") # row, col mask points
-        kp2 = self.result.get("kp2") # row, col img points
-
-        if img.ndim == 2:
-            img = ski.color.gray2rgb(img)
-        if mask.ndim == 2:
-            mask = ski.color.gray2rgb(mask)
-
-
-        # Return the images with keypoints drawn
-        img = cv.drawKeypoints(img, self.result["kp2"], None, color=(255, 0, 0))
-        mask = cv.drawKeypoints(mask, self.result["kp1"], None, color=(0, 255, 0))
-
+        print(f"Not implemented.")
 
         return img, mask
 
 
+    # tunable parameters: max_ratio, cross_check, min_matches
     def try_match(
         self,
         img: np.ndarray,
@@ -157,17 +217,16 @@ class Affine:
         Raises:
             - AffineError: something bad has taken place
         """
-
+        max_ratio = 0.75
+        cross_check = True
         mask = self.internal_mask
         if img is None:
             # ok so this should be caught in the GUI already.
             raise AffineError("No image provided.", 1)
         if mask is None:
             raise AffineError("No mask loaded.", 2)
-        # Preprocess the images
-        img = self._preprocess_img(img)
-        mask = self._preprocess_mask(mask)
-
+        img = self.preprocessor.preprocess_img(img)
+        mask = self.preprocessor.preprocess_mask(mask)
         self.result["img"] = img
         self.result["mask"] = mask
 
@@ -186,7 +245,7 @@ class Affine:
         self.result["kp2"] = kp_img
 
         # Match descriptors, lowes ratio test. 0.75?
-        matches = match_descriptors(desc_mask, desc_img, max_ratio=0.8)
+        matches = match_descriptors(desc_mask, desc_img, max_ratio=max_ratio, cross_check=cross_check)
 
         if len(matches) < self.MIN_MATCHES:
             raise AffineError(
@@ -195,7 +254,8 @@ class Affine:
 
         # estimate affine transformation with ransac
         # OH MAN I LOVE COORDINATE SYSTEMS :)))
-
+        if kp_mask is None or kp_img is None:
+            raise AffineError("No keypoints found in either image or mask.", 3)
         src = kp_mask[matches[:, 0]][:, ::-1].astype(np.float32)  # mask keypoints
         dst = kp_img[matches[:, 1]][:, ::-1].astype(np.float32)  # image keypoints
 
@@ -212,6 +272,7 @@ class Affine:
         self.result["kp2"] = kp_img
         self.result["matches"] = matches
         self.result["transform"] = model
+        return True
 
     def get_transformation(self, src, dst) -> np.ndarray:
         # NOTE: This is using SimilarityTransform, which accounts for rotation, translation, and scaling but not perspective changes.
@@ -283,99 +344,16 @@ class Affine:
 
         return float(transformed[0]), float(transformed[1])
 
-    def _load_and_save_gds(
-        self,
-        input_gds_path,
-        output_image_path=None,
-        width=1920,
-        height=1080,
-    ):
-        """Loads a GDS file and saves it as a large PNG image.
-
-        Args:
-            input_gds_path (str): path to .gds file
-            output_image_path (str, optional): Where to save results. Defaults to None.
-            width (int, optional): image width.
-            height (int, optional): image height.
-        """
-        filename = os.path.basename(input_gds_path)
-        filename = filename.split(".")[0]
-        if output_image_path is None:
-            output_image_path = (
-                self.path + os.sep + "masks" + os.sep + filename + ".png"
-            )
-        # Create a layout view
-        view = lay.LayoutView(options=lay.LayoutView.LV_NoGrid)
-        lay.LayoutViewBase.LV_NoEditorOptionsPanel
-        view.load_layout(input_gds_path, add_cellview=False)
-        # Zoom to fit the entire layout
-        view.zoom_fit()
-        # mystery function that makes sure all layers are visible: https://www.klayout.de/forum/discussion/1711/screenshot-with-all-the-layer-and-screenshot-only-one-layer#latest
-        view.max_hier()
-
-
-        # Iterate over all layers and make them visible and remove the dither pattern just in case.
-        it = view.begin_layers()
-        while not it.at_end():
-            lp = it.current()
-            new_layer = lp.dup()
-            new_layer.visible = True
-            new_layer.clear_dither_pattern()  # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA why is this called dither pattern instead of stipple like in the GUI. I'm intensely mad about this
-            view.set_layer_properties(it, new_layer)
-
-            it.next()
-
-        # Save the layout view as an image
-        view.save_image(output_image_path, width, height)
-
-        internal_mask = cv.imread(output_image_path)
-        internal_mask = cv.cvtColor(internal_mask, cv.COLOR_BGR2RGB)
-
-        return internal_mask, filename
-
-    def _load_image(self, path: str):
-        """
-        Loads an mask image from the specified path.
-
-        Args:
-            path (str): Path to the image file.
-
-        Returns:
-            cv.matlike: Loaded image.
-        """
-
-        img = cv.imread(path)
-        filename = os.path.basename(path)
-        filename = filename.split(".")[0]
-        if img is None:
-            raise AffineError(f"Could not load image from {path}", 5)
-        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-        self.internal_mask = img
-        return img, filename
-
     def update_interal_mask(self, path):
         if path.endswith(".gds"):
-            mask, filename = self._load_and_save_gds(path)
+            mask, filename = self.io.load_and_save_gds(path)
         else:
-            mask, filename = self._load_image(path)
-
+            mask, filename = self.io.load_image(path)
         self.mask_filename = filename
         self.internal_mask = mask
-
-        # mask has changed, clear the previous result
         self.result.clear()
         return mask
 
-    def test_image(self) -> np.ndarray:
-        """
-        Loads an test image.
-        """
-        img = cv.imread(r"plugins\Affine\testImages\testData.png")
-        if img is None:
-            raise AffineError("Could not load test image.", 5)
-        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
- 
-        return img
 
     def center_on_component(self, x: int, y: int):
         """Finds the centroid of a connected component in the mask image based on the color.
