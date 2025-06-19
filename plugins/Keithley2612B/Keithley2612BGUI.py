@@ -259,12 +259,13 @@ class Keithley2612BGUI:
                 return [4, {"Error message":"Failed to get IV data"}]
 
     def smu_setOutput(self, channel, outputType, value):
-        """sets smu output but does not switch it ON
-	channel = "smua" or "smub"
-	outputType = "i" or "v"
-	value = float
-        """
+#        """sets smu output but does not switch it ON
+#	channel = "smua" or "smub"
+#	outputType = "i" or "v"
+#	value = float
+#        """
         try:
-                return [0, self.smu.setOutput(channel,outputType,value)]
+                self.smu.setOutput(channel,outputType,value)
+                return [0, "OK"]
         except:
                 return [4, {"Error message":"Failed to set smu output"}]

@@ -40,6 +40,7 @@ from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
 from MplCanvas import MplCanvas
 from threadStopped import ThreadStopped, thread_with_exception 
 from threading import Lock, Event
+import copy
 
 from TLCCS import CCSDRV
 
@@ -49,6 +50,7 @@ class TLCCS_GUI(QObject):
     non_public_methods = [] # add function names here, if they should not be exported as public to another plugins
     public_methods = ["parse_settings_preview",
                       "parse_settings_widget", 
+                      "setSettings",
                       "spectrometerConnect", 
                       "spectrometerDisconnect", 
                       "spectrometerSetIntegrationTime", 
@@ -269,8 +271,8 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.saveButton.setEnabled(False)
         self.closeLock.emit(False)
         #check if get time may be used (spectrometer IDLE)
-        status, info = self.drv.get_device_status()
-        if status == 0 and "SCAN_IDLE" in info:
+        statuses = self.drv.get_device_status()
+        if "SCAN_IDLE" in statuses:
             status, autoTime = self.getAutoTime()
             if not status:
                 self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime*1000)}")
@@ -315,7 +317,7 @@ class TLCCS_GUI(QObject):
                     varDict['triggermode'] = 1 if self.settings['externalTrigger'] else 0
                     varDict['name'] = self.settings["samplename"]
                     varDict['comment'] = self.settings["comment"] + " Auto adjust of integration time."
-                    self.createFile(varDict = varDict, filedelimeter=self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + f"_{int(guessIntTime*1000)}ms.csv", data = info[1])
+                    self.createFile(varDict = varDict, filedelimeter=self.filedelimeter, address = self.settings["address"] + os.sep + self.settings["filename"] + f"_{int(guessIntTime)}ms.csv", data = info[1])
                 target = max(info[1]) # target value to optimize
                 # if spectrum is in the range, found good integration time
                 if low_spectrum <= target <= high_spectrum:
@@ -547,10 +549,16 @@ class TLCCS_GUI(QObject):
         self.settings["previewCorrection"] = self._parse_spectrumCorrection()
         return [0, self.settings]
 
+    def setSettings(self, settings): #### settings from external call
+        self.settings = []
+        self.settings = copy.deepcopy(settings)
+
 ########Functions
 ########device functions
-    def spectrometerConnect(self):
+    def spectrometerConnect(self, integrationTime=None):
         #self._parse_settings_integrationTime()
+        if integrationTime:
+            self.settings["integrationTime"] = integrationTime
         try:    
             status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationTime"])
             if not status:

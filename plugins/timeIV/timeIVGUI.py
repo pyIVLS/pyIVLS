@@ -530,53 +530,53 @@ class timeIVGUI(QObject):
             ## header may not be optimal, this is because it should repeat the structure of the headers produced by the old measurement station
             comment = "#####################"
             if settings["samplename"] == "":
-               comment = f"{comment}\n\n measurement of {{noname}}\n\n"
+               comment = f"{comment}\n#\n# measurement of {{noname}}\n#\n#"
             else:   
-               comment = f"{comment}\n\n measurement of {settings['samplename']}\n\n" 
-            comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n"
-            comment = f"{comment}Keithley source {settings['channel']}\n"
-            comment = f"{comment}Source in {settings['inject']} injection mode\n"
+               comment = f"{comment}\n#\n# measurement of {settings['samplename']}\n#\n#" 
+            comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"
+            comment = f"{comment}Keithley source {settings['channel']}\n#"
+            comment = f"{comment}Source in {settings['inject']} injection mode\n#"
             if settings["inject"] == "voltage":
                stepunit = "V"
                limitunit = "A"
             else:   
                stepunit = "A"
                limitunit = "V"
-            comment = f"{comment}\n\n"
-            comment = f"{comment}Set value for time check {settings['sourcevalue']} {stepunit}\n"
-            comment = f"{comment}\n"
-            comment = f"{comment}Limit for step {settings['sourcelimit']} {limitunit}\n"
+            comment = f"{comment}\n#\n#"
+            comment = f"{comment}Set value for time check {settings['sourcevalue']} {stepunit}\n#"
+            comment = f"{comment}\n#"
+            comment = f"{comment}Limit for step {settings['sourcelimit']} {limitunit}\n#"
             if settings["sourcedelaymode"] == 'auto':
-                comment = f"{comment}Measurement acquisition period is done in AUTO mode\n"
+                comment = f"{comment}Measurement acquisition period is done in AUTO mode\n#"
             else:
-                comment = f"{comment}Measurement stabilization period is{settings['sourcedelay']/1000} ms\n"
-            comment = f"{comment}NPLC value {settings['sourcenplc']*1000/smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['sourcenplc']})\n"
-            comment = f"{comment}\n\n"
-            comment = f"{comment}Continuous operation of the source with step time settings['timestep'] \n\n\n"
+                comment = f"{comment}Measurement stabilization period is{settings['sourcedelay']/1000} ms\n#"
+            comment = f"{comment}NPLC value {settings['sourcenplc']*1000/smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['sourcenplc']})\n#"
+            comment = f"{comment}\n#\n#"
+            comment = f"{comment}Continuous operation of the source with step time settings['timestep'] \n#\n#\n#"
 	   
             if not settings["singlechannel"]:
-                comment = f"{comment}Drain in {settings['draininject']} injection mode\n"
+                comment = f"{comment}Drain in {settings['draininject']} injection mode\n#"
                 if settings["inject"] == "voltage":
                         stepunit = "V"
                         limitunit = "A"
                 else:   
                         stepunit = "A"
                         limitunit = "V"
-                comment = f"{comment}Set value for drain {settings['drainvalue']} {stepunit}\n"
-                comment = f"{comment}Limit for drain {settings['drainlimit']} {limitunit}\n"
+                comment = f"{comment}Set value for drain {settings['drainvalue']} {stepunit}\n#"
+                comment = f"{comment}Limit for drain {settings['drainlimit']} {limitunit}\n#"
                 if settings["draindelaymode"] == 'auto':
-                        comment = f"{comment}Measurement acquisition period for drain is done in AUTO mode\n"
+                        comment = f"{comment}Measurement acquisition period for drain is done in AUTO mode\n#"
                 else:
-                        comment = f"{comment}Measurement stabilization period for drain is{settings['draindelay']/1000} ms\n"
-                comment = f"{comment}NPLC value {settings['drainnplc']*1000/smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['drainnplc']})\n"
+                        comment = f"{comment}Measurement stabilization period for drain is{settings['draindelay']/1000} ms\n#"
+                comment = f"{comment}NPLC value {settings['drainnplc']*1000/smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['drainnplc']})\n#"
             else:
-            	comment = f"{comment}\n\n\n\n\n"
+            	comment = f"{comment}\n#\n#\n#\n#\n#"
 
-            comment = f"{comment}\n"
-            comment = f"{comment}Comment: {settings['comment']}\n"
-            comment = f"{comment}\n"	
+            comment = f"{comment}\n#"
+            comment = f"{comment}Comment: {settings['comment']}\n#"
+            comment = f"{comment}\n#"	
 
-            comment = f"{comment}\n\n\n"
+            comment = f"{comment}\n#\n#\n#"
 	   
             if smu_settings["sourcehighc"]:
                         comment = f"{comment}Source in high capacitance mode"
@@ -584,23 +584,23 @@ class timeIVGUI(QObject):
                         comment = f"{comment}Source not in HighC mode (normal operation)"
             if not settings["singlechannel"]:
                 if smu_settings["drainhighc"]:
-                        comment = f"{comment}. Drain in high capacitance mode\n"
+                        comment = f"{comment}. Drain in high capacitance mode\n#"
                 else:
-                        comment = f"{comment}. Drain not in HighC mode (normal operation)\n"
+                        comment = f"{comment}. Drain not in HighC mode (normal operation)\n#"
             else:
-                comment = f"{comment}\n"
+                comment = f"{comment}\n#"
             
-            comment = f"{comment}\n\n\n\n\n\n\n\n\n"
+            comment = f"{comment}\n#\n#\n#\n#\n#\n#\n#\n#\n#"
 
             if settings["stoptimer"]:
-                    comment = f"{comment}Timer set for {settings['stopafter']} minutes\n"
+                    comment = f"{comment}Timer set for {settings['stopafter']} minutes\n#"
             else:
-                    comment = f"{comment}\n"
+                    comment = f"{comment}\n#"
 
             if settings["sourcesensemode"] == "2 wire":
-                comment = f"{comment}Sourse in 2 point measurement mode\n"
+                comment = f"{comment}Sourse in 2 point measurement mode\n#"
             elif settings["sourcesensemode"] == "4 wire":
-                comment = f"{comment}Sourse in 4 point measurement mode\n"
+                comment = f"{comment}Sourse in 4 point measurement mode\n#"
             if not(settings["singlechannel"]):
                 if settings["drainsensemode"] == "2 wire":
                     comment = f"{comment}Drain in 2 point measurement mode\n"
@@ -610,7 +610,7 @@ class timeIVGUI(QObject):
                 comment = f"{comment}\n"
 
             if settings["singlechannel"]:
-                comment = f"{comment}stime, IS, VS\n"
+                comment = f"{comment}stime, IS, VS"
             else:
                 comment = f"{comment}stime, IS, VS, ID, VD"
 
@@ -649,13 +649,13 @@ class timeIVGUI(QObject):
         fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
         if drainI == None:
                 data = list(zip(time, sourceI, sourceV))
-
-                #data = np.hstack([time, sourceI, sourceV])
-                np.savetxt(fulladdress, data, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')        
+                #np.savetxt(fulladdress, data, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')        
         else:
                 data = list(zip(time, sourceI, sourceV, drainI, drainV))
-                #data = np.hstack([time, sourceI, sourceV, drainI, drainV])
-                np.savetxt(fulladdress, data, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')
+
+        with open(fulladdress, 'w') as f:
+                f.write(fileheader +'\n')
+                pd.DataFrame(data).to_csv(f, index=False, header=False, float_format='%.12e', sep=',')
 
     
     def sequenceStep(self, postfix):
@@ -673,7 +673,6 @@ class timeIVGUI(QObject):
                 [status, message] = self.smuInit()
                 if status:
                     raise timeIVexception(f"{message['Error message']}")
-                    
                 self.function_dict["smu"]["smu_outputOFF"]()
                 self.function_dict["smu"]["smu_setOutput"](self.settings["channel"], 'v' if self.settings['inject']=='voltage' else 'i', self.settings["sourcevalue"])
                 if not self.settings["singlechannel"]:
@@ -751,6 +750,7 @@ class timeIVGUI(QObject):
                                         saveTic = currentTime
                         time.sleep(self.settings["timestep"])
                 self.function_dict["smu"]["smu_outputOFF"]()
+                time.sleep(0.1) # to avoid Keithley error ("aborted by user")
                 self.function_dict["smu"]["smu_disconnect"]()
                 self.set_running(False)
                 return [0,"OK"]
