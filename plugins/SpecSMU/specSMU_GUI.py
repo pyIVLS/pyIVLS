@@ -305,8 +305,8 @@ class specSMU_GUI():
 #the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
         self.settings = []
         self.settings = copy.deepcopy(settings)
-        self.smu_settings = settings["smu_settings"]
-        self.spectrometer_settings = settings["spectrometer_settings"]
+        self.smu_settings = self.settings["smu_settings"]
+        self.spectrometer_settings = self.settings["spectrometer_settings"]
 #this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
 #        self._setGUIfromSettings()
 ###############GUI enable/disable
@@ -442,7 +442,7 @@ class specSMU_GUI():
             varDict['name'] = self.spectrometer_settings["samplename"]
             sourceIV = [float(x) for x in sourceIV]
             varDict['comment'] = str(sourceIV)
-            address = self.spectrometer_settings["filename"] + f"_{smuSetValue:02f}" + " iv"
+            address = self.spectrometer_settings["address"] + os.sep +self.spectrometer_settings["filename"] + f"_{smuSetValue:02f}" + " iv"
             self.function_dict["spectrometer"]["createFile"](varDict=varDict, filedelimeter=";",address=address, data=spectrum)
             
         

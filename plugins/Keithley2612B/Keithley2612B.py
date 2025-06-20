@@ -295,6 +295,7 @@ class Keithley2612B:
         ####set visualization
         self.safewrite("display.screen = display.SMUA_SMUB")
         self.safewrite("format.data = format.ASCII")
+        self.safewrite("format.asciiprecision = 14")
         
         ####source settings
         self.safewrite(f"{s['source']}.reset()")         
