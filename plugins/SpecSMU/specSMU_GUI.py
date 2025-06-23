@@ -394,6 +394,7 @@ class specSMU_GUI():
             smuChange = (self.settings["end"] - self.settings["start"])/(smuLoop-1)
         else:
             smuChange = 0
+        specFilename = self.spectrometer_settings["filename"]
         for smuLoopStep in range(smuLoop):
             # set smu set value according to current iteration.
             smuSetValue = self.settings["start"] + smuLoopStep*smuChange
@@ -416,8 +417,9 @@ class specSMU_GUI():
                 status, spectrum = set_integ_get_spectrum(integration_time_setting)
                 if status:
                     raise NotImplementedError(f"Error in setting integration time or getting spectrum: {spectrum}, no handling provided")
-
+            self.spectrometer_settings["filename"] = specFilename + f"_{smuSetValue:.4f}" + " iv"
             if self.spectrometer_settings["integrationtimetype"] == "auto":
+                self.function_dict["spectrometer"]["setSettings"](self.spectrometer_settings)
                 self.function_dict["smu"]["smu_outputON"](self.settings["channel"])
                 status, auto_time = self.function_dict["spectrometer"]["getAutoTime"]()
                 self.function_dict["smu"]["smu_outputOFF"]()
@@ -442,7 +444,7 @@ class specSMU_GUI():
             varDict['name'] = self.spectrometer_settings["samplename"]
             sourceIV = [float(x) for x in sourceIV]
             varDict['comment'] = str(sourceIV)
-            address = self.spectrometer_settings["address"] + os.sep +self.spectrometer_settings["filename"] + f"_{smuSetValue:02f}" + " iv"
+            address = self.spectrometer_settings["address"] + os.sep +self.spectrometer_settings["filename"]
             self.function_dict["spectrometer"]["createFile"](varDict=varDict, filedelimeter=";",address=address, data=spectrum)
             
         
