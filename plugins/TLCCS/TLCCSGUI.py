@@ -68,12 +68,13 @@ class TLCCS_GUI(QObject):
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool) 
     
-    filedelimeter = "\t"
+#    filedelimeter = "\t"
+    filedelimeter = ";"
     
     default_timerInterval = 20 # ms, it is close to 24*2 fps (twice the standard for movies and TV)
 #limits for auto time detection
-    autoTime_min = 0.04 # s, used to be 4
-    autoTime_max = 10 #s, used to be 10000
+    autoTime_min = 0.004 # s, used to be 4
+    autoTime_max = 30 #s, used to be 10000
     autoValue_min = 0.2 # spectrum value in arb.(?) units
     autoValue_max = 0.8 # spectrum value in arb.(?) units
     intTimeMaxIterations = 10
@@ -163,7 +164,11 @@ class TLCCS_GUI(QObject):
 ########GUI Slots
 
     def _connectAction(self):
-        self.parse_settings_widget()
+        [status, info] = self.parse_settings_widget()
+        if status:
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+                self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
+                return [status, info]    
         [status, info] = self.spectrometerConnect()
         if status:
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
@@ -313,7 +318,7 @@ class TLCCS_GUI(QObject):
                 ################ check that info is [wv, spectrum] !!!!!
                 if self.settings["saveautoattmepts"]:
                     varDict ={}
-                    varDict['integrationtime'] = guessIntTime
+                    varDict['integrationtime'] = guessIntTime/1000.0
                     varDict['triggermode'] = 1 if self.settings['externalTrigger'] else 0
                     varDict['name'] = self.settings["samplename"]
                     varDict['comment'] = self.settings["comment"] + " Auto adjust of integration time."

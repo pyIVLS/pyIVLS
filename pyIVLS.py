@@ -1,4 +1,4 @@
-#!/home/cryo/pyIVLS/.venv/bin/python3
+#!/home/ivls/git_pyIVLS/pyIVLS/.venv/bin/python3
 import sys
 from os.path import dirname, sep
 

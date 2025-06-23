@@ -428,6 +428,8 @@ class specSMU_GUI():
 
 
             ##measure
+            if self.settings["mode"] == "pulsed":
+                time.sleep(self.settings["pause"])
             self.function_dict["smu"]["smu_outputON"](self.settings["channel"])
             # get spectrum
             status, spectrum = self.function_dict["spectrometer"]["spectrometerGetScan"]()
@@ -439,11 +441,11 @@ class specSMU_GUI():
             
             ##save
             varDict = {}
-            varDict['integrationtime'] = self.spectrometer_settings['integrationTime']
+            varDict['integrationtime'] = integration_time_setting
             varDict['triggermode'] = 1 if self.spectrometer_settings['externalTrigger'] else 0
             varDict['name'] = self.spectrometer_settings["samplename"]
             sourceIV = [float(x) for x in sourceIV]
-            varDict['comment'] = str(sourceIV)
+            varDict['comment'] = self.spectrometer_settings["comment"] + " " + str(sourceIV)
             address = self.spectrometer_settings["address"] + os.sep +self.spectrometer_settings["filename"]
             self.function_dict["spectrometer"]["createFile"](varDict=varDict, filedelimeter=";",address=address, data=spectrum)
             
