@@ -10,68 +10,72 @@ from PyQt6.QtGui import QImage, QPixmap, QBrush, QColor
 from affineMatchDialog import Ui_Dialog
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import (
+from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
 from PyQt6.QtCore import pyqtSignal
 
 
 class dialog(QDialog):
+    """
+    Affine registration dialog for manual and automatic matching.
+    Handles preprocessing settings, manual point selection, and result visualization.
+    """
+
     # good sigmas:
     sigma_list = [1.0, 2.0, 3.0, 4.0, 5.0]
     ratio_list = [0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]
     residual_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30]
-    # signal log message
     log_message = pyqtSignal(int, dict)
-    # signal info message
     info_message = pyqtSignal(str)
 
     def __init__(self, affine, img, mask, settings, pointslist=None):
+        """
+        Initialize the dialog.
+        Args:
+            affine: Affine object for registration.
+            img: Input image (numpy array).
+            mask: Mask image (numpy array).
+            settings: Settings dictionary for preprocessing and matching.
+            pointslist: Optional list of points for manual mode.
+        """
         super(QDialog, self).__init__()
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
-
-        # find all objects inside "groupBox" and connect them to the _preprocessing_settings_changed function
+        # Connect UI elements to settings change handler
         for child in self.ui.groupBox.children():
-            if isinstance(child, (QCheckBox)):
+            if isinstance(child, QCheckBox):
                 child.stateChanged.connect(self._preprocessing_settings_changed)
-            elif isinstance(child, (QComboBox)):
+            elif isinstance(child, QComboBox):
                 child.currentTextChanged.connect(self._preprocessing_settings_changed)
-            elif isinstance(child, (QLineEdit)):
+            elif isinstance(child, QLineEdit):
                 child.textChanged.connect(self._preprocessing_settings_changed)
         self.affine = affine
-        self.pointslist = pointslist  # List of (x_mask, y_mask) tuples
+        self.pointslist = pointslist
         self.img = img
         self.mask = mask
         self.manual_mode = False
         self.expecting_img_click = False
         self.mask_points = []
         self.img_points = []
-        self.num_needed = 4  # Number of points needed for manual transformation
+        self.num_needed = 4
         self.img_scene = QGraphicsScene()
         self.mask_scene = QGraphicsScene()
-
         # Connect mouse events for manual mode
         self.ui.imgView.mousePressEvent = self._img_view_clicked
         self.ui.maskView.mousePressEvent = self._mask_view_clicked
         self._preprocessing_settings_changed()
         self.ui.matchButton.clicked.connect(self._on_match_button_clicked)
         self.ui.manualButton.clicked.connect(self._on_manual_button_clicked)
-
-        # fill comboboxes with sigma_list
+        # Fill comboboxes
         for sigma in self.sigma_list:
             self.ui.sigmaImage.addItem(str(sigma))
             self.ui.sigmaMask.addItem(str(sigma))
-
-        # fill comboboxes with ratio_list
         for ratio in self.ratio_list:
             self.ui.ratioCombo.addItem(str(ratio))
-
-        # fill comboboxes with residual_list
         for residual in self.residual_list:
             self.ui.residualCombo.addItem(str(residual))
-
-        # We can assume that the settingsdict is already validated and contains the necessary keys.
+        # Set initial values from settings
         self.ui.blurMask.setChecked(settings["blurmask"])
         self.ui.invertMask.setChecked(settings["invertmask"])
         self.ui.equalizeMask.setChecked(settings["equalizemask"])
@@ -85,15 +89,14 @@ class dialog(QDialog):
         self.ui.crossCheck.setChecked(settings["crosscheck"])
         self.ui.ratioCombo.setCurrentText(str(settings["ratiotest"]))
         self.ui.residualCombo.setCurrentText(str(settings["residualthreshold"]))
-
-        # check if the affine object already has a result
         if self.affine.A is not None:
-            # If it has, we can draw the result
             result = self.affine.result
             self.draw_result(result, self.pointslist)
 
     def _preprocessing_settings_changed(self):
-        """Called when preprocessing settings are changed."""
+        """
+        Called when preprocessing settings are changed. Updates local settings and refreshes the displayed images.
+        """
         settings = {}
         blurMask = self.ui.blurMask.isChecked()
         invertMask = self.ui.invertMask.isChecked()
@@ -104,7 +107,6 @@ class dialog(QDialog):
         equalizeImage = self.ui.equalizeImage.isChecked()
         cannyImage = self.ui.cannyImage.isChecked()
         crossCheck = self.ui.crossCheck.isChecked()
-        # convert sigma values to float
         try:
             sigmaImage = float(self.ui.sigmaImage.currentText())
         except ValueError:
@@ -121,7 +123,6 @@ class dialog(QDialog):
             settings["residualthreshold"] = int(self.ui.residualCombo.currentText())
         except ValueError:
             pass
-        # Update local settings dict
         settings["blurmask"] = blurMask
         settings["invertmask"] = invertMask
         settings["equalizemask"] = equalizeMask
@@ -133,8 +134,6 @@ class dialog(QDialog):
         settings["sigmaimage"] = sigmaImage
         settings["sigmamask"] = sigmaMask
         settings["crosscheck"] = crossCheck
-
-        # preprocess the images
         self.affine.update_settings(settings)
         img = self.affine.preprocessor.preprocess_img(self.img)
         mask = self.affine.preprocessor.preprocess_mask(self.mask)
@@ -142,11 +141,18 @@ class dialog(QDialog):
 
     @staticmethod
     def to_pixmap(image):
-        """Convert an image to a QPixmap."""
+        """
+        Convert a numpy image array to a QPixmap for display.
+        Args:
+            image (np.ndarray): Image array (2D grayscale or 3D RGB/RGBA).
+        Returns:
+            QPixmap or None: Pixmap for display, or None if input is None.
+        Raises:
+            ValueError: If the image format is unsupported.
+        """
         if image is None:
             return None
         if len(image.shape) == 2:
-            # Grayscale image
             height, width = image.shape
             bytes_per_line = width
             qimage = QImage(
@@ -157,14 +163,12 @@ class dialog(QDialog):
                 QImage.Format.Format_Grayscale8,
             )
         elif len(image.shape) == 3 and image.shape[2] == 3:
-            # RGB image
             height, width, _ = image.shape
             bytes_per_line = width * 3
             qimage = QImage(
                 image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888
             )
         elif len(image.shape) == 3 and image.shape[2] == 4:
-            # RGBA image
             height, width, _ = image.shape
             bytes_per_line = width * 4
             qimage = QImage(
@@ -175,33 +179,34 @@ class dialog(QDialog):
         return QPixmap.fromImage(qimage)
 
     def update_images(self, img, mask):
-        """Update the QgraphicsView with the given images.
-
+        """
+        Update the QGraphicsView widgets with the given images.
         Args:
             img (np.ndarray): The image to display.
             mask (np.ndarray): The mask to display.
         """
         imgview = self.ui.imgView
         maskview = self.ui.maskView
-
-        # Clear previous scenes if any
-        if hasattr(imgview, "scene") and imgview.scene() is not None:
-            imgview.scene().clear()
-        if hasattr(maskview, "scene") and maskview.scene() is not None:
-            maskview.scene().clear()
-
+        # Ensure imgview has a valid scene
+        if imgview.scene() is None:
+            imgview.setScene(QGraphicsScene())
+        img_scene = imgview.scene()
+        if maskview.scene() is None:
+            maskview.setScene(QGraphicsScene())
+        mask_scene = maskview.scene()
+        # catch None cases, should not happen but the linter complains
+        assert img_scene is not None, "Image scene is None"
+        assert mask_scene is not None, "Mask scene is None"
+        img_scene.clear()
+        mask_scene.clear()
         if img is not None:
             img_pixmap = self.to_pixmap(img)
-            if img_pixmap is not None:
-                scene = self.img_scene
-                scene.addItem(QGraphicsPixmapItem(img_pixmap))
-                imgview.setScene(scene)
+            if img_pixmap is not None and img_scene is not None:
+                img_scene.addItem(QGraphicsPixmapItem(img_pixmap))
         if mask is not None:
             mask_pixmap = self.to_pixmap(mask)
-            if mask_pixmap is not None:
-                scene = self.mask_scene
-                scene.addItem(QGraphicsPixmapItem(mask_pixmap))
-                maskview.setScene(scene)
+            if mask_pixmap is not None and mask_scene is not None:
+                mask_scene.addItem(QGraphicsPixmapItem(mask_pixmap))
 
     def draw_result(
         self,
@@ -211,7 +216,15 @@ class dialog(QDialog):
         info_message=None,
         draw_matches=True,
     ):
-        """Draws the result of matching or manual transformation in the resultView."""
+        """
+        Draws the result of matching or manual transformation in the resultView.
+        Args:
+            result (dict): Result dictionary from Affine.
+            pointslist (list, optional): List of points to highlight.
+            show_points (bool): Whether to show points.
+            info_message (str, optional): Message to emit.
+            draw_matches (bool): Whether to draw matches.
+        """
         kp1 = result["kp1"]
         kp2 = result["kp2"]
         matches = result["matches"]
@@ -290,9 +303,11 @@ class dialog(QDialog):
             self.info_message.emit(info_message)
 
     def _on_match_button_clicked(self):
-        """Handle match button click event."""
+        """
+        Handle match button click event. Runs automatic matching and displays the result.
+        """
         try:
-            self._preprocessing_settings_changed()  # Ensure preprocessing is applied
+            self._preprocessing_settings_changed()
             img = self.img
             self.affine.try_match(img)
             result = self.affine.result
@@ -308,49 +323,57 @@ class dialog(QDialog):
             return
 
     def _on_manual_button_clicked(self):
-        """Enable manual mode for point selection and transformation."""
+        """
+        Enable manual mode for point selection and transformation.
+        """
         self.manual_mode = True
         self.expecting_img_click = False
         self.mask_points = []
         self.img_points = []
-        # Clear previous overlays if any
         self._draw_manual_points()
         self.info_message.emit(
             f"Manual mode enabled. Click {self.num_needed} points on the mask (left), then {self.num_needed} on the image (right). Colors indicate matching order."
         )
 
     def _draw_manual_points(self):
-        # Draw points on mask and image views for visual feedback
+        """
+        Draw points on mask and image views for visual feedback during manual mode.
+        """
         maskview = self.ui.maskView
         imgview = self.ui.imgView
-        # Draw mask points
-        mask_scene = maskview.scene() if maskview.scene() else QGraphicsScene()
+        # Ensure scenes exist
         if maskview.scene() is None:
-            maskview.setScene(mask_scene)
-        mask_scene.clear()
-        mask_pixmap = self.to_pixmap(self.mask)
-        if mask_pixmap is not None:
-            mask_scene.addItem(QGraphicsPixmapItem(mask_pixmap))
-        # Draw points in order with color
-        colors = ["red", "green", "blue", "orange", "purple", "cyan"]
-        for i, (x, y) in enumerate(self.mask_points):
-            color = colors[i % len(colors)]
-            ellipse = mask_scene.addEllipse(x - 4, y - 4, 8, 8)
-            ellipse.setBrush(QBrush(QColor(color)))
-        # Draw image points
-        img_scene = imgview.scene() if imgview.scene() else QGraphicsScene()
+            maskview.setScene(QGraphicsScene())
+        mask_scene = maskview.scene()
         if imgview.scene() is None:
-            imgview.setScene(img_scene)
-        img_scene.clear()
-        img_pixmap = self.to_pixmap(self.img)
-        if img_pixmap is not None:
-            img_scene.addItem(QGraphicsPixmapItem(img_pixmap))
-        for i, (x, y) in enumerate(self.img_points):
-            color = colors[i % len(colors)]
-            ellipse = img_scene.addEllipse(x - 4, y - 4, 8, 8)
-            ellipse.setBrush(QBrush(QColor(color)))
+            imgview.setScene(QGraphicsScene())
+        img_scene = imgview.scene()
+        colors = ["red", "green", "blue", "orange", "purple", "cyan"]
+        if mask_scene is not None:
+            mask_scene.clear()
+            mask_pixmap = self.to_pixmap(self.mask)
+            if mask_pixmap is not None:
+                mask_scene.addItem(QGraphicsPixmapItem(mask_pixmap))
+            for i, (x, y) in enumerate(self.mask_points):
+                color = colors[i % len(colors)]
+                ellipse = mask_scene.addEllipse(x - 4, y - 4, 8, 8)
+                if ellipse is not None:
+                    ellipse.setBrush(QBrush(QColor(color)))
+        if img_scene is not None:
+            img_scene.clear()
+            img_pixmap = self.to_pixmap(self.img)
+            if img_pixmap is not None:
+                img_scene.addItem(QGraphicsPixmapItem(img_pixmap))
+            for i, (x, y) in enumerate(self.img_points):
+                color = colors[i % len(colors)]
+                ellipse = img_scene.addEllipse(x - 4, y - 4, 8, 8)
+                if ellipse is not None:
+                    ellipse.setBrush(QBrush(QColor(color)))
 
     def _mask_view_clicked(self, event):
+        """
+        Handle mouse click on the mask view for manual point selection.
+        """
         if not self.manual_mode or self.expecting_img_click:
             return
         pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
@@ -359,14 +382,15 @@ class dialog(QDialog):
         if len(self.mask_points) < self.num_needed:
             self.mask_points.append((x, y))
             maskview = self.ui.maskView
-            mask_scene = maskview.scene() if maskview.scene() else QGraphicsScene()
             if maskview.scene() is None:
-                maskview.setScene(mask_scene)
-            color = ["red", "green", "blue", "orange", "purple", "cyan"][
-                len(self.mask_points) - 1 % 6
-            ]
-            ellipse = mask_scene.addEllipse(x - 4, y - 4, 8, 8)
-            ellipse.setBrush(QBrush(QColor(color)))
+                maskview.setScene(QGraphicsScene())
+            mask_scene = maskview.scene()
+            colors = ["red", "green", "blue", "orange", "purple", "cyan"]
+            color = colors[(len(self.mask_points) - 1) % 6]
+            if mask_scene is not None:
+                ellipse = mask_scene.addEllipse(x - 4, y - 4, 8, 8)
+                if ellipse is not None:
+                    ellipse.setBrush(QBrush(QColor(color)))
             if len(self.mask_points) == self.num_needed:
                 self.expecting_img_click = True
         else:
@@ -375,6 +399,9 @@ class dialog(QDialog):
             )
 
     def _img_view_clicked(self, event):
+        """
+        Handle mouse click on the image view for manual point selection.
+        """
         if not self.manual_mode or not self.expecting_img_click:
             return
         pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
@@ -383,14 +410,15 @@ class dialog(QDialog):
         if len(self.img_points) < self.num_needed:
             self.img_points.append((x, y))
             imgview = self.ui.imgView
-            img_scene = imgview.scene() if imgview.scene() else QGraphicsScene()
             if imgview.scene() is None:
-                imgview.setScene(img_scene)
-            color = ["red", "green", "blue", "orange", "purple", "cyan"][
-                len(self.img_points) - 1 % 6
-            ]
-            ellipse = img_scene.addEllipse(x - 4, y - 4, 8, 8)
-            ellipse.setBrush(QBrush(QColor(color)))
+                imgview.setScene(QGraphicsScene())
+            img_scene = imgview.scene()
+            colors = ["red", "green", "blue", "orange", "purple", "cyan"]
+            color = colors[(len(self.img_points) - 1) % 6]
+            if img_scene is not None:
+                ellipse = img_scene.addEllipse(x - 4, y - 4, 8, 8)
+                if ellipse is not None:
+                    ellipse.setBrush(QBrush(QColor(color)))
             if len(self.img_points) == self.num_needed:
                 try:
                     self.affine.manual_transform(

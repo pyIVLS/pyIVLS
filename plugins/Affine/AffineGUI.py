@@ -6,7 +6,6 @@ from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QBrush, QImage, QPen, QPixmap
 from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
-from PyQt6.QtWidgets import QDialog, QCheckBox, QComboBox, QLineEdit, QListWidget
 import csv
 from affineDialog import dialog
 from PyQt6.QtCore import pyqtSlot

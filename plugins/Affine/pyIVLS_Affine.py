@@ -41,7 +41,7 @@ class pyIVLS_Affine_plugin:
         return {self.name: self.affine_control.settingsWidget}
 
     @hookimpl
-    def get_MDI_interface(self, args=None) -> dict:
+    def get_MDI_interface(self, args=None):
         """Returns MDI window
 
         Returns:
