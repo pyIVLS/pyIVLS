@@ -423,7 +423,7 @@ class itc503GUI(QObject):
             ]
 
         try:
-            self.settings["sweeppts"] = int(self.settingsWidget.periodPtsEdit.text())
+                self.settings["sweeppts"] = int(self.settingsWidget.sweepPtsEdit.text())
         except ValueError:
             return [
                 1,
@@ -438,9 +438,7 @@ class itc503GUI(QObject):
             ]
 
         try:
-            self.settings["sweepstabilization"] = int(
-                self.settingsWidget.periodEdit.text()
-            )
+                self.settings["sweepstabilization"] = int(self.settingsWidget.sweepStabilizationEdit.text())
         except ValueError:
             return [
                 1,
@@ -460,22 +458,36 @@ class itc503GUI(QObject):
 
     def setSettings(self, settings):
         self.settings = settings
-        self._setGUIfromSettings()
+#this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
+#        self._setGUIfromSettings()
 
-    ########Functions
-    ########Tsweep implementation
+########Functions
+########Tsweep implementation  
 
     def getIterations(self):
         return self.settings["sweeppts"]
 
     def loopingIteration(self, iteration):
-        self.settings["sett"] = (
-            self.settings["sweepstart"]
-            + iteration
-            * (self.settings["sweepend"] - self.settings["sweepstart"])
-            / self.settings["sweeppts"]
-        )
-        self.settingsWidget.setTEdit.setText(f"{self.settings['sett']}")
+        if self.settings["sweeppts"] == 1:
+            self.settings['sett'] = self.settings["sweepstart"]
+        else:
+            self.settings['sett'] = self.settings["sweepstart"] + iteration*(self.settings["sweepend"] - self.settings["sweepstart"])/(self.settings["sweeppts"]-1)
+#this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
+#        self.settingsWidget.setTEdit.setText(f"{self.settings['sett']}") 
         [status, info] = self._setT()
         if status:
             return [status, info]
+#########IRtodo: workaround, make a proper update display
+        tic = time.time()
+        while (time.time()-tic) < self.settings["sweepstabilization"]:
+             try:
+                info = self.itc503.getData()
+             except Exception as e:
+                return [4, {"Error message" : f"{e}"}]
+             if abs(info-self.settings['sett'])>0.2:
+                print(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")
+                tic = time.time()
+             else:
+                print(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")
+             time.sleep(20)
+        return[0 , f"_{info}K"]

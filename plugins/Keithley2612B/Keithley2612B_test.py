@@ -62,8 +62,8 @@ from PyQt6.QtWidgets import (
 # For implementing both connections simultaneously some abstractions for module specific commands should be implemented e.g query in pyvisa and ask in usbtmc
 # At the moment all the pyvisa methods are commented
 
-# import pyvisa
-import usbtmc
+#import pyvisa
+#import usbtmc
 import numpy as np
 import time
 
@@ -244,8 +244,8 @@ class Keithley2612B:
         value = float
         """
         ##IRtothink#### some check may be added
-        # self.safewrite(f"{source}.source.level{outputType} = {value}")
-        print(f"{source}.source.level{outputType} = {value}")
+        #self.safewrite(f"{source}.source.level{outputType} = {value}")
+        print(f"{channel}.source.level{outputType} = {value}")
 
     def get_last_buffer_value(self, channel):
         """

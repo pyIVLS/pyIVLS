@@ -2,8 +2,8 @@ import sys
 import os
 import time
 from threading import Lock
+#from Keithley2612B_test import Keithley2612B
 from Keithley2612B import Keithley2612B
-# from Keithley2612B import Keithley2612B
 
 from PyQt6 import uic
 
@@ -235,8 +235,8 @@ class Keithley2612BGUI:
         Returns:
             list [i, v, number of point in the buffer]
         """
-        return self.smu.get_last_buffer_value(channel)
-
+        return  self.smu.get_last_buffer_value(channel, readings)
+        
     def smu_bufferRead(self, channel):
         """an interface for an externall calling function to get the content of a channel buffer from Keithley
         s: channel to get the last value (may be 'smua' or 'smub')
@@ -258,13 +258,14 @@ class Keithley2612BGUI:
             return [4, {"Error message": "Failed to get IV data"}]
 
     def smu_setOutput(self, channel, outputType, value):
-        """sets smu output but does not switch it ON
-        channel = "smua" or "smub"
-        outputType = "i" or "v"
-        value = float
-        """
+#        """sets smu output but does not switch it ON
+#	channel = "smua" or "smub"
+#	outputType = "i" or "v"
+#	value = float
+#        """
         try:
-            return [0, self.smu.setOutput(channel, outputType, value)]
+                self.smu.setOutput(channel,outputType,value)
+                return [0, "OK"]
         except:
             return [4, {"Error message": "Failed to set smu output"}]
         
