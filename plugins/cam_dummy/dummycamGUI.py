@@ -29,6 +29,7 @@ version 0.7
 2025.06.11
 otsoha
 """
+
 import numpy as np
 import os
 from datetime import datetime
@@ -41,6 +42,7 @@ from PyQt6.QtGui import QImage, QPixmap
 from dummycam import DummyCamera
 
 ##IRtothink#### should some kind of zoom to the image part be added for the preview?
+
 
 # This solves some issues but might create others.
 # Pros: slots are fast and good, GUI remains unblocked
@@ -69,7 +71,6 @@ class CameraThread(QThread):
         self.wait()
 
 
-
 class DummyCameraGUI(QObject):
     """GUI for the DummyCamera plugin (minimal, only image path selection)"""
 
@@ -86,13 +87,14 @@ class DummyCameraGUI(QObject):
     log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool)
+
     def emit_log(self, status: int, state: dict) -> None:
         """
         Emits a standardized log message for status dicts or error lists.
         Args:
             status (int): status code, 0 for success, non-zero for error.
             state (dict): dictionary in the standard pyIVLS format
-        
+
         """
         plugin_name = self.__class__.__name__
         # only emit if error occurred
@@ -120,10 +122,8 @@ class DummyCameraGUI(QObject):
 
         # Fill lineEdit from saved path if available
         saved_path = self._load_saved_path()
-        print(f"Loaded saved path: {saved_path}")
         self.settings["image_path"] = saved_path
         self.settingsWidget.lineEdit.setPlaceholderText("Select an image file")
-
 
         self.settingsWidget.lineEdit.setText(saved_path)
 
@@ -131,7 +131,10 @@ class DummyCameraGUI(QObject):
 
     def _select_image(self):
         file_path, _ = QFileDialog.getOpenFileName(
-            None, "Select Image", self.settings["image_path"], "Images (*.png *.jpg *.jpeg *.bmp)"
+            None,
+            "Select Image",
+            self.settings["image_path"],
+            "Images (*.png *.jpg *.jpeg *.bmp)",
         )
         if file_path:
             self.settings["image_path"] = file_path

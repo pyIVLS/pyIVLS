@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'affineMatchDialogTGyopU.ui'
+## Form generated from reading UI file 'affineMatchDialogUVdsJa.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.4.3
+## Created by: Qt User Interface Compiler version 6.9.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -16,15 +16,15 @@ from PyQt6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
-    QGraphicsView, QGridLayout, QGroupBox, QHBoxLayout,
-    QLabel, QLineEdit, QPushButton, QSizePolicy,
-    QSplitter, QVBoxLayout, QWidget)
+    QGraphicsView, QGridLayout, QGroupBox, QLabel,
+    QPushButton, QSizePolicy, QSplitter, QVBoxLayout,
+    QWidget)
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         if not Dialog.objectName():
             Dialog.setObjectName(u"Dialog")
-        Dialog.resize(845, 756)
+        Dialog.resize(1600, 1200)
         self.gridLayout = QGridLayout(Dialog)
         self.gridLayout.setObjectName(u"gridLayout")
         self.groupBox = QGroupBox(Dialog)
@@ -84,6 +84,38 @@ class Ui_Dialog(object):
 
         self.gridLayout.addWidget(self.groupBox, 0, 0, 1, 2)
 
+        self.groupBox_2 = QGroupBox(Dialog)
+        self.groupBox_2.setObjectName(u"groupBox_2")
+        self.gridLayout_4 = QGridLayout(self.groupBox_2)
+        self.gridLayout_4.setObjectName(u"gridLayout_4")
+        self.label_2 = QLabel(self.groupBox_2)
+        self.label_2.setObjectName(u"label_2")
+
+        self.gridLayout_4.addWidget(self.label_2, 1, 0, 1, 1)
+
+        self.ratioCombo = QComboBox(self.groupBox_2)
+        self.ratioCombo.setObjectName(u"ratioCombo")
+
+        self.gridLayout_4.addWidget(self.ratioCombo, 0, 1, 1, 1)
+
+        self.residualCombo = QComboBox(self.groupBox_2)
+        self.residualCombo.setObjectName(u"residualCombo")
+
+        self.gridLayout_4.addWidget(self.residualCombo, 1, 1, 1, 1)
+
+        self.label = QLabel(self.groupBox_2)
+        self.label.setObjectName(u"label")
+
+        self.gridLayout_4.addWidget(self.label, 0, 0, 1, 1)
+
+        self.crossCheck = QCheckBox(self.groupBox_2)
+        self.crossCheck.setObjectName(u"crossCheck")
+
+        self.gridLayout_4.addWidget(self.crossCheck, 2, 0, 1, 1)
+
+
+        self.gridLayout.addWidget(self.groupBox_2, 1, 0, 1, 2)
+
         self.groupBox_4 = QGroupBox(Dialog)
         self.groupBox_4.setObjectName(u"groupBox_4")
         self.verticalLayout = QVBoxLayout(self.groupBox_4)
@@ -125,36 +157,7 @@ class Ui_Dialog(object):
         self.gridLayout_2.addWidget(self.manualButton, 0, 1, 1, 1)
 
 
-        self.gridLayout.addWidget(self.groupBox_3, 8, 0, 1, 2)
-
-        self.groupBox_2 = QGroupBox(Dialog)
-        self.groupBox_2.setObjectName(u"groupBox_2")
-        self.gridLayout_4 = QGridLayout(self.groupBox_2)
-        self.gridLayout_4.setObjectName(u"gridLayout_4")
-        self.label = QLabel(self.groupBox_2)
-        self.label.setObjectName(u"label")
-
-        self.gridLayout_4.addWidget(self.label, 0, 0, 1, 1)
-
-        self.ratioLine = QLineEdit(self.groupBox_2)
-        self.ratioLine.setObjectName(u"ratioLine")
-
-        self.gridLayout_4.addWidget(self.ratioLine, 0, 1, 1, 1)
-
-        self.crossCheck = QCheckBox(self.groupBox_2)
-        self.crossCheck.setObjectName(u"crossCheck")
-
-        self.gridLayout_4.addWidget(self.crossCheck, 1, 0, 1, 1)
-
-
-        self.gridLayout.addWidget(self.groupBox_2, 1, 0, 1, 2)
-
-        self.groupBox_5 = QGroupBox(Dialog)
-        self.groupBox_5.setObjectName(u"groupBox_5")
-        self.horizontalLayout_2 = QHBoxLayout(self.groupBox_5)
-        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-
-        self.gridLayout.addWidget(self.groupBox_5, 4, 0, 1, 1)
+        self.gridLayout.addWidget(self.groupBox_3, 7, 0, 1, 2)
 
 
         self.retranslateUi(Dialog)
@@ -173,13 +176,13 @@ class Ui_Dialog(object):
         self.invertMask.setText(QCoreApplication.translate("Dialog", u"invert mask", None))
         self.equalizeMask.setText(QCoreApplication.translate("Dialog", u"equalize mask", None))
         self.cannyImage.setText(QCoreApplication.translate("Dialog", u"edge detect image", None))
+        self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", u"SIFT settings", None))
+        self.label_2.setText(QCoreApplication.translate("Dialog", u"Residual threshold (larger -> more matches but less accurate)", None))
+        self.label.setText(QCoreApplication.translate("Dialog", u"ratio test) ", None))
+        self.crossCheck.setText(QCoreApplication.translate("Dialog", u"Crosscheck", None))
         self.groupBox_4.setTitle("")
         self.groupBox_3.setTitle("")
         self.matchButton.setText(QCoreApplication.translate("Dialog", u"Match", None))
         self.manualButton.setText(QCoreApplication.translate("Dialog", u"Manual", None))
-        self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", u"SIFT settings", None))
-        self.label.setText(QCoreApplication.translate("Dialog", u"ratio test (larger ratio, less matches) ", None))
-        self.crossCheck.setText(QCoreApplication.translate("Dialog", u"Crosscheck", None))
-        self.groupBox_5.setTitle("")
     # retranslateUi
 

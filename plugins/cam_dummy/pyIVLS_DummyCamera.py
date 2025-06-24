@@ -135,5 +135,5 @@ class pyIVLS_DummyCamera_plugin:
         """See pyIVLS_hookspec.py for details.
         """
         if args is None or args.get("function") == self.metadata["function"]:
-            status, settings = self.camera_control._parse_settings_preview()
+            status, settings = 0, {"source": self.camera_control.settingsWidget.lineEdit.text()}
             return (self.metadata["name"], status, settings)

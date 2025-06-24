@@ -9,6 +9,8 @@ from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
 from PyQt6.QtWidgets import QDialog, QCheckBox, QComboBox, QLineEdit, QListWidget
 import csv
 from affineDialog import dialog
+from PyQt6.QtCore import pyqtSlot
+
 
 class AffineGUI(QObject):
     """
@@ -17,6 +19,10 @@ class AffineGUI(QObject):
     public API:
 
     -positioning_coords(coords: tuple[float, float]) -> tuple[float, float]
+
+    revision 2.0.0
+    -Added dialog for matching and manual mode. Added settings for preprocessing.
+    -Formatted into proper pyIVLS plugin format.
 
     Revision 0.1.1
     -Manual mode implementeted.
@@ -30,18 +36,36 @@ class AffineGUI(QObject):
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool)
     COORD_DATA = Qt.ItemDataRole.UserRole + 1
-    
 
+    @pyqtSlot(int, dict)
+    def emit_log(self, status: int, state: dict) -> None:
+        """
+        Emits a standardized log message for status dicts or error lists.
+        Args:
+            status (int): status code, 0 for success, non-zero for error.
+            state (dict): dictionary in the standard pyIVLS format
 
-    def __init__(self):
+        """
+        plugin_name = self.__class__.__name__
+        # only emit if error occurred
+        if status != 0:
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")
+            msg = state.get("Error message", "Unknown error")
+            exception = state.get("Exception", "Not provided")
+
+            log = f"{timestamp} : {plugin_name} : {status} : {msg} : Exception: {exception}"
+
+            self.log_message.emit(log)
+
+    def __init__(self, settings=None):
         super().__init__()
         # load ui files
         self.settingsWidget, self.MDIWidget = self._load_widgets()
         # init settings if needed
-        self.settings = {}
+        self.settings = settings if settings is not None else {}
 
         # init core functionality
-        self.affine = Affine()
+        self.affine = Affine(self.settings)
         self.dependency = ["camera"]
 
         # init dependency functions
@@ -53,7 +77,7 @@ class AffineGUI(QObject):
         self.expecting_img_click = False
         self.mask_points = []
         self.img_points = []
-        self.num_needed = 4 # Read from user?
+        self.num_needed = 4  # Read from user?
         self.tp_arr = []
         self.dialog = None
 
@@ -65,13 +89,57 @@ class AffineGUI(QObject):
         self.settings = settings
         settingsWidget: QtWidgets.QWidget = self.settingsWidget
         MDIWidget = self.MDIWidget
-        last_mask_path = settings.get("default_mask_path", None)
-        if last_mask_path is not None:
+        self.last_mask_path = settings.get("default_mask_path", None)
+        pointcount = settings.get("pointcount", 2)
+        addpointscheck = settings.get("addpointscheck", "False")
+        centerclicks = settings.get("centerclicks", "False")
+        centerclicks = True if centerclicks == "True" else False
+        addpointscheck = True if addpointscheck == "True" else False
+        ratiotest = float(settings["ratiotest"])
+        residualthreshold = int(settings["residualthreshold"])
+        crosscheck = True if settings["crosscheck"] == "True" else False
+
+        # set the settings widget values
+        self.settingsWidget.pointCount.setCurrentText(str(pointcount))
+        self.settingsWidget.addPointsCheck.setChecked(addpointscheck)
+        self.settingsWidget.centerClicks.setChecked(centerclicks)
+
+        # read preprocessing settings
+        s = {}
+        s["sigmaimage"] = settings.get("sigmaimage")
+        s["sigmamask"] = settings.get("sigmamask")
+        s["sigmaimage"] = float(s["sigmaimage"])
+        s["sigmamask"] = float(s["sigmamask"])
+        s["blurmask"] = settings["blurmask"]
+        s["invertmask"] = settings["invertmask"]
+        s["equalizemask"] = settings["equalizemask"]
+        s["cannymask"] = settings["cannymask"]
+        s["blurimage"] = settings["blurimage"]
+        s["invertimage"] = settings["invertimage"]
+        s["equalizeimage"] = settings["equalizeimage"]
+        s["cannyimage"] = settings["cannyimage"]
+        # convert to boolean from string literals "True" and "False"
+        s["blurmask"] = True if s["blurmask"] == "True" else False
+        s["invertmask"] = True if s["invertmask"] == "True" else False
+        s["equalizemask"] = True if s["equalizemask"] == "True" else False
+        s["cannymask"] = True if s["cannymask"] == "True" else False
+        s["blurimage"] = True if s["blurimage"] == "True" else False
+        s["invertimage"] = True if s["invertimage"] == "True" else False
+        s["equalizeimage"] = True if s["equalizeimage"] == "True" else False
+        s["cannyimage"] = True if s["cannyimage"] == "True" else False
+        s["ratiotest"] = ratiotest
+        s["residualthreshold"] = residualthreshold
+        s["crosscheck"] = crosscheck
+
+        # set the preprocessing settings to the affine object
+        self.affine.update_settings(s)
+
+        if self.last_mask_path is not None:
             try:
-                mask = self.affine.update_internal_mask(last_mask_path)
+                mask = self.affine.update_internal_mask(self.last_mask_path)
                 self._update_MDI(mask, None)
                 self.settingsWidget.label.setText(
-                    f"Mask loaded: {os.path.basename(last_mask_path)}"
+                    f"Mask loaded: {os.path.basename(self.last_mask_path)}"
                 )
                 self._gui_change_mask_uploaded(mask_loaded=True)
             except AffineError:
@@ -144,8 +212,6 @@ class AffineGUI(QObject):
 
         # connect the buttons to their actions
         settingsWidget.maskButton.clicked.connect(self._mask_button_action)
-        settingsWidget.findButton.clicked.connect(self._find_button_action)
-        settingsWidget.manualButton.clicked.connect(self._manual_button_action)
         settingsWidget.savePoints.clicked.connect(self.save_points_action)
         settingsWidget.importPoints.clicked.connect(self._import_points_action)
         settingsWidget.showButton.clicked.connect(self._open_dialog)
@@ -203,7 +269,6 @@ class AffineGUI(QObject):
                             img_x, img_y = -1, -1
                         cswriter.writerow([name, x_mask, y_mask, img_x, img_y])
 
-    # TODO: add quicker back-computation of the affine if both mask and image points are defined?
     def _import_points_action(self):
         """Action for the import points button."""
         fileName, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -224,9 +289,7 @@ class AffineGUI(QObject):
                     y_mask = float(row[2])
                     point_dict.setdefault(name, []).append((x_mask, y_mask))
             for name, points in point_dict.items():
-                self.update_list_widget(
-                    points, name, clear_list=False
-                )
+                self.update_list_widget(points, name, clear_list=False)
 
     def _list_item_clicked_action(self, item):
         points = item.data(self.COORD_DATA)
@@ -234,37 +297,8 @@ class AffineGUI(QObject):
             return
         self.draw_points_mdi(points, Qt.GlobalColor.red, clear_scene=True)
 
-    def _find_button_action(self):
-        """Action for the find button."""
-
-        try:
-        
-            # self.settingsWidget.affineBox.setEnabled(False)
-            # setting disabled does not work because it only sets a flag to update the GUI later, but the thread is taken up by the affine call.
-            # see: https://forum.qt.io/topic/124459/setvisible-doesn-t-occur-immediately
-            # Qt has functionality to multithread, but I don't think that's important right now.
-
-            # get the camera name from the combobox
-            camera_name = self.cameraComboBox.currentText()
-            status, img = self.functions["camera"][camera_name]["camera_capture_image"]()
-            if status != 0:
-                self.log_message.emit(f"Affine: Error capturing image: {img}")
-                return
-            #img = self.affine.test_image() 
-            #img = self.affine.test_image()
-            self._update_MDI(None, img)
-            self.affine.try_match(img)
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")
-            num_matches = len(self.affine.result["matches"])
-
-            self.log_message.emit(
-                f"{timestamp}: Found {num_matches} matches between the image and the mask."
-            )
-
-        except AffineError as e:
-            self.log_message.emit(e.message)
-
     def _manual_button_action(self):
+        """Unused. Moved to dialog"""
         self.manual_mode = True
         camera_name = self.cameraComboBox.currentText()
         status, img = self.functions["camera"][camera_name]["camera_capture_image"]()
@@ -272,9 +306,10 @@ class AffineGUI(QObject):
             self.log_message.emit(f"Affine: Error capturing image: {img}")
             return
         self._update_MDI(self.mdi_mask, img)
-        
-        
-        self.info_message.emit(f"Manual mode enabled. Click on the GDS and then on the image to define points. {self.num_needed} points needed for transformation.")
+
+        self.info_message.emit(
+            f"Manual mode enabled. Click on the GDS and then on the image to define points. {self.num_needed} points needed for transformation."
+        )
 
     def _mask_button_action(self):
         """Interface for the gds mask loading button."""
@@ -292,15 +327,26 @@ class AffineGUI(QObject):
                 )
                 self._update_MDI(mask, None)
                 self._gui_change_mask_uploaded(mask_loaded=True)
-
+                self.last_mask_path = self.affine.mask_path
         except AffineError as e:
             self.log_message.emit(e.message)
 
     def _open_dialog(self):
         def _on_close():
             self._update_MDI(self.dialog.mask, self.dialog.img, save_internal=True)
+            res = self.affine.result.get("matches", None)
+            if res is not None and len(res) > 0:
+                self.log_message.emit(
+                    f"Affine: Transformation confirmed. {len(res)} matches found."
+                )
+            else:
+                self.log_message.emit("Affine: No transformation confirmed")
+
             self.dialog = None
-        img = self.functions["camera"][self.cameraComboBox.currentText()]["camera_capture_image"]()
+
+        img = self.functions["camera"][self.cameraComboBox.currentText()][
+            "camera_capture_image"
+        ]()
         if img[0] != 0:
             self.log_message.emit(f"Affine: Error capturing image: {img[1]}")
             return
@@ -312,13 +358,21 @@ class AffineGUI(QObject):
                 pointslist.extend(pts)
         if not pointslist:
             pointslist = None
-        self.dialog = dialog(self.affine, img[1], self.affine.internal_mask, pointslist)
-        self.dialog.finished.connect(_on_close)
-        self.dialog.exec()
+        status, settings = self.parse_settings_widget()
+        if status == 0:
+            # Pass the settings dict to the dialog
+            self.dialog = dialog(
+                self.affine, img[1], self.mdi_mask, settings, pointslist=pointslist
+            )
+            self.dialog.finished.connect(_on_close)
+            self.dialog.show()
+        else:
+            self.log_message.emit(
+                f"Affine: Error parsing settings widget: {settings['error message']} {settings['exception']}"
+            )
 
     def _gds_label_clicked(self, event):
-
-        def measurement_point_mode(x,y):
+        def measurement_point_mode(x, y):
             if self.settingsWidget.addPointsCheck.isChecked():
                 try:
                     # "center on component" mode
@@ -328,12 +382,13 @@ class AffineGUI(QObject):
                     # draw the points
                     self.draw_points_mdi([(x, y)], Qt.GlobalColor.red, clear_scene=True)
 
-
                     # add the point to list, process point cluster if pointCount is reached
                     self.tp_arr += [(x, y)]
                     if len(self.tp_arr) == int(self.pointCount.currentText()):
                         # Create a widget item with the name and coordinates
-                        self.update_list_widget(self.tp_arr, self.pointName.text(), clear_list=False)
+                        self.update_list_widget(
+                            self.tp_arr, self.pointName.text(), clear_list=False
+                        )
                         self.tp_arr = []
                         name_idx = self.definedPoints.count()
                         self.pointName.setText("Measurement Point " + str(name_idx + 1))
@@ -342,18 +397,13 @@ class AffineGUI(QObject):
                     if e.error_code != 4:
                         self.log_message.emit(e.message)
 
-        def manual_mode(x,y):
+        def manual_mode(x, y):
             # Draw the point on the mask
             self.gds_scene.addEllipse(
-                x - 3,
-                y - 3,
-                6,
-                6,
-                brush=QBrush(Qt.GlobalColor.blue)
+                x - 3, y - 3, 6, 6, brush=QBrush(Qt.GlobalColor.blue)
             )
             self.expecting_img_click = True
             self.mask_points.append((x, y))
-            
 
         # Map from view coords -> scene coords
         pos = self.gds_label.mapToScene(event.pos())
@@ -368,29 +418,29 @@ class AffineGUI(QObject):
 
         if not self.manual_mode:
             measurement_point_mode(x, y)
-        elif  not self.expecting_img_click:
-            manual_mode(x,y)
+        elif not self.expecting_img_click:
+            manual_mode(x, y)
 
     def _camera_label_clicked(self, event):
         """Handles camera label clicks."""
         if self.expecting_img_click:
-            scene_pos = self.camera_label.mapToScene(event.pos())  # Convert view to scene coordinates
+            scene_pos = self.camera_label.mapToScene(
+                event.pos()
+            )  # Convert view to scene coordinates
             x = int(scene_pos.x())
             y = int(scene_pos.y())
 
             self.camera_scene.addEllipse(
-                x - 3,
-                y - 3,
-                6,
-                6,
-                brush=QBrush(Qt.GlobalColor.blue)
+                x - 3, y - 3, 6, 6, brush=QBrush(Qt.GlobalColor.blue)
             )
             self.img_points.append((x, y))
             self.expecting_img_click = False
 
             if len(self.img_points) == self.num_needed:
                 try:
-                    self.affine.manual_transform(self.mask_points, self.img_points, self.mdi_img, self.mdi_mask)
+                    self.affine.manual_transform(
+                        self.mask_points, self.img_points, self.mdi_img, self.mdi_mask
+                    )
                     self._update_MDI(self.mdi_mask, self.mdi_img, save_internal=False)
                     self.info_message.emit("Manual transformation successful.")
                 except AffineError as e:
@@ -401,7 +451,7 @@ class AffineGUI(QObject):
                 self.img_points = []
                 self.expecting_img_click = False
                 self.manual_mode = False
-   
+
     def _update_MDI(self, mask=None, img=None, save_internal=True):
         """
         Updates the MDI Widget with the given img and mask.
@@ -416,7 +466,7 @@ class AffineGUI(QObject):
         def to_qpixmap(array):
             """
             Helper: Convert ndarray (grayscale or RGB) to QPixmap.
-            
+
             Supports:
             - Grayscale (H, W)
             - RGB (H, W, 3)
@@ -428,7 +478,9 @@ class AffineGUI(QObject):
                 # Grayscale
                 h, w = array.shape
                 bytes_per_line = w
-                qimage = QImage(array.data, w, h, bytes_per_line, QImage.Format.Format_Grayscale8)
+                qimage = QImage(
+                    array.data, w, h, bytes_per_line, QImage.Format.Format_Grayscale8
+                )
             else:
                 # Color image: RGB or RGBA
                 if array.shape[2] == 4:
@@ -438,10 +490,11 @@ class AffineGUI(QObject):
 
                 h, w, ch = array.shape
                 bytes_per_line = ch * w
-                qimage = QImage(array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+                qimage = QImage(
+                    array.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
+                )
 
             return QPixmap.fromImage(qimage)
-
 
         if img is not None:
             pixmap = to_qpixmap(img)
@@ -463,7 +516,9 @@ class AffineGUI(QObject):
             if save_internal:
                 self.mdi_mask = mask
 
-    def draw_points_mdi(self, points: list[tuple[float, float]], color, clear_scene: bool = True):
+    def draw_points_mdi(
+        self, points: list[tuple[float, float]], color, clear_scene: bool = True
+    ):
         """
         Draws points on the MDI scene.
         If clear_scene is True, clears the scene before drawing the points.
@@ -502,7 +557,9 @@ class AffineGUI(QObject):
                     pen=QPen(Qt.GlobalColor.transparent),
                 )
 
-    def update_list_widget(self, points: list[tuple[float, float]], name: str, clear_list: bool = False):
+    def update_list_widget(
+        self, points: list[tuple[float, float]], name: str, clear_list: bool = False
+    ):
         """
         Updates the list widget with the given points and name.
         If clear_list is True, clears the list before adding the new points.
@@ -514,6 +571,7 @@ class AffineGUI(QObject):
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
         item.setData(self.COORD_DATA, points)
         self.definedPoints.addItem(item)
+
     # hook implementations
 
     def _getLogSignal(self):
@@ -538,7 +596,7 @@ class AffineGUI(QObject):
 
         # self.functions["camera"] is a list of nested dictionaries, iterate through every camera
         # FIXME: Currently the return is a dictrionary of dictionaries ONLY when multiple cameras are available.
-        
+
         self.cameraComboBox.clear()
         cameras = self.functions.get("camera", {})
         if not cameras:
@@ -574,8 +632,8 @@ class AffineGUI(QObject):
             return transformed
         except AffineError as e:
             return (-1, -1)
-    
-    def positioning_measurement_points(self) -> list[tuple[float, float]]:
+
+    def positioning_measurement_points(self):
         """Returns the measurement points defined in the list widget."""
         points = []
         names = []
@@ -586,4 +644,31 @@ class AffineGUI(QObject):
                 names.append(item.text())
         return points, names
 
+    def parse_settings_widget(self):
+        """Parse settings widget, return dict"""
+        try:
+            settings = {
+                "pointcount": int(self.settingsWidget.pointCount.currentText()),
+                "cameraComboBox": self.settingsWidget.cameraComboBox.currentText(),
+                "addPointsCheck": self.settingsWidget.addPointsCheck.isChecked(),
+                "default_mask_path": self.last_mask_path,
+                "centerClicks": self.centerCheckbox.isChecked(),
+            }
+            # extend the settings with the preprprocessing settings
+            s = self.affine.preprocessor.settings
+            # convert prepro settings to correct types
+            settings["ratiotest"] = float(self.affine.ratio_test)
+            settings["residualthreshold"] = int(self.affine.residual_threshold)
+            settings["crosscheck"] = True if self.affine.cross_check else False
+            settings.update(s)
 
+            assert settings["sigmaimage"] >= 0, "sigmaImage must be non-negative"
+            assert settings["sigmamask"] >= 0, "sigmaMask must be non-negative"
+        except AttributeError as e:
+            return 2, {
+                "error message": "settings widget not initialized",
+                "exception": str(e),
+            }
+        except (ValueError, AssertionError) as e:
+            return 1, {"error message": "Affine value error", "exception": str(e)}
+        return 0, settings

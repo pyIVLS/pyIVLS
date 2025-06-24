@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1139</width>
-    <height>712</height>
+    <width>742</width>
+    <height>511</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -30,8 +30,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>1119</width>
-        <height>692</height>
+        <width>728</width>
+        <height>479</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -74,23 +74,9 @@
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
-              <widget class="QPushButton" name="findButton">
-               <property name="text">
-                <string>Find affine</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="manualButton">
-               <property name="text">
-                <string>Manual (W.I.P)</string>
-               </property>
-              </widget>
-             </item>
-             <item>
               <widget class="QPushButton" name="showButton">
                <property name="text">
-                <string>show!</string>
+                <string>Match</string>
                </property>
               </widget>
              </item>
@@ -172,10 +158,10 @@
              <item>
               <widget class="QListWidget" name="definedPoints">
                <property name="contextMenuPolicy">
-                <enum>Qt::NoContextMenu</enum>
+                <enum>Qt::ContextMenuPolicy::NoContextMenu</enum>
                </property>
                <property name="selectionMode">
-                <enum>QAbstractItemView::NoSelection</enum>
+                <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
                </property>
               </widget>
              </item>
