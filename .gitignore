@@ -7,3 +7,5 @@ __pycache__/
 /plugins/Keithley/IVLS_DLT_dummy.m
 pyIVLS.ini.old
 widgets_list
+.ruff_cache
+.*

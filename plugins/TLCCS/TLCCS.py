@@ -5,14 +5,21 @@ import numpy as np
 import struct
 import time
 
+### Thorspec constants
+THORSPEC_VID = 0x1313
+THORSPEC_PID = 0x8087
 
 class CCSDRV:
+    #    def __init__(self):
+    #
+    #    	return 0
 
-#    def __init__(self):
-#
-#    	return 0
-
-    def open(self, spectrometerVID, spectrometerPID, integration_time=const.CCS_SERIES_DEF_INT_TIME):
+    def open(
+        self,
+        spectrometerVID,
+        spectrometerPID,
+        integration_time=const.CCS_SERIES_DEF_INT_TIME,
+    ):
         """Opens a connection through LLIO.
 
         Args:
@@ -252,7 +259,6 @@ class CCSDRV:
         return data
 
     def read_eeprom(self, addr, idx, length):
-
         # Buffers
         data = bytearray()
         remaining = length

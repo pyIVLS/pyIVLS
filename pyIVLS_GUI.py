@@ -1,20 +1,25 @@
-from PyQt6 import QtWidgets, uic
 from os.path import dirname, sep
 
+from PyQt6 import QtWidgets
+from PyQt6.QtGui import QAction
 from PyQt6.QtCore import (
     QObject,
     Qt,
-    pyqtSignal,
-    pyqtSlot,
+    pyqtSlot
 )
-from PyQt6.QtWidgets import QVBoxLayout
-from pyIVLS_container import pyIVLS_container
+
+from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 from pyIVLS_pluginloader import pyIVLS_pluginloader
 from pyIVLS_seqBuilder import pyIVLS_seqBuilder
-from pyIVLS_mainWindow import pyIVLS_mainWindow
+
+# move this to mainwindow?
+from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
+from components.pyIVLS_mainWindow import pyIVLS_mainWindow
+
 
 class pyIVLS_GUI(QObject):
-
+    mdiWidgets = {}
+    dockWidgets = {}
     ############################### GUI functions
 
     ############################### Slots
@@ -24,41 +29,75 @@ class pyIVLS_GUI(QObject):
         msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint)
+        msg.setWindowFlags(
+            Qt.WindowType.CustomizeWindowHint
+            | Qt.WindowType.WindowTitleHint
+            | Qt.WindowType.WindowShadeButtonHint
+        )
         msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
         msg.exec()
 
-    
     @pyqtSlot(str)
     def addDataLog(self, str):
         print(str)
-    
+
     @pyqtSlot()
     def reactClose(self):
         self.show_message("Stop running processes and disconnect devices before close")
-    
-    @pyqtSlot(bool)
+
     def setCloseLock(self, value):
-        self.window.setCloseOK(value)
-    
+        # reverted closelock, since plugins return True when they are not ready to close
+        self.window.setCloseOK(not value)
+
     @pyqtSlot()
     def seqBuilderReactClose(self):
         self.window.actionSequence_builder.setChecked(False)
-    
+
     @pyqtSlot()
     def dockWidgetReactClose(self):
         self.window.actionDockWidget.setChecked(False)
-        
+
+    @pyqtSlot()
+    def mdi_window_react_close(self):
+        # check if all mdi windows are hidden
+        all_hidden = True
+        for subwindow in self.window.mdiArea.subWindowList():
+            if subwindow.isVisible():
+                all_hidden = False
+                break
+        if all_hidden:
+            self.window.actionMDI_windows.setChecked(False)
+
     ################ Menu actions
     def actionPlugins(self):
         self.pluginloader.refresh()
         self.pluginloader.window.show()
 
     def actionSequence_builder(self):
-        self.window.seqBuilder_dockWidget.setVisible(self.window.actionSequence_builder.isChecked())
+        self.window.seqBuilder_dockWidget.setVisible(
+            self.window.actionSequence_builder.isChecked()
+        )
 
     def actionDockWidget(self):
         self.window.dockWidget.setVisible(self.window.actionDockWidget.isChecked())
+
+    def action_MDIShow_to_open(self):
+        self.window.mdiWindowsMenu.clear()
+
+        for subwindow in self.window.mdiArea.subWindowList():
+            checkbox = QtWidgets.QCheckBox(subwindow.windowTitle())
+            checkbox.setChecked(subwindow.isVisible())
+
+            # Connect the checkbox state to the subwindow's visibility
+            checkbox.stateChanged.connect(lambda state, sw=subwindow: sw.setVisible(state))
+
+            # Wrap the checkbox in a QWidgetAction
+            widget_action = QtWidgets.QWidgetAction(self.window)
+            widget_action.setDefaultWidget(checkbox)
+
+            self.window.mdiWindowsMenu.addAction(widget_action)
+
+
 
     ############### Settings Widget
 
@@ -78,7 +117,7 @@ class pyIVLS_GUI(QObject):
         # Set the QTabWidget as the widget for the QDockWidget
         self.window.dockWidget.setWidget(tab_widget)
         self.window.dockWidget.show()  # Ensure the dock widget is visible
-        
+
     def setMDIArea(self, widgets: dict):
         """
         Set a list of widgets in MDI area
@@ -86,10 +125,29 @@ class pyIVLS_GUI(QObject):
         :param widgets: dict of QtWidgets.QWidget instances to be added to MDI windows
         """
 
-        # Add each widget to the MDI area as subwindows
+        subwindows = self.window.mdiArea.subWindowList()
+        subwindow_names = [subwindow.windowTitle() for subwindow in subwindows]
+
         for name, widget in widgets.items():
-            MDIwindow = self.window.mdiArea.addSubWindow(widget)
-            MDIwindow.setWindowTitle(name)    
+            if name not in subwindow_names:
+                subwindow = pyIVLS_mdiWindow(self.window.mdiArea)
+                subwindow.setWidget(widget)
+                widget.show()
+                subwindow.setWindowTitle(name)
+                subwindow.closeSignal.connect(self.mdi_window_react_close)
+                subwindow.setVisible(True) # set window to be visible upon loading.
+            else:
+                # subwindow already exists, do nothing. Widget should be set and correct
+                pass
+
+        # close subwindows that are not in the widgets dict
+        for sw in subwindows:
+            if sw.windowTitle() not in widgets:
+                self.window.mdiArea.removeSubWindow(
+                    sw
+                )  # Remove subwindow because the subwindow list is used to iterate over existing windows
+                sw.setCloseLock(False)  # closelock is set to False to allow closing
+                sw.close()  # actually close
 
     def setSeqBuilder(self):
         self.window.seqBuilder_dockWidget.setWidget(self.seqBuilder.widget)
@@ -114,13 +172,17 @@ class pyIVLS_GUI(QObject):
         self.setSeqBuilder()
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
-        self.window.actionSequence_builder.triggered.connect(self.actionSequence_builder)
+        self.window.actionSequence_builder.triggered.connect(
+            self.actionSequence_builder
+        )
+        self.window.menuShow.aboutToShow.connect(
+            self.action_MDIShow_to_open
+        )
         self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
-
         self.window.closeSignal.connect(self.reactClose)
-
         self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
         self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)
-        
-        
+
+        self.pluginloader.request_available_plugins_signal
+
         self.initial_widget_state = {}

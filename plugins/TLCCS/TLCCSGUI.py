@@ -1,4 +1,4 @@
-'''
+"""
 This is a GUI plugin for CCS175 spectrometer
 
 This file should provide
@@ -62,9 +62,9 @@ class TLCCS_GUI(QObject):
                       "getAutoTime"
                     ] # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
-########Signals
+    ########Signals
 
-    log_message = pyqtSignal(str)     
+    log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool) 
     
@@ -79,12 +79,12 @@ class TLCCS_GUI(QObject):
     autoValue_max = 0.8 # spectrum value in arb.(?) units
     intTimeMaxIterations = 10
 
-########Functions       
+    ########Functions
     def __init__(self):
-        super(TLCCS_GUI,self).__init__()
+        super(TLCCS_GUI, self).__init__()
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        ##IRtothink#### I do not like have filename hardly coded, 
+        ##IRtothink#### I do not like have filename hardly coded,
         ############### but in any case the refrences to the GUI elements will be hardly coded, so it may be OK
         self.settingsWidget = uic.loadUi(self.path + "TLCCS_settingsWidget.ui")
         self.previewWidget = uic.loadUi(self.path + "TLCCS_MDIWidget.ui")
@@ -95,12 +95,12 @@ class TLCCS_GUI(QObject):
         self._connect_signals()
         self._create_plt()
 
-        self.lastspectrum = [] #data for saving from preview
+        self.lastspectrum = []  # data for saving from preview
         self.preview_running = False
         self.integrationTimeChanged = False
         self.scanRunning = False
 
-        correction_file = r'SC175_correction'
+        correction_file = r"SC175_correction"
         self.correction = np.loadtxt(self.path + correction_file)
         self.settings = {}
 
@@ -112,7 +112,9 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.setIntegrationTimeButton.clicked.connect(self._setIntTimeAction)
         self.settingsWidget.previewButton.clicked.connect(self._previewAction)
         self.settingsWidget.saveButton.clicked.connect(self._saveAction)
-        self.settingsWidget.correctionCheck.stateChanged.connect(self._correctionChanged)
+        self.settingsWidget.correctionCheck.stateChanged.connect(
+            self._correctionChanged
+        )
         self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
         self.settingsWidget.getIntegrationTime_combo.currentIndexChanged.connect(self._integrationTime_mode_changed)
         self.settingsWidget.getTime_button.clicked.connect(self._getTimeAction)
@@ -120,19 +122,21 @@ class TLCCS_GUI(QObject):
     def _create_plt(self):
         self.sc = MplCanvas(self, width=5, height=4, dpi=100)
         self.axes = self.sc.fig.add_subplot(111)
-       
-        self.axes.set_xlabel('Wavelength (nm)')
-        self.axes.set_ylabel('Intensity (calib. arb. un.)')
 
-        self.axes.set_xlim(const.CCS175_MIN_WV,const.CCS175_MAX_WV) # limits are given by spectral range of the device
+        self.axes.set_xlabel("Wavelength (nm)")
+        self.axes.set_ylabel("Intensity (calib. arb. un.)")
+
+        self.axes.set_xlim(
+            const.CCS175_MIN_WV, const.CCS175_MAX_WV
+        )  # limits are given by spectral range of the device
 
         layout = QVBoxLayout()
         layout.addWidget(self.sc._create_toolbar(self.previewWidget))
         layout.addWidget(self.sc)
         self.previewWidget.setLayout(layout)
 
-########Functions
-################################### internal
+    ########Functions
+    ################################### internal
 
     def _update_spectrum(self):
         """Updates the spectrum in the preview window.
@@ -160,8 +164,8 @@ class TLCCS_GUI(QObject):
         self.lastspectrum = [info, self.settings]
         return [0, [self.correction[:,0], info]]
 
-########Functions 
-########GUI Slots
+    ########Functions
+    ########GUI Slots
 
     def _connectAction(self):
         [status, info] = self.parse_settings_widget()
@@ -192,13 +196,17 @@ class TLCCS_GUI(QObject):
             self.run_thread.thread_stop()
             if self.scanRunning:
                 self.scanRunning = False
+                self.scanRunning = False
             self.preview_running = False
             self._enableSaveButton()
             self.closeLock.emit(not self.preview_running)
         else:
             [status, info] = self.parse_settings_preview()
             if status:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+                self.log_message.emit(
+                    datetime.now().strftime("%H:%M:%S.%f")
+                    + f" : TLCCS plugin : {info}, status = {status}"
+                )
                 self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
                 return [status, info]
             self.integrationTimeChanged = True
@@ -353,6 +361,7 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.lineEdit_Integ.setText(plugin_info["integrationtime"])
         if plugin_info["externatrigger"]:
             self.settingsWidget.extTriggerCheck.setChecked(True)
+            self.settingsWidget.extTriggerCheck.setChecked(True)
         if plugin_info["usecorrection"]:
             self.settingsWidget.correctionCheck.setChecked(True)
         currentIndex = self.settingsWidget.getIntegrationTime_combo.findText(plugin_info["integrationtimetype"], Qt.MatchFlag.MatchFixedString)
@@ -371,20 +380,31 @@ class TLCCS_GUI(QObject):
 
     def _getAddress(self):
         address = self.settingsWidget.lineEdit_path.text()
-        if not(os.path.exists(address)):
-                address = self.path
-        address = QFileDialog.getExistingDirectory(None, "Select directory for saving", address, options = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks)
+        if not (os.path.exists(address)):
+            address = self.path
+        address = QFileDialog.getExistingDirectory(
+            None,
+            "Select directory for saving",
+            address,
+            options=QFileDialog.Option.ShowDirsOnly
+            | QFileDialog.Option.DontResolveSymlinks,
+        )
         if address:
-                self.settingsWidget.lineEdit_path.setText(address)
-########Functions
-###############GUI react to change
+            self.settingsWidget.lineEdit_path.setText(address)
+
+    ########Functions
+    ###############GUI react to change
 
     def _GUIchange_deviceConnected(self, status):
-        #NOTE: status is direct, i.e. when spectrometer is connected received status should True, when disconnected status should be False
+        # NOTE: status is direct, i.e. when spectrometer is connected received status should True, when disconnected status should be False
         if status:
-                        self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
+            self.settingsWidget.connectionIndicator.setStyleSheet(
+                "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
+            )
         else:
-                        self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
+            self.settingsWidget.connectionIndicator.setStyleSheet(
+                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
+            )
         self.settingsWidget.setIntegrationTimeButton.setEnabled(status)
         self.settingsWidget.previewBox.setEnabled(status)
         if status:
@@ -393,6 +413,10 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.connectButton.setEnabled(not status)
 
     def _enableSaveButton(self):
+        if not self.lastspectrum:
+            self.settingsWidget.saveButton.setEnabled(False)
+        else:
+            self.settingsWidget.saveButton.setEnabled(True)
         if not self.lastspectrum:
             self.settingsWidget.saveButton.setEnabled(False)
         else:
@@ -432,12 +456,12 @@ class TLCCS_GUI(QObject):
 
     def _getLogSignal(self):
         return self.log_message
-        
+
     def _getInfoSignal(self):
         return self.info_message
 
     def _getCloseLockSignal(self):
-        return self.closeLock           
+        return self.closeLock
 
     def _parse_settings_integrationTime(self) -> "status":
         """
@@ -484,17 +508,28 @@ class TLCCS_GUI(QObject):
     def _parseSaveData(self) -> "status":
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : address string should point to a valid directory")
-                return [1, {"Error message":f"TLCCS plugin : address string should point to a valid directory"}]           
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : TLCCS plugin : address string should point to a valid directory"
+            )
+            return [
+                1,
+                {
+                    "Error message": f"TLCCS plugin : address string should point to a valid directory"
+                },
+            ]
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : filename is not valid")
-                self.info_message.emit(f"TLCCS plugin : filename is not valid")
-                return [1, {"Error message":f"TLCCS plugin : filename is not valid"}]
-               
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f" : TLCCS plugin : filename is not valid"
+            )
+            self.info_message.emit(f"TLCCS plugin : filename is not valid")
+            return [1, {"Error message": f"TLCCS plugin : filename is not valid"}]
+
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-        return [0,"Ok"]
+        return [0, "Ok"]
 
     def parse_settings_preview(self) -> "status":
         """Parses the settings widget for the spectrometer. Extracts current values
@@ -502,7 +537,7 @@ class TLCCS_GUI(QObject):
         Returns:
             0 - no error
             ~0 - error (add error code later on if needed)
-        """   
+        """
         self.settings = {}
         [status, info] = self._parse_settings_autoTime()
         if status:

@@ -2,39 +2,68 @@
 import sys
 from os.path import dirname, sep
 
+from PyQt6 import QtWidgets
+from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot, pyqtSignal
+
+from pyIVLS_container import pyIVLS_container
+from pyIVLS_GUI import pyIVLS_GUI
+
 IVLS_path = dirname(__file__) + sep
 sys.path.append(IVLS_path)
-sys.path.append(dirname(__file__) + sep + "components"+ sep)
-
-from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot
-from PyQt6 import QtWidgets
-
-from pyIVLS_GUI import pyIVLS_GUI
-from pyIVLS_container import pyIVLS_container
+sys.path.append(dirname(__file__) + sep + "components" + sep)
 
 
 ###################################### slots
 @pyqtSlot()
 def update_settings_widget():
-    what_am_i = pluginsContainer.get_plugin_info_from_settings()
+    # update settings tabs
+    settings_windows = pluginsContainer.get_plugin_info_for_settingsGUI()
     GUI_mainWindow.clearDockWidget()
-    GUI_mainWindow.setSettingsWidget(what_am_i)
+    GUI_mainWindow.setSettingsWidget(settings_windows)
+    # update MDI widgets
+    mdi_windows = pluginsContainer.get_plugin_info_for_MDIarea()
+    GUI_mainWindow.setMDIArea(mdi_windows)
+    # update plugin list
     GUI_mainWindow.pluginloader.refresh()
 
+    # when pluginlist updates, call hooks to connect all data/log signals
+    # NOTE: type of UniqueConnection is set to prevent plugins from reconnecting every time the plugin list is updated.
+    # Multiple connections result in multiple info/log messages being sent to the GUI.
+    # flag throws an error if the signal is already connected, so the exception is caught and ignored.
+
+    for logSignal in pluginsContainer.getLogSignals():
+        try:
+            logSignal.connect(GUI_mainWindow.addDataLog, type=Qt.ConnectionType.UniqueConnection)
+        except Exception as e:
+            pass
+
+    for infoSignal in pluginsContainer.getInfoSignals():
+        try:
+            infoSignal.connect(GUI_mainWindow.show_message, type=Qt.ConnectionType.UniqueConnection)
+        except Exception as e:
+            pass
+
+    for closeLockSignal in pluginsContainer.getCloseLockSignals():
+        try:
+            closeLockSignal.connect(GUI_mainWindow.setCloseLock, type=Qt.ConnectionType.UniqueConnection)
+        except Exception as e:
+            pass
 
 ############################### main function
 
 if __name__ == "__main__":
-
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = QtWidgets.QApplication(sys.argv)
 
     pluginsContainer = pyIVLS_container()
     GUI_mainWindow = pyIVLS_GUI()
-    
+
     ### initalize signals for pluginloader <-> container communication
     GUI_mainWindow.pluginloader.request_available_plugins_signal.connect(
         pluginsContainer.read_available_plugins
+    )
+    GUI_mainWindow.pluginloader.update_config_signal.connect(
+        pluginsContainer.update_config
     )
     pluginsContainer.available_plugins_signal.connect(
         GUI_mainWindow.pluginloader.populate_list
@@ -44,32 +73,36 @@ if __name__ == "__main__":
     )
     pluginsContainer.plugins_updated_signal.connect(update_settings_widget)
 
-    pluginsContainer.show_message_signal.connect(
-        GUI_mainWindow.show_message
-    )
-    
+    pluginsContainer.show_message_signal.connect(GUI_mainWindow.show_message)
+
     pluginsContainer.log_message.connect(GUI_mainWindow.addDataLog)
     GUI_mainWindow.seqBuilder.info_message.connect(GUI_mainWindow.show_message)
 
+    GUI_mainWindow.window.actionWrite_settings_to_file.triggered.connect(
+        pluginsContainer.save_settings
+    )
+
     pluginsContainer.register_start_up()
-       
+
     for logSignal in pluginsContainer.getLogSignals():
-       logSignal.connect(GUI_mainWindow.addDataLog)
+        logSignal.connect(GUI_mainWindow.addDataLog)
 
     for infoSignal in pluginsContainer.getInfoSignals():
-       infoSignal.connect(GUI_mainWindow.show_message)
+        infoSignal.connect(GUI_mainWindow.show_message)
 
     for closeLockSignal in pluginsContainer.getCloseLockSignals():
-       closeLockSignal.connect(GUI_mainWindow.setCloseLock)
-    
-    pluginsContainer.seqComponents_signal.connect(GUI_mainWindow.seqBuilder.getPluginFunctions)
-    
+        closeLockSignal.connect(GUI_mainWindow.setCloseLock)
+
+    pluginsContainer.seqComponents_signal.connect(
+        GUI_mainWindow.seqBuilder.getPluginFunctions
+    )
+
     pluginsContainer.public_function_exchange()
     ### init interfaces
     whatAmI = pluginsContainer.get_plugin_info_for_settingsGUI()
     GUI_mainWindow.setSettingsWidget(whatAmI)
     GUI_mainWindow.setMDIArea(pluginsContainer.get_plugin_info_for_MDIarea())
-    
+
     GUI_mainWindow.window.show()
 
     pluginsContainer.cleanup()
