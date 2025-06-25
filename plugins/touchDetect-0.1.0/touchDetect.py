@@ -3,7 +3,6 @@ class touchDetect:
         self.last_z = {}
         self.recklessness = 10
 
-
     def move_to_contact(self, mm: object, con: object, smu: object, manipulator_info: list):
         """Moves the spesified micromanipulators to contact with the sample.
 
@@ -46,9 +45,9 @@ class touchDetect:
                 print(self.last_z)
                 if self.last_z.get(manipulator_name) is not None:
                     print(f"fouund position for {manipulator_name}")
-                    if self._contacting(smu,smu_channel, threshold)[1] is False:
+                    if self._contacting(smu, smu_channel, threshold)[1] is False:
                         # move 10 steps away from the last z value
-                        mm.mm_zmove(z_change = self.last_z[manipulator_name] - stride * self.recklessness, absolute=True)
+                        mm.mm_zmove(z_change=self.last_z[manipulator_name] - stride * self.recklessness, absolute=True)
                 status, state = smu.smu_setup_resmes(smu_channel)
                 if status != 0:
                     return (status, {"Error message": f"{state}"})
@@ -57,7 +56,7 @@ class touchDetect:
                     status, state = mm.mm_zmove(stride)
                     if status != 0:
                         return (status, {"Error message": f"{state}"})
-                
+
                 # back to default
                 con.deviceLoCheck(False)
                 con.deviceHiCheck(False)
@@ -67,15 +66,14 @@ class touchDetect:
                 _, _, z = mm.mm_current_position()
                 self.last_z[manipulator_name] = z
                 print(f"Set last position for {manipulator_name}")
-            return (0,{"Error message": "OK"})
-            
+            return (0, {"Error message": "OK"})
+
         except Exception as e:
-            return (2, {"Error message": f"exception in move_to_contact", "exception": str(e)})     
+            return (2, {"Error message": "exception in move_to_contact", "exception": str(e)})
         finally:
             con.deviceDisconnect()
-  
-        
-    def _contacting(self, smu: object, channel:str, threshold: float):
+
+    def _contacting(self, smu: object, channel: str, threshold: float):
         """Check resistance at between manipulator probes
 
         Args:
@@ -96,9 +94,3 @@ class touchDetect:
 
         except Exception as e:
             return (3, {"Error message": "touchDetect error", "exception": str(e)})
-
-
-    
-
-
-

@@ -21,18 +21,15 @@ class pyIVLS_spec_dummy_plugin:
         config.read(path)
 
         self.plugin_name = config.get("plugin", "name")
-        self.type = config.get("plugin", "type",)
+        self.type = config.get(
+            "plugin",
+            "type",
+        )
         self.plugin_function = config.get("plugin", "function", fallback="")
         self._class = config.get("plugin", "class", fallback="")
         self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
         self.version = config.get("plugin", "version", fallback="")
-        self.metadata = {
-            "name": self.plugin_name,
-            "type": self.type,
-            "function": self.plugin_function,
-            "version": self.version,
-            "dependencies": self.dependencies
-        }
+        self.metadata = {"name": self.plugin_name, "type": self.type, "function": self.plugin_function, "version": self.version, "dependencies": self.dependencies}
 
         # create the driver
         self.spectrometerGUI = dummy_spectro_GUI()

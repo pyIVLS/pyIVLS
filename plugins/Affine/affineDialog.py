@@ -165,15 +165,11 @@ class dialog(QDialog):
         elif len(image.shape) == 3 and image.shape[2] == 3:
             height, width, _ = image.shape
             bytes_per_line = width * 3
-            qimage = QImage(
-                image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888
-            )
+            qimage = QImage(image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
         elif len(image.shape) == 3 and image.shape[2] == 4:
             height, width, _ = image.shape
             bytes_per_line = width * 4
-            qimage = QImage(
-                image.data, width, height, bytes_per_line, QImage.Format.Format_RGBA8888
-            )
+            qimage = QImage(image.data, width, height, bytes_per_line, QImage.Format.Format_RGBA8888)
         else:
             raise ValueError("Unsupported image format")
         return QPixmap.fromImage(qimage)
@@ -233,12 +229,8 @@ class dialog(QDialog):
         h1, w1 = mask_img.shape[:2]
         h2, w2 = img_img.shape[:2]
         out_img = np.zeros((max(h1, h2), w1 + w2, 3), dtype=np.uint8)
-        out_img[:h1, :w1] = (
-            mask_img if mask_img.ndim == 3 else np.stack([mask_img] * 3, axis=-1)
-        )
-        out_img[:h2, w1 : w1 + w2] = (
-            img_img if img_img.ndim == 3 else np.stack([img_img] * 3, axis=-1)
-        )
+        out_img[:h1, :w1] = mask_img if mask_img.ndim == 3 else np.stack([mask_img] * 3, axis=-1)
+        out_img[:h2, w1 : w1 + w2] = img_img if img_img.ndim == 3 else np.stack([img_img] * 3, axis=-1)
         fig, ax = plt.subplots(figsize=(10, 5))
         ax.imshow(out_img)
         # Draw matches
@@ -331,9 +323,7 @@ class dialog(QDialog):
         self.mask_points = []
         self.img_points = []
         self._draw_manual_points()
-        self.info_message.emit(
-            f"Manual mode enabled. Click {self.num_needed} points on the mask (left), then {self.num_needed} on the image (right). Colors indicate matching order."
-        )
+        self.info_message.emit(f"Manual mode enabled. Click {self.num_needed} points on the mask (left), then {self.num_needed} on the image (right). Colors indicate matching order.")
 
     def _draw_manual_points(self):
         """
@@ -394,9 +384,7 @@ class dialog(QDialog):
             if len(self.mask_points) == self.num_needed:
                 self.expecting_img_click = True
         else:
-            self.info_message.emit(
-                "All mask points selected. Now select points on the image."
-            )
+            self.info_message.emit("All mask points selected. Now select points on the image.")
 
     def _img_view_clicked(self, event):
         """
@@ -421,9 +409,7 @@ class dialog(QDialog):
                     ellipse.setBrush(QBrush(QColor(color)))
             if len(self.img_points) == self.num_needed:
                 try:
-                    self.affine.manual_transform(
-                        self.mask_points, self.img_points, self.img, self.mask
-                    )
+                    self.affine.manual_transform(self.mask_points, self.img_points, self.img, self.mask)
                     self.draw_result(
                         self.affine.result,
                         self.mask_points,
@@ -437,6 +423,4 @@ class dialog(QDialog):
                 self.img_points = []
                 self._draw_manual_points()
         else:
-            self.info_message.emit(
-                "All image points selected. If you want to retry, re-enter manual mode."
-            )
+            self.info_message.emit("All image points selected. If you want to retry, re-enter manual mode.")

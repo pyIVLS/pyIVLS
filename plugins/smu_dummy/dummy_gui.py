@@ -1,14 +1,8 @@
-import sys
 import os
-import time
-from threading import Lock
 from dummy_ll import dummy_ll
 
 from PyQt6 import uic
 
-import pyvisa
-import numpy as np
-import time
 
 """
             settings dictionary for class
@@ -100,14 +94,7 @@ class Keithley2612BGUI:
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-        }
+        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods}
         return methods
 
     ########Functions to be used externally
@@ -132,7 +119,7 @@ class Keithley2612BGUI:
             self.settings["drainhighc"] = True
         else:
             self.settings["drainhighc"] = False
-        if not "lineFrequency" in self.settings:
+        if "lineFrequency" not in self.settings:
             info = self.smu.getLineFrequency()
             self.settings["lineFrequency"] = info
         self._parse_settings_address()
@@ -267,7 +254,7 @@ class Keithley2612BGUI:
             return [0, self.smu.setOutput(channel, outputType, value)]
         except:
             return [4, {"Error message": "Failed to set smu output"}]
-        
+
     def smu_setup_resmes(self, channel):
         """Sets up resistance measurement
 
@@ -280,12 +267,12 @@ class Keithley2612BGUI:
         try:
             success = self.smu.resistance_measurement_setup(channel)
             if success:
-                return (0, {"Error message" : "Keithley setup resistance measurement"})
+                return (0, {"Error message": "Keithley setup resistance measurement"})
             else:
-                return (4, {"Error message" : "HW issue in keithley resistance setup"})
+                return (4, {"Error message": "HW issue in keithley resistance setup"})
         except Exception as e:
             return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})
-        
+
     def smu_resmes(self, channel):
         """Measures resistance on the specified channel.
 

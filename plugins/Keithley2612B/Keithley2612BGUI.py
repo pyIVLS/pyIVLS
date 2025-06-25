@@ -1,15 +1,10 @@
-import sys
 import os
-import time
-from threading import Lock
-#from Keithley2612B_test import Keithley2612B
+
+# from Keithley2612B_test import Keithley2612B
 from Keithley2612B import Keithley2612B
 
 from PyQt6 import uic
 
-import pyvisa
-import numpy as np
-import time
 
 """
             settings dictionary for class
@@ -101,14 +96,7 @@ class Keithley2612BGUI:
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-        }
+        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods}
         return methods
 
     ########Functions to be used externally
@@ -133,7 +121,7 @@ class Keithley2612BGUI:
             self.settings["drainhighc"] = True
         else:
             self.settings["drainhighc"] = False
-        if not "lineFrequency" in self.settings:
+        if "lineFrequency" not in self.settings:
             info = self.smu.getLineFrequency()
             self.settings["lineFrequency"] = info
         self._parse_settings_address()
@@ -235,8 +223,8 @@ class Keithley2612BGUI:
         Returns:
             list [i, v, number of point in the buffer]
         """
-        return  self.smu.get_last_buffer_value(channel, readings)
-        
+        return self.smu.get_last_buffer_value(channel, readings)
+
     def smu_bufferRead(self, channel):
         """an interface for an externall calling function to get the content of a channel buffer from Keithley
         s: channel to get the last value (may be 'smua' or 'smub')
@@ -258,17 +246,17 @@ class Keithley2612BGUI:
             return [4, {"Error message": "Failed to get IV data"}]
 
     def smu_setOutput(self, channel, outputType, value):
-#        """sets smu output but does not switch it ON
-#	channel = "smua" or "smub"
-#	outputType = "i" or "v"
-#	value = float
-#        """
+        #        """sets smu output but does not switch it ON
+        # channel = "smua" or "smub"
+        # outputType = "i" or "v"
+        # value = float
+        #        """
         try:
-                self.smu.setOutput(channel,outputType,value)
-                return [0, "OK"]
+            self.smu.setOutput(channel, outputType, value)
+            return [0, "OK"]
         except:
             return [4, {"Error message": "Failed to set smu output"}]
-        
+
     def smu_setup_resmes(self, channel):
         """Sets up resistance measurement
 
@@ -281,12 +269,12 @@ class Keithley2612BGUI:
         try:
             success = self.smu.resistance_measurement_setup(channel)
             if success:
-                return (0, {"Error message" : "Keithley setup resistance measurement"})
+                return (0, {"Error message": "Keithley setup resistance measurement"})
             else:
-                return (4, {"Error message" : "HW issue in keithley resistance setup"})
+                return (4, {"Error message": "HW issue in keithley resistance setup"})
         except Exception as e:
             return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})
-        
+
     def smu_resmes(self, channel):
         """Measures resistance on the specified channel.
 

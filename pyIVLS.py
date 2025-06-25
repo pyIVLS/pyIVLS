@@ -3,7 +3,7 @@ import sys
 from os.path import dirname, sep
 
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot
 
 from pyIVLS_container import pyIVLS_container
 from pyIVLS_GUI import pyIVLS_GUI
@@ -34,20 +34,21 @@ def update_settings_widget():
     for logSignal in pluginsContainer.getLogSignals():
         try:
             logSignal.connect(GUI_mainWindow.addDataLog, type=Qt.ConnectionType.UniqueConnection)
-        except Exception as e:
+        except Exception:
             pass
 
     for infoSignal in pluginsContainer.getInfoSignals():
         try:
             infoSignal.connect(GUI_mainWindow.show_message, type=Qt.ConnectionType.UniqueConnection)
-        except Exception as e:
+        except Exception:
             pass
 
     for closeLockSignal in pluginsContainer.getCloseLockSignals():
         try:
             closeLockSignal.connect(GUI_mainWindow.setCloseLock, type=Qt.ConnectionType.UniqueConnection)
-        except Exception as e:
+        except Exception:
             pass
+
 
 ############################### main function
 
@@ -59,18 +60,10 @@ if __name__ == "__main__":
     GUI_mainWindow = pyIVLS_GUI()
 
     ### initalize signals for pluginloader <-> container communication
-    GUI_mainWindow.pluginloader.request_available_plugins_signal.connect(
-        pluginsContainer.read_available_plugins
-    )
-    GUI_mainWindow.pluginloader.update_config_signal.connect(
-        pluginsContainer.update_config
-    )
-    pluginsContainer.available_plugins_signal.connect(
-        GUI_mainWindow.pluginloader.populate_list
-    )
-    GUI_mainWindow.pluginloader.register_plugins_signal.connect(
-        pluginsContainer.update_registration
-    )
+    GUI_mainWindow.pluginloader.request_available_plugins_signal.connect(pluginsContainer.read_available_plugins)
+    GUI_mainWindow.pluginloader.update_config_signal.connect(pluginsContainer.update_config)
+    pluginsContainer.available_plugins_signal.connect(GUI_mainWindow.pluginloader.populate_list)
+    GUI_mainWindow.pluginloader.register_plugins_signal.connect(pluginsContainer.update_registration)
     pluginsContainer.plugins_updated_signal.connect(update_settings_widget)
 
     pluginsContainer.show_message_signal.connect(GUI_mainWindow.show_message)
@@ -78,9 +71,7 @@ if __name__ == "__main__":
     pluginsContainer.log_message.connect(GUI_mainWindow.addDataLog)
     GUI_mainWindow.seqBuilder.info_message.connect(GUI_mainWindow.show_message)
 
-    GUI_mainWindow.window.actionWrite_settings_to_file.triggered.connect(
-        pluginsContainer.save_settings
-    )
+    GUI_mainWindow.window.actionWrite_settings_to_file.triggered.connect(pluginsContainer.save_settings)
 
     pluginsContainer.register_start_up()
 
@@ -93,9 +84,7 @@ if __name__ == "__main__":
     for closeLockSignal in pluginsContainer.getCloseLockSignals():
         closeLockSignal.connect(GUI_mainWindow.setCloseLock)
 
-    pluginsContainer.seqComponents_signal.connect(
-        GUI_mainWindow.seqBuilder.getPluginFunctions
-    )
+    pluginsContainer.seqComponents_signal.connect(GUI_mainWindow.seqBuilder.getPluginFunctions)
 
     pluginsContainer.public_function_exchange()
     ### init interfaces

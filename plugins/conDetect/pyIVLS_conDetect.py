@@ -17,14 +17,7 @@ class pyIVLS_conDetect_plugin:
         self.dependencies = []
         self.type = "script"  # unnecessary
         self.address = "conDetect"  # unnecessary
-        self.metadata = {
-            "name": self.plugin_name,
-            "type": self.type,
-            "function": self.plugin_function,
-            "address": self.address,
-            "version": "placeholder",
-            "dependencies": self.dependencies
-        }
+        self.metadata = {"name": self.plugin_name, "type": self.type, "function": self.plugin_function, "address": self.address, "version": "placeholder", "dependencies": self.dependencies}
 
         self.GUI = conDetectGUI()
 
@@ -88,13 +81,13 @@ class pyIVLS_conDetect_plugin:
 
         Args:
             args (_type_, optional): can be used to specify which plugin is needed based on
-            type, function, etc. 
+            type, function, etc.
 
         Returns:
             tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
         """
         if args is None or args.get("function") == self.metadata["function"]:
-            return [self.GUI , self.metadata]
+            return [self.GUI, self.metadata]
 
     @hookimpl
     def get_plugin_settings(self, args=None):

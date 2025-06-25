@@ -1,12 +1,7 @@
 from os.path import dirname, sep
 
 from PyQt6 import QtWidgets
-from PyQt6.QtGui import QAction
-from PyQt6.QtCore import (
-    QObject,
-    Qt,
-    pyqtSlot
-)
+from PyQt6.QtCore import QObject, Qt, pyqtSlot
 
 from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 from pyIVLS_pluginloader import pyIVLS_pluginloader
@@ -14,7 +9,6 @@ from pyIVLS_seqBuilder import pyIVLS_seqBuilder
 
 # move this to mainwindow?
 from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
-from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 
 
 class pyIVLS_GUI(QObject):
@@ -29,11 +23,7 @@ class pyIVLS_GUI(QObject):
         msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-        msg.setWindowFlags(
-            Qt.WindowType.CustomizeWindowHint
-            | Qt.WindowType.WindowTitleHint
-            | Qt.WindowType.WindowShadeButtonHint
-        )
+        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint)
         msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
         msg.exec()
 
@@ -74,9 +64,7 @@ class pyIVLS_GUI(QObject):
         self.pluginloader.window.show()
 
     def actionSequence_builder(self):
-        self.window.seqBuilder_dockWidget.setVisible(
-            self.window.actionSequence_builder.isChecked()
-        )
+        self.window.seqBuilder_dockWidget.setVisible(self.window.actionSequence_builder.isChecked())
 
     def actionDockWidget(self):
         self.window.dockWidget.setVisible(self.window.actionDockWidget.isChecked())
@@ -96,8 +84,6 @@ class pyIVLS_GUI(QObject):
             widget_action.setDefaultWidget(checkbox)
 
             self.window.mdiWindowsMenu.addAction(widget_action)
-
-
 
     ############### Settings Widget
 
@@ -135,7 +121,7 @@ class pyIVLS_GUI(QObject):
                 widget.show()
                 subwindow.setWindowTitle(name)
                 subwindow.closeSignal.connect(self.mdi_window_react_close)
-                subwindow.setVisible(True) # set window to be visible upon loading.
+                subwindow.setVisible(True)  # set window to be visible upon loading.
             else:
                 # subwindow already exists, do nothing. Widget should be set and correct
                 pass
@@ -143,9 +129,7 @@ class pyIVLS_GUI(QObject):
         # close subwindows that are not in the widgets dict
         for sw in subwindows:
             if sw.windowTitle() not in widgets:
-                self.window.mdiArea.removeSubWindow(
-                    sw
-                )  # Remove subwindow because the subwindow list is used to iterate over existing windows
+                self.window.mdiArea.removeSubWindow(sw)  # Remove subwindow because the subwindow list is used to iterate over existing windows
                 sw.setCloseLock(False)  # closelock is set to False to allow closing
                 sw.close()  # actually close
 
@@ -172,12 +156,8 @@ class pyIVLS_GUI(QObject):
         self.setSeqBuilder()
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
-        self.window.actionSequence_builder.triggered.connect(
-            self.actionSequence_builder
-        )
-        self.window.menuShow.aboutToShow.connect(
-            self.action_MDIShow_to_open
-        )
+        self.window.actionSequence_builder.triggered.connect(self.actionSequence_builder)
+        self.window.menuShow.aboutToShow.connect(self.action_MDIShow_to_open)
         self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
         self.window.closeSignal.connect(self.reactClose)
         self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)

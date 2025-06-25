@@ -3,11 +3,10 @@ import numpy as np
 import cv2
 
 from PyQt6.QtCore import pyqtSignal, QObject, QEventLoop, QEvent
-from PyQt6 import uic  
+from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGraphicsScene, QGraphicsView
 from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtCore import QObject, QEvent, QEventLoop, Qt, QTimer
-from PyQt6.QtWidgets import QGraphicsView
+from PyQt6.QtCore import Qt
 
 from datetime import datetime
 
@@ -45,22 +44,17 @@ class ViewportClickCatcher(QObject):
         return self._clicked_pos
 
 
-
-
-
 class affineMoveGUI(QObject):
-
-
-    non_public_methods = []  
-    public_methods = ["parse_settings_widget", "affine_move", "setSettings", "getIterations", "sequenceStep", "loopingIteration"]  
+    non_public_methods = []
+    public_methods = ["parse_settings_widget", "affine_move", "setSettings", "getIterations", "sequenceStep", "loopingIteration"]
     green_style = "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
     red_style = "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-
 
     ########Signals
     # signals retained since this plugins needs to communicate during sutter calibration.
     log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
+
     def emit_log(self, message: str):
         timestamp = datetime.now().strftime("%H:%M:%S")
         plugin_name = "AffineMove"
@@ -69,7 +63,7 @@ class affineMoveGUI(QObject):
     @property
     def dependency(self):
         return self._dependencies
-    
+
     @dependency.setter
     def dependency(self, value):
         if isinstance(value, list):
@@ -77,7 +71,7 @@ class affineMoveGUI(QObject):
             self.dependencies_changed()
         else:
             raise TypeError("AffineMove: Dependencies must be a list")
-    
+
     ########Functions
     def __init__(self):
         super().__init__()
@@ -102,7 +96,7 @@ class affineMoveGUI(QObject):
         self.iter = 0
         self.measurement_points = []
         self.measurement_point_names = []
-        self.calibrations = {} # manipulator 1, manipulator 2, ... calibration points
+        self.calibrations = {}  # manipulator 1, manipulator 2, ... calibration points
 
         # find status labels and indicators
         self.mm_status = self.settingsWidget.mmStatus
@@ -111,13 +105,9 @@ class affineMoveGUI(QObject):
         self.mm_indicator = self.settingsWidget.mmIndicator
         self.sample_indicator = self.settingsWidget.sampleIndicator
         self.points_indicator = self.settingsWidget.pointsIndicator
-        
-        
-
 
     ########Functions
     ########GUI Slots
-
 
     ########Functions
     ################################### internal
@@ -151,29 +141,29 @@ class affineMoveGUI(QObject):
             elif metadata.get("function") == "positioning":
                 if self.positioning_box.currentText() == metadata.get("name"):
                     positioning = plugin
-        
+
         assert micromanipulator is not None, "AffineMove: micromanipulator plugin is None"
         assert camera is not None, "AffineMove: camera plugin is None"
         assert positioning is not None, "AffineMove: positioning plugin is None"
-        
+
         return micromanipulator, camera, positioning
 
     def _find_sutter_functionality(self):
         mm, _, _ = self._fetch_dep_plugins()
 
-        status,state = mm.mm_open()
+        status, state = mm.mm_open()
         if status:
-            self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
+            self.emit_log(f"{state['Error message']} {state.get('Exception', '')}")
             return
         status, ret = mm.mm_devices()
         if status:
-            self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
+            self.emit_log(f"{state['Error message']} {state.get('Exception', '')}")
             return
         dev_count, dev_statuses = ret
         # calibrate every available manipulator
         for i, status in enumerate(dev_statuses):
             if status == 1:
-                code, status = mm.mm_change_active_device(i+1)
+                code, status = mm.mm_change_active_device(i + 1)
                 self.info_message.emit(f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)")
                 # calibrate
                 status, state = mm.mm_calibrate()
@@ -181,7 +171,7 @@ class affineMoveGUI(QObject):
                 status, state = mm.mm_move(12500, 12500)
 
                 points = []
-                moves = [(0,0),(3000,0), (0, 3000)]
+                moves = [(0, 0), (3000, 0), (0, 3000)]
                 for move in moves:
                     status, state = mm.mm_move_relative(x_change=move[0], y_change=move[1])
                     point = self._wait_for_input()
@@ -202,7 +192,7 @@ class affineMoveGUI(QObject):
                 mm.mm_move(12500, 12500)
 
         self.update_status()
-  
+
     def _fetch_mask_functionality(self):
         _, _, pos = self._fetch_dep_plugins()
         if pos is None:
@@ -227,55 +217,51 @@ class affineMoveGUI(QObject):
         cam._previewAction()
 
     def _save_calibration(self):
-        """Write the current calibration data to a file. This implemetation keeps a single calibration file 
+        """Write the current calibration data to a file. This implemetation keeps a single calibration file
         for all manipulators instead of multiple files to choose from. TODO: implement a way to choose where to save and with what name (if really necessary)
         """
         if not self.calibrations:
             self.emit_log("No calibration data to save.")
             return
-        
+
         # Define the file path
         file_path = os.path.join(self.calibration_path)
-        
+
         # Save the calibration data
         np.save(file_path, self.calibrations)
         self.info_message.emit(f"Calibration data saved to {file_path}")
 
     def _load_calibration(self):
-        """Load the calibration data from a file. This implemetation keeps a single calibration file 
+        """Load the calibration data from a file. This implemetation keeps a single calibration file
         for all manipulators instead of multiple files to choose from. TODO: implement a way to choose where to load from and with what name (if really necessary)
         """
         file_path = os.path.join(self.calibration_path)
-        
+
         if not os.path.exists(file_path):
             self.emit_log(f"No calibration data found at {file_path}")
             return
-        
+
         # Load the calibration data
         self.calibrations = np.load(file_path, allow_pickle=True).item()
         self.info_message.emit(f"Calibration data loaded from {file_path}")
         self.update_status()
 
-
         # calibrate all manipulators
         mm, _, _ = self._fetch_dep_plugins()
-        status,state = mm.mm_open()
+        status, state = mm.mm_open()
         if status:
-            self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
+            self.emit_log(f"{state['Error message']} {state.get('Exception', '')}")
             return
         status, ret = mm.mm_devices()
         if status:
-            self.emit_log(f"{state["Error message"]} {state.get("Exception", "")}")
+            self.emit_log(f"{state['Error message']} {state.get('Exception', '')}")
             return
         dev_count, dev_statuses = ret
         # calibrate every available manipulator
         for i, status in enumerate(dev_statuses):
             if status == 1:
-                code, status = mm.mm_change_active_device(i+1)
+                code, status = mm.mm_change_active_device(i + 1)
                 status, state = mm.mm_calibrate()
-
-
-
 
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
         """
@@ -300,7 +286,7 @@ class affineMoveGUI(QObject):
 
         # Apply affine transformation
         mm_point = cv2.transform(point_np[None, :, :], calibration)[0][0]  # (1,1,2) -> (2,)
-        
+
         return tuple(mm_point)
 
     ########Functions
@@ -318,7 +304,6 @@ class affineMoveGUI(QObject):
         self.settingsWidget.saveCalibrationButton.clicked.connect(self._save_calibration)
         self.settingsWidget.loadCalibrationButton.clicked.connect(self._load_calibration)
 
-
         return self.settingsWidget, self.MDIWidget
 
     ########Functions
@@ -327,7 +312,7 @@ class affineMoveGUI(QObject):
         self.camera_box.clear()
         self.micromanipulator_box.clear()
         self.positioning_box.clear()
-        
+
         for plugin, metadata in self.dependency:
             if metadata.get("function") == "micromanipulator":
                 self.micromanipulator_box.addItem(metadata.get("name"))
@@ -366,7 +351,7 @@ class affineMoveGUI(QObject):
         else:
             self.mm_indicator.setStyleSheet(self.green_style)
 
-        if pos.positioning_coords((0,0)) == (-1, -1):
+        if pos.positioning_coords((0, 0)) == (-1, -1):
             self.sample_indicator.setStyleSheet(self.red_style)
         else:
             self.sample_indicator.setStyleSheet(self.green_style)
@@ -384,15 +369,7 @@ class affineMoveGUI(QObject):
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-            and method in self.public_methods
-        }
+        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
         return methods
 
     def _getLogSignal(self):
@@ -416,11 +393,10 @@ class affineMoveGUI(QObject):
             return 1, {"Error message": "AffineMove : Some dependencies are not set."}
         return 0, settings
 
-
     ########Functions to be used externally
 
     def affine_move(self):
-        """This function is the main entry point. It is called from the seq builder to excecute the next measurement point movement. 
+        """This function is the main entry point. It is called from the seq builder to excecute the next measurement point movement.
         # NOTE: currently accepts no arguments, but might be wise to add some in the future. For instance keeping track of the current iteration?
         # might be implementable with keeping internal track of the current iteration and resetting it to 0 after the last point is reached.
         """
@@ -430,27 +406,27 @@ class affineMoveGUI(QObject):
             # check if plugins are available
             if mm is None or pos is None:
                 return [3, "AffineMove: micromanipulator or positioning plugin is None"]
-            
+
             # open mm and check for errors
             status, state = mm.mm_open()
             if status:
                 return [1, state["Error message"]]
-            
+
             # check if there are measurement points available
             if len(self.measurement_points) == 0:
                 return [3, "No measurement points available"]
-            
+
             # reset the iteration if it exceeds the number of measurement points. The goal is in (my opinion) to be able to just call this and it works.
             if self.iter == len(self.measurement_points):
                 self.iter = 0
-            
+
             points = self.measurement_points[self.iter]
             point_name = self.measurement_point_names[self.iter]
 
-            # TODO: Add checking for the relative positions of the points and the manipulators. 
+            # TODO: Add checking for the relative positions of the points and the manipulators.
             # Should be done to avoid collisions if trying to reach a point on the other side.
             for i, point in enumerate(points):
-                mm.mm_change_active_device(i + 1) # manipulators indexed from 0
+                mm.mm_change_active_device(i + 1)  # manipulators indexed from 0
                 mm.mm_up_max()
                 # convert the point to camera coordinates
                 x, y = pos.positioning_coords(point)
@@ -466,14 +442,13 @@ class affineMoveGUI(QObject):
         finally:
             self.iter += 1
 
-        
     # dummy:
     def setSettings(self, settings):
         print(f"set affineMove settings: {settings}")
 
     def getIterations(self):
         return 10
-    
+
     def sequenceStep(self, namePostfix):
         print(f"sequenceStep called with namePostfix: {namePostfix}")
         return [0, "affineMove: sequenceStep executed"]
@@ -481,4 +456,3 @@ class affineMoveGUI(QObject):
     def loopingIteration(self, currentIteration):
         print(f"loopingIteration called with currentIteration: {currentIteration}")
         return [0, f"_iter{currentIteration}"]
-

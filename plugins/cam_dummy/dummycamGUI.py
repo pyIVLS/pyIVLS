@@ -33,12 +33,10 @@ otsoha
 import numpy as np
 import os
 from datetime import datetime
-from pathvalidate import is_valid_filename
 
-from PyQt6 import uic, QtWidgets
+from PyQt6 import uic
 from PyQt6.QtWidgets import QFileDialog
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal, Qt, QThread
-from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtCore import QObject, pyqtSignal, QThread
 from dummycam import DummyCamera
 
 ##IRtothink#### should some kind of zoom to the image part be added for the preview?
@@ -192,12 +190,5 @@ class DummyCameraGUI(QObject):
         """
         Returns a nested dictionary of public methods for the plugin
         """
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method in self.public_methods
-        }
+        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method in self.public_methods}
         return methods

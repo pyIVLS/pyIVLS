@@ -14,8 +14,9 @@ class pyIVLS_Sutter_plugin:
         self.gui = SutterGUI(self.name, self.function)
         self.metadata = {
             "name": self.name,
-            "function": self.function,  
+            "function": self.function,
         }
+
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
         """Get the setup interface for the Sutter micromanipulator plugin."""
@@ -58,7 +59,7 @@ class pyIVLS_Sutter_plugin:
 
         if args is None or args.get("function") == self.function:
             return {self.name: self.gui._get_close_lock_signal()}
-        
+
     @hookimpl
     def get_plugin(self, args=None):
         """Returns the plugin as a reference to itself.
@@ -66,7 +67,7 @@ class pyIVLS_Sutter_plugin:
 
         Args:
             args (_type_, optional): can be used to specify which plugin is needed based on
-            type, function, etc. 
+            type, function, etc.
 
         Returns:
             tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.

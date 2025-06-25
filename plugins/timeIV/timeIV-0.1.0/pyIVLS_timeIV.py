@@ -79,10 +79,10 @@ class pyIVLS_timeIV_plugin:
             dict: name, widget
         """
         return self.pluginClass._getPublicFunctions({function_dict_key: function_dict[function_dict_key] for function_dict_key in self.plugin_dependencies if function_dict_key in function_dict})
-    
+
     @hookimpl
-    def get_functions(self, args = None):
-        """ provides a list of available public functions from other plugins as a nested list
+    def get_functions(self, args=None):
+        """provides a list of available public functions from other plugins as a nested list
 
         Returns:
             dict: name, widget

@@ -18,6 +18,7 @@ from timeIVGUI import timeIVGUI
 import os
 import configparser
 
+
 class pyIVLS_timeIV_plugin:
     """Hooks for pluginTemplate plugin
     Not all hooks must be implemented
@@ -37,19 +38,16 @@ class pyIVLS_timeIV_plugin:
         config.read(path)
 
         self.name = config.get("plugin", "name")
-        self.type = config.get("plugin", "type",)
+        self.type = config.get(
+            "plugin",
+            "type",
+        )
         self.function = config.get("plugin", "function", fallback="")
         self._class = config.get("plugin", "class", fallback="")
         self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
         self.version = config.get("plugin", "version", fallback="")
-        self.metadata = {
-            "name": self.name,
-            "type": self.type,
-            "function": self.function,
-            "version": self.version,
-            "dependencies": self.dependencies
-        }
-        
+        self.metadata = {"name": self.name, "type": self.type, "function": self.function, "version": self.version, "dependencies": self.dependencies}
+
         self.pluginClass = timeIVGUI()
 
     @hookimpl
@@ -99,11 +97,7 @@ class pyIVLS_timeIV_plugin:
         Returns:
             dict: name, widget
         """
-        pruned = {
-            function_dict_key: function_dict[function_dict_key]
-            for function_dict_key in self.dependencies
-            if function_dict_key in function_dict
-        }
+        pruned = {function_dict_key: function_dict[function_dict_key] for function_dict_key in self.dependencies if function_dict_key in function_dict}
         self.pluginClass.function_dict = pruned
         return self.pluginClass.function_dict
 
@@ -113,6 +107,7 @@ class pyIVLS_timeIV_plugin:
         if args is None or args.get("function") == self.function:
             status, settings = self.pluginClass.get_current_gui_settings()
             return (self.name, status, settings)
+
     @hookimpl
     def get_functions(self, args=None):
         """Returns a dictionary of publicly accessible functions.

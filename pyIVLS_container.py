@@ -20,9 +20,7 @@ class pyIVLS_container(QObject):
 
     #### Signals for communication
     ### main config name
-    configFileName = (
-        "pyIVLS.ini"  # FIXME: Magic path until plugin importer is implemented.
-    )
+    configFileName = "pyIVLS.ini"  # FIXME: Magic path until plugin importer is implemented.
     # send available plugins to the plugin loader
     available_plugins_signal = pyqtSignal(dict)
     # update the settings widget. This goes all the way to pyIVLS.py which handles the updating of the main GUI.
@@ -90,10 +88,7 @@ class pyIVLS_container(QObject):
         new_section_settings = None
         # check if a plugin is already registered in the pm
         if self.pm.get_plugin(plugin_name) is not None:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : Plugin {plugin_name} is active, disable it before adding a new version."
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin_name} is active, disable it before adding a new version.")
             return
         # get the plugin name from the config
         for section in new_config.sections():
@@ -107,19 +102,14 @@ class pyIVLS_container(QObject):
                 new_section_settings = f"{plugin_name}_settings"
 
         if section_plugin is None or new_section is None:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : Plugin {plugin_name} does not have a plugin section."
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin_name} does not have a plugin section.")
             return
 
         # check that the naming is correct
         module_name = f"pyIVLS_{plugin_name}"
         class_name = f"pyIVLS_{plugin_name}_plugin"
 
-        sys.path.append(
-            self.path + "plugins" + sep + new_config[section_plugin]["address"]
-        )
+        sys.path.append(self.path + "plugins" + sep + new_config[section_plugin]["address"])
         try:
             # Dynamic import using importlib
             module = importlib.import_module(module_name)
@@ -149,34 +139,20 @@ class pyIVLS_container(QObject):
                     for key, value in new_config[section_settings].items():
                         self.config[new_section_settings][key] = value
 
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : Plugin {plugin_name} added to config file."
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin_name} added to config file.")
             self.available_plugins_signal.emit(self.get_plugin_dict())
 
             # write to file
             self.cleanup()
 
         except ImportError as e:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : Failed to import plugin {plugin_name} from {plugin_address}: {e}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Failed to import plugin {plugin_name} from {plugin_address}: {e}")
         except AttributeError as e:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : Failed to get plugin class {class_name} from module {module_name}: {e}."
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Failed to get plugin class {class_name} from module {module_name}: {e}.")
         except Exception as e:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : Unknown exception when importing {plugin_name}: {e}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Unknown exception when importing {plugin_name}: {e}")
         finally:
-            sys.path.remove(
-                self.path + "plugins" + sep + new_config[section_plugin]["address"]
-            )
+            sys.path.remove(self.path + "plugins" + sep + new_config[section_plugin]["address"])
 
     @pyqtSlot()
     def save_settings(self):
@@ -184,10 +160,7 @@ class pyIVLS_container(QObject):
         current_config: list = self.pm.hook.get_plugin_settings()
         for plugin, code, settings in current_config:
             if code != 0:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f": Error saving settings for plugin {plugin}: {code}, {settings['Error message']}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f": Error saving settings for plugin {plugin}: {code}, {settings['Error message']}")
                 continue
             if self.config.has_section(f"{plugin}_settings"):
                 # update the settings section
@@ -209,10 +182,7 @@ class pyIVLS_container(QObject):
 
         # send some info to the log
         if modifications:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f": Settings saved for plugins: {', '.join(modifications)}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f": Settings saved for plugins: {', '.join(modifications)}")
 
     def get_plugin_info_for_settingsGUI(self) -> dict:
         """Returns a dictionary with the plugin info for the settings widget.
@@ -220,9 +190,7 @@ class pyIVLS_container(QObject):
         Returns:
             dict: plugin name -> plugin widget
         """
-        single_element_dicts = self.pm.hook.get_setup_interface(
-            plugin_data=self.get_plugin_dict()
-        )
+        single_element_dicts = self.pm.hook.get_setup_interface(plugin_data=self.get_plugin_dict())
         combined_dict = {}
         for d in single_element_dicts:
             combined_dict.update(d)
@@ -267,9 +235,7 @@ class pyIVLS_container(QObject):
                     else:
                         option_dict[option] = ""
                 if self.config.has_section(f"{self.config[plugin]['name']}_settings"):
-                    option_dict["settings"] = dict(
-                        self.config.items(f"{self.config[plugin]['name']}_settings")
-                    )
+                    option_dict["settings"] = dict(self.config.items(f"{self.config[plugin]['name']}_settings"))
                 else:
                     option_dict["settings"] = {}
                 section_dict[self.config[plugin]["name"]] = option_dict
@@ -306,24 +272,16 @@ class pyIVLS_container(QObject):
                 self.pm.register(plugin_instance, name=plugin_name)
                 self.config[plugin]["load"] = "True"
                 self.public_function_exchange()
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : Plugin {plugin_name} loaded"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin_name} loaded")
                 return True
             else:
                 # sys.path.remove(self.path + "plugins" + sep + self.config[plugin]["address"])
                 # Commented out since I think it is not needed. Might lead to issues where reloading the plugin removes the path.
                 return False
         except (ImportError, AttributeError) as e:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : Failed to load plugin {plugin_name}: {e}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Failed to load plugin {plugin_name}: {e}")
             self.config[plugin]["load"] = "False"
-            sys.path.remove(
-                self.path + "plugins" + sep + self.config[plugin]["address"]
-            )
+            sys.path.remove(self.path + "plugins" + sep + self.config[plugin]["address"])
             return False
 
     def _unregister(self, plugin: str) -> bool:
@@ -342,42 +300,27 @@ class pyIVLS_container(QObject):
             # Retrieve the registered plugin instance
             plugin_instance = self.pm.get_plugin(plugin_name)
             if self.debug:
-                print(
-                    f"Trying to unregister plugin: {plugin} with name {plugin_name}. Instance: {plugin_instance}"
-                )
+                print(f"Trying to unregister plugin: {plugin} with name {plugin_name}. Instance: {plugin_instance}")
             # is the plugin registered?
             if plugin_instance is not None:
-                is_dependency, dependent_plugin = self._check_dependencies_unregister(
-                    plugin
-                )
+                is_dependency, dependent_plugin = self._check_dependencies_unregister(plugin)
 
                 # check if the plugin is a dependency for another plugin
                 if is_dependency:
-                    self.show_message_signal.emit(
-                        f"Plugin {plugin} is a dependency for {dependent_plugin}, not unloading"
-                    )
+                    self.show_message_signal.emit(f"Plugin {plugin} is a dependency for {dependent_plugin}, not unloading")
                     return False
                 # if not, unregister the plugin
                 self.pm.unregister(plugin_instance)
                 self.config[plugin]["load"] = "False"
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : Plugin {plugin_name} unloaded"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin_name} unloaded")
                 return True
             # plugin not registered, do nothing.
             return False
         except ImportError:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + ": Failed to unload plugin {plugin}: {e}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + ": Failed to unload plugin {plugin}: {e}")
             return False
         except AttributeError as e:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : Failed to unload plugin {plugin}: {e}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Failed to unload plugin {plugin}: {e}")
             return False
 
     def register_start_up(self):
@@ -475,15 +418,9 @@ class pyIVLS_container(QObject):
                 for section in self.config.sections():
                     name, type = section.rsplit("_", 1)
                     # if type is plugin and fulfills the dep
-                    if (
-                        type == "plugin"
-                        and self.config[section].get("function") == dependency
-                    ):
+                    if type == "plugin" and self.config[section].get("function") == dependency:
                         # if not registered and not in list to be registered
-                        if (
-                            self.pm.get_plugin(name) is None
-                            and section not in plugins_to_activate
-                        ):
+                        if self.pm.get_plugin(name) is None and section not in plugins_to_activate:
                             # plugins to activate + section, added_deps + name for the message.
                             plugins_to_activate.append(section)
                             added_deps.append(name)
@@ -500,10 +437,7 @@ class pyIVLS_container(QObject):
             resolve_dependencies(plugin, seen)
 
         if added_deps:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f": Added dependencies: {', '.join(added_deps)}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f": Added dependencies: {', '.join(added_deps)}")
 
         return plugins_to_activate
 
@@ -526,9 +460,7 @@ class pyIVLS_container(QObject):
                 # check if the section is a plugin and if it is loaded
                 if self.pm.get_plugin(name) is not None:
                     # check the depencency list of the registered plugin
-                    dependencies = (
-                        self.config[section].get("dependencies", "").split(",")
-                    )
+                    dependencies = self.config[section].get("dependencies", "").split(",")
                     # Check that if the plugin currently being unregistered is needed by the registered plugin
                     if self.config[plugin]["function"] in dependencies:
                         return True, section

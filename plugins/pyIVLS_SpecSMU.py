@@ -1,6 +1,6 @@
 #!/usr/bin/python3.8
 
-'''
+"""
 This is a plugin for using spectrometer while powering a device under the test with SMU.
 In future this plugin planned to be extended to synchronius operation of SMU with spectrometer.
 
@@ -15,28 +15,28 @@ This is mainly a standard implementation that includes
 
 ivarad
 25.06.10
-'''
+"""
 
 import pluggy
 
 from specSMU_GUI import specSMU_GUI
 
-class pyIVLS_SpecSMU_plugin():
-    """Hooks for specSMU plugin
-    """
+
+class pyIVLS_SpecSMU_plugin:
+    """Hooks for specSMU plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.plugin_name = 'SpecSMU'
-        self.plugin_function = 'complex' #e.g. smu, camera, micromanipulator, etc.
-        self.plugin_dependencies=["smu", "spectrometer"]
+        self.plugin_name = "SpecSMU"
+        self.plugin_function = "complex"  # e.g. smu, camera, micromanipulator, etc.
+        self.plugin_dependencies = ["smu", "spectrometer"]
         self.pluginClass = specSMU_GUI()
         super().__init__()
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
-        """ Returns GUI plugin for the docking area (settings/buttons). This function is called from pyIVLS_container
+        """Returns GUI plugin for the docking area (settings/buttons). This function is called from pyIVLS_container
 
         Returns:
             dict: name, widget
@@ -46,7 +46,7 @@ class pyIVLS_SpecSMU_plugin():
         return {self.plugin_name: self.pluginClass.settingsWidget}
 
     @hookimpl
-    def get_functions(self, args = None):
+    def get_functions(self, args=None):
         """Returns a dictionary of publicly accessible functions. This function is called from pyIVLS_container
 
         Args:
@@ -60,7 +60,7 @@ class pyIVLS_SpecSMU_plugin():
 
     @hookimpl
     def set_function(self, function_dict):
-        """ provides a list of available public functions from other plugins as a nested list
+        """provides a list of available public functions from other plugins as a nested list
 
         Returns:
             dict: name, widget

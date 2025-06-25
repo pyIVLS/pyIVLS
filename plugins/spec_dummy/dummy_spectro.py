@@ -17,7 +17,6 @@ version 0.2
 ivarad
 """
 
-
 import time
 import os
 import numpy as np
@@ -51,9 +50,7 @@ class dummy_spectro_GUI(QObject):
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool)
 
-    default_timerInterval = (
-        20  # ms, it is close to 24*2 fps (twice the standard for movies and TV)
-    )
+    default_timerInterval = 20  # ms, it is close to 24*2 fps (twice the standard for movies and TV)
 
     ########Functions
     def __init__(self):
@@ -77,17 +74,14 @@ class dummy_spectro_GUI(QObject):
 
         correction_file = r"SC175_correction"
         self.correction = np.loadtxt(self.path + correction_file)
+
     def _connect_signals(self):
         self.settingsWidget.connectButton.clicked.connect(self._connectAction)
         self.settingsWidget.disconnectButton.clicked.connect(self._disconnectAction)
-        self.settingsWidget.setIntegrationTimeButton.clicked.connect(
-            self._setIntTimeAction
-        )
+        self.settingsWidget.setIntegrationTimeButton.clicked.connect(self._setIntTimeAction)
         self.settingsWidget.previewButton.clicked.connect(self._previewAction)
         self.settingsWidget.saveButton.clicked.connect(self._saveAction)
-        self.settingsWidget.correctionCheck.stateChanged.connect(
-            self._correctionChanged
-        )
+        self.settingsWidget.correctionCheck.stateChanged.connect(self._correctionChanged)
         self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
 
     def _create_plt(self):
@@ -97,9 +91,7 @@ class dummy_spectro_GUI(QObject):
         self.axes.set_xlabel("Wavelength (nm)")
         self.axes.set_ylabel("Intensity (calib. arb. un.)")
 
-        self.axes.set_xlim(
-            const.CCS175_MIN_WV, const.CCS175_MAX_WV
-        )  # limits are given by spectral range of the device
+        self.axes.set_xlim(const.CCS175_MIN_WV, const.CCS175_MAX_WV)  # limits are given by spectral range of the device
 
         layout = QVBoxLayout()
         layout.addWidget(self.sc._create_toolbar(self.previewWidget))
@@ -136,38 +128,25 @@ class dummy_spectro_GUI(QObject):
     def _connectAction(self):
         [status, info] = self.parse_settings_preview()
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : TLCCS plugin : {info}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
             self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
             return [status, info]
         [status, info] = self.spectrometerConnect()
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : TLCCS plugin : {info}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
             self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
             return [status, info]
-        self._GUIchange_deviceConnected(
-            True
-        )  # see comment in _GUIchange_deviceConnected
+        self._GUIchange_deviceConnected(True)  # see comment in _GUIchange_deviceConnected
 
     def _disconnectAction(self):
         if self.preview_running:
-            self.info_message.emit(f"Stop preview before disconnecting")
+            self.info_message.emit("Stop preview before disconnecting")
         else:
             [status, info] = self.spectrometerDisconnect()
             if status:  ##IRtodo## some error handling is necessary, as connected devices will not allow to switch off the GUI
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : TLCCS plugin : {info}, status = {status}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                 self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
-            self._GUIchange_deviceConnected(
-                False
-            )  # see comment in _GUIchange_deviceConnected
+            self._GUIchange_deviceConnected(False)  # see comment in _GUIchange_deviceConnected
 
     def _previewAction(self):
         """interface for the preview button. Opens the camera, sets the exposure and previews the feed"""
@@ -181,10 +160,7 @@ class dummy_spectro_GUI(QObject):
         else:
             [status, info] = self.parse_settings_preview()
             if status:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : TLCCS plugin : {info}, status = {status}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                 self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
                 return [status, info]
             self.integrationTimeChanged = True
@@ -198,43 +174,27 @@ class dummy_spectro_GUI(QObject):
         try:
             while True:
                 if self.integrationTimeChanged:
-                    [status, info] = self.spectrometerSetIntegrationTime(
-                        self.settings["integrationTime"]
-                    )
+                    [status, info] = self.spectrometerSetIntegrationTime(self.settings["integrationTime"])
                     self.integrationTimeChanged = False
-                    if (
-                        self.settings["integrationTime"] * 1000
-                        < self.default_timerInterval
-                    ):
+                    if self.settings["integrationTime"] * 1000 < self.default_timerInterval:
                         self.sleep_time = self.default_timerInterval / 1000
                     else:
                         self.sleep_time = self.settings["integrationTime"]
                     if status:
-                        self.log_message.emit(
-                            datetime.now().strftime("%H:%M:%S.%f")
-                            + f" : TLCCS plugin : {info}, status = {status}"
-                        )
-                        self.info_message.emit(
-                            f"TLCCS plugin : {info['Error message']}"
-                        )
+                        self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+                        self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
                         self.preview_running = False
                         return [status, info]
                 [status, info] = self.spectrometerStartScan()
                 if status:
-                    self.log_message.emit(
-                        datetime.now().strftime("%H:%M:%S.%f")
-                        + f" : TLCCS plugin : {info}, status = {status}"
-                    )
+                    self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                     self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
                     self.preview_running = False
                     return [status, info]
                 time.sleep(self.sleep_time)
                 [status, info] = self._update_spectrum()
                 if status:
-                    self.log_message.emit(
-                        datetime.now().strftime("%H:%M:%S.%f")
-                        + f" : TLCCS plugin : {info}, status = {status}"
-                    )
+                    self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                     if not status == 1:
                         self.info_message.emit(f"TLCCS plugin : {info}")
                     return [status, info]
@@ -246,10 +206,7 @@ class dummy_spectro_GUI(QObject):
         if self.preview_running:  # this function is useful only in preview mode
             [status, info] = self._parse_settings_integrationTime()
             if status:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : TLCCS plugin : {info}, status = {status}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                 self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
                 return [status, info]
             self.integrationTimeChanged = True
@@ -307,8 +264,7 @@ class dummy_spectro_GUI(QObject):
             None,
             "Select directory for saving",
             address,
-            options=QFileDialog.Option.ShowDirsOnly
-            | QFileDialog.Option.DontResolveSymlinks,
+            options=QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
         )
         if address:
             self.settingsWidget.lineEdit_path.setText(address)
@@ -319,13 +275,9 @@ class dummy_spectro_GUI(QObject):
     def _GUIchange_deviceConnected(self, status):
         # NOTE: status is direct, i.e. when spectrometer is connected received status should True, when disconnected status should be False
         if status:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
         else:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
         self.settingsWidget.setIntegrationTimeButton.setEnabled(status)
         self.settingsWidget.previewBox.setEnabled(status)
         self.settingsWidget.disconnectButton.setEnabled(status)
@@ -350,15 +302,7 @@ class dummy_spectro_GUI(QObject):
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-            and method in self.public_methods
-        }
+        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
         return methods
 
     def _getLogSignal(self):
@@ -372,29 +316,21 @@ class dummy_spectro_GUI(QObject):
 
     def _parse_settings_integrationTime(self) -> "status":
         try:
-            self.settings["integrationTime"] = int(
-                self.settingsWidget.lineEdit_Integ.text()
-            )
+            self.settings["integrationTime"] = int(self.settingsWidget.lineEdit_Integ.text())
         except ValueError:
             return [
                 1,
-                {
-                    "Error message": "Value error in TLCCS plugin: integration time field should be integer"
-                },
+                {"Error message": "Value error in TLCCS plugin: integration time field should be integer"},
             ]
         if self.settings["integrationTime"] > const.CCS_SERIES_MAX_INT_TIME * 1000:
             return [
                 1,
-                {
-                    "Error message": "Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"
-                },
+                {"Error message": "Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"},
             ]
         if self.settings["integrationTime"] < 1:
             return [
                 1,
-                {
-                    "Error message": "Value error in TLCCS plugin: integration time should can not be smaller than 1 ms"
-                },
+                {"Error message": "Value error in TLCCS plugin: integration time should can not be smaller than 1 ms"},
             ]
         self.settings["integrationTime"] = self.settings["integrationTime"] / 1000
         return [0, "OK"]
@@ -408,24 +344,16 @@ class dummy_spectro_GUI(QObject):
     def _parseSaveData(self) -> "status":
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : TLCCS plugin : address string should point to a valid directory"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : address string should point to a valid directory")
             return [
                 1,
-                {
-                    "Error message": f"TLCCS plugin : address string should point to a valid directory"
-                },
+                {"Error message": "TLCCS plugin : address string should point to a valid directory"},
             ]
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : TLCCS plugin : filename is not valid"
-            )
-            self.info_message.emit(f"TLCCS plugin : filename is not valid")
-            return [1, {"Error message": f"TLCCS plugin : filename is not valid"}]
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : filename is not valid")
+            self.info_message.emit("TLCCS plugin : filename is not valid")
+            return [1, {"Error message": "TLCCS plugin : filename is not valid"}]
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
@@ -473,14 +401,11 @@ class dummy_spectro_GUI(QObject):
     def spectrometerConnect(self):
         return [0, "OK"]
 
-
     def spectrometerDisconnect(self):
         return [0, "OK"]
 
-
     def spectrometerSetIntegrationTime(self, integrationTime):
         return [0, "OK"]
-
 
     def spectrometerStartScan(self):
         try:
@@ -496,7 +421,7 @@ class dummy_spectro_GUI(QObject):
     def spectrometerGetSpectrum(self):
         try:
             integrationTime = self.settings["integrationTime"]
-            fake_data = np.random.rand(const.CCS_SERIES_NUM_PIXELS) - 0.9 + integrationTime    
+            fake_data = np.random.rand(const.CCS_SERIES_NUM_PIXELS) - 0.9 + integrationTime
             while self.scanRunning:
                 break
             if not self.scanRunning:
@@ -525,9 +450,7 @@ class dummy_spectro_GUI(QObject):
         comment = "FAKE FAKE FAKE operated by pyIVSL\n"
         comment = f"{comment}#[SpectrumHeader]\n"
         comment = f"{comment}Date{separator}{datetime.now().strftime('%Y%m%d')}\n"
-        comment = (
-            f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
-        )
+        comment = f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}GMTTime{separator}{datetime.utcnow().strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}XAxisUnit{separator}nm_air\n"
         comment = f"{comment}YAxisUnit{separator}intensity\n"

@@ -25,14 +25,7 @@ class pyIVLS_VenusUSB2_plugin:
         self.function = "camera"
         self.type = "device"  # unnecessary
         self.address = "VenusUSB2"  # unnecessary
-        self.metadata = {
-            "name": self.name,
-            "type": self.type,
-            "function": self.function,
-            "address": self.address,
-            "version": "placeholder",
-            "dependencies": self.dependencies
-        }
+        self.metadata = {"name": self.name, "type": self.type, "function": self.function, "address": self.address, "version": "placeholder", "dependencies": self.dependencies}
 
     @hookimpl
     def get_setup_interface(self, plugin_data: dict) -> dict:
@@ -97,7 +90,7 @@ class pyIVLS_VenusUSB2_plugin:
 
         if args is None or args.get("function") == self.metadata["function"]:
             return {self.metadata["name"]: self.camera_control._getCloseLockSignal()}
-        
+
     @hookimpl
     def get_plugin(self, args=None):
         """Returns the plugin as a reference to itself.
@@ -105,18 +98,17 @@ class pyIVLS_VenusUSB2_plugin:
 
         Args:
             args (_type_, optional): can be used to specify which plugin is needed based on
-            type, function, etc. 
+            type, function, etc.
 
         Returns:
             tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
         """
         if args is None or args.get("function") == self.metadata["function"]:
             return [self.camera_control, self.metadata]
-        
+
     @hookimpl
     def get_plugin_settings(self, args=None):
-        """See pyIVLS_hookspec.py for details.
-        """
+        """See pyIVLS_hookspec.py for details."""
         if args is None or args.get("function") == self.metadata["function"]:
             status, settings = self.camera_control._parse_settings_preview()
             return (self.metadata["name"], status, settings)

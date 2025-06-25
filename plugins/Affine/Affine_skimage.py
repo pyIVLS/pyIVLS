@@ -12,6 +12,9 @@ from klayout import lay
 # Sift detection moved over to skimage since I prefer it.
 from skimage.feature import SIFT, match_descriptors
 
+# docs
+import pydoc
+
 
 class Preprocessor:
     """
@@ -99,9 +102,7 @@ class AffineError(Exception):
         self.error_code: int = error_code
         self.message: str = message
         self.timestamp: str = datetime.now().strftime("%H:%M:%S.%f")
-        self.message = (
-            f"{self.timestamp}: {self.message} (Affine error Code: {self.error_code})"
-        )
+        self.message = f"{self.timestamp}: {self.message} (Affine error Code: {self.error_code})"
 
     def __str__(self) -> str:
         return self.message
@@ -135,9 +136,7 @@ class Affine_IO:
         filename = os.path.basename(input_gds_path)
         filename = filename.split(".")[0]
         if output_image_path is None:
-            output_image_path = (
-                self.path + os.sep + "masks" + os.sep + filename + ".png"
-            )
+            output_image_path = self.path + os.sep + "masks" + os.sep + filename + ".png"
         # Create a layout view
         view = lay.LayoutView(options=lay.LayoutView.LV_NoGrid)
         lay.LayoutViewBase.LV_NoEditorOptionsPanel
@@ -272,20 +271,14 @@ class Affine:
             raise AffineError(f"Runtime error during SIFT detection: {e}", 3) from e
         self.result["kp1"] = kp_mask
         self.result["kp2"] = kp_img
-        matches = match_descriptors(
-            desc_mask, desc_img, max_ratio=max_ratio, cross_check=cross_check
-        )
+        matches = match_descriptors(desc_mask, desc_img, max_ratio=max_ratio, cross_check=cross_check)
         if len(matches) < self.MIN_MATCHES:
-            raise AffineError(
-                f"Not enough matches found: {len(matches)} < {self.MIN_MATCHES}", 3
-            )
+            raise AffineError(f"Not enough matches found: {len(matches)} < {self.MIN_MATCHES}", 3)
         if kp_mask is None or kp_img is None:
             raise AffineError("No keypoints found in either image or mask.", 3)
         src = kp_mask[matches[:, 0]][:, ::-1].astype(np.float32)  # mask keypoints
         dst = kp_img[matches[:, 1]][:, ::-1].astype(np.float32)  # image keypoints
-        model, inliers = self.get_transformation(
-            src, dst, residual_threshold=residual_threshold
-        )
+        model, inliers = self.get_transformation(src, dst, residual_threshold=residual_threshold)
         self.A = model.params
         matches = matches[inliers]
         self.result["img"] = img
@@ -296,9 +289,7 @@ class Affine:
         self.result["transform"] = model
         return True
 
-    def get_transformation(
-        self, src: np.ndarray, dst: np.ndarray, residual_threshold: int = 10
-    ) -> Tuple[Any, np.ndarray]:
+    def get_transformation(self, src: np.ndarray, dst: np.ndarray, residual_threshold: int = 10) -> Tuple[Any, np.ndarray]:
         """
         Estimate the affine transformation using RANSAC.
         Args:
@@ -352,9 +343,7 @@ class Affine:
             self.result["kp1"] = dst
             self.result["kp2"] = src
             self.result["matches"] = np.array(
-                [
-                    [i, i] for i in range(len(src))
-                ]  # dummy matches to retain the structure
+                [[i, i] for i in range(len(src))]  # dummy matches to retain the structure
             )
         except Exception as e:
             raise AffineError(f"Error during manual transformation: {e}", 3) from e
@@ -420,3 +409,6 @@ class Affine:
                 cy, cx = region.centroid
                 return (int(cx), int(cy))
         return (x, y)  # return original coords if no region found
+
+
+pydoc.writedoc(Affine)

@@ -117,9 +117,7 @@ def test_img_matches_refled(caplog):
             caplog.set_level("INFO")
             import logging
 
-            logging.info(
-                f"[MATCH] {os.path.basename(img_path)}: matches found = {aff.result['matches'].shape[0]}"
-            )
+            logging.info(f"[MATCH] {os.path.basename(img_path)}: matches found = {aff.result['matches'].shape[0]}")
             assert aff.A is not None
             assert aff.result["matches"].shape[0] >= aff.MIN_MATCHES
         except AffineError as e:
@@ -148,17 +146,13 @@ def test_img_does_not_match_bob(caplog):
             caplog.set_level("INFO")
             import logging
 
-            logging.info(
-                f"[NONMATCH] {os.path.basename(img_path)}: matches found = {aff.result['matches'].shape[0]}"
-            )
+            logging.info(f"[NONMATCH] {os.path.basename(img_path)}: matches found = {aff.result['matches'].shape[0]}")
             assert aff.result["matches"].shape[0] < aff.MIN_MATCHES
         except AffineError:
             caplog.set_level("INFO")
             import logging
 
-            logging.info(
-                f"[NONMATCH] {os.path.basename(img_path)}: AffineError (expected)"
-            )
+            logging.info(f"[NONMATCH] {os.path.basename(img_path)}: AffineError (expected)")
             pass  # Expected: should not match
 
 
@@ -200,9 +194,7 @@ def test_preprocessor_settings():
     gray = aff.preprocessor.preprocess_img(img)
     assert np.allclose(inverted, 255 - gray)
     # Test cannyimage
-    aff.preprocessor.update_settings(
-        {"cannyimage": True, "sigmaimage": 1.0, "invertimage": False}
-    )
+    aff.preprocessor.update_settings({"cannyimage": True, "sigmaimage": 1.0, "invertimage": False})
     canny = aff.preprocessor.preprocess_img(img)
     assert canny.ndim == 2
     assert canny.shape == img.shape[:2]
@@ -220,5 +212,3 @@ def test_affine_settings_update():
     assert aff.ratio_test == 0.5
     assert aff.residual_threshold == 5
     assert aff.cross_check is False
-
-

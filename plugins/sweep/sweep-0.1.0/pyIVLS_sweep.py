@@ -4,6 +4,7 @@ from sweepGUI import sweepGUI
 import os
 import configparser
 
+
 class pyIVLS_sweep_plugin:
     """Hooks for the tester plugin"""
 
@@ -20,19 +21,16 @@ class pyIVLS_sweep_plugin:
         config.read(path)
 
         self.name = config.get("plugin", "name")
-        self.type = config.get("plugin", "type",)
+        self.type = config.get(
+            "plugin",
+            "type",
+        )
         self.function = config.get("plugin", "function", fallback="")
         self._class = config.get("plugin", "class", fallback="")
         self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
         self.version = config.get("plugin", "version", fallback="")
-        self.metadata = {
-            "name": self.name,
-            "type": self.type,
-            "function": self.function,
-            "version": self.version,
-            "dependencies": self.dependencies
-        }
-        
+        self.metadata = {"name": self.name, "type": self.type, "function": self.function, "version": self.version, "dependencies": self.dependencies}
+
         self.sweep = sweepGUI()
 
     @hookimpl
@@ -75,11 +73,7 @@ class pyIVLS_sweep_plugin:
         Returns:
             dict: name, widget
         """
-        pruned = {
-            function_dict_key: function_dict[function_dict_key]
-            for function_dict_key in self.dependencies
-            if function_dict_key in function_dict
-        }
+        pruned = {function_dict_key: function_dict[function_dict_key] for function_dict_key in self.dependencies if function_dict_key in function_dict}
         ret = self.sweep._getPublicFunctions(pruned)
 
         return ret
@@ -116,8 +110,7 @@ class pyIVLS_sweep_plugin:
 
     @hookimpl
     def get_plugin_settings(self, args=None):
-        """See pyIVLS_hookspec.py for details.
-        """
+        """See pyIVLS_hookspec.py for details."""
         if args is None or args.get("function") == self.function:
             status, settings = self.sweep.parse_settings_widget()
             return (self.name, status, settings)

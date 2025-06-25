@@ -74,9 +74,7 @@ class pyIVLS_Affine_plugin:
             dict: functions
         """
 
-        return {
-            self.name: self.affine_control._fetch_dependency_functions(function_dict)
-        }
+        return {self.name: self.affine_control._fetch_dependency_functions(function_dict)}
 
     @hookimpl
     def get_log(self, args=None):

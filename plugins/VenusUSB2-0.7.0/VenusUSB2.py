@@ -1,9 +1,10 @@
 import cv2 as cv
 
+
 class VenusUSB2:
     """Handles communication with the VenusUSB2 camera"""
 
-    #exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
+    # exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
     exposures = [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1]  # windows interface
     bufferSize = 1
     cap_width = 1024
@@ -26,10 +27,8 @@ class VenusUSB2:
         if source is None or source == "":
             self.cap.open(0)
         else:
-            self.cap.open(source)   
+            self.cap.open(source)
         if self.cap.isOpened():
-
-            
             # Set buffer size
             self.cap.set(cv.CAP_PROP_BUFFERSIZE, self.bufferSize)
 
@@ -37,11 +36,9 @@ class VenusUSB2:
             self.cap.set(cv.CAP_PROP_FRAME_WIDTH, self.full_size_width)
             self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, self.full_size_height)
 
-
-            
             return [0, {"Error message": "OK"}]
         return [4, {"Error message": "Can not open camera"}]
-    
+
     def set_exposure(self, exposure):
         """Sets the exposure time of the camera.
 
@@ -65,6 +62,7 @@ class VenusUSB2:
         Returns:
             matlike: The captured image as matlike object, in RGB format.
         """
+
         def get_frame():
             for _ in range(self.bufferSize):
                 # empty out the buffer
@@ -96,5 +94,3 @@ class VenusUSB2:
             status = 4
             frame = {"Error message": "Can not read frame from camera"}
         return status, frame
-    
-

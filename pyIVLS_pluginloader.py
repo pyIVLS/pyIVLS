@@ -12,18 +12,16 @@ from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 
 class pyIVLS_pluginloader(QtWidgets.QDialog):
     """Gui for the plugin loader"""
+
     def show_message(self, str):
         msg = QtWidgets.QMessageBox()
         msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-        msg.setWindowFlags(
-            Qt.WindowType.CustomizeWindowHint
-            | Qt.WindowType.WindowTitleHint
-            | Qt.WindowType.WindowShadeButtonHint
-        )
+        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint)
         msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
         msg.exec()
+
     #### Signals for communication
 
     # Request available plugins from the container
@@ -47,7 +45,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             dependencies = properties.get("dependencies", "")
             if not dependencies:
                 dependencies = "None"
-            plugin_name = f"{properties.get('type')}: {item} {properties.get("version", "")} ({properties.get('function')}) - Dependencies: {dependencies}"
+            plugin_name = f"{properties.get('type')}: {item} {properties.get('version', '')} ({properties.get('function')}) - Dependencies: {dependencies}"
             list_item = QtGui.QStandardItem(plugin_name)
             list_item.setCheckable(True)
             list_item.setCheckState(Qt.CheckState.Unchecked)
@@ -96,9 +94,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         """Uploads a plugin from a directory. Opens a file dialog to select the plugin directory."""
 
         start_dir = os.path.join(self.path, "plugins")
-        plugin_dir = QtWidgets.QFileDialog.getExistingDirectory(
-            self, "Select Plugin Directory", start_dir, QtWidgets.QFileDialog.Option.ShowDirsOnly
-        )
+        plugin_dir = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Plugin Directory", start_dir, QtWidgets.QFileDialog.Option.ShowDirsOnly)
         if not plugin_dir:
             return  # if no directory is selected, return
 
@@ -123,7 +119,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             self.show_message("No file of the form 'pyIVLS_*.py' found in the plugin directory.")
             return
         self.update_config_signal.emit([plugin_address, ini_file, plugin_name])
-        
+
     #### Internal functions
     def __init__(self, path):
         super().__init__()

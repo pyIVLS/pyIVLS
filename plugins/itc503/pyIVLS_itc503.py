@@ -99,11 +99,10 @@ class pyIVLS_itc503_plugin:
 
         if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.pluginClass._getCloseLockSignal()}
-    
+
     @hookimpl
     def get_plugin_settings(self, args=None):
-        """See pyIVLS_hookspec.py for details.
-        """
+        """See pyIVLS_hookspec.py for details."""
         if args is None or args.get("function") == self.plugin_function:
             status, settings = self.pluginClass._get_current_gui_values()
             return (self.plugin_name, status, settings)

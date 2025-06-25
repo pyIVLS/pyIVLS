@@ -13,11 +13,10 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, Qt
 from PyQt6.QtGui import QStandardItemModel, QStandardItem, QAction
 from PyQt6.QtWidgets import QFileDialog, QMenu
 
-from components.threadStopped import thread_with_exception, ThreadStopped
+from components.threadStopped import thread_with_exception
 
 from pathvalidate import is_valid_filename
 import json
-
 
 
 class pyIVLS_seqBuilder(QObject):
@@ -25,17 +24,18 @@ class pyIVLS_seqBuilder(QObject):
     @property
     def item(self):
         return self._item
-    
+
     @item.setter
     def item(self, value):
         if isinstance(value, QStandardItem):
             self._item = value
             # find the instance of the item in the model
             index = self.model.indexFromItem(value)
-            if index.isValid(): # catch invisible root item
+            if index.isValid():  # catch invisible root item
                 self.widget.treeView.setCurrentIndex(index)
         else:
             raise TypeError("seqBuilder: Tried to assign a non-QStandardItem")
+
     #### Signals for communication
 
     info_message = pyqtSignal(str)
@@ -50,17 +50,13 @@ class pyIVLS_seqBuilder(QObject):
             plugin_dict: dict of available plugins needed to extract class (step or loop)
             plugin_functions: list of available functions returned by plugins
         """
-        self.widget.comboBox_function.currentIndexChanged.disconnect(
-            self.update_classView
-        )
+        self.widget.comboBox_function.currentIndexChanged.disconnect(self.update_classView)
         self.available_instructions = {}
         self.widget.comboBox_function.clear()
         for plugin in plugin_dict:
             if not plugin_dict[plugin]["load"] == "True":
                 continue
-            if ("step" in plugin_dict[plugin]["class"]) or (
-                "loop" in plugin_dict[plugin]["class"]
-            ):
+            if ("step" in plugin_dict[plugin]["class"]) or ("loop" in plugin_dict[plugin]["class"]):
                 self.widget.comboBox_function.addItem(plugin)
                 class_list = []
                 if "step" in plugin_dict[plugin]["class"]:
@@ -79,12 +75,12 @@ class pyIVLS_seqBuilder(QObject):
         self.update_classView()
 
     #### external functions
-    
+
     #### Slots for interThread interaction
     @pyqtSlot()
     def _setNotRunning(self):
         self._setRunStatus(False)
-    
+
     #### Internal functions
     def __init__(self, path):
         super().__init__()
@@ -105,6 +101,7 @@ class pyIVLS_seqBuilder(QObject):
         self.update_treeView()
         self.widget.treeView.setCurrentIndex(self.model.index(0, 0))
         #
+
     def _connect_signals(self):
         self.widget.comboBox_function.currentIndexChanged.connect(self.update_classView)
         self.widget.addInstructionButton.clicked.connect(self._addInstructionAction)
@@ -115,12 +112,11 @@ class pyIVLS_seqBuilder(QObject):
         self._sigSeqEnd.connect(self._setNotRunning)
 
         # connect the label click on gds to a function
-       # add a custom context menu in the list widget to allow point deletion
+        # add a custom context menu in the list widget to allow point deletion
         self.widget.treeView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.widget.treeView.customContextMenuRequested.connect(
-            self._tree_context_menu
-        )
+        self.widget.treeView.customContextMenuRequested.connect(self._tree_context_menu)
         self.widget.treeView.clicked.connect(self._root_item_changed)
+
     #### GUI functions
     def _tree_context_menu(self, position):
         def remove_item(row, idx_parent):
@@ -137,15 +133,14 @@ class pyIVLS_seqBuilder(QObject):
             root_item = self.model.invisibleRootItem()
             # get the first child of the root item
             self.item = root_item.child(0)
-            
+
         from PyQt6.QtCore import QModelIndex
+
         idx: QModelIndex = self.widget.treeView.indexAt(position)
         # get parent index
         idx_parent = idx.parent()
         # get the row number of the index
         row = idx.row()
-        
-    
 
         menu = QMenu()
         delete_action = QAction("Delete", self.widget.treeView)
@@ -175,15 +170,11 @@ class pyIVLS_seqBuilder(QObject):
             else:
                 self.item = self.model.itemFromIndex(idx)
 
-        
-        
             #### GUI functions
+
     def update_classView(self):
         self.widget.comboBox_class.clear()
-        if not (
-            self.widget.comboBox_function.currentText() == ""
-            or self.widget.comboBox_function.currentText() == "loop end"
-        ):
+        if not (self.widget.comboBox_function.currentText() == "" or self.widget.comboBox_function.currentText() == "loop end"):
             for item in self.available_instructions[self.widget.comboBox_function.currentText()]["class"]:
                 self.widget.comboBox_class.addItem(item)
 
@@ -199,8 +190,7 @@ class pyIVLS_seqBuilder(QObject):
             None,
             "Select directory for saving",
             address,
-            options=QFileDialog.Option.ShowDirsOnly
-            | QFileDialog.Option.DontResolveSymlinks,
+            options=QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
         )
         if address:
             self.widget.lineEdit_path.setText(address)
@@ -218,17 +208,13 @@ class pyIVLS_seqBuilder(QObject):
             )
 
     def _readRecipeAction(self):
-        filename = QFileDialog.getOpenFileName(
-            None, "Open pyIVLS sequence file", self.path, "json (*.json);; all (*.*)"
-        )
+        filename = QFileDialog.getOpenFileName(None, "Open pyIVLS sequence file", self.path, "json (*.json);; all (*.*)")
         if not filename[0]:
             return 1
         with open(filename[0], "r") as file:
             data = json.load(file)
         self._init_treeView()
-        stack = copy.deepcopy(
-            data
-        )  #### it is necessary to make sure that we did not modify original data
+        stack = copy.deepcopy(data)  #### it is necessary to make sure that we did not modify original data
         looping = []  # this will keep track of the steps inside the loop, every element is +1 depth to hierarchy level, value of the element is amount of steps left on the hierechy level
         while not stack == []:
             stackItem = stack.pop(0)
@@ -271,7 +257,7 @@ class pyIVLS_seqBuilder(QObject):
         # check the instruction class of self.item
 
         instructionClass = self.widget.comboBox_class.currentText()
-    
+
         nextItem = QStandardItem(instructionFunc)
         nextItem.setData(instructionSettings, Qt.ItemDataRole.UserRole)
         self.item.appendRow([nextItem, QStandardItem(instructionClass)])
@@ -297,10 +283,10 @@ class pyIVLS_seqBuilder(QObject):
     def _runParser(self):
         ###############Main logic of iteration: 0 - no iterations, 1 - only start point, 2 - start end end point, iterstep = (end-start)/(iternum -1).The same is used in sweepCommon for drainVoltage. !!!Adapt to logic of iteration, do not modify it!!!
         data = self.extract_data(self.model.invisibleRootItem().child(0))
-        stackData = copy.deepcopy(data) #### it is necessary to make sure that we did not modify original data
-        looping = [] #this will keep track of the steps inside the loop, every element is a dict[{looping -the steps to repeat, loopFunction - looping Function, totalSteps - number of steps in loop, currentStep, totalIterations, currentIteration}]
+        stackData = copy.deepcopy(data)  #### it is necessary to make sure that we did not modify original data
+        looping = []  # this will keep track of the steps inside the loop, every element is a dict[{looping -the steps to repeat, loopFunction - looping Function, totalSteps - number of steps in loop, currentStep, totalIterations, currentIteration}]
 
-        while ((not stackData == []) or (not looping == [])):
+        while (not stackData == []) or (not looping == []):
             if not looping == []:
                 if looping[-1]["currentStep"] == 0:
                     [status, iterText] = self.available_instructions[looping[-1]["loopFunction"]]["functions"]["loopingIteration"](looping[-1]["currentIteration"])
@@ -308,9 +294,7 @@ class pyIVLS_seqBuilder(QObject):
                         print(f"Error: {iterText}")
                         break
                     looping[-1]["namePostfix"] = iterText
-                    looping[-1]["currentIteration"] = (
-                        looping[-1]["currentIteration"] + 1
-                    )
+                    looping[-1]["currentIteration"] = looping[-1]["currentIteration"] + 1
                     looping[-1]["currentStep"] = looping[-1]["currentStep"] + 1
                 elif looping[-1]["currentStep"] == looping[-1]["totalSteps"]:
                     if looping[-1]["currentIteration"] < looping[-1]["totalIterations"]:
@@ -326,18 +310,18 @@ class pyIVLS_seqBuilder(QObject):
             nextStepSettings = stackItem["settings"]
             nextStepClass = stackItem["class"]
             self.available_instructions[nextStepFunction]["functions"]["setSettings"](nextStepSettings)
-            if nextStepClass == 'step':
-                    namePostfix = ''
-                    for loopItem in looping:
-                        namePostfix = namePostfix + loopItem["namePostfix"]
-                    [status, message] = self.available_instructions[nextStepFunction]["functions"]["sequenceStep"](namePostfix)
-                    if status:
-                        print(f"Error: {message}")
-                        break
-            if nextStepClass == 'loop':
-                    iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
-                    looping.append({"looping":stackItem["looping"], "loopFunction": nextStepFunction,"totalSteps":len(stackItem["looping"]), "currentStep":0,"totalIterations":iter, "currentIteration":0, "namePostfix":""})
-                    stackData = stackItem["looping"] + stackData
+            if nextStepClass == "step":
+                namePostfix = ""
+                for loopItem in looping:
+                    namePostfix = namePostfix + loopItem["namePostfix"]
+                [status, message] = self.available_instructions[nextStepFunction]["functions"]["sequenceStep"](namePostfix)
+                if status:
+                    print(f"Error: {message}")
+                    break
+            if nextStepClass == "loop":
+                iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
+                looping.append({"looping": stackItem["looping"], "loopFunction": nextStepFunction, "totalSteps": len(stackItem["looping"]), "currentStep": 0, "totalIterations": iter, "currentIteration": 0, "namePostfix": ""})
+                stackData = stackItem["looping"] + stackData
         self._sigSeqEnd.emit()
 
     def _runAction(self):

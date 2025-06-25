@@ -1,6 +1,7 @@
 import os
 import cv2 as cv
 
+
 class DummyCamera:
     """Mock camera: returns the image selected in the GUI."""
 
@@ -35,5 +36,3 @@ class DummyCamera:
 
     def capture_buffered(self):
         return self.capture_image()
-
-
