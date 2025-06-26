@@ -20,7 +20,7 @@ from settingsWidget import Ui_Form
 import numpy as np
 import copy
 from typing import Optional
-import datetime
+from datetime import datetime
 
 
 class specSMU_GUI(QWidget):
@@ -32,13 +32,13 @@ class specSMU_GUI(QWidget):
     log_message = pyqtSignal(str)
     ##not needed for sequence implementation, may be added later only for standalone mode
     # info_message = pyqtSignal(str)
-    
+
     def _log_verbose(self, message):
         """Logs a message if verbose mode is enabled."""
         if self.verbose:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")
             classname = self.__class__.__name__
-            self.log_message.emit(timestamp + " : " + classname + " : " f"VERBOSE: {message}")
+            self.log_message.emit(timestamp + " : " + classname + f" : VERBOSE: {message}")
 
     ########Functions
     def __init__(self):
@@ -50,7 +50,7 @@ class specSMU_GUI(QWidget):
         }
         self.settingsWidget = Ui_Form()
         self.settingsWidget.setupUi(self)
-        self.verbose = True # FIXME
+        self.verbose = True  # FIXME
         self._connect_signals()
 
     def _connect_signals(self) -> None:
@@ -98,7 +98,6 @@ class specSMU_GUI(QWidget):
         """
         # Placeholder for any spectrometer-specific GUI updates
         self._log_verbose("Spectrometer plugin changed, but no specific actions defined yet.")
-        
 
     ########Functions
     ########GUI Slots
@@ -202,7 +201,7 @@ class specSMU_GUI(QWidget):
             if idx > -1:
                 self.settingsWidget.comboBox_channel.setCurrentIndex(idx)
 
-        # Set all other combo boxes 
+        # Set all other combo boxes
         combo_map = [
             ("comboBox_inject", "inject"),
             ("comboBox_mode", "mode"),
@@ -217,7 +216,7 @@ class specSMU_GUI(QWidget):
                 if idx > -1:
                     box.setCurrentIndex(idx)
 
-        # Set all line edits 
+        # Set all line edits
         line_map = [
             ("lineEdit_Start", "start"),
             ("lineEdit_End", "end"),
@@ -269,6 +268,7 @@ class specSMU_GUI(QWidget):
 
     def _getLogSignal(self):
         return self.log_message
+
     #
     #    def _getInfoSignal(self):
     #        return self.info_message
@@ -286,94 +286,68 @@ class specSMU_GUI(QWidget):
             status: 0 - no error, ~0 - error
             self.settings
         """
+        self._log_verbose("Entering parse_settings_widget")
+
         if not self.function_dict:
+            self._log_verbose("Missing function_dict in SpecSMU plugin")
             return [3, {"Error message": "Missing functions in SpecSMU plugin. Check log", "Missing functions": self.missing_functions}]
+
         # Use the raw getter for initial settings
-        self.settings = self.get_settings_dict_raw()
+        raw_settings = self.get_settings_dict_raw()
+        self._log_verbose(f"Raw settings retrieved: {raw_settings}")
+
+        # Validate and parse raw settings
+        try:
+            self.settings = {}
+            self.settings["smu"] = raw_settings["smu"]
+            self.settings["spectrometer"] = raw_settings["spectrometer"]
+            self.settings["channel"] = raw_settings["channel"].lower()
+            self.settings["inject"] = raw_settings["inject"].lower()
+            self.settings["mode"] = raw_settings["mode"].lower()
+            self.settings["delaymode"] = raw_settings["delaymode"].lower()
+            self.settings["sourcesensemode"] = raw_settings["sourcesensemode"].lower()
+            self.settings["singlechannel"] = raw_settings["singlechannel"]
+
+            # Parse numeric fields
+            self.settings["start"] = float(raw_settings["start"])
+            self.settings["end"] = float(raw_settings["end"])
+            self.settings["points"] = int(raw_settings["points"])
+            self.settings["limit"] = float(raw_settings["limit"])
+            self.settings["nplc"] = float(raw_settings["nplc"])
+            self.settings["delay"] = float(raw_settings["delay"])
+            self.settings["pause"] = float(raw_settings["pause"])
+
+            self._log_verbose("Settings successfully parsed and validated")
+        except ValueError as e:
+            self._log_verbose(f"Error parsing settings: {e}")
+            return [1, {"Error message": f"Value error in SpecSMU plugin: {e}"}]
+
         # Get selected SMU plugin
-        smu_selection = self.settingsWidget.smuBox.currentText()
-        self.settings["smu"] = smu_selection
-        [status, self.smu_settings] = self.function_dict["smu"][smu_selection]["parse_settings_widget"]() if smu_selection else (1, {"Error message": "No SMU selected"})
-        if status:
-            return [2, self.smu_settings]
+        smu_selection = self.settings["smu"]
+        if smu_selection:
+            [status, self.smu_settings] = self.function_dict["smu"][smu_selection]["parse_settings_widget"]()
+            if status:
+                self._log_verbose(f"Error in SMU plugin settings: {self.smu_settings}")
+                return [2, self.smu_settings]
+        else:
+            self._log_verbose("No SMU selected")
+            return [1, {"Error message": "No SMU selected"}]
+
         # Get selected spectrometer plugin
-        spectro_selection = self.settingsWidget.spectrometerBox.currentText()
-        self.settings["spectrometer"] = spectro_selection
-        [status, self.spectrometer_settings] = self.function_dict["spectrometer"][spectro_selection]["parse_settings_widget"]() if spectro_selection else (1, {"Error message": "No spectrometer selected"})
-        if status:
-            return [2, self.spectrometer_settings]
+        spectro_selection = self.settings["spectrometer"]
+        if spectro_selection:
+            [status, self.spectrometer_settings] = self.function_dict["spectrometer"][spectro_selection]["parse_settings_widget"]()
+            if status:
+                self._log_verbose(f"Error in spectrometer plugin settings: {self.spectrometer_settings}")
+                return [2, self.spectrometer_settings]
+        else:
+            self._log_verbose("No spectrometer selected")
+            return [1, {"Error message": "No spectrometer selected"}]
+
         self.settings["smu_settings"] = self.smu_settings
         self.settings["spectrometer_settings"] = self.spectrometer_settings
 
-        # Determine source channel: may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
-        self.settings["channel"] = self.settingsWidget.comboBox_channel.currentText().lower()
-        self.settings["drainchannel"] = self.settings["channel"]  # dual channel not implemented.
-        # Determine source type: may take values [current, voltage]
-        self.settings["inject"] = self.settingsWidget.comboBox_inject.currentText().lower()
-        # Determine pulse/continuous mode: may take values [continuous, pulsed, mixed]
-        self.settings["mode"] = self.settingsWidget.comboBox_mode.currentText().lower()
-        # Determine delay mode : may take values [auto, manual]
-        self.settings["delaymode"] = self.settingsWidget.comboBox_DelayMode.currentText().lower()
-        # Determine source sence mode: may take values [2 wire, 4 wire, 2 & 4 wire]
-        self.settings["sourcesensemode"] = self.settingsWidget.comboBox_sourceSenseMode.currentText().lower()
-
-        # Determine a single channel mode: may be True or False
-        self.settings["singlechannel"] = self.settingsWidget.checkBox_singleChannel.isChecked()
-
-        # Determine settings
-        # start should be float
-        try:
-            self.settings["start"] = float(self.settingsWidget.lineEdit_Start.text())
-        except ValueError:
-            return [1, {"Error message": "Value error in SpecSMU plugin: start field should be numeric"}]
-
-        # end should be float
-        try:
-            self.settings["end"] = float(self.settingsWidget.lineEdit_End.text())
-        except ValueError:
-            return [1, {"Error message": "Value error in SpecSMU plugin: end field should be numeric"}]
-
-        # number of points should be int >0
-        try:
-            self.settings["points"] = int(self.settingsWidget.lineEdit_Points.text())
-        except ValueError:
-            return [1, {"Error message": "Value error in SpecSMU plugin: number of points field should be integer"}]
-        if self.settings["points"] < 1:
-            return [1, {"Error message": "Value error in SpecSMU plugin: number of points field can not be less than 1"}]
-
-        # limit should be float >0
-        try:
-            self.settings["limit"] = float(self.settingsWidget.lineEdit_Limit.text())
-        except ValueError:
-            return [1, {"Error message": "Value error in SpecSMU plugin: limit field should be numeric"}]
-        if self.settings["limit"] <= 0:
-            return [1, {"Error message": "Value error in SpecSMU plugin: limit field should be positive"}]
-
-        # nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
-        try:
-            nplc_val = float(self.settingsWidget.lineEdit_NPLC.text())
-            self.settings["nplc"] = 0.001 * float(self.smu_settings["lineFrequency"]) * nplc_val
-        except ValueError:
-            return [1, {"Error message": "Value error in SpecSMU plugin: continuous nplc field should be numeric"}]
-        if self.settings["nplc"] <= 0:
-            return [1, {"Error message": "Value error in SpecSMU plugin: continuous nplc field should be positive"}]
-
-        # delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
-        try:
-            self.settings["delay"] = float(self.settingsWidget.lineEdit_Delay.text()) / 1000
-        except ValueError:
-            return [1, {"Error message": "Value error in SpecSMU plugin: delay field should be numeric"}]
-        if self.settings["delay"] <= 0:
-            return [1, {"Error message": "Value error in SpecSMU plugin: delay field should be positive"}]
-
-        # pause between pulses should be >0
-        try:
-            self.settings["pause"] = float(self.settingsWidget.lineEdit_Pause.text())
-        except ValueError:
-            return [1, {"Error message": "Value error in SpecSMU plugin: pulse pause field should be numeric"}]
-        if self.settings["pause"] <= 0:
-            return [1, {"Error message": "Value error in SpecSMU plugin: pulse pause field should be positive"}]
-
+        self._log_verbose("Exiting parse_settings_widget with success")
         return [0, self.settings]
 
     def setSettings(self, settings):  #### settings from sequenceBuilder
@@ -390,32 +364,36 @@ class specSMU_GUI(QWidget):
     ###############sequence implementation
 
     def sequenceStep(self, postfix):
+        self._log_verbose("Entering sequenceStep")
         self.spectrometer_settings["filename"] = self.spectrometer_settings["filename"] + postfix
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
+        self._log_verbose(f"SMU: {smu_name}, Spectrometer: {spectro_name}")
+
         [status, message] = self.function_dict["smu"][smu_name]["smu_connect"]()
         if status:
+            self._log_verbose(f"Error connecting SMU: {message}")
             return [status, message]
+
         self.function_dict["spectrometer"][spectro_name]["setSettings"](self.spectrometer_settings)
         [status, message] = self.function_dict["spectrometer"][spectro_name]["spectrometerConnect"]()
         if status:
+            self._log_verbose(f"Error connecting Spectrometer: {message}")
             return [status, message]
+
         try:
             self._SpecSMUImplementation()
+            self._log_verbose("SpecSMU action finished successfully")
             return [0, "specSMU action finished"]
         except Exception as e:
+            self._log_verbose(f"Error in SpecSMU implementation: {e}")
             return [1, {"Error message": "SpecSMU plugin: error in seq implementation", "Exception": str(e)}]
         finally:
             self.function_dict["smu"][smu_name]["smu_disconnect"]()
             self.function_dict["spectrometer"][spectro_name]["spectrometerDisconnect"]()
 
     def smuInit(self):
-        """intializaes smu
-
-        Return the same as for keithley_init [status, message]:
-            status: 0 - no error, ~0 - error
-            message
-        """
+        self._log_verbose("Entering smuInit")
         s = {}
 
         s["pulse"] = False  #### for now it is SW control, this may change for HW triggering
@@ -436,33 +414,30 @@ class specSMU_GUI(QWidget):
             s["sourcesense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
 
         if not s["single_ch"]:
+            self._log_verbose("Dual channel mode not implemented")
             return [1, {"Error message": "SpecSMU plugin: dual channel mode not implemented"}]
 
-            s["drainnplc"] = self.settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
-            s["draindelay"] = True if self.settings["draindelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
-            s["draindelayduration"] = self.settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
-            s["drainlimit"] = self.settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
-            s["drainhighc"] = self.smu_settings["drainhighc"]
-            if self.settings["drainsensemode"] == "4 wire":
-                s["drainsense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
-            else:
-                s["drainsense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
-
         if self.function_dict["smu"]["smu_init"](s):
+            self._log_verbose("Error initializing SMU")
             return [2, {"Error message": "SpecSMU plugin: error in SMU plugin can not initialize"}]
 
+        self._log_verbose("SMU initialized successfully")
         return {0, "OK"}
 
     def _SpecSMUImplementation(self):
+        self._log_verbose("Entering _SpecSMUImplementation")
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
 
         def set_integ_get_spectrum(integration_time):
+            self._log_verbose(f"Setting integration time: {integration_time}")
             status, message = self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](integration_time)
             if status:
+                self._log_verbose(f"Error setting integration time: {message}")
                 return [status, message]
             status, spectrum_option = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
             if status:
+                self._log_verbose(f"Error getting spectrum: {spectrum_option}")
                 return [status, spectrum_option]
             return [0, spectrum_option]
 
@@ -475,15 +450,18 @@ class specSMU_GUI(QWidget):
         specFilename = self.spectrometer_settings["filename"]
         for smuLoopStep in range(smuLoop):
             smuSetValue = self.settings["start"] + smuLoopStep * smuChange
+            self._log_verbose(f"Setting SMU output to {smuSetValue}")
             self.function_dict["smu"][smu_name]["smu_setOutput"](self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue)
             integration_time_setting = self.spectrometer_settings["integrationTime"]
             status, integration_time_seconds = self.function_dict["spectrometer"][spectro_name]["spectrometerGetIntegrationTime"]()
             integration_time = integration_time_seconds
             if status:
+                self._log_verbose(f"Error getting integration time: {integration_time}")
                 raise NotImplementedError(f"Error in getting integration time from spectrometer: {integration_time}, no handling provided")
             if not np.isclose(integration_time, integration_time_setting, atol=0, rtol=0.0001):
                 status, spectrum = set_integ_get_spectrum(integration_time_setting)
                 if status:
+                    self._log_verbose(f"Error setting integration time or getting spectrum: {spectrum}")
                     raise NotImplementedError(f"Error in setting integration time or getting spectrum: {spectrum}, no handling provided")
             self.spectrometer_settings["filename"] = specFilename + f"_{smuSetValue:.4f}" + " iv"
             if self.spectrometer_settings["integrationtimetype"] == "auto":
@@ -494,10 +472,12 @@ class specSMU_GUI(QWidget):
                 if not status:
                     integration_time_setting = auto_time
             if self.settings["mode"] == "pulsed":
+                self._log_verbose("Pulsed mode: sleeping for pause duration")
                 time.sleep(self.settings["pause"])
             self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
             status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
             if status:
+                self._log_verbose(f"Error getting spectrum: {spectrum}")
                 raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
             status, sourceIV = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
             time.sleep(0.02)
@@ -510,6 +490,7 @@ class specSMU_GUI(QWidget):
             varDict["comment"] = self.spectrometer_settings["comment"] + " " + str(sourceIV)
             address = self.spectrometer_settings["address"] + os.sep + self.spectrometer_settings["filename"]
             self.function_dict["spectrometer"][spectro_name]["createFile"](varDict=varDict, filedelimeter=";", address=address, data=spectrum)
+        self._log_verbose("Exiting _SpecSMUImplementation")
         return 0
 
     def set_dependencies(self, dependencies: list) -> None:
