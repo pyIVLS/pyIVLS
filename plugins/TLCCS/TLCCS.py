@@ -185,11 +185,13 @@ class CCSDRV:
         """Starts a single scan with external trigger"""
         self.io.control_out(const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_EXTERN_SINGLE_SHOT)
 
-    def get_scan_data(self):
-        """Get scan data from the device buffer
+    def get_scan_data(self) -> np.ndarray:
+        """Get processed scan data from the device buffer.
+
+        This method retrieves raw scan data from the device, processes it, and returns the normalized scan data.
 
         Returns:
-            np.array(np.float64): scan data
+            np.ndarray: Processed scan data as a NumPy array of type np.float64.
         """
         # Get raw data
         raw = self._get_raw_data()
@@ -198,13 +200,13 @@ class CCSDRV:
         data = self._acquire_raw_scan_data(raw)
         return data
 
-    # FIXME: There seems to be a a period of zeroes at the beginning and end of the data.
-    def _get_raw_data(self):
-        """Get raw scan data for a single scan from the device buffer
-        The scan is sent from the device in uint16 with size CCS_SERIES_NUM_RAW_PIXELS
+    def _get_raw_data(self) -> np.ndarray:
+        """Retrieve raw scan data from the device buffer.
+
+        The raw scan data is read from the device as a NumPy array of type np.uint16.
 
         Returns:
-            np.array(np.uint16): raw scan data
+            np.ndarray: Raw scan data as a NumPy array of type np.uint16.
         """
         # Calculate size of read and create a buffer to read into
         buffer_size = const.CCS_SERIES_NUM_RAW_PIXELS * 2  # since uint16 is 2 bytes
@@ -216,7 +218,17 @@ class CCSDRV:
 
         return readTo
 
-    def _acquire_raw_scan_data(self, raw: np.ndarray):
+    def _acquire_raw_scan_data(self, raw: np.ndarray) -> np.ndarray:
+        """Process raw scan data to normalize it.
+
+        This method calculates the dark current average, normalizing factor, and processes the raw data to produce normalized scan data.
+
+        Args:
+            raw (np.ndarray): Raw scan data as a NumPy array of type np.uint16.
+
+        Returns:
+            np.ndarray: Normalized scan data as a NumPy array of type np.float64.
+        """
         # Initialize array for modified data
         data = np.zeros(const.CCS_SERIES_NUM_PIXELS, dtype=np.float64)
 

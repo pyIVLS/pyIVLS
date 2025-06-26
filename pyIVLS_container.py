@@ -164,7 +164,8 @@ class pyIVLS_container(QObject):
                 continue
             if self.config.has_section(f"{plugin}_settings"):
                 for key, value in settings.items():
-                    if key == "error message":
+                    if key == "Error message":
+                        # failure to parse settings
                         continue
                     if self.config.has_option(f"{plugin}_settings", key):
                         old_value = self.config[f"{plugin}_settings"][key]

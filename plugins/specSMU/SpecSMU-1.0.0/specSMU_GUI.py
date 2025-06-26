@@ -15,10 +15,12 @@ import os
 import time
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
+from PyQt6.QtCore import pyqtSignal
 from settingsWidget import Ui_Form
 import numpy as np
 import copy
 from typing import Optional
+import datetime
 
 
 class specSMU_GUI(QWidget):
@@ -27,9 +29,16 @@ class specSMU_GUI(QWidget):
     non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
     public_methods = ["parse_settings_widget", "sequenceStep", "setSettings"]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ########Signals
+    log_message = pyqtSignal(str)
     ##not needed for sequence implementation, may be added later only for standalone mode
-    # log_message = pyqtSignal(str)
     # info_message = pyqtSignal(str)
+    
+    def _log_verbose(self, message):
+        """Logs a message if verbose mode is enabled."""
+        if self.verbose:
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")
+            classname = self.__class__.__name__
+            self.log_message.emit(timestamp + " : " + classname + " : " f"VERBOSE: {message}")
 
     ########Functions
     def __init__(self):
@@ -41,8 +50,7 @@ class specSMU_GUI(QWidget):
         }
         self.settingsWidget = Ui_Form()
         self.settingsWidget.setupUi(self)
-        self.default_smu = None
-        self.default_spectrometer = None
+        self.verbose = True # FIXME
         self._connect_signals()
 
     def _connect_signals(self) -> None:
@@ -89,7 +97,8 @@ class specSMU_GUI(QWidget):
             index (Optional[int]): Index of the selected spectrometer plugin.
         """
         # Placeholder for any spectrometer-specific GUI updates
-        pass
+        self._log_verbose("Spectrometer plugin changed, but no specific actions defined yet.")
+        
 
     ########Functions
     ########GUI Slots
@@ -193,7 +202,7 @@ class specSMU_GUI(QWidget):
             if idx > -1:
                 self.settingsWidget.comboBox_channel.setCurrentIndex(idx)
 
-        # Set all other combo boxes robustly
+        # Set all other combo boxes 
         combo_map = [
             ("comboBox_inject", "inject"),
             ("comboBox_mode", "mode"),
@@ -208,7 +217,7 @@ class specSMU_GUI(QWidget):
                 if idx > -1:
                     box.setCurrentIndex(idx)
 
-        # Set all line edits robustly
+        # Set all line edits 
         line_map = [
             ("lineEdit_Start", "start"),
             ("lineEdit_End", "end"),
@@ -258,8 +267,8 @@ class specSMU_GUI(QWidget):
         methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
         return methods
 
-    #    def _getLogSignal(self):
-    #        return self.log_message
+    def _getLogSignal(self):
+        return self.log_message
     #
     #    def _getInfoSignal(self):
     #        return self.info_message

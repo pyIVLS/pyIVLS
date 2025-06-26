@@ -43,8 +43,7 @@ from threadStopped import ThreadStopped, thread_with_exception
 from threading import Lock
 import copy
 
-from spec_dummy.mockspec import MockCCSDRV
-
+from mockspec import MockCCSDRV
 
 class dummy_spectro_GUI(QObject):
     """spectrometer plugin for pyIVLS"""
@@ -83,8 +82,10 @@ class dummy_spectro_GUI(QObject):
     intTimeMaxIterations = 10
 
     ########Functions
-    def __init__(self):
+    def __init__(self, verbose=False):
         super(QObject, self).__init__()
+        self.verbose = verbose  # Enable verbose logging
+        self.verbose = True
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
         ##IRtothink#### I do not like have filename hardly coded,
@@ -105,9 +106,17 @@ class dummy_spectro_GUI(QObject):
 
         correction_file = r"SC175_correction"
         self.correction = np.loadtxt(self.path + correction_file)
+        self._log_verbose(f"Loaded correction data from {correction_file} with shape {self.correction.shape}")
         self.settings = {}
 
         self._scan_lock = Lock()
+
+    def _log_verbose(self, message):
+        """Logs a message if verbose mode is enabled."""
+        if self.verbose:
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")
+            classname = self.__class__.__name__
+            self.log_message.emit(timestamp + " : " + classname + " : " f"VERBOSE: {message}")
 
     def _connect_signals(self):
         self.settingsWidget.connectButton.clicked.connect(self._connectAction)
@@ -143,7 +152,7 @@ class dummy_spectro_GUI(QObject):
         Returns:
             _type_: _description_
         """
-        [status, info] = self.spectrometerGetSpectrum()
+        [status, info] = self.spectrometerGetScan()
         if status:
             return [status, info]
         self.scanRunning = False
@@ -167,50 +176,61 @@ class dummy_spectro_GUI(QObject):
     ########GUI Slots
 
     def _connectAction(self):
+        self._log_verbose("Attempting to connect to the spectrometer.")
         [status, info] = self.parse_settings_widget()
         if status:
+            self._log_verbose(f"Failed to parse settings: {info}")
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
             self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
             return [status, info]
         [status, info] = self.spectrometerConnect()
         if status:
+            self._log_verbose(f"Failed to connect to spectrometer: {info}")
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
             self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
             return [status, info]
+        self._log_verbose("Spectrometer connected successfully.")
         self._GUIchange_deviceConnected(True)  # see comment in _GUIchange_deviceConnected
 
     def _disconnectAction(self):
+        self._log_verbose("Attempting to disconnect the spectrometer.")
         if self.preview_running:
+            self._log_verbose("Cannot disconnect while preview is running.")
             self.info_message.emit("Stop preview before disconnecting")
         else:
             [status, info] = self.spectrometerDisconnect()
             if status:  ##IRtodo## some error handling is necessary, as connected devices will not allow to switch off the GUI
+                self._log_verbose(f"Failed to disconnect spectrometer: {info}")
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                 self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
+            self._log_verbose("Spectrometer disconnected successfully.")
             self._GUIchange_deviceConnected(False)  # see comment in _GUIchange_deviceConnected
 
     def _previewAction(self):
-        """interface for the preview button. Opens the camera, sets the exposure and previews the feed"""
+        self._log_verbose("Preview button clicked.")
         if self.preview_running:
+            self._log_verbose("Stopping preview.")
             self.run_thread.thread_stop()
             if self.scanRunning:
                 self.scanRunning = False
-                self.scanRunning = False
             self.preview_running = False
             self._enableSaveButton()
-            self.closeLock.emit(not self.preview_running)
+            self.closeLock.emit(self.preview_running)
         else:
+            self._log_verbose("Starting preview.")
             [status, info] = self.parse_settings_preview()
             if status:
+                self._log_verbose(f"Failed to parse preview settings: {info}")
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                 self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
                 return [status, info]
             self.integrationTimeChanged = True
             self.preview_running = True
-            self.closeLock.emit(not self.preview_running)
+            self.closeLock.emit(self.preview_running)
             self.settingsWidget.saveButton.setEnabled(False)
             self.run_thread = thread_with_exception(self._previewIteration)
             self.run_thread.start()
+            self._log_verbose("Preview started successfully.")
 
     def _previewIteration(self):
         try:
@@ -227,12 +247,6 @@ class dummy_spectro_GUI(QObject):
                         self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
                         self.preview_running = False
                         return [status, info]
-                [status, info] = self.spectrometerStartScan()
-                if status:
-                    self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-                    self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
-                    self.preview_running = False
-                    return [status, info]
                 time.sleep(self.sleep_time)
                 [status, info] = self._update_spectrum()
                 if status:
@@ -278,7 +292,7 @@ class dummy_spectro_GUI(QObject):
             preview_status = self.preview_running
             self._previewAction()
         self.settingsWidget.saveButton.setEnabled(False)
-        self.closeLock.emit(False)
+        self.closeLock.emit(True)
         # check if get time may be used (spectrometer IDLE)
         statuses = self.drv.get_device_status()
         if "SCAN_IDLE" in statuses:
@@ -289,12 +303,15 @@ class dummy_spectro_GUI(QObject):
                 self._previewAction()
             else:
                 self.settingsWidget.saveButton.setEnabled(True)
-                self.closeLock.emit(True)
+            self.closeLock.emit(False)
             return [0, "OK"]
         else:
+            self.closeLock.emit(False)
             return [4, {"Error message": "TLCCSGUI: spectrometer is not in IDLE state when setting auto integration time"}]
+          
 
     def getAutoTime(self) -> tuple[int, float | dict]:
+        self._log_verbose("Calculating auto integration time.")
         low = self.autoTime_min * 1000  # time min ms
         high = self.autoTime_max * 1000  # time max ms
         low_spectrum = self.autoValue_min  # min spectrum value
@@ -308,17 +325,18 @@ class dummy_spectro_GUI(QObject):
                 # guess from min and max
                 guessIntTime = (self.autoTime_min + self.autoTime_max) / 2 * 1000  # ms
             for iter in range(self.intTimeMaxIterations):
+                self._log_verbose(f"Iteration {iter + 1}: Current guess = {guessIntTime} ms.")
                 self.settings["integrationTime"] = guessIntTime / 1000.0  # needed for keeping self.lastspectrum in order
                 [status, info] = self.spectrometerSetIntegrationTime(guessIntTime / 1000.0)  # s
                 if status:
+                    self._log_verbose(f"getAutoTime: Failed to set integration time. {status}, {info}")
                     return [status, info]
                 [status, info] = self.spectrometerStartScan()
                 if status:
+                    self._log_verbose(f"getAutoTime: Failed to start spectrum. {status}, {info}")
                     return [status, info]
-                time.sleep(guessIntTime / 1000.0)  # seconds
                 [status, info] = self._update_spectrum()
-                if status:
-                    return [status, info]
+                self._log_verbose(f"getAutoTime: Retrieved spectrum with shape {info[1].shape} and max value {max(info[1])}.")
                 ################ check that info is [wv, spectrum] !!!!!
                 if self.settings["saveautoattmepts"]:
                     varDict = {}
@@ -330,21 +348,30 @@ class dummy_spectro_GUI(QObject):
                 target = max(info[1])  # target value to optimize
                 # if spectrum is in the range, found good integration time
                 if low_spectrum <= target <= high_spectrum:
+                    self._log_verbose(f"Optimal integration time found: {guessIntTime / 1000.0} seconds.")
                     return [0, guessIntTime / 1000.0]  # return in seconds
                 # if spectrum is below the range, increase integration time
-                if target < self.autoValue_min:
+                if target < low_spectrum:
+                    self._log_verbose(f"Spectrum value {target} is below the range ({low_spectrum}), increasing integration time.")
                     if guessIntTime >= high:
+                        self._log_verbose(f"Integration time is too high, returning: {guessIntTime / 1000.0} seconds.")
                         return [0, guessIntTime / 1000.0]  # return in seconds
                     low = guessIntTime
                 # if spectrum is above the range, decrease integration time
                 else:
+                    self._log_verbose(f"Spectrum value {target} is above the range ({high_spectrum}), decreasing integration time.")
                     if guessIntTime <= low:
+                        self._log_verbose(f"Integration time is too low, returning: {guessIntTime / 1000.0} seconds.")
                         return [0, guessIntTime / 1000.0]  # return in seconds
                     high = guessIntTime
                 # Compute new guess in milliseconds, rounded to nearest millisecond
                 guessIntTime = int(round((low + high) / 2))
 
+            self._log_verbose(f"Auto integration time calculation completed: {guessIntTime / 1000.0} seconds.")
             return [0, guessIntTime / 1000.0]  # return in seconds
+        else:
+            self._log_verbose("Integration time mode is not set to auto, cannot calculate auto integration time.")
+            return [1, {"Error message": "TLCCSGUI: integration time mode is not set to auto"}]  # error if not auto mode
 
     ########Functions
     ###############GUI setting up
@@ -353,10 +380,10 @@ class dummy_spectro_GUI(QObject):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
         self.settingsWidget.lineEdit_Integ.setText(plugin_info["integrationtime"])
-        if plugin_info["externatrigger"]:
+        self._log_verbose(f"Initializing GUI with plugin_info: {plugin_info}")
+        if plugin_info["externaltrigger"] == "True":
             self.settingsWidget.extTriggerCheck.setChecked(True)
-            self.settingsWidget.extTriggerCheck.setChecked(True)
-        if plugin_info["usecorrection"]:
+        if plugin_info["usecorrection"] == "True":
             self.settingsWidget.correctionCheck.setChecked(True)
         currentIndex = self.settingsWidget.getIntegrationTime_combo.findText(plugin_info["integrationtimetype"], Qt.MatchFlag.MatchFixedString)
         if currentIndex > -1:
@@ -469,7 +496,6 @@ class dummy_spectro_GUI(QObject):
         self.settings["integrationtimetype"] = self.settingsWidget.getIntegrationTime_combo.currentText()
         self.settings["saveautoattmepts"] = self.settingsWidget.saveAttempts_check.isChecked()
         self.settings["useintegrationtimeguess"] = self.settingsWidget.useIntegrationTimeGuess_check.isChecked()
-
         if self.settings["saveautoattmepts"]:
             [status, info] = self._parseSaveData()
             if status:
@@ -478,6 +504,7 @@ class dummy_spectro_GUI(QObject):
             [status, info] = self._parse_settings_integrationTime()
             if status:
                 return [status, info]
+        
 
         return [0, "OK"]
 
@@ -503,6 +530,8 @@ class dummy_spectro_GUI(QObject):
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
+        self.settings["externalTrigger"] = self.settingsWidget.extTriggerCheck.isChecked() # this is here since this is written into the header
+
         return [0, "Ok"]
 
     def parse_settings_preview(self) -> "status":
@@ -566,27 +595,45 @@ class dummy_spectro_GUI(QObject):
         self.settings = {}
         self.settings = copy.deepcopy(settings)
 
+    def get_current_gui_settings(self):
+        """Reads the current settings from the settingswidget, returns a dict.
+        Returns:
+            tuple: (status, settings_dict)
+        """
+        [status, info] = self.parse_settings_widget()
+        if status:
+            return [status, info]
+        retset = self.settings.copy()
+        retset["integrationTime"] = int(self.settings["integrationTime"] * 1000)
+        return [0, retset]
+
     ########Functions
     ########device functions
     def spectrometerConnect(self, integrationTime=None):
-        # self._parse_settings_integrationTime()
+        self._log_verbose(f"Connecting to spectrometer with integration time: {integrationTime}")
         if integrationTime:
             self.settings["integrationTime"] = integrationTime
         try:
             status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationTime"])
             if not status:
+                self._log_verbose("Connection to spectrometer failed.")
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : can not connect to spectrometer")
-                self.info_message.emit("peltierController plugin : can not connect to spectrometer")
+                self.info_message.emit("TLCCS plugin : can not connect to spectrometer")
                 return [4, {"Error message": "Can not connect to spectrometer"}]
+            self._log_verbose("Spectrometer connected successfully.")
             return [0, "OK"]
         except Exception as e:
+            self._log_verbose(f"Exception during connection: {e}")
             return [4, {"Error message": f"{e}"}]
 
     def spectrometerDisconnect(self):
+        self._log_verbose("Disconnecting spectrometer.")
         try:
             self.drv.close()
+            self._log_verbose("Spectrometer disconnected successfully.")
             return [0, "OK"]
-        except:
+        except Exception as e:
+            self._log_verbose(f"Exception during disconnection: {e}")
             return [4, {"Error message": "Can not disconnect the spectrometer"}]
 
     def spectrometerSetIntegrationTime(self, integrationTime):
@@ -609,36 +656,50 @@ class dummy_spectro_GUI(QObject):
             return [4, {"Error message": f"{e}"}]
 
     def spectrometerStartScan(self):
+        """Starts a spectro scan
+
+        Returns:
+            _type_: _description_
+        """
+        self._log_verbose("Starting spectrometer scan.")
         try:
             if self.scanRunning:
+                self._log_verbose("Scan is already running.")
                 return [1, {"Error message": "Scan is already running"}]
             self.drv.start_scan()
             self.scanRunning = True
+            self._log_verbose("Spectrometer scan started successfully.")
             return [0, "OK"]
         except ThreadStopped:
             return [0, "ThreadStopped"]
-        except:
+        except Exception as e:
+            self._log_verbose(f"Exception during scan start: {e}")
             return [4, {"Error message": "Can not start scan"}]
 
     def spectrometerGetSpectrum(self):
-        """Gets the spectrum from the spectrometer. It waits until the scan is finished.
+        """Reads the spectrum from the spectrometer, waits for the scan to finish if necessary.
 
         Returns:
-            list[int, np.array|dict]:
+            _type_: _description_
         """
+        self._log_verbose("Getting spectrum from spectrometer.")
         try:
             while self.scanRunning:
                 if "SCAN_TRANSFER" not in self.drv.get_device_status():
+                    self._log_verbose("Waiting for scan to finish.")
                     time.sleep(self.settings["integrationTime"])
                 else:
                     break
             if not self.scanRunning:
+                self._log_verbose("Scan stopped before completion.")
                 return [1, {"Error message": "Scan stopped"}]
             else:
+                self._log_verbose("Spectrum retrieved successfully.")
                 return [0, self.drv.get_scan_data()]
         except ThreadStopped:
             pass
-        except:
+        except Exception as e:
+            self._log_verbose(f"Exception during spectrum retrieval: {e}")
             self.scanRunning = False
             return [4, {"Error message": "Can not get spectrum"}]
 
@@ -648,8 +709,8 @@ class dummy_spectro_GUI(QObject):
             try:
                 statuses = self.drv.get_device_status()
                 if "SCAN_TRANSFER" in statuses:
-                    # Scan is running, read the data
-                    stale = self.drv.get_scan_data()
+                    # Scan is running, read the stale data
+                    _ = self.drv.get_scan_data()
                 # No scan running, start a new scan
                 self.drv.start_scan()
                 return [0, self.drv.get_scan_data()]
@@ -663,6 +724,8 @@ class dummy_spectro_GUI(QObject):
 
     def createFile(self, varDict, filedelimeter, address, data):
         fileheader = self._spectrometerMakeHeader(varDict, separator=filedelimeter)
+        self._log_verbose(f"Creating file at {address} with data shape {data.shape}")
+        self._log_verbose(f"Correction data has shape {self.correction.shape}")
         np.savetxt(address, list(zip(self.correction[:, 0], data)), fmt="%.9e", delimiter=filedelimeter, newline="\n", header=fileheader, footer="#[EndOfFile]", comments="#")
 
     def _spectrometerMakeHeader(self, varDict={}, separator=";"):
