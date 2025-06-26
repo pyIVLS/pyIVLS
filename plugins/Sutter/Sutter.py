@@ -175,6 +175,8 @@ class Mpc325:
             print(stuff)
         if output_waiting > 0:
             print(f"WARNING: Output buffer was not empty. {output_waiting} bytes were waiting to be read.")
+            stuff = self.ser.read(output_waiting)
+            print(stuff)
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         self.ser.flush()

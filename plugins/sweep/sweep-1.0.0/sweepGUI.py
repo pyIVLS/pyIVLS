@@ -87,7 +87,6 @@ class sweepGUI(QObject):
         self.path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(self.path + "sweep_settingsWidget.ui")
         self.MDIWidget = uic.loadUi(self.path + "sweep_MDIWidget.ui")
-        self._connect_signals()
 
         self._create_plt()
 
@@ -135,25 +134,22 @@ class sweepGUI(QObject):
         plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
     ):
         ##populates GUI with values stored in settings
-
-        if plugin_info["singlechannel"] == "True":
-            self.settingsWidget.checkBox_singleChannel.setChecked(True)
-        self.settingsWidget.comboBox_channel.clear()
-        # read default SMU from plugin_info
         default_smu = plugin_info["smu"]
-
         # get channel names
         try:
+            self.settingsWidget.comboBox_channel.clear()
             self.settingsWidget.comboBox_channel.addItems(self.function_dict["smu"][default_smu]["smu_channelNames"]())
+            self.settingsWidget.comboBox_channel.setCurrentText(plugin_info["channel"])
         except KeyError:
             self.emit_log(1, {"Error message": f"SMU {default_smu} not found in function_dict"})
-
-        # update the SMU selection combobox
         self.settingsWidget.smuBox.addItems(list(self.function_dict["smu"].keys()))
+        if plugin_info["singlechannel"] == "True":
+            self.settingsWidget.checkBox_singleChannel.setChecked(True)
+        # read default SMU from plugin_info
+        default_smu = plugin_info["smu"]
+        # update the SMU selection combobox
         self.settingsWidget.smuBox.setCurrentText(default_smu)
-        currentIndex = self.settingsWidget.comboBox_channel.findText(plugin_info["channel"], Qt.MatchFlag.MatchFixedString)
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_channel.setCurrentIndex(currentIndex)
+
         currentIndex = self.settingsWidget.comboBox_inject.findText(plugin_info["inject"])
         if currentIndex > -1:
             self.settingsWidget.comboBox_inject.setCurrentIndex(currentIndex)
@@ -196,9 +192,6 @@ class sweepGUI(QObject):
         self.settingsWidget.lineEdit_drainNPLC.setText(plugin_info["drainnplc"])
         self.settingsWidget.lineEdit_drainDelay.setText(plugin_info["draindelay"])
 
-        # update to the correct GUI state
-        self._update_GUI_state()
-
         try:
             intPlotUpdate = int(plugin_info["plotUpdate"])
         except:
@@ -210,6 +203,7 @@ class sweepGUI(QObject):
         self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
         self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
         self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
+        self._connect_signals()
 
     def _setGUIfromSettings(self):
         ##populates GUI with values stored in settings
@@ -452,11 +446,14 @@ class sweepGUI(QObject):
     def _smu_plugin_changed(self):
         """Handles the visibility of the SMU settings based on the selected SMU plugin."""
         smu_selection = self.settingsWidget.smuBox.currentText()
-        self.settingsWidget.comboBox_channel.clear()
         if smu_selection in self.function_dict["smu"]:
             available_channels = self.function_dict["smu"][smu_selection]["smu_channelNames"]()
             # get channel names from the selected SMU plugin
+            self.settingsWidget.comboBox_channel.clear()
             self.settingsWidget.comboBox_channel.addItems(available_channels)
+            # check if the current channel is available
+
+        self.settingsWidget.update()
 
     ########Functions
     ########plugins interraction
@@ -588,7 +585,7 @@ class sweepGUI(QObject):
 
         # continuous nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            line_freq = self.smu_settings.get("lineFrequency") 
+            line_freq = self.smu_settings.get("lineFrequency")
             self.settings["continuousnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_continuousNPLC.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: continuous nplc field should be numeric"}]
@@ -727,12 +724,13 @@ class sweepGUI(QObject):
 
     def setSettings(self, settings):
         # the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
-        self.settings = []
+        self.settings = {}
         self.settings = copy.deepcopy(settings)
         self.smu_settings = settings["smu_settings"]
 
         # this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
         #        self._setGUIfromSettings()
+
     ###############GUI enable/disable
 
     def set_running(self, status):
@@ -800,7 +798,7 @@ class sweepGUI(QObject):
                         backVoltage=measurement["drainvoltage"],
                     )
                 else:
-                    fileheader = create_file_header(self.settings, self.smu_settings)            
+                    fileheader = create_file_header(self.settings, self.smu_settings)
             if measurement["pulse"]:
                 headerpostfix = "_pulsed"
             else:

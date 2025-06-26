@@ -12,8 +12,6 @@ from klayout import lay
 # Sift detection moved over to skimage since I prefer it.
 from skimage.feature import SIFT, match_descriptors
 
-# docs
-import pydoc
 
 
 class Preprocessor:
@@ -411,4 +409,3 @@ class Affine:
         return (x, y)  # return original coords if no region found
 
 
-pydoc.writedoc(Affine)
