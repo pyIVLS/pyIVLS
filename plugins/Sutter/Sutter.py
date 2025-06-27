@@ -33,7 +33,6 @@ class SutterError(Exception):
         self.message = message
         self.timestamp = datetime.now().strftime("%H:%M:%S.%f")
         self.message = f"{self.timestamp}: {self.message} (Sutter error Code: {self.error_code})"
-        self.end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
 
     def __str__(self):
         return self.message

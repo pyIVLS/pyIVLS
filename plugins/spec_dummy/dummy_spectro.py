@@ -148,14 +148,15 @@ class dummy_spectro_GUI(QObject):
 
     def _update_spectrum(self):
         """Updates the spectrum in the preview window.
+        FIXME: this throws errors if the preview is stopped at the wrong point during the scan. Does not matter since they are handled
 
         Returns:
             _type_: _description_
         """
         [status, info] = self.spectrometerGetScan()
         if status:
+            self.scanRunning = False
             return [status, info]
-        self.scanRunning = False
         if self.settings["previewCorrection"]:
             preview_data = [m * n * 1000 for m, n in zip(info, self.correction[:, 1])]
         else:
@@ -589,6 +590,9 @@ class dummy_spectro_GUI(QObject):
         else:
             self.settings["externalTrigger"] = False
         self.settings["previewCorrection"] = self._parse_spectrumCorrection()
+        self.settings["usecorrection"] = self._parse_spectrumCorrection() 
+        # duplicate value for spectrum correction since i don't want to break anything now. This is used to save the value to the ini.
+
         return [0, self.settings]
 
     def setSettings(self, settings):  #### settings from external call
@@ -713,7 +717,9 @@ class dummy_spectro_GUI(QObject):
                     _ = self.drv.get_scan_data()
                 # No scan running, start a new scan
                 self.drv.start_scan()
-                return [0, self.drv.get_scan_data()]
+                data = self.drv.get_scan_data()
+                self.scanRunning = False
+                return [0, data]
             except ThreadStopped:
                 return [0, "ThreadStopped"]
             except Exception as e:

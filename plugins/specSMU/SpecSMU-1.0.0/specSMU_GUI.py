@@ -170,7 +170,7 @@ class specSMU_GUI(QWidget):
             plugin_info (dict): Settings from plugin_data in pyIVLS_*_plugin.
         """
         # Set SMU selection and populate SMU box
-        smu_name = plugin_info.get("smu", self.default_smu) or self.default_smu
+        smu_name = plugin_info["smu"]
         self.settingsWidget.smuBox.clear()
         self.settingsWidget.smuBox.addItems(list(self.function_dict["smu"].keys()))
         if smu_name:
@@ -186,7 +186,7 @@ class specSMU_GUI(QWidget):
                 self.settingsWidget.comboBox_channel.setCurrentIndex(idx)
 
         # Set spectrometer selection and populate spectrometerBox
-        spectro_name = plugin_info.get("spectrometer", self.default_spectrometer) or self.default_spectrometer
+        spectro_name = plugin_info["spectrometer"]
         self.settingsWidget.spectrometerBox.clear()
         self.settingsWidget.spectrometerBox.addItems(list(self.function_dict["spectrometer"].keys()))
         if spectro_name:
@@ -231,6 +231,9 @@ class specSMU_GUI(QWidget):
             if line_edit and value != "":
                 line_edit.setText(str(value))
 
+        # set checkboxes 
+        single_channel = plugin_info["singlechannel"] == "True"
+        self.settingsWidget.checkBox_singleChannel.setChecked(single_channel)
         # update to the correct GUI state
         self._update_GUI_state()
 
@@ -307,6 +310,7 @@ class specSMU_GUI(QWidget):
             self.settings["delaymode"] = raw_settings["delaymode"].lower()
             self.settings["sourcesensemode"] = raw_settings["sourcesensemode"].lower()
             self.settings["singlechannel"] = raw_settings["singlechannel"]
+            self.settings["drainchannel"] = "" # PLACEHOLDER FIXME:  
 
             # Parse numeric fields
             self.settings["start"] = float(raw_settings["start"])
@@ -417,7 +421,7 @@ class specSMU_GUI(QWidget):
             self._log_verbose("Dual channel mode not implemented")
             return [1, {"Error message": "SpecSMU plugin: dual channel mode not implemented"}]
 
-        if self.function_dict["smu"]["smu_init"](s):
+        if self.function_dict["smu"][self.settings["smu"]]["smu_init"](s):
             self._log_verbose("Error initializing SMU")
             return [2, {"Error message": "SpecSMU plugin: error in SMU plugin can not initialize"}]
 

@@ -9,12 +9,10 @@ class MockCCSDRV:
 
     def open(self, spectrometerVID, spectrometerPID, integration_time=0.01):
         self.integration_time = integration_time
-        print(f"[Mock] Opened mock device with VID: {spectrometerVID}, PID: {spectrometerPID}")
         return True
 
     def close(self):
-        print("[Mock] Closed mock device.")
-
+        pass
     def get_integration_time(self):
         return self.integration_time
 
@@ -25,7 +23,6 @@ class MockCCSDRV:
         if not (1e-6 <= intg_time <= 60):
             raise ValueError("Integration time out of valid range")
         self.integration_time = intg_time
-        print(f"[Mock] Integration time set to {intg_time} seconds")
         return True
 
     def get_device_status(self, debug=False):
@@ -33,27 +30,23 @@ class MockCCSDRV:
 
     def start_scan(self):
         self.scan_active = True
-        print("[Mock] Starting scan...")
         time.sleep(self.integration_time * 1)
-        print("[Mock] Scan completed")
         self.scan_active = False
 
     def start_scan_continuous(self):
         self.scan_active = True
-        print("[Mock] Started continuous scan")
 
     def start_scan_ext_trigger(self):
         self.scan_active = True
-        print("[Mock] Waiting for external trigger...")
 
     def get_scan_data(self):
-        print("[Mock] Getting scan data...")
-        data = (np.random.rand(3648) - 1) / 100 + self.integration_time / 10
+        data = (np.random.rand(3648)) / 2 # from 0 to 0.5
+        data -= 0.4 # from -0.4 to 0.1
+        data = data + (self.integration_time)
         return np.array(data)
 
 
     def read_eeprom(self, addr, idx, length):
-        print(f"[Mock] Reading EEPROM at addr={addr}, idx={idx}, length={length}")
         return bytes([int(255 * np.random.rand()) for _ in range(length)])
 
     def get_firmware_revision(self):
