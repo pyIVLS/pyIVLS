@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>882</width>
+    <width>934</width>
     <height>650</height>
    </rect>
   </property>
@@ -27,6 +27,25 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
+       <widget class="QGroupBox" name="groupBox_2">
+        <property name="title">
+         <string>Dependencies</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_2">
+         <item row="0" column="1">
+          <widget class="QComboBox" name="smuBox"/>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label">
+           <property name="text">
+            <string>SMU Plugin</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
        <widget class="QGroupBox" name="groupBox_general_2">
         <property name="minimumSize">
          <size>
@@ -45,7 +64,7 @@
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_2">
          <item>
-          <layout class="QHBoxLayout" name="HBoxLayout_general" stretch="10,1,10,1,10,1,10,10">
+          <layout class="QHBoxLayout" name="HBoxLayout_general" stretch="10,10,10,10">
            <item>
             <layout class="QHBoxLayout" name="HBoxLayout_channel">
              <item>
@@ -99,16 +118,6 @@
             </layout>
            </item>
            <item>
-            <spacer name="horizontalSpacer_8">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
             <layout class="QHBoxLayout" name="HBoxLayout_inject" stretch="0,0">
              <item>
               <widget class="QLabel" name="label_inject">
@@ -159,16 +168,6 @@
               </widget>
              </item>
             </layout>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_9">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
            </item>
            <item>
             <layout class="QHBoxLayout" name="HBoxLayout_mode">
@@ -228,16 +227,6 @@
             </layout>
            </item>
            <item>
-            <spacer name="horizontalSpacer_69">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
             <layout class="QHBoxLayout" name="HBoxLayout_sourceSenseMode" stretch="0,0">
              <item>
               <widget class="QLabel" name="label_sourceSenseMode">
@@ -294,16 +283,6 @@
              </item>
             </layout>
            </item>
-           <item>
-            <spacer name="horizontalSpacer_11">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
           </layout>
          </item>
          <item>
@@ -336,7 +315,7 @@
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_9">
          <item>
-          <layout class="QHBoxLayout" name="HBoxLayout_pulsedLine1" stretch="0,1,10,1,10,1,10,1,10,1,10,1">
+          <layout class="QHBoxLayout" name="HBoxLayout_pulsedLine1" stretch="0,10,10,10,10,10">
            <item>
             <layout class="QHBoxLayout" name="HBoxLayout_pulsedStart" stretch="0,0,0">
              <item>
@@ -385,16 +364,6 @@
               </widget>
              </item>
             </layout>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_14">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
            </item>
            <item>
             <layout class="QHBoxLayout" name="HBoxLayout_pulsedEnd" stretch="0,0,0">
@@ -446,16 +415,6 @@
             </layout>
            </item>
            <item>
-            <spacer name="horizontalSpacer_15">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
             <layout class="QHBoxLayout" name="HBoxLayout_pulsedPoints" stretch="0,0">
              <item>
               <widget class="QLabel" name="label_Points">
@@ -496,16 +455,6 @@
               </widget>
              </item>
             </layout>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_16">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
            </item>
            <item>
             <layout class="QHBoxLayout" name="HBoxLayout_pulsedLimit" stretch="0,0,0">
@@ -555,16 +504,6 @@
               </widget>
              </item>
             </layout>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_22">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
            </item>
            <item>
             <layout class="QHBoxLayout" name="HBoxLayout_pulsedNPLC" stretch="0,0,0">
@@ -622,16 +561,6 @@
             </layout>
            </item>
            <item>
-            <spacer name="horizontalSpacer_24">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
             <layout class="QHBoxLayout" name="HBoxLayout_pulsedPause" stretch="0,0,0">
              <item>
               <widget class="QLabel" name="label_pulsedPause_2">
@@ -686,20 +615,10 @@
              </item>
             </layout>
            </item>
-           <item>
-            <spacer name="horizontalSpacer_25">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
           </layout>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="HBoxLayout_pulsedLine2" stretch="10,1,10,43">
+          <layout class="QHBoxLayout" name="HBoxLayout_pulsedLine2" stretch="10,10">
            <item>
             <layout class="QHBoxLayout" name="HBoxLayout_pulsedDelayMode">
              <item>
@@ -753,16 +672,6 @@
             </layout>
            </item>
            <item>
-            <spacer name="horizontalSpacer_17">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
             <layout class="QHBoxLayout" name="HBoxLayout_pulsedDelay" stretch="0,0,0">
              <item>
               <widget class="QLabel" name="label_Delay">
@@ -811,16 +720,6 @@
              </item>
             </layout>
            </item>
-           <item>
-            <spacer name="horizontalSpacer_18">
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
           </layout>
          </item>
         </layout>
@@ -828,6 +727,9 @@
       </item>
       <item>
        <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Orientation::Vertical</enum>
+        </property>
         <property name="sizeHint" stdset="0">
          <size>
           <width>20</width>

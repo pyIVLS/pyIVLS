@@ -563,7 +563,7 @@ class TLCCS_GUI(QObject):
         return [0, self.settings]
 
     def setSettings(self, settings):  #### settings from external call
-        self.settings = []
+        self.settings = {}
         self.settings = copy.deepcopy(settings)
 
     ########Functions

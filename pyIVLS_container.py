@@ -156,33 +156,34 @@ class pyIVLS_container(QObject):
 
     @pyqtSlot()
     def save_settings(self):
-        modifications = set()
+        modifications = {}
         current_config: list = self.pm.hook.get_plugin_settings()
         for plugin, code, settings in current_config:
             if code != 0:
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f": Error saving settings for plugin {plugin}: {code}, {settings['Error message']}")
                 continue
             if self.config.has_section(f"{plugin}_settings"):
-                # update the settings section
                 for key, value in settings.items():
-                    # check if the key is "error message"
-                    if key == "error message":
-                        # skip this key, it is not a setting
+                    if key == "Error message":
+                        # failure to parse settings
                         continue
-                    # check if the value is the same as the current value
                     if self.config.has_option(f"{plugin}_settings", key):
-                        if self.config[f"{plugin}_settings"][key] == str(value):
-                            continue
-                        else:
+                        old_value = self.config[f"{plugin}_settings"][key]
+                        if old_value != str(value):
                             self.config[f"{plugin}_settings"][key] = str(value)
-                            modifications.add(plugin)
+                            if plugin not in modifications:
+                                modifications[plugin] = []
+                            modifications[plugin].append((key, old_value, str(value)))
 
         # write the config file to disk
         self.cleanup()
 
-        # send some info to the log
+        # send detailed info to the log
         if modifications:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f": Settings saved for plugins: {', '.join(modifications)}")
+            for plugin, changes in modifications.items():
+                change_lines = [f"{key}: '{old}' -> '{new}'" for key, old, new in changes]
+                change_text = "; ".join(change_lines)
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f": Settings saved for plugin {plugin}: {change_text}")
 
     def get_plugin_info_for_settingsGUI(self) -> dict:
         """Returns a dictionary with the plugin info for the settings widget.
@@ -409,7 +410,6 @@ class pyIVLS_container(QObject):
             if plugin in seen:
                 return  # stop when seeing an already seen plugin
             seen.add(plugin)
-
             dependencies = self.config[plugin].get("dependencies", "").split(",")
             if self.debug:
                 print(f"Checking dependencies for {plugin}: {dependencies}")

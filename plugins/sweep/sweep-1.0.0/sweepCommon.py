@@ -1,4 +1,5 @@
 from datetime import datetime
+import copy
 
 
 def create_file_header(settings, smu_settings, backVoltage=None):
@@ -15,12 +16,12 @@ def create_file_header(settings, smu_settings, backVoltage=None):
     ## header may not be optimal, this is because it should repeat the structure of the headers produced by the old measurement station
     comment = "#####################"
     if settings["samplename"] == "":
-        comment = f"{comment}\n\n measurement of {{noname}}\n\n"
+        comment = f"{comment}\n#\n# measurement of {{noname}}\n#\n#"
     else:
-        comment = f"{comment}\n\n measurement of {settings['samplename']}\n\n"
-    comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n"
-    comment = f"{comment}Keithley source {settings['channel']}\n"
-    comment = f"{comment}Source in {settings['inject']} injection mode\n"
+        comment = f"{comment}\n#\n# measurement of {settings['samplename']}\n#\n#"
+    comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"
+    comment = f"{comment}Keithley source {settings['channel']}\n#"
+    comment = f"{comment}Source in {settings['inject']} injection mode\n#"
     if settings["inject"] == "voltage":
         stepunit = "V"
         limitunit = "A"
@@ -28,73 +29,73 @@ def create_file_header(settings, smu_settings, backVoltage=None):
         stepunit = "A"
         limitunit = "V"
     if settings["mode"] == "continuous":
-        comment = f"{comment}Steps in sweep {settings['continuouspoints']}\n"
+        comment = f"{comment}Steps in sweep {settings['continuouspoints']}\n#"
     elif settings["mode"] == "pulsed":
-        comment = f"{comment}Steps in sweep {settings['pulsedpoints']}\n"
+        comment = f"{comment}Steps in sweep {settings['pulsedpoints']}\n#"
     else:
-        comment = f"{comment}Steps in continuous sweep {settings['continuouspoints']} and in pulsed sweep {settings['pulsedpoints']}\n"
-    comment = comment = f"{comment}Sweep repeat for {settings['repeat']} times\n"
+        comment = f"{comment}Steps in continuous sweep {settings['continuouspoints']} and in pulsed sweep {settings['pulsedpoints']}\n#"
+    comment = comment = f"{comment}Sweep repeat for {settings['repeat']} times\n#"
     if settings["mode"] == "continuous":
-        comment = f"{comment}Start value for sweep {settings['continuousstart']} {stepunit}\n"
-        comment = f"{comment}End value for sweep {settings['continuousend']} {stepunit}\n"
-        comment = f"{comment}Limit for sweep step {settings['continuouslimit']} {limitunit}\n"
+        comment = f"{comment}Start value for sweep {settings['continuousstart']} {stepunit}\n#"
+        comment = f"{comment}End value for sweep {settings['continuousend']} {stepunit}\n#"
+        comment = f"{comment}Limit for sweep step {settings['continuouslimit']} {limitunit}\n#"
         if settings["continuousdelaymode"] == "auto":
-            comment = f"{comment}Measurement stabilization period is done in AUTO mode\n"
+            comment = f"{comment}Measurement stabilization period is done in AUTO mode\n#"
         else:
-            comment = f"{comment}Measurement stabilization period is{settings['continuousdelay'] / 1000} ms\n"
+            comment = f"{comment}Measurement stabilization period is{settings['continuousdelay'] / 1000} ms\n#"
         comment = f"{comment}NPLC value {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']})"
     else:
-        comment = f"{comment}Start value for sweep {settings['pulsedstart']} {stepunit}\n"
-        comment = f"{comment}End value for sweep {settings['pulsedend']} {stepunit}\n"
-        comment = f"{comment}Limit for sweep step {settings['pulsedlimit']} {limitunit}\n"
+        comment = f"{comment}Start value for sweep {settings['pulsedstart']} {stepunit}\n#"
+        comment = f"{comment}End value for sweep {settings['pulsedend']} {stepunit}\n#"
+        comment = f"{comment}Limit for sweep step {settings['pulsedlimit']} {limitunit}\n#"
         if settings["pulseddelaymode"] == "auto":
-            comment = f"{comment}Measurement stabilization period is done in AUTO mode\n"
+            comment = f"{comment}Measurement stabilization period is done in AUTO mode\n#"
         else:
-            comment = f"{comment}Measurement stabilization period is{settings['pulseddelay'] / 1000} ms\n"
-        comment = f"{comment}NPLC value {settings['pulsednplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['pulsednplc']})\n"
+            comment = f"{comment}Measurement stabilization period is{settings['pulseddelay'] / 1000} ms\n#"
+        comment = f"{comment}NPLC value {settings['pulsednplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['pulsednplc']})\n#"
 
-    comment = f"{comment}\n\n\n"
+    comment = f"{comment}\n#\n#\n#"
     if settings["mode"] == "continuous":
-        comment = f"{comment}Continuous operation of the source\n"
+        comment = f"{comment}Continuous operation of the source\n#"
     elif settings["mode"] == "pulsed":
-        comment = f"{comment}Pulse operation of the source with delays of {settings['pulsedpause']} s\n"
+        comment = f"{comment}Pulse operation of the source with delays of {settings['pulsedpause']} s\n#"
     else:
-        comment = f"{comment}Mixed operation of the source with delays of {settings['pulsedpause']} s\n"
+        comment = f"{comment}Mixed operation of the source with delays of {settings['pulsepause']} s\n#"
         comment = f"{comment}NPLC value for continuous operation arm {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']})"
-        comment = f"{comment}Limit for continuous operation arm {settings['continuouslimit']} {limitunit}\n"
-        comment = f"{comment}Start value for continuous operation arm {settings['continuousstart']} {stepunit}\n"
-        comment = f"{comment}End value for continuous operation arm {settings['continuousend']} {stepunit}\n"
-    comment = f"{comment}\n\n"
+        comment = f"{comment}Limit for continuous operation arm {settings['continuouslimit']} {limitunit}\n#"
+        comment = f"{comment}Start value for continuous operation arm {settings['continuousstart']} {stepunit}\n#"
+        comment = f"{comment}End value for continuous operation arm {settings['continuousend']} {stepunit}\n#"
+    comment = f"{comment}\n#\n#"
 
     if backVoltage is not None:
-        comment = f"{comment}Back voltage set to drain is {backVoltage} V\n"
+        comment = f"{comment}Back voltage set to drain is {backVoltage} V\n#"
     else:
-        comment = f"{comment}\n"
-    comment = f"{comment}\n\n\n\n"
+        comment = f"{comment}\n#"
+    comment = f"{comment}\n#\n#\n#\n#"
 
-    comment = f"{comment}Comment: {settings['comment']}\n"
-    comment = f"{comment}\n\n\n\n\n"
+    comment = f"{comment}Comment: {settings['comment']}\n#"
+    comment = f"{comment}\n#\n#\n#\n#\n#"
 
     if smu_settings["sourcehighc"]:
-        comment = f"{comment}High capacitance mode for source is enabled\n"
+        comment = f"{comment}High capacitance mode for source is enabled\n#"
     else:
-        comment = f"{comment}High capacitance mode for source is disabled\n"
+        comment = f"{comment}High capacitance mode for source is disabled\n#"
     if not (settings["singlechannel"]):
         if smu_settings["drainhighc"]:
-            comment = f"{comment}High capacitance mode for drain is enabled\n"
+            comment = f"{comment}High capacitance mode for drain is enabled\n#"
         else:
-            comment = f"{comment}High capacitance mode for drain is disabled\n"
+            comment = f"{comment}High capacitance mode for drain is disabled\n#"
     else:
-        comment = f"{comment}\n"
+        comment = f"{comment}\n#"
 
-    comment = f"{comment}\n\n\n\n\n\n\n\n\n"
+    comment = f"{comment}\n#\n#\n#\n#\n#\n#\n#\n#\n#"
 
     if settings["sourcesensemode"] == "2 wire":
-        comment = f"{comment}Sourse in 2 point measurement mode\n"
+        comment = f"{comment}Sourse in 2 point measurement mode\n#"
     elif settings["sourcesensemode"] == "4 wire":
-        comment = f"{comment}Sourse in 4 point measurement mode\n"
+        comment = f"{comment}Sourse in 4 point measurement mode\n#"
     else:
-        comment = f"{comment}Source performs both 2 and 4 point measurements\n"
+        comment = f"{comment}Source performs both 2 and 4 point measurements\n#"
     if not (settings["singlechannel"]):
         if settings["drainsensemode"] == "2 wire":
             comment = f"{comment}Drain in 2 point measurement mode\n"
@@ -128,13 +129,10 @@ def create_sweep_reciepe(settings, settings_smu):
     s["single_ch"] = settings["singlechannel"]  # single channel mode: may be True or False
     s["repeat"] = settings["repeat"]  # repeat count: should be int >0
     s["pulsepause"] = settings["pulsedpause"]  # pause between pulses in sweep (may not be used in continuous)
-
     s["drainnplc"] = settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
-
     s["draindelay"] = settings["draindelaymode"]  # stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)
     s["draindelayduration"] = settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
     s["drainlimit"] = settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
-    line_freq = settings_smu["lineFrequency"]
     s["sourcehighc"] = settings_smu["sourcehighc"]
     s["drainhighc"] = settings_smu["drainhighc"]
     if settings["singlechannel"]:
@@ -189,9 +187,6 @@ def create_sweep_reciepe(settings, settings_smu):
                 s["start"] = settings["pulsedstart"]  # start point of sweep
                 s["end"] = settings["pulsedend"]  # end point of sweep
                 s["limit"] = settings["pulsedlimit"]  # limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
-                # compute nplc and delay values
-
                 recipe.append(copy.deepcopy(s))
 
     return [recipe, loopdrain, len(loopsensesource), 2 if settings["mode"] == "mixed" else 1]
-

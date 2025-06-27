@@ -618,9 +618,9 @@ class AffineGUI(QObject):
             assert settings["sigmamask"] >= 0, "sigmaMask must be non-negative"
         except AttributeError as e:
             return 2, {
-                "error message": "settings widget not initialized",
+                "Error message": "settings widget not initialized",
                 "exception": str(e),
             }
         except (ValueError, AssertionError) as e:
-            return 1, {"error message": "Affine value error", "exception": str(e)}
+            return 1, {"Error message": "Affine value error", "exception": str(e)}
         return 0, settings

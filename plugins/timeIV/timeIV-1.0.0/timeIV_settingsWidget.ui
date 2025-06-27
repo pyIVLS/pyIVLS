@@ -208,18 +208,8 @@
                        </size>
                       </property>
                       <property name="currentIndex">
-                       <number>0</number>
+                       <number>-1</number>
                       </property>
-                      <item>
-                       <property name="text">
-                        <string>smuA</string>
-                       </property>
-                      </item>
-                      <item>
-                       <property name="text">
-                        <string>smuB</string>
-                       </property>
-                      </item>
                      </widget>
                     </item>
                    </layout>
@@ -277,12 +267,12 @@
                       </property>
                       <item>
                        <property name="text">
-                        <string>Current</string>
+                        <string>current</string>
                        </property>
                       </item>
                       <item>
                        <property name="text">
-                        <string>Voltage</string>
+                        <string>voltage</string>
                        </property>
                       </item>
                      </widget>
@@ -608,12 +598,12 @@
                       </property>
                       <item>
                        <property name="text">
-                        <string>Auto</string>
+                        <string>auto</string>
                        </property>
                       </item>
                       <item>
                        <property name="text">
-                        <string>Manual</string>
+                        <string>manual</string>
                        </property>
                       </item>
                      </widget>
@@ -759,12 +749,12 @@
                       </property>
                       <item>
                        <property name="text">
-                        <string>Current</string>
+                        <string>current</string>
                        </property>
                       </item>
                       <item>
                        <property name="text">
-                        <string>Voltage</string>
+                        <string>voltage</string>
                        </property>
                       </item>
                      </widget>
@@ -1090,12 +1080,12 @@
                       </property>
                       <item>
                        <property name="text">
-                        <string>Auto</string>
+                        <string>auto</string>
                        </property>
                       </item>
                       <item>
                        <property name="text">
-                        <string>Manual</string>
+                        <string>manual</string>
                        </property>
                       </item>
                      </widget>

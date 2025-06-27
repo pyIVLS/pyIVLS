@@ -309,7 +309,7 @@ class dialog(QDialog):
         except Exception as e:
             self.log_message.emit(
                 1,
-                {"error message": "matching failed: ", "exception": str(e)},
+                {"Error message": "matching failed: ", "exception": str(e)},
             )
             self.info_message.emit("Matching failed. Check the log for details.")
             return
