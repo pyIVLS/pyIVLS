@@ -65,17 +65,18 @@ class timeIVGUI(QObject):
             log = f"{timestamp} : {plugin_name} : {status} : {msg} : Exception: {exception}"
 
             self.log_message.emit(log)
-    
+
     def _log_verbose(self, message):
         """Logs a message if verbose mode is enabled."""
         if self.verbose:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")
             classname = self.__class__.__name__
-            self.log_message.emit(timestamp + " : " + classname + " : " f"VERBOSE: {message}")
+            self.log_message.emit(timestamp + " : " + classname + f" : VERBOSE: {message}")
+
     ########Functions
     def __init__(self):
         super(timeIVGUI, self).__init__()
-        self.verbose = True # FIXME
+        self.verbose = True  # FIXME
         # List of functions from another plugins required for functioning
         self.dependency = {
             "smu": [
@@ -532,7 +533,7 @@ class timeIVGUI(QObject):
 
         if status:
             self._update_GUI_state()
-
+        
     ########Functions
     ########plugins interraction
     def _getPublicFunctions(self, function_dict):
@@ -560,7 +561,7 @@ class timeIVGUI(QObject):
     def _getInfoSignal(self):
         return self.info_message
 
-    def setSettings(self, settings):
+    def setSettings(self, settings, update_gui=True):
         """Sets the settings for the plugin. Workflow from seqBuilder:
         1. Parse_settings_widget is called when step added to sequence
         2. When running, set_settings is called to set the settings for the plugin
@@ -572,6 +573,8 @@ class timeIVGUI(QObject):
         self.settings = []
         self.settings = copy.deepcopy(settings)
         self.smu_settings = settings["smu_settings"]
+        if update_gui: 
+            self._initGUI(settings)
 
     def _get_public_methods(self):
         """
@@ -742,7 +745,7 @@ class timeIVGUI(QObject):
             self.info_message.emit(f"{message['Error message']}")
             self.set_running(False)
             return [status, message]
-        
+
         self.function_dict["smu"][self.settings["smu"]]["set_running"](True)
         [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
         if status:
@@ -787,22 +790,22 @@ class timeIVGUI(QObject):
     def _timeIVimplementation(self):
         self._log_verbose("_timeIVimplementation: Creating file header.")
         header = self.create_file_header(self.settings, self.smu_settings)
-    
+
         self._log_verbose("_timeIVimplementation: Initializing SMU.")
         [status, message] = self.smuInit()
         if status:
             raise timeIVexception(f"{message['Error message']}")
-        
+
         self._log_verbose("_timeIVimplementation: Turning off SMU output.")
         self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
-        
+
         self._log_verbose("_timeIVimplementation: Setting SMU output for source channel.")
         self.function_dict["smu"][self.settings["smu"]]["smu_setOutput"](
             self.settings["channel"],
             "v" if self.settings["inject"] == "voltage" else "i",
             self.settings["sourcevalue"],
         )
-        
+
         if not self.settings["singlechannel"]:
             self._log_verbose("_timeIVimplementation: Setting SMU output for drain channel.")
             self.function_dict["smu"][self.settings["smu"]]["smu_setOutput"](
@@ -810,34 +813,34 @@ class timeIVGUI(QObject):
                 "v" if self.settings["draininject"] == "voltage" else "i",
                 self.settings["drainvalue"],
             )
-        
+
         timeData = []
         startTic = time.time()
         saveTic = startTic
         self._log_verbose("_timeIVimplementation: SMU initialized successfully.")
-        
+
         if not self.settings["singlechannel"]:
             self._log_verbose("_timeIVimplementation: Turning on SMU output for source and drain channels.")
             self.function_dict["smu"][self.settings["smu"]]["smu_outputON"](self.settings["channel"], self.settings["drainchannel"])
         else:
             self._log_verbose("_timeIVimplementation: Turning on SMU output for source channel.")
             self.function_dict["smu"][self.settings["smu"]]["smu_outputON"](self.settings["channel"])
-        
+
         while True:
             self._log_verbose("_timeIVimplementation: Fetching IV data for source channel.")
             status, sourceIV = self.function_dict["smu"][self.settings["smu"]]["smu_getIV"](self.settings["channel"])
             if status:
                 raise timeIVexception(sourceIV["Error message"])
-            
+
             if not self.settings["singlechannel"]:
                 self._log_verbose("_timeIVimplementation: Fetching IV data for drain channel.")
                 status, drainIV = self.function_dict["smu"][self.settings["smu"]]["smu_getIV"](self.settings["drainchannel"])
                 if status:
                     raise timeIVexception(drainIV["Error message"])
-            
+
             currentTime = time.time()
             toc = currentTime - startTic
-            
+
             if not timeData:
                 self._log_verbose("_timeIVimplementation: Initializing plots.")
                 self.axes.cla()
@@ -852,7 +855,7 @@ class timeIVGUI(QObject):
                 sourceI = [sourceIV[dataOrder.I.value]]
                 plot_refs = self.axes_twinx.plot(timeData, sourceI, "b*")
                 self._plot_sourceI = plot_refs[0]
-                
+
                 if not self.settings["singlechannel"]:
                     drainV = [drainIV[dataOrder.V.value]]
                     plot_refs = self.axes.plot(timeData, drainV, "go")
@@ -872,31 +875,31 @@ class timeIVGUI(QObject):
                 self.axes.plot(timeData, sourceV, "bo")
                 self.axes_twinx.cla()
                 self.axes_twinx.plot(timeData, sourceI, "b*")
-                
+
                 if not self.settings["singlechannel"]:
                     drainV.append(drainIV[dataOrder.V.value])
                     drainI.append(drainIV[dataOrder.I.value])
                     self.axes_twinx.plot(timeData, drainI, "g*")
                     self.axes.plot(timeData, drainV, "go")
-            
+
             self.axes.relim()
             self.axes.autoscale_view()
             self.sc.draw()
-            
+
             if self.settings["stoptimer"]:
                 if (currentTime - startTic) >= self.settings["stopafter"] * 60:  # convert to sec from min
                     self._log_verbose("_timeIVimplementation: Stop timer reached, saving data and exiting.")
                     self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
                     break
-            
+
             if self.settings["autosave"]:
                 if (currentTime - saveTic) >= self.settings["autosaveinterval"] * 60:  # convert to sec from min
                     self._log_verbose("_timeIVimplementation: Autosave interval reached, saving data.")
                     self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
                     saveTic = currentTime
-            
+
             time.sleep(self.settings["timestep"])
-        
+
         self._log_verbose("_timeIVimplementation: Turning off SMU output and disconnecting.")
         self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
         self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()

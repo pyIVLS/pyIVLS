@@ -38,10 +38,7 @@ class pyIVLS_timeIV_plugin:
         config.read(path)
 
         self.name = config.get("plugin", "name")
-        self.type = config.get(
-            "plugin",
-            "type",
-        )
+        self.type = config.get("plugin", "type")
         self.function = config.get("plugin", "function", fallback="")
         self._class = config.get("plugin", "class", fallback="")
         self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")

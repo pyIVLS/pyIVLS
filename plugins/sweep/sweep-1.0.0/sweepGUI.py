@@ -204,6 +204,7 @@ class sweepGUI(QObject):
         self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
         self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
         self._connect_signals()
+        self._update_GUI_state()
 
     def _setGUIfromSettings(self):
         ##populates GUI with values stored in settings
