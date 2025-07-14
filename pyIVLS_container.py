@@ -41,16 +41,14 @@ class pyIVLS_container(QObject):
             print("read_available_plugins in container called")
         self.available_plugins_signal.emit(self.get_plugin_dict())
 
-    @pyqtSlot(list)
-    def update_registration(self, plugins_to_activate: list):
+    @pyqtSlot(list, list)
+    def update_registration(self, plugins_to_activate: list, hidden_activation: list):
         """Updates the registrations based on the list of plugins to activate. Unloads all other plugins.
         Only signals the settings widget to update if changes are applied.
 
         Args:
             plugins_to_activate (list): list of plugin names to activate
         """
-        # NOTE: There is some overhead here, since all plugins are checked even is no changes are made.
-        # I don't think that this will be a problem, since the check is O(n) on a small set (under 100 plugins).
         if self.debug:
             print("update_registration in container called with: ", plugins_to_activate)
         changes_applied = False
@@ -66,6 +64,18 @@ class pyIVLS_container(QObject):
                 else:
                     if self._unregister(plugin):
                         changes_applied = True
+
+        # update .ini with the hidden mode changes
+        for section in self.config.sections():
+            if section.rsplit("_", 1)[1] == "plugin":
+                if section in hidden_activation:
+                    if self.config[section]["hidden"] == "False":
+                        changes_applied = True
+                    self.config[section]["hidden"] = "True"
+                else:
+                    if self.config[section]["hidden"] == "True":
+                        changes_applied = True
+                    self.config[section]["hidden"] = "False"
 
         if changes_applied:
             self.plugins_updated_signal.emit()
@@ -185,16 +195,36 @@ class pyIVLS_container(QObject):
                 change_text = "; ".join(change_lines)
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f": Settings saved for plugin {plugin}: {change_text}")
 
+    def _hidden_plugin_list(self) -> list:
+        """Returns a list of hidden plugins."""
+        hidden_plugins = []
+        for plugin in self.config.sections():
+            if plugin.rsplit("_", 1)[1] == "plugin":
+                if self.config[plugin]["hidden"] == "True":
+                    hidden_plugins.append(plugin.rsplit("_", 1)[0])
+        return hidden_plugins
+    
+    def _visible_plugin_list(self) -> list:
+        """Returns a list of visible plugins."""
+        visible_plugins = []
+        for plugin in self.config.sections():
+            if plugin.rsplit("_", 1)[1] == "plugin":
+                if self.config[plugin]["hidden"] == "False":
+                    visible_plugins.append(plugin.rsplit("_", 1)[0])
+        return visible_plugins
+
     def get_plugin_info_for_settingsGUI(self) -> dict:
         """Returns a dictionary with the plugin info for the settings widget.
 
         Returns:
             dict: plugin name -> plugin widget
         """
-        single_element_dicts = self.pm.hook.get_setup_interface(plugin_data=self.get_plugin_dict())
+        single_element_dicts:list[dict] = self.pm.hook.get_setup_interface(plugin_data=self.get_plugin_dict())
+        visible = self._visible_plugin_list()
         combined_dict = {}
-        for d in single_element_dicts:
-            combined_dict.update(d)
+        for entry in single_element_dicts:
+            if next(iter(entry.keys())) in visible:
+                combined_dict.update(entry)
         return combined_dict
 
     def get_plugin_info_for_MDIarea(self) -> dict:
@@ -203,10 +233,12 @@ class pyIVLS_container(QObject):
         Returns:
             dict: plugin name -> plugin widget
         """
-        single_element_dicts = self.pm.hook.get_MDI_interface()
+        single_element_dicts: list[dict] = self.pm.hook.get_MDI_interface()
+        visible = self._visible_plugin_list()
         combined_dict = {}
-        for d in single_element_dicts:
-            combined_dict.update(d)
+        for entry in single_element_dicts:
+            if next(iter(entry.keys())) in visible:
+                combined_dict.update(entry)
         return combined_dict
 
     def get_plugin_dict(self) -> dict:
@@ -225,6 +257,7 @@ class pyIVLS_container(QObject):
                 for option in [
                     "type",
                     "function",
+                    "hidden",
                     "class",
                     "load",
                     "dependencies",
