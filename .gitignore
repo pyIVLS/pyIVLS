@@ -9,3 +9,4 @@ pyIVLS.ini.old
 widgets_list
 .ruff_cache
 .*
+.pyIVLS.log

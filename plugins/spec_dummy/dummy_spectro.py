@@ -161,17 +161,20 @@ class dummy_spectro_GUI(QObject):
             preview_data = [m * n * 1000 for m, n in zip(info, self.correction[:, 1])]
         else:
             preview_data = info
-        xmin, xmax = self.axes.get_xlim()
-        ymin, ymax = self.axes.get_ylim()
-        self.axes.cla()
-        self.axes.set_xlabel("Wavelength (nm)")
-        self.axes.set_ylabel("Intensity (calib. arb. un.)")
-        self.axes.plot(self.correction[:, 0], preview_data, "b-")
-        self.axes.set_xlim(xmin, xmax)
-        self.axes.set_ylim(ymin, ymax)
-        self.sc.draw()
-        self.lastspectrum = [info, self.settings]
-        return [0, [self.correction[:, 0], info]]
+        try:
+            xmin, xmax = self.axes.get_xlim()
+            ymin, ymax = self.axes.get_ylim()
+            self.axes.cla()
+            self.axes.set_xlabel("Wavelength (nm)")
+            self.axes.set_ylabel("Intensity (calib. arb. un.)")
+            self.axes.plot(self.correction[:, 0], preview_data, "b-")
+            self.axes.set_xlim(xmin, xmax)
+            self.axes.set_ylim(ymin, ymax)
+            self.sc.draw()
+            self.lastspectrum = [info, self.settings]
+            return [0, [self.correction[:, 0], info]]
+        except Exception as e:
+            self.log_message()
 
     ########Functions
     ########GUI Slots
@@ -210,11 +213,11 @@ class dummy_spectro_GUI(QObject):
     def _previewAction(self):
         self._log_verbose("Preview button clicked.")
         if self.preview_running:
-            self._log_verbose("Stopping preview.")
-            self.run_thread.thread_stop()
-            if self.scanRunning:
-                self.scanRunning = False
+            self._log_verbose("Stopping preview. Waiting for scan to finish if in progress.")
             self.preview_running = False
+            # Wait for the thread to finish the current scan before stopping
+            if hasattr(self, 'run_thread') and self.run_thread.is_alive():
+                self.run_thread.join(timeout=2)  # Wait up to 2 seconds for the thread to finish
             self._enableSaveButton()
             self.closeLock.emit(self.preview_running)
         else:
@@ -235,7 +238,7 @@ class dummy_spectro_GUI(QObject):
 
     def _previewIteration(self):
         try:
-            while True:
+            while self.preview_running:
                 if self.integrationTimeChanged:
                     [status, info] = self.spectrometerSetIntegrationTime(self.settings["integrationTime"])
                     self.integrationTimeChanged = False
@@ -254,9 +257,12 @@ class dummy_spectro_GUI(QObject):
                     self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                     if not status == 1:
                         self.info_message.emit(f"TLCCS plugin : {info}")
+                    self.preview_running = False
                     return [status, info]
+            # If preview_running is set to False, finish the current scan and exit
+            self._log_verbose("Preview stopped gracefully after finishing current scan.")
+            return [0, "preview stopped"]
         except ThreadStopped:
-            ## spectrometer status shuld be checked here, if not IDLE some action may be considered
             return [0, "preview stopped"]
 
     def _setIntTimeAction(self):

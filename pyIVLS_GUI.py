@@ -182,11 +182,11 @@ class pyIVLS_GUI(QObject):
     def __init__(self):
         super(pyIVLS_GUI, self).__init__()
         self.path = dirname(__file__) + sep
-
+        
         self.window = pyIVLS_mainWindow(self.path)
         self.pluginloader = pyIVLS_pluginloader(self.path)
         self.seqBuilder = pyIVLS_seqBuilder(self.path)
-        self.window.setWindowIcon(QIcon('components\icon.png'))
+        self.window.setWindowIcon(QIcon(r'components/icon.png'))
 
         self.setSeqBuilder()
 

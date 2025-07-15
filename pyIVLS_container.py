@@ -117,7 +117,7 @@ class pyIVLS_container(QObject):
 
         # add a load option and a load_widget option to the plugin section
         new_config[section_plugin]["load"] = "False"  # default to not loaded
-        new_config[section_plugin]["load_widget"] = "True"  # default to not loaded in the widget
+        new_config[section_plugin]["hidden"] = "True"  # default to not loaded in the widget
 
         # check that the naming is correct
         module_name = f"pyIVLS_{plugin_name}"

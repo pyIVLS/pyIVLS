@@ -58,7 +58,8 @@ if __name__ == "__main__":
 
     pluginsContainer = pyIVLS_container()
     GUI_mainWindow = pyIVLS_GUI()
-
+    # log startup
+    GUI_mainWindow.addDataLog("pyIVLS session started")
     ### initalize signals for pluginloader <-> container communication
     GUI_mainWindow.pluginloader.request_available_plugins_signal.connect(pluginsContainer.read_available_plugins)
     GUI_mainWindow.pluginloader.update_config_signal.connect(pluginsContainer.update_config)

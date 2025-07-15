@@ -220,3 +220,373 @@
 2025-07-15 13:17:47,450 : INFO : 13:17:47.450211 : Plugin itc503 loaded
 2025-07-15 13:17:47,455 : INFO : 13:17:47.455053 : Plugin Sutter loaded
 2025-07-15 13:17:47,461 : INFO : 13:17:47.461857 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:23:22,379 : INFO : 13:23:22.379482 : Plugin Affine loaded
+2025-07-15 13:23:22,388 : INFO : 13:23:22.388618 : Plugin DummyCamera loaded
+2025-07-15 13:23:22,405 : INFO : 13:23:22.405683 : Plugin VenusUSB2 loaded
+2025-07-15 13:23:22,417 : INFO : 13:23:22.417587 : Plugin smu_dummy loaded
+2025-07-15 13:23:22,458 : INFO : 13:23:22.457997 : Plugin spec_dummy loaded
+2025-07-15 13:23:22,473 : INFO : 13:23:22.473939 : Plugin Keithley2612B loaded
+2025-07-15 13:23:22,488 : INFO : 13:23:22.488356 : Plugin touchDetect loaded
+2025-07-15 13:23:22,503 : INFO : 13:23:22.503309 : Plugin affineMove loaded
+2025-07-15 13:23:22,797 : INFO : 13:23:22.797536 : Plugin itc503 loaded
+2025-07-15 13:23:22,810 : INFO : 13:23:22.809995 : Plugin Sutter loaded
+2025-07-15 13:23:22,818 : INFO : 13:23:22.818639 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:24:54,134 : INFO : 13:24:54.134723 : Plugin Affine loaded
+2025-07-15 13:24:54,141 : INFO : 13:24:54.141550 : Plugin DummyCamera loaded
+2025-07-15 13:24:54,151 : INFO : 13:24:54.151541 : Plugin VenusUSB2 loaded
+2025-07-15 13:24:54,158 : INFO : 13:24:54.158293 : Plugin smu_dummy loaded
+2025-07-15 13:24:54,189 : INFO : 13:24:54.188982 : Plugin spec_dummy loaded
+2025-07-15 13:24:54,198 : INFO : 13:24:54.198955 : Plugin Keithley2612B loaded
+2025-07-15 13:24:54,208 : INFO : 13:24:54.208899 : Plugin touchDetect loaded
+2025-07-15 13:24:54,219 : INFO : 13:24:54.219676 : Plugin affineMove loaded
+2025-07-15 13:24:54,450 : INFO : 13:24:54.450206 : Plugin itc503 loaded
+2025-07-15 13:24:54,453 : INFO : 13:24:54.453575 : Plugin Sutter loaded
+2025-07-15 13:24:54,462 : INFO : 13:24:54.462464 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:27:41,593 : INFO : 13:27:41.593532 : Plugin Affine loaded
+2025-07-15 13:27:41,599 : INFO : 13:27:41.599624 : Plugin DummyCamera loaded
+2025-07-15 13:27:41,611 : INFO : 13:27:41.611043 : Plugin VenusUSB2 loaded
+2025-07-15 13:27:41,616 : INFO : 13:27:41.616400 : Plugin smu_dummy loaded
+2025-07-15 13:27:41,646 : INFO : 13:27:41.646780 : Plugin spec_dummy loaded
+2025-07-15 13:27:41,655 : INFO : 13:27:41.655225 : Plugin Keithley2612B loaded
+2025-07-15 13:27:41,666 : INFO : 13:27:41.666714 : Plugin touchDetect loaded
+2025-07-15 13:27:41,678 : INFO : 13:27:41.678444 : Plugin affineMove loaded
+2025-07-15 13:27:41,903 : INFO : 13:27:41.903345 : Plugin itc503 loaded
+2025-07-15 13:27:41,906 : INFO : 13:27:41.906768 : Plugin Sutter loaded
+2025-07-15 13:27:41,915 : INFO : 13:27:41.915197 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:27:54,958 : INFO : 13:27:54.958010 : Failed to load plugin sweep: No module named 'pyIVLS_sweep'
+2025-07-15 13:27:55,029 : INFO : 13:27:55.029137 : Failed to load plugin timeIV: No module named 'pyIVLS_timeIV'
+2025-07-15 13:27:55,029 : INFO : 13:27:55.029723 : Failed to load plugin SpecSMU: No module named 'pyIVLS_SpecSMU'
+2025-07-15 13:28:04,688 : INFO : 13:28:04.688704 : Plugin sweep added to config file.
+2025-07-15 13:28:11,697 : INFO : 13:28:11.696992 : Plugin timeIV added to config file.
+2025-07-15 13:28:20,852 : INFO : 13:28:20.852283 : Plugin SpecSMU added to config file.
+2025-07-15 13:28:27,511 : INFO : 13:28:27.511727 : Plugin sweep loaded
+2025-07-15 13:28:27,578 : INFO : 13:28:27.578451 : Plugin timeIV loaded
+2025-07-15 13:28:27,588 : INFO : 13:28:27.588112 : Plugin SpecSMU loaded
+2025-07-15 13:28:27,727 : INFO : 13:28:27.727959 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:28:32,790 : INFO : 13:28:32.790797 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:28:32,791 : INFO : 13:28:32.791108 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:28:32,792 : INFO : 13:28:32.792037 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:28:32,792 : INFO : 13:28:32.792222 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:28:32,792 : INFO : 13:28:32.792312 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:28:32,792 : INFO : 13:28:32.792458 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:28:32,804 : INFO : 13:28:32.804745 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:29:23,678 : INFO : 13:29:23.678863 : TLCCS plugin : address string should point to a valid directory
+2025-07-15 13:29:23,681 : INFO : 13:29:23.681175: Error saving settings for plugin spec_dummy: 1, TLCCS plugin : address string should point to a valid directory
+2025-07-15 13:29:23,682 : INFO : 13:29:23.682725: Settings saved for plugin VenusUSB2: exposure: '-12' -> '20'
+2025-07-15 13:32:28,645 : INFO : 13:32:28.645053 : Plugin TLCCS added to config file.
+2025-07-15 13:32:39,461 : INFO : 13:32:39.461665 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:32:39,462 : INFO : 13:32:39.462116 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:32:39,466 : INFO : 13:32:39.466524 : Plugin TLCCS loaded
+2025-07-15 13:33:27,904 : INFO : 13:33:27.904660 : Plugin Affine loaded
+2025-07-15 13:33:27,911 : INFO : 13:33:27.910976 : Plugin DummyCamera loaded
+2025-07-15 13:33:27,922 : INFO : 13:33:27.922474 : Plugin VenusUSB2 loaded
+2025-07-15 13:33:28,173 : INFO : 13:33:28.173195 : Plugin sweep loaded
+2025-07-15 13:33:28,178 : INFO : 13:33:28.178409 : Plugin smu_dummy loaded
+2025-07-15 13:33:28,203 : INFO : 13:33:28.203476 : Plugin spec_dummy loaded
+2025-07-15 13:33:28,214 : INFO : 13:33:28.214447 : Plugin Keithley2612B loaded
+2025-07-15 13:33:28,226 : INFO : 13:33:28.226933 : Plugin touchDetect loaded
+2025-07-15 13:33:28,262 : INFO : 13:33:28.262645 : Plugin timeIV loaded
+2025-07-15 13:33:28,270 : INFO : 13:33:28.270867 : Plugin SpecSMU loaded
+2025-07-15 13:33:28,281 : INFO : 13:33:28.281531 : Plugin affineMove loaded
+2025-07-15 13:33:28,504 : INFO : 13:33:28.504420 : Plugin itc503 loaded
+2025-07-15 13:33:28,509 : INFO : 13:33:28.509214 : Plugin Sutter loaded
+2025-07-15 13:33:28,511 : INFO : 13:33:28.510976 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:28,511 : INFO : 13:33:28.511206 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:28,518 : INFO : 13:33:28.518687 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:28,518 : INFO : 13:33:28.518892 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:28,519 : INFO : 13:33:28.519146 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:28,519 : INFO : 13:33:28.519316 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:28,519 : INFO : 13:33:28.519441 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:28,519 : INFO : 13:33:28.519823 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:33:28,521 : INFO : 13:33:28.521292 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:33:49,766 : INFO : 13:33:49.766668 : Plugin Affine loaded
+2025-07-15 13:33:49,774 : INFO : 13:33:49.774759 : Plugin DummyCamera loaded
+2025-07-15 13:33:49,786 : INFO : 13:33:49.786194 : Plugin VenusUSB2 loaded
+2025-07-15 13:33:50,050 : INFO : 13:33:50.050533 : Plugin sweep loaded
+2025-07-15 13:33:50,055 : INFO : 13:33:50.055681 : Plugin smu_dummy loaded
+2025-07-15 13:33:50,084 : INFO : 13:33:50.084183 : Plugin spec_dummy loaded
+2025-07-15 13:33:50,094 : INFO : 13:33:50.094565 : Plugin Keithley2612B loaded
+2025-07-15 13:33:50,106 : INFO : 13:33:50.106390 : Plugin touchDetect loaded
+2025-07-15 13:33:50,140 : INFO : 13:33:50.140399 : Plugin timeIV loaded
+2025-07-15 13:33:50,148 : INFO : 13:33:50.148689 : Plugin SpecSMU loaded
+2025-07-15 13:33:50,160 : INFO : 13:33:50.160711 : Plugin affineMove loaded
+2025-07-15 13:33:50,386 : INFO : 13:33:50.386065 : Plugin itc503 loaded
+2025-07-15 13:33:50,389 : INFO : 13:33:50.389919 : Plugin Sutter loaded
+2025-07-15 13:33:50,391 : INFO : 13:33:50.391512 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:50,391 : INFO : 13:33:50.391687 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:50,400 : INFO : 13:33:50.400267 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:50,400 : INFO : 13:33:50.400438 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:50,400 : INFO : 13:33:50.400756 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:50,400 : INFO : 13:33:50.400918 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:50,401 : INFO : 13:33:50.401088 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:33:50,401 : INFO : 13:33:50.401439 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:33:50,402 : INFO : 13:33:50.402617 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:34:01,359 : INFO : 13:34:01.359417 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:01,359 : INFO : 13:34:01.359872 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:01,363 : INFO : 13:34:01.363241 : Plugin TLCCS loaded
+2025-07-15 13:34:46,704 : INFO : 13:34:46.704292 : Plugin Affine loaded
+2025-07-15 13:34:46,710 : INFO : 13:34:46.710704 : Plugin DummyCamera loaded
+2025-07-15 13:34:46,721 : INFO : 13:34:46.721664 : Plugin VenusUSB2 loaded
+2025-07-15 13:34:46,965 : INFO : 13:34:46.965928 : Plugin sweep loaded
+2025-07-15 13:34:46,971 : INFO : 13:34:46.971137 : Plugin smu_dummy loaded
+2025-07-15 13:34:46,995 : INFO : 13:34:46.995869 : Plugin spec_dummy loaded
+2025-07-15 13:34:47,005 : INFO : 13:34:47.005179 : Plugin Keithley2612B loaded
+2025-07-15 13:34:47,017 : INFO : 13:34:47.017251 : Plugin touchDetect loaded
+2025-07-15 13:34:47,050 : INFO : 13:34:47.050595 : Plugin timeIV loaded
+2025-07-15 13:34:47,058 : INFO : 13:34:47.058160 : Plugin SpecSMU loaded
+2025-07-15 13:34:47,068 : INFO : 13:34:47.068722 : Plugin affineMove loaded
+2025-07-15 13:34:47,291 : INFO : 13:34:47.291791 : Plugin itc503 loaded
+2025-07-15 13:34:47,296 : INFO : 13:34:47.296418 : Plugin Sutter loaded
+2025-07-15 13:34:47,298 : INFO : 13:34:47.298174 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:47,298 : INFO : 13:34:47.298381 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:47,305 : INFO : 13:34:47.305713 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:47,305 : INFO : 13:34:47.305918 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:47,306 : INFO : 13:34:47.306197 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:47,306 : INFO : 13:34:47.306306 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:47,306 : INFO : 13:34:47.306441 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:47,306 : INFO : 13:34:47.306707 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:34:47,307 : INFO : 13:34:47.307661 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:34:53,415 : INFO : 13:34:53.415889 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:53,416 : INFO : 13:34:53.416220 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:34:53,418 : INFO : 13:34:53.418580 : Plugin TLCCS loaded
+2025-07-15 13:35:09,921 : INFO : 13:35:09.921165 : Plugin Affine loaded
+2025-07-15 13:35:09,929 : INFO : 13:35:09.929494 : Plugin DummyCamera loaded
+2025-07-15 13:35:09,940 : INFO : 13:35:09.940539 : Plugin VenusUSB2 loaded
+2025-07-15 13:35:10,220 : INFO : 13:35:10.219966 : Plugin sweep loaded
+2025-07-15 13:35:10,225 : INFO : 13:35:10.225584 : Plugin smu_dummy loaded
+2025-07-15 13:35:10,251 : INFO : 13:35:10.251905 : Plugin spec_dummy loaded
+2025-07-15 13:35:10,261 : INFO : 13:35:10.261573 : Plugin Keithley2612B loaded
+2025-07-15 13:35:10,273 : INFO : 13:35:10.273796 : Plugin touchDetect loaded
+2025-07-15 13:35:10,307 : INFO : 13:35:10.307324 : Plugin timeIV loaded
+2025-07-15 13:35:10,316 : INFO : 13:35:10.316312 : Plugin SpecSMU loaded
+2025-07-15 13:35:10,326 : INFO : 13:35:10.326763 : Plugin affineMove loaded
+2025-07-15 13:35:10,569 : INFO : 13:35:10.569657 : Plugin itc503 loaded
+2025-07-15 13:35:10,573 : INFO : 13:35:10.573534 : Plugin Sutter loaded
+2025-07-15 13:35:10,574 : INFO : 13:35:10.574902 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:10,575 : INFO : 13:35:10.575015 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:10,582 : INFO : 13:35:10.582177 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:10,582 : INFO : 13:35:10.582428 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:10,582 : INFO : 13:35:10.582661 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:10,582 : INFO : 13:35:10.582775 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:10,582 : INFO : 13:35:10.582898 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:10,583 : INFO : 13:35:10.583159 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:35:10,584 : INFO : 13:35:10.584315 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:35:17,390 : INFO : 13:35:17.390486 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:17,390 : INFO : 13:35:17.390776 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:17,393 : INFO : 13:35:17.393297 : Plugin TLCCS loaded
+2025-07-15 13:35:52,340 : INFO : 13:35:52.340549 : Plugin Affine loaded
+2025-07-15 13:35:52,346 : INFO : 13:35:52.346236 : Plugin DummyCamera loaded
+2025-07-15 13:35:52,357 : INFO : 13:35:52.357848 : Plugin VenusUSB2 loaded
+2025-07-15 13:35:52,618 : INFO : 13:35:52.618876 : Plugin sweep loaded
+2025-07-15 13:35:52,625 : INFO : 13:35:52.625064 : Plugin smu_dummy loaded
+2025-07-15 13:35:52,652 : INFO : 13:35:52.652367 : Plugin spec_dummy loaded
+2025-07-15 13:35:52,661 : INFO : 13:35:52.661942 : Plugin Keithley2612B loaded
+2025-07-15 13:35:52,676 : INFO : 13:35:52.676600 : Plugin touchDetect loaded
+2025-07-15 13:35:52,711 : INFO : 13:35:52.711731 : Plugin timeIV loaded
+2025-07-15 13:35:52,721 : INFO : 13:35:52.721704 : Plugin SpecSMU loaded
+2025-07-15 13:35:52,732 : INFO : 13:35:52.732769 : Plugin affineMove loaded
+2025-07-15 13:35:52,965 : INFO : 13:35:52.965950 : Plugin itc503 loaded
+2025-07-15 13:35:52,971 : INFO : 13:35:52.971123 : Plugin Sutter loaded
+2025-07-15 13:35:52,973 : INFO : 13:35:52.973948 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:52,974 : INFO : 13:35:52.974112 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:52,981 : INFO : 13:35:52.981245 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:52,981 : INFO : 13:35:52.981406 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:52,981 : INFO : 13:35:52.981716 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:52,981 : INFO : 13:35:52.981853 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:52,982 : INFO : 13:35:52.981991 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:52,982 : INFO : 13:35:52.982261 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:35:52,983 : INFO : 13:35:52.983218 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:35:58,027 : INFO : 13:35:58.027087 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:58,027 : INFO : 13:35:58.027478 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:58,031 : INFO : 13:35:58.031063 : Plugin TLCCS loaded
+2025-07-15 13:35:58,039 : INFO : 13:35:58.039124 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:58,039 : INFO : 13:35:58.039525 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:58,041 : INFO : 13:35:58.041506 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:58,041 : INFO : 13:35:58.041862 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:58,042 : INFO : 13:35:58.042306 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:58,042 : INFO : 13:35:58.042431 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:35:58,042 : INFO : 13:35:58.042707 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:35:58,044 : INFO : 13:35:58.044757 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:36:47,609 : INFO : 13:36:47.608975 : Plugin Affine loaded
+2025-07-15 13:36:47,615 : INFO : 13:36:47.615365 : Plugin DummyCamera loaded
+2025-07-15 13:36:47,626 : INFO : 13:36:47.626331 : Plugin VenusUSB2 loaded
+2025-07-15 13:36:47,867 : INFO : 13:36:47.867121 : Plugin sweep loaded
+2025-07-15 13:36:47,872 : INFO : 13:36:47.872179 : Plugin smu_dummy loaded
+2025-07-15 13:36:47,897 : INFO : 13:36:47.897384 : Plugin spec_dummy loaded
+2025-07-15 13:36:47,906 : INFO : 13:36:47.906090 : Plugin Keithley2612B loaded
+2025-07-15 13:36:47,917 : INFO : 13:36:47.917278 : Plugin touchDetect loaded
+2025-07-15 13:36:47,949 : INFO : 13:36:47.949320 : Plugin timeIV loaded
+2025-07-15 13:36:47,956 : INFO : 13:36:47.956550 : Plugin SpecSMU loaded
+2025-07-15 13:36:47,967 : INFO : 13:36:47.967016 : Plugin affineMove loaded
+2025-07-15 13:36:48,187 : INFO : 13:36:48.187631 : Plugin itc503 loaded
+2025-07-15 13:36:48,192 : INFO : 13:36:48.192285 : Plugin Sutter loaded
+2025-07-15 13:36:48,216 : INFO : 13:36:48.216601 : Plugin TLCCS loaded
+2025-07-15 13:36:48,218 : INFO : 13:36:48.218158 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:36:48,218 : INFO : 13:36:48.218274 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:36:48,225 : INFO : 13:36:48.225119 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:36:48,225 : INFO : 13:36:48.225284 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:36:48,225 : INFO : 13:36:48.225614 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:36:48,225 : INFO : 13:36:48.225749 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:36:48,225 : INFO : 13:36:48.225887 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:36:48,226 : INFO : 13:36:48.226072 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:36:48,226 : INFO : 13:36:48.226419 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:36:48,227 : INFO : 13:36:48.227520 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:39:44,710 : INFO : 13:39:44.710708 : TLCCS plugin : address string should point to a valid directory
+2025-07-15 13:39:44,711 : INFO : 13:39:44.711158 : TLCCS plugin : {'Error message': 'TLCCS plugin : address string should point to a valid directory'}, status = 1
+2025-07-15 13:39:52,561 : INFO : 13:39:52.561049 : TLCCS plugin : {'Error message': 'Device not found'}, status = 4
+2025-07-15 13:40:27,277 : INFO : 13:40:27.277120 : dummy_spectro_GUI : VERBOSE: Attempting to connect to the spectrometer.
+2025-07-15 13:40:27,277 : INFO : 13:40:27.277478 : TLCCS plugin : address string should point to a valid directory
+2025-07-15 13:40:27,277 : INFO : 13:40:27.277659 : dummy_spectro_GUI : VERBOSE: Failed to parse settings: {'Error message': 'TLCCS plugin : address string should point to a valid directory'}
+2025-07-15 13:40:27,277 : INFO : 13:40:27.277891 : TLCCS plugin : {'Error message': 'TLCCS plugin : address string should point to a valid directory'}, status = 1
+2025-07-15 13:40:33,589 : INFO : 13:40:33.589311 : dummy_spectro_GUI : VERBOSE: Attempting to connect to the spectrometer.
+2025-07-15 13:40:33,590 : INFO : 13:40:33.590013 : dummy_spectro_GUI : VERBOSE: Connecting to spectrometer with integration time: None
+2025-07-15 13:40:33,590 : INFO : 13:40:33.590253 : dummy_spectro_GUI : VERBOSE: Spectrometer connected successfully.
+2025-07-15 13:40:33,590 : INFO : 13:40:33.590448 : dummy_spectro_GUI : VERBOSE: Spectrometer connected successfully.
+2025-07-15 13:40:37,510 : INFO : 13:40:37.510408 : dummy_spectro_GUI : VERBOSE: Preview button clicked.
+2025-07-15 13:40:37,510 : INFO : 13:40:37.510738 : dummy_spectro_GUI : VERBOSE: Starting preview.
+2025-07-15 13:40:37,517 : INFO : 13:40:37.517411 : dummy_spectro_GUI : VERBOSE: Preview started successfully.
+2025-07-15 13:41:10,958 : INFO : 13:41:10.958049 : dummy_spectro_GUI : VERBOSE: Preview button clicked.
+2025-07-15 13:41:10,958 : INFO : 13:41:10.958543 : dummy_spectro_GUI : VERBOSE: Stopping preview.
+2025-07-15 13:41:10,959 : INFO : 13:41:10.959274 : dummy_spectro_GUI : VERBOSE: Calculating auto integration time.
+2025-07-15 13:41:10,959 : INFO : 13:41:10.959688 : dummy_spectro_GUI : VERBOSE: Iteration 1: Current guess = 200.0 ms.
+2025-07-15 13:41:10,960 : INFO : 13:41:10.960116 : dummy_spectro_GUI : VERBOSE: Starting spectrometer scan.
+2025-07-15 13:41:11,160 : INFO : 13:41:11.160737 : dummy_spectro_GUI : VERBOSE: Spectrometer scan started successfully.
+2025-07-15 13:41:11,439 : INFO : 13:41:11.439275 : dummy_spectro_GUI : VERBOSE: getAutoTime: Retrieved spectrum with shape (3648,) and max value 0.29975949253973055.
+2025-07-15 13:41:11,439 : INFO : 13:41:11.439566 : dummy_spectro_GUI : VERBOSE: Creating file at /home/ivls/pyIVLS_0.1.0/pyIVLS/plugins/spec_dummy/testSpectrum_200ms.csv with data shape (3648,)
+2025-07-15 13:41:11,439 : INFO : 13:41:11.439702 : dummy_spectro_GUI : VERBOSE: Correction data has shape (3648, 2)
+2025-07-15 13:41:11,451 : INFO : 13:41:11.451524 : dummy_spectro_GUI : VERBOSE: Optimal integration time found: 0.2 seconds.
+2025-07-15 13:41:11,451 : INFO : 13:41:11.451707 : dummy_spectro_GUI : VERBOSE: Preview button clicked.
+2025-07-15 13:41:11,451 : INFO : 13:41:11.451827 : dummy_spectro_GUI : VERBOSE: Starting preview.
+2025-07-15 13:41:11,452 : INFO : 13:41:11.452381 : dummy_spectro_GUI : VERBOSE: Preview started successfully.
+2025-07-15 13:41:27,189 : INFO : 13:41:27.189661 : dummy_spectro_GUI : VERBOSE: Preview button clicked.
+2025-07-15 13:41:27,190 : INFO : 13:41:27.190049 : dummy_spectro_GUI : VERBOSE: Stopping preview.
+2025-07-15 13:48:18,971 : INFO : 13:48:18.971655 : Plugin Affine loaded
+2025-07-15 13:48:18,978 : INFO : 13:48:18.978319 : Plugin DummyCamera loaded
+2025-07-15 13:48:18,989 : INFO : 13:48:18.989613 : Plugin VenusUSB2 loaded
+2025-07-15 13:48:19,231 : INFO : 13:48:19.231907 : Plugin sweep loaded
+2025-07-15 13:48:19,237 : INFO : 13:48:19.237051 : Plugin smu_dummy loaded
+2025-07-15 13:48:19,267 : INFO : 13:48:19.267379 : Plugin spec_dummy loaded
+2025-07-15 13:48:19,275 : INFO : 13:48:19.275781 : Plugin Keithley2612B loaded
+2025-07-15 13:48:19,287 : INFO : 13:48:19.287540 : Plugin touchDetect loaded
+2025-07-15 13:48:19,325 : INFO : 13:48:19.325262 : Plugin timeIV loaded
+2025-07-15 13:48:19,334 : INFO : 13:48:19.334461 : Plugin SpecSMU loaded
+2025-07-15 13:48:19,350 : INFO : 13:48:19.350790 : Plugin affineMove loaded
+2025-07-15 13:48:19,578 : INFO : 13:48:19.578386 : Plugin itc503 loaded
+2025-07-15 13:48:19,583 : INFO : 13:48:19.583788 : Plugin Sutter loaded
+2025-07-15 13:48:19,609 : INFO : 13:48:19.609254 : Plugin TLCCS loaded
+2025-07-15 13:48:19,610 : INFO : 13:48:19.610730 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:48:19,610 : INFO : 13:48:19.610865 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:48:19,618 : INFO : 13:48:19.618942 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:48:19,619 : INFO : 13:48:19.619115 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:48:19,619 : INFO : 13:48:19.619380 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:48:19,619 : INFO : 13:48:19.619476 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:48:19,619 : INFO : 13:48:19.619631 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:48:19,619 : INFO : 13:48:19.619731 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:48:19,619 : INFO : 13:48:19.619960 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:48:19,621 : INFO : 13:48:19.620999 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:48:23,278 : INFO : 13:48:23.278354 : dummy_spectro_GUI : VERBOSE: Attempting to connect to the spectrometer.
+2025-07-15 13:48:23,279 : INFO : 13:48:23.278964 : TLCCS plugin : address string should point to a valid directory
+2025-07-15 13:48:23,279 : INFO : 13:48:23.279305 : dummy_spectro_GUI : VERBOSE: Failed to parse settings: {'Error message': 'TLCCS plugin : address string should point to a valid directory'}
+2025-07-15 13:48:23,279 : INFO : 13:48:23.279632 : TLCCS plugin : {'Error message': 'TLCCS plugin : address string should point to a valid directory'}, status = 1
+2025-07-15 13:51:23,324 : INFO : pyIVLS session started
+2025-07-15 13:51:24,042 : INFO : 13:51:24.042147 : Plugin Affine loaded
+2025-07-15 13:51:24,050 : INFO : 13:51:24.050530 : Plugin DummyCamera loaded
+2025-07-15 13:51:24,059 : INFO : 13:51:24.059563 : Plugin VenusUSB2 loaded
+2025-07-15 13:51:24,300 : INFO : 13:51:24.300902 : Plugin sweep loaded
+2025-07-15 13:51:24,306 : INFO : 13:51:24.306287 : Plugin smu_dummy loaded
+2025-07-15 13:51:24,329 : INFO : 13:51:24.329835 : Plugin spec_dummy loaded
+2025-07-15 13:51:24,338 : INFO : 13:51:24.338550 : Plugin Keithley2612B loaded
+2025-07-15 13:51:24,350 : INFO : 13:51:24.350779 : Plugin touchDetect loaded
+2025-07-15 13:51:24,382 : INFO : 13:51:24.382373 : Plugin timeIV loaded
+2025-07-15 13:51:24,390 : INFO : 13:51:24.389970 : Plugin SpecSMU loaded
+2025-07-15 13:51:24,401 : INFO : 13:51:24.401039 : Plugin affineMove loaded
+2025-07-15 13:51:24,629 : INFO : 13:51:24.629545 : Plugin itc503 loaded
+2025-07-15 13:51:24,633 : INFO : 13:51:24.633494 : Plugin Sutter loaded
+2025-07-15 13:51:24,658 : INFO : 13:51:24.658652 : Plugin TLCCS loaded
+2025-07-15 13:51:24,660 : INFO : 13:51:24.660225 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:24,660 : INFO : 13:51:24.660340 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:24,668 : INFO : 13:51:24.668954 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:24,669 : INFO : 13:51:24.669110 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:24,669 : INFO : 13:51:24.669420 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:24,669 : INFO : 13:51:24.669527 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:24,669 : INFO : 13:51:24.669692 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:24,669 : INFO : 13:51:24.669842 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:24,670 : INFO : 13:51:24.670292 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:51:24,671 : INFO : 13:51:24.671305 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:51:53,420 : INFO : pyIVLS session started
+2025-07-15 13:51:54,108 : INFO : 13:51:54.108723 : Plugin Affine loaded
+2025-07-15 13:51:54,115 : INFO : 13:51:54.115180 : Plugin DummyCamera loaded
+2025-07-15 13:51:54,127 : INFO : 13:51:54.127488 : Plugin VenusUSB2 loaded
+2025-07-15 13:51:54,367 : INFO : 13:51:54.367286 : Plugin sweep loaded
+2025-07-15 13:51:54,372 : INFO : 13:51:54.372505 : Plugin smu_dummy loaded
+2025-07-15 13:51:54,397 : INFO : 13:51:54.397413 : Plugin spec_dummy loaded
+2025-07-15 13:51:54,407 : INFO : 13:51:54.407414 : Plugin Keithley2612B loaded
+2025-07-15 13:51:54,418 : INFO : 13:51:54.418052 : Plugin touchDetect loaded
+2025-07-15 13:51:54,450 : INFO : 13:51:54.450690 : Plugin timeIV loaded
+2025-07-15 13:51:54,459 : INFO : 13:51:54.459146 : Plugin SpecSMU loaded
+2025-07-15 13:51:54,470 : INFO : 13:51:54.469997 : Plugin affineMove loaded
+2025-07-15 13:51:54,697 : INFO : 13:51:54.697233 : Plugin itc503 loaded
+2025-07-15 13:51:54,701 : INFO : 13:51:54.701907 : Plugin Sutter loaded
+2025-07-15 13:51:54,726 : INFO : 13:51:54.726778 : Plugin TLCCS loaded
+2025-07-15 13:51:54,728 : INFO : 13:51:54.728281 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:54,728 : INFO : 13:51:54.728399 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:54,735 : INFO : 13:51:54.735570 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:54,735 : INFO : 13:51:54.735772 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:54,736 : INFO : 13:51:54.736120 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:54,736 : INFO : 13:51:54.736273 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:54,736 : INFO : 13:51:54.736469 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:54,736 : INFO : 13:51:54.736630 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:51:54,737 : INFO : 13:51:54.737029 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:51:54,738 : INFO : 13:51:54.738459 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:51:54,778 : INFO : pyIVLS session stopped
+2025-07-15 13:52:06,398 : INFO : pyIVLS session started
+2025-07-15 13:52:07,101 : INFO : 13:52:07.101776 : Plugin Affine loaded
+2025-07-15 13:52:07,107 : INFO : 13:52:07.107326 : Plugin DummyCamera loaded
+2025-07-15 13:52:07,118 : INFO : 13:52:07.118090 : Plugin VenusUSB2 loaded
+2025-07-15 13:52:07,364 : INFO : 13:52:07.364960 : Plugin sweep loaded
+2025-07-15 13:52:07,370 : INFO : 13:52:07.370083 : Plugin smu_dummy loaded
+2025-07-15 13:52:07,393 : INFO : 13:52:07.393846 : Plugin spec_dummy loaded
+2025-07-15 13:52:07,403 : INFO : 13:52:07.403651 : Plugin Keithley2612B loaded
+2025-07-15 13:52:07,415 : INFO : 13:52:07.415617 : Plugin touchDetect loaded
+2025-07-15 13:52:07,448 : INFO : 13:52:07.448368 : Plugin timeIV loaded
+2025-07-15 13:52:07,455 : INFO : 13:52:07.455848 : Plugin SpecSMU loaded
+2025-07-15 13:52:07,466 : INFO : 13:52:07.466791 : Plugin affineMove loaded
+2025-07-15 13:52:07,693 : INFO : 13:52:07.693128 : Plugin itc503 loaded
+2025-07-15 13:52:07,697 : INFO : 13:52:07.697054 : Plugin Sutter loaded
+2025-07-15 13:52:07,724 : INFO : 13:52:07.724363 : Plugin TLCCS loaded
+2025-07-15 13:52:07,725 : INFO : 13:52:07.725949 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:07,726 : INFO : 13:52:07.726093 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:07,734 : INFO : 13:52:07.734349 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:07,734 : INFO : 13:52:07.734534 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:07,734 : INFO : 13:52:07.734797 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:07,735 : INFO : 13:52:07.734964 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:07,735 : INFO : 13:52:07.735146 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:07,735 : INFO : 13:52:07.735261 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:07,735 : INFO : 13:52:07.735574 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:52:07,736 : INFO : 13:52:07.736443 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:52:20,893 : INFO : pyIVLS session started
+2025-07-15 13:52:21,583 : INFO : 13:52:21.583237 : Plugin Affine loaded
+2025-07-15 13:52:21,588 : INFO : 13:52:21.588910 : Plugin DummyCamera loaded
+2025-07-15 13:52:21,599 : INFO : 13:52:21.599528 : Plugin VenusUSB2 loaded
+2025-07-15 13:52:21,839 : INFO : 13:52:21.839498 : Plugin sweep loaded
+2025-07-15 13:52:21,844 : INFO : 13:52:21.844658 : Plugin smu_dummy loaded
+2025-07-15 13:52:21,868 : INFO : 13:52:21.868915 : Plugin spec_dummy loaded
+2025-07-15 13:52:21,879 : INFO : 13:52:21.879377 : Plugin Keithley2612B loaded
+2025-07-15 13:52:21,889 : INFO : 13:52:21.889609 : Plugin touchDetect loaded
+2025-07-15 13:52:21,923 : INFO : 13:52:21.923594 : Plugin timeIV loaded
+2025-07-15 13:52:21,932 : INFO : 13:52:21.932242 : Plugin SpecSMU loaded
+2025-07-15 13:52:21,942 : INFO : 13:52:21.942060 : Plugin affineMove loaded
+2025-07-15 13:52:22,187 : INFO : 13:52:22.187835 : Plugin itc503 loaded
+2025-07-15 13:52:22,192 : INFO : 13:52:22.192564 : Plugin Sutter loaded
+2025-07-15 13:52:22,216 : INFO : 13:52:22.216467 : Plugin TLCCS loaded
+2025-07-15 13:52:22,218 : INFO : 13:52:22.218069 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:22,218 : INFO : 13:52:22.218204 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:22,225 : INFO : 13:52:22.225570 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:22,225 : INFO : 13:52:22.225848 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:22,226 : INFO : 13:52:22.226187 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:22,226 : INFO : 13:52:22.226298 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:22,226 : INFO : 13:52:22.226437 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:22,226 : INFO : 13:52:22.226582 : specSMU_GUI : VERBOSE: Spectrometer plugin changed, but no specific actions defined yet.
+2025-07-15 13:52:22,226 : INFO : 13:52:22.226899 : timeIVGUI : VERBOSE: Initializing GUI with plugin_info: {'timestep': '1', 'stoptimer': 'True', 'stopafter': '0.5', 'address': '/u/17/hakkano1/data/Documents/pyIVLS/plugins/timeIV/timeIV-1.0.0', 'filename': 'testData', 'comment': 'Some very long comment', 'samplename': 'test sample', 'autosave': 'False', 'autosaveinterval': '15', 'singlechannel': 'True', 'channel': 'not', 'inject': 'voltage', 'sourcesensemode': '2 wire', 'sourcedelaymode': 'auto', 'sourcesetvalue': '1', 'sourcelimit': '0.1', 'sourcenplc': '20', 'sourcedelay': '10', 'draininject': 'current', 'drainsensemode': '2 wire', 'draindelaymode': 'auto', 'drainsetvalue': '1', 'drainlimit': '0.1', 'drainnplc': '20', 'draindelay': '10', 'smu': 'smu_dummy'}
+2025-07-15 13:52:22,228 : INFO : 13:52:22.228083 : dummy_spectro_GUI : VERBOSE: Initializing GUI with plugin_info: {'integrationtime': '200', 'externaltrigger': 'False', 'usecorrection': 'False', 'address': 'C:/Users/otsoh/Documents/pyIVLS/plugins/spec_dummy', 'filename': 'testSpectrum', 'comment': 'Some very long comment', 'samplename': 'test sample', 'integrationtimetype': 'auto', 'useintegrationtimeguess': 'True', 'saveattempts_check': 'True'}
+2025-07-15 13:52:22,267 : INFO : pyIVLS session stopped
