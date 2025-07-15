@@ -56,9 +56,9 @@ class affineMoveGUI(QObject):
     info_message = pyqtSignal(str)
 
     def emit_log(self, message: str):
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        plugin_name = "AffineMove"
-        self.log_message.emit(f"{timestamp}: {plugin_name} caught: {message}")
+        plugin_name = self.__class__.__name__
+        log = f"{plugin_name} : {message}"
+        self.log_message.emit(log)
 
     @property
     def dependency(self):

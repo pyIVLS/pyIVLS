@@ -48,11 +48,10 @@ class AffineGUI(QObject):
         plugin_name = self.__class__.__name__
         # only emit if error occurred
         if status != 0:
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")
             msg = state.get("Error message", "Unknown error")
             exception = state.get("Exception", "Not provided")
 
-            log = f"{timestamp} : {plugin_name} : {status} : {msg} : Exception: {exception}"
+            log = f"{plugin_name} : {status} : {msg} : Exception: {exception}"
 
             self.log_message.emit(log)
 

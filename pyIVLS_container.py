@@ -47,16 +47,12 @@ class pyIVLS_container(QObject):
         Only signals the settings widget to update if changes are applied.
 
         Args:
-            plugin_info (list): list of tuples, 
-                format: (plugin_name, load_widget), where plugin_name is the section name in the ini file.
-                load_widget is a boolean indicating if the plugin should be loaded in the widget.
+            plugins_to_activate (list): list of plugin names to activate
         """
         if self.debug:
-            print("update_registration in container called with: ", plugin_info)
+            print("update_registration in container called with: ", plugins_to_activate)
         changes_applied = False
-        # unzip the plugin_info list into two lists
-        plugins_to_activate, load_widgets = zip(*plugin_info) if plugin_info else ([], [])
-
+        # add dependencies to the list of plugins to activate
         plugins_to_activate = self._check_dependencies_register(plugins_to_activate)
 
         for plugin in self.config.sections():
@@ -118,7 +114,7 @@ class pyIVLS_container(QObject):
         if section_plugin is None or new_section is None:
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin_name} does not have a plugin section.")
             return
-        
+
         # add a load option and a load_widget option to the plugin section
         new_config[section_plugin]["load"] = "False"  # default to not loaded
         new_config[section_plugin]["load_widget"] = "True"  # default to not loaded in the widget
@@ -171,7 +167,7 @@ class pyIVLS_container(QObject):
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Unknown exception when importing {plugin_name}: {e}")
         finally:
             sys.path.remove(self.path + "plugins" + sep + new_config[section_plugin]["address"])
-    
+
     @pyqtSlot(str)
     def update_config_file(self, config_path: str) -> None:
         """Updates the config file with the given path. This is called from the plugin loader to update the config file.
@@ -231,7 +227,7 @@ class pyIVLS_container(QObject):
                 if self.config[plugin]["hidden"] == "True":
                     hidden_plugins.append(plugin.rsplit("_", 1)[0])
         return hidden_plugins
-    
+
     def _visible_plugin_list(self) -> list:
         """Returns a list of visible plugins."""
         visible_plugins = []
@@ -247,7 +243,7 @@ class pyIVLS_container(QObject):
         Returns:
             dict: plugin name -> plugin widget
         """
-        single_element_dicts:list[dict] = self.pm.hook.get_setup_interface(plugin_data=self.get_plugin_dict())
+        single_element_dicts: list[dict] = self.pm.hook.get_setup_interface(plugin_data=self.get_plugin_dict())
         visible = self._visible_plugin_list()
         combined_dict = {}
         for entry in single_element_dicts:

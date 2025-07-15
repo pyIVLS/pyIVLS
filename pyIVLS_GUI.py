@@ -1,14 +1,26 @@
 from os.path import dirname, sep
+import logging
 
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject, Qt, pyqtSlot, pyqtSignal
 from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtGui import QIcon
 from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 from pyIVLS_pluginloader import pyIVLS_pluginloader
 from pyIVLS_seqBuilder import pyIVLS_seqBuilder
 
 # move this to mainwindow?
 from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s : %(levelname)s : %(message)s",
+    handlers=[
+        logging.StreamHandler(),  # Log to stdout
+        logging.FileHandler("pyIVLS.log"),  # Log to a file
+    ],
+)
 
 
 class pyIVLS_GUI(QObject):
@@ -33,8 +45,18 @@ class pyIVLS_GUI(QObject):
         msg.exec()
 
     @pyqtSlot(str)
-    def addDataLog(self, str):
-        print(str)
+    def addDataLog(self, message: str, type: str = "info"):
+        """
+        Logs a message to both stdout and a log file.
+
+        Args:
+            message (str): The message to log.
+        """
+        if type == "info":
+            logging.info(message)
+
+        else:
+            logging.warning(f"Unknown log type '{type}', logging as warning: {message}")
 
     @pyqtSlot()
     def reactClose(self):
@@ -91,20 +113,11 @@ class pyIVLS_GUI(QObject):
             self.window.mdiWindowsMenu.addAction(widget_action)
 
     def action_read_config_file(self) -> None:
-        """Prompts user to select a configuration file through QFileDialog. Path emitted as signal(str)
-        """
+        """Prompts user to select a configuration file through QFileDialog. Path emitted as signal(str)"""
         # https://forum.qt.io/topic/143116/qfiledialog-getopenfilename-causing-program-to-crash/14
-        path, _ = QFileDialog.getOpenFileName(
-            self.window,
-            "Select Configuration File",
-            self.path,
-            "Configuration Files (*.ini)",
-            options=QFileDialog.Option.DontUseNativeDialog | QFileDialog.Option.ReadOnly
-        )
+        path, _ = QFileDialog.getOpenFileName(self.window, "Select Configuration File", self.path, "Configuration Files (*.ini)", options=QFileDialog.Option.DontUseNativeDialog | QFileDialog.Option.ReadOnly)
         if path:
             self.update_config_signal.emit(path)
-        
-    
 
     ############### Settings Widget
 
@@ -139,7 +152,7 @@ class pyIVLS_GUI(QObject):
             if name not in subwindow_names:
                 subwindow = pyIVLS_mdiWindow(self.window.mdiArea)
                 subwindow.setWidget(widget)
-                widget.show()
+                # widget.show()
                 subwindow.setWindowTitle(name)
                 subwindow.closeSignal.connect(self.mdi_window_react_close)
                 subwindow.setVisible(True)  # set window to be visible upon loading.
@@ -173,6 +186,7 @@ class pyIVLS_GUI(QObject):
         self.window = pyIVLS_mainWindow(self.path)
         self.pluginloader = pyIVLS_pluginloader(self.path)
         self.seqBuilder = pyIVLS_seqBuilder(self.path)
+        self.window.setWindowIcon(QIcon('components\icon.png'))
 
         self.setSeqBuilder()
 
