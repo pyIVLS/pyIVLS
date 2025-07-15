@@ -3,7 +3,7 @@ import importlib
 import sys
 from configparser import ConfigParser
 from datetime import datetime
-from os.path import dirname, sep
+from os.path import dirname, sep, basename
 
 import pluggy
 
@@ -47,12 +47,16 @@ class pyIVLS_container(QObject):
         Only signals the settings widget to update if changes are applied.
 
         Args:
-            plugins_to_activate (list): list of plugin names to activate
+            plugin_info (list): list of tuples, 
+                format: (plugin_name, load_widget), where plugin_name is the section name in the ini file.
+                load_widget is a boolean indicating if the plugin should be loaded in the widget.
         """
         if self.debug:
-            print("update_registration in container called with: ", plugins_to_activate)
+            print("update_registration in container called with: ", plugin_info)
         changes_applied = False
-        # add dependencies to the list of plugins to activate
+        # unzip the plugin_info list into two lists
+        plugins_to_activate, load_widgets = zip(*plugin_info) if plugin_info else ([], [])
+
         plugins_to_activate = self._check_dependencies_register(plugins_to_activate)
 
         for plugin in self.config.sections():
@@ -114,6 +118,10 @@ class pyIVLS_container(QObject):
         if section_plugin is None or new_section is None:
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Plugin {plugin_name} does not have a plugin section.")
             return
+        
+        # add a load option and a load_widget option to the plugin section
+        new_config[section_plugin]["load"] = "False"  # default to not loaded
+        new_config[section_plugin]["load_widget"] = "True"  # default to not loaded in the widget
 
         # check that the naming is correct
         module_name = f"pyIVLS_{plugin_name}"
@@ -163,6 +171,26 @@ class pyIVLS_container(QObject):
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : Unknown exception when importing {plugin_name}: {e}")
         finally:
             sys.path.remove(self.path + "plugins" + sep + new_config[section_plugin]["address"])
+    
+    @pyqtSlot(str)
+    def update_config_file(self, config_path: str) -> None:
+        """Updates the config file with the given path. This is called from the plugin loader to update the config file.
+
+        Args:
+            config_path (str): full path to the config file
+        """
+        if self.debug:
+            print("Updating config file: ", config_path)
+        print("Updating config file: ", config_path)
+        # Update the config file path and ensure the directory path is updated
+        # get the name of the file, not the full path
+        configName = basename(config_path)
+        print(configName)
+        self.configFileName = configName
+        self.pm = pluggy.PluginManager("pyIVLS")
+        self.pm.add_hookspecs(pyIVLS_hookspec)
+        self.register_start_up()
+        self.plugins_updated_signal.emit()
 
     @pyqtSlot()
     def save_settings(self):
@@ -263,6 +291,7 @@ class pyIVLS_container(QObject):
                     "dependencies",
                     "address",
                     "version",
+                    "load_widget",
                 ]:
                     if self.config.has_option(plugin, option):
                         option_dict[option] = self.config[plugin][option]
@@ -361,7 +390,7 @@ class pyIVLS_container(QObject):
         """Checks the .ini file for saved settings and registers all plugins that are set to load on startup."""
         self.config = ConfigParser()
         self.config.read(self.path + self.configFileName)
-
+        print(self.config.sections())
         # FIXME: Naive implementation. If a pluginload fails on startup, it's not retried. This makes it possible for the user™ to break something.
         for plugin in self.config.sections():
             # sections contain at least _settings and _plugin, extract the ones that are plugins:
