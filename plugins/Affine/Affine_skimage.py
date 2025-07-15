@@ -370,15 +370,18 @@ class Affine:
         Returns:
             np.ndarray: Loaded mask image.
         """
-        if path.endswith(".gds"):
-            mask, filename = self.io.load_and_save_gds(path)
-        else:
-            mask, filename = self.io.load_image(path)
-        self.mask_filename = filename
-        self.mask_path = path
-        self.internal_mask = mask
-        self.result.clear()
-        return mask
+        try:
+            if path.endswith(".gds"):
+                mask, filename = self.io.load_and_save_gds(path)
+            else:
+                mask, filename = self.io.load_image(path)
+            self.mask_filename = filename
+            self.mask_path = path
+            self.internal_mask = mask
+            self.result.clear()
+            return mask
+        except Exception as e: 
+            raise AffineError(f"Error loading mask from {path}: {e}", 2) from e
 
     def center_on_component(self, x: int, y: int) -> Tuple[int, int]:
         """

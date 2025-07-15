@@ -72,7 +72,7 @@ if __name__ == "__main__":
     GUI_mainWindow.seqBuilder.info_message.connect(GUI_mainWindow.show_message)
 
     GUI_mainWindow.window.actionWrite_settings_to_file.triggered.connect(pluginsContainer.save_settings)
-
+    GUI_mainWindow.update_config_signal.connect(pluginsContainer.update_config_file)
     pluginsContainer.register_start_up()
 
     for logSignal in pluginsContainer.getLogSignals():

@@ -106,10 +106,18 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             plugin_name = f"{properties.get('type')}: {item} {properties.get('version', '')} ({properties.get('function')}) - Dependencies: {dependencies}"
             list_item = QtGui.QStandardItem(plugin_name)
             list_item.setCheckable(True)
+            list_item.setUserTristate(True)  # Allow tristate for checkboxes
             list_item.setCheckState(Qt.CheckState.Unchecked)
             list_item.setFlags(list_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            print(f"Plugin: {item}, Load: {properties.get('load')}, Load Widget: {properties.get('load_widget')}")
             if properties.get("load") == "True":
-                list_item.setCheckState(Qt.CheckState.Checked)
+                if properties.get("load_widget") == "True":
+                    list_item.setCheckState(Qt.CheckState.Checked)
+                else:
+                    list_item.setCheckState(Qt.CheckState.PartiallyChecked)
+
+
+            
 
             list_item.setToolTip(item)
             list_item.setData(item, Qt.ItemDataRole.UserRole)
@@ -118,7 +126,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         """
 
     @pyqtSlot(str)
-    def state_changed(self, plugin_name):
+    def state_changed_asfasfasfasf(self, plugin_name):
         """NOTE: Currently unused. This function is planned called when a plugin is activated or deactivated.
 
         Args:

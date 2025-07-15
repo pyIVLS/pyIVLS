@@ -1,8 +1,8 @@
 from os.path import dirname, sep
 
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject, Qt, pyqtSlot
-
+from PyQt6.QtCore import QObject, Qt, pyqtSlot, pyqtSignal
+from PyQt6.QtWidgets import QFileDialog
 from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 from pyIVLS_pluginloader import pyIVLS_pluginloader
 from pyIVLS_seqBuilder import pyIVLS_seqBuilder
@@ -15,6 +15,11 @@ class pyIVLS_GUI(QObject):
     mdiWidgets = {}
     dockWidgets = {}
     ############################### GUI functions
+
+    ############################### Signals
+
+    # signal plugincontainer to read new config file
+    update_config_signal = pyqtSignal(str)
 
     ############################### Slots
     @pyqtSlot(str)
@@ -84,6 +89,22 @@ class pyIVLS_GUI(QObject):
             widget_action.setDefaultWidget(checkbox)
 
             self.window.mdiWindowsMenu.addAction(widget_action)
+
+    def action_read_config_file(self) -> None:
+        """Prompts user to select a configuration file through QFileDialog. Path emitted as signal(str)
+        """
+        # https://forum.qt.io/topic/143116/qfiledialog-getopenfilename-causing-program-to-crash/14
+        path, _ = QFileDialog.getOpenFileName(
+            self.window,
+            "Select Configuration File",
+            self.path,
+            "Configuration Files (*.ini)",
+            options=QFileDialog.Option.DontUseNativeDialog | QFileDialog.Option.ReadOnly
+        )
+        if path:
+            self.update_config_signal.emit(path)
+        
+    
 
     ############### Settings Widget
 
@@ -159,6 +180,7 @@ class pyIVLS_GUI(QObject):
         self.window.actionSequence_builder.triggered.connect(self.actionSequence_builder)
         self.window.menuShow.aboutToShow.connect(self.action_MDIShow_to_open)
         self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
+        self.window.actionRead_config_file.triggered.connect(self.action_read_config_file)
         self.window.closeSignal.connect(self.reactClose)
         self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
         self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)

@@ -26,7 +26,7 @@
      <x>0</x>
      <y>0</y>
      <width>1034</width>
-     <height>33</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -34,6 +34,7 @@
      <string>File</string>
     </property>
     <addaction name="actionWrite_settings_to_file"/>
+    <addaction name="actionRead_config_file"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -138,7 +139,12 @@
   </action>
   <action name="actionWrite_settings_to_file">
    <property name="text">
-    <string>Write settings to file</string>
+    <string>Write plugin settings to file</string>
+   </property>
+  </action>
+  <action name="actionRead_config_file">
+   <property name="text">
+    <string>Read config file</string>
    </property>
   </action>
  </widget>
