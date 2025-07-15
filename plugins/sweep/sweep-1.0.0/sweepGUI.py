@@ -134,6 +134,23 @@ class sweepGUI(QObject):
         plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
     ):
         ##populates GUI with values stored in settings
+
+        default_smu = plugin_info["smu"]
+        # get channel names
+        try:
+            self.settingsWidget.comboBox_channel.addItems(self.function_dict["smu"][default_smu]["smu_channelNames"]())
+        except KeyError:
+            self.emit_log(1, {"Error message": f"SMU {default_smu} not found in function_dict"})
+        self.settingsWidget.smuBox.addItems(list(self.function_dict["smu"].keys()))
+        self.parse_settings_widget()
+        self.settings.update(plugin_info)
+        self._setGUIfromSettings()
+        return 0
+
+        if plugin_info["singlechannel"] == "True":
+            self.settingsWidget.checkBox_singleChannel.setChecked(True)
+        self.settingsWidget.comboBox_channel.clear()
+        # read default SMU from plugin_info
         default_smu = plugin_info["smu"]
         # get channel names
         try:
@@ -149,6 +166,13 @@ class sweepGUI(QObject):
         default_smu = plugin_info["smu"]
         # update the SMU selection combobox
         self.settingsWidget.smuBox.setCurrentText(default_smu)
+
+        currentIndex = self.settingsWidget.comboBox_channel.findText(plugin_info["channel"], Qt.MatchFlag.MatchFixedString)
+        print(f"I DESIRE TO SET CHANNEL TO: {plugin_info['channel']}")
+        print(f"Current index for channel '{plugin_info['channel']}': {currentIndex}")
+        if currentIndex > -1:
+            self.settingsWidget.comboBox_channel.setCurrentIndex(currentIndex)
+            print(f"Set channel to {plugin_info['channel']} at index {currentIndex}")
 
         currentIndex = self.settingsWidget.comboBox_inject.findText(plugin_info["inject"])
         if currentIndex > -1:
@@ -204,6 +228,7 @@ class sweepGUI(QObject):
         self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
         self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
         self._connect_signals()
+        self._update_GUI_state()
 
     def _setGUIfromSettings(self):
         ##populates GUI with values stored in settings
@@ -451,8 +476,6 @@ class sweepGUI(QObject):
             # get channel names from the selected SMU plugin
             self.settingsWidget.comboBox_channel.clear()
             self.settingsWidget.comboBox_channel.addItems(available_channels)
-            # check if the current channel is available
-
         self.settingsWidget.update()
 
     ########Functions

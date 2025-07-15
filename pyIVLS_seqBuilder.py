@@ -12,6 +12,7 @@ from PyQt6 import uic
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, Qt
 from PyQt6.QtGui import QStandardItemModel, QStandardItem, QAction
 from PyQt6.QtWidgets import QFileDialog, QMenu
+from PyQt6.QtCore import QModelIndex
 
 from components.threadStopped import thread_with_exception
 
@@ -109,7 +110,9 @@ class pyIVLS_seqBuilder(QObject):
         self.widget.readButton.clicked.connect(self._readRecipeAction)
         self.widget.directoryButton.clicked.connect(self._getAddress)
         self.widget.runButton.clicked.connect(self._runAction)
+        self.widget.testButton.clicked.connect(self._test_action)
         self._sigSeqEnd.connect(self._setNotRunning)
+        self.widget.updateSettings.clicked.connect(self._updateInstructionSettings)
 
         # connect the label click on gds to a function
         # add a custom context menu in the list widget to allow point deletion
@@ -118,6 +121,7 @@ class pyIVLS_seqBuilder(QObject):
         self.widget.treeView.clicked.connect(self._root_item_changed)
 
     #### GUI functions
+
     def _tree_context_menu(self, position):
         def remove_item(row, idx_parent):
             # check if the row has children
@@ -134,7 +138,9 @@ class pyIVLS_seqBuilder(QObject):
             # get the first child of the root item
             self.item = root_item.child(0)
 
-        from PyQt6.QtCore import QModelIndex
+        def update_settings_for_selected_item(row, idx_parent):
+            item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
+            self._updateInstructionSettings(item)
 
         idx: QModelIndex = self.widget.treeView.indexAt(position)
         # get parent index
@@ -144,7 +150,10 @@ class pyIVLS_seqBuilder(QObject):
 
         menu = QMenu()
         delete_action = QAction("Delete", self.widget.treeView)
+        update_action = QAction("Update Settings", self.widget.treeView)
+        update_action.triggered.connect(lambda: update_settings_for_selected_item(row, idx_parent))
         delete_action.triggered.connect(lambda: remove_item(row, idx_parent))
+        menu.addAction(update_action)
         menu.addAction(delete_action)
         menu.exec(self.widget.treeView.mapToGlobal(position))
 
@@ -236,35 +245,84 @@ class pyIVLS_seqBuilder(QObject):
         self.widget.runButton.setEnabled(not status)
         self.widget.stopButton.setEnabled(status)
 
+    def _test_action(self):
+        """TODO: Add more checks if necessary. What should we really be checking, since instructions are checked before adding?"""
+
+        def has_self_as_child(item):
+            """
+            Recursively checks if the given item has itself as a child.
+
+            Args:
+                item (QStandardItem): The item to check.
+
+            Returns:
+                bool: True if the item has itself as a child, False otherwise.
+            """
+            for row in range(item.rowCount()):
+                child = item.child(row, 0)
+                if child.text() == item.text() or has_self_as_child(child):
+                    return True
+            return False
+
+        root_item = self.model.invisibleRootItem().child(0)
+        if has_self_as_child(root_item):
+            self.info_message.emit("Error: The root item cannot have itself as a child.")
+
     #### Sequence functions
 
     def _addInstructionAction(self):
         instructionFunc = self.widget.comboBox_function.currentText()
         if instructionFunc == "":
-            self.info_message.emit("Instruction function can not be empty")
+            self.info_message.emit("Instruction function cannot be empty")
             return 1
         if instructionFunc == "loop end":
-            if self.item.parent() == None:
-                self.info_message.emit("Can not end loop as there are no not finished loops")
+            if self.item.parent() is None:
+                self.info_message.emit("Cannot end loop as there are no unfinished loops")
                 return 1
             else:
                 self.item = self.item.parent()
                 return 0
+
+        # Check if adding the instruction creates a circular reference BEFORE adding
+        if self._is_in_ancestry(self.item, instructionFunc) or self.item.text() == instructionFunc:
+            self.info_message.emit("Cannot add a plugin that already exists in its ancestry or as a direct child")
+            return 1
+
         status, instructionSettings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
         if status:
             self.info_message.emit(instructionSettings["Error message"])
             return 1
-        # check the instruction class of self.item
 
+        # Check the instruction class of self.item
         instructionClass = self.widget.comboBox_class.currentText()
 
         nextItem = QStandardItem(instructionFunc)
         nextItem.setData(instructionSettings, Qt.ItemDataRole.UserRole)
         self.item.appendRow([nextItem, QStandardItem(instructionClass)])
-        # update the parent item to be the newly added item if it is a loop
+
+        # Update the parent item to be the newly added item if it is a loop
         if instructionClass == "loop":
             self.item = nextItem
+
         self.update_treeView()
+
+    def _is_in_ancestry(self, item, name):
+        """
+        Recursively checks if the given name exists in the ancestry of the item.
+
+        Args:
+            item (QStandardItem): The item to start checking from.
+            name (str): The name to check against.
+
+        Returns:
+            bool: True if the name exists in the ancestry, False otherwise.
+        """
+        parent = item.parent()
+        while parent is not None:
+            if parent.text() == name:
+                return True
+            parent = parent.parent()
+        return False
 
     def extract_data(self, item):
         """Recursively extract the visible and hidden data from the model"""
@@ -331,3 +389,69 @@ class pyIVLS_seqBuilder(QObject):
         self.run_thread = thread_with_exception(self._runParser)
         self.run_thread.start()
         return [0, "OK"]
+
+    def _updateInstructionSettings(self, item=None):
+        """
+        Updates the settings for a single instruction or all instructions in the sequence.
+
+        Args:
+            item (QStandardItem, optional): The item to update. If None, updates all instructions.
+        """
+
+        def update_item_settings(item):
+            instructionFunc = item.text()
+            if instructionFunc not in self.available_instructions:
+                return [f"Instruction {instructionFunc} is not available."]
+
+            # Validate settings using parse_settings_widget
+            status, newSettings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
+            if status:
+                return [newSettings["Error message"]]
+
+            # Compare old and new settings
+            oldSettings = item.data(Qt.ItemDataRole.UserRole)
+            changes = []
+            for key, newValue in newSettings.items():
+                oldValue = oldSettings.get(key, None) if oldSettings else None
+                if oldValue != newValue:
+                    changes.append(f"{key}: {oldValue} -> {newValue}")
+
+            # Update the item's settings
+            item.setData(newSettings, Qt.ItemDataRole.UserRole)
+
+            return changes
+
+        all_changes = []
+
+        if item:
+            # Update a single item
+            changes = update_item_settings(item)
+            if changes:
+                all_changes.extend(changes)
+        else:
+            # Update all items in the sequence
+            def traverse_and_update(item):
+                for row in range(item.rowCount()):
+                    child = item.child(row, 0)
+                    changes = update_item_settings(child)
+                    if changes:
+                        all_changes.extend(changes)
+                    traverse_and_update(child)
+
+            root_item = self.model.invisibleRootItem()
+            if root_item is None:
+                self.info_message.emit("Error: The sequence tree is not properly initialized.")
+                return
+
+            first_child = root_item.child(0)
+            if first_child is None:
+                self.info_message.emit("Error: The sequence tree has no root item.")
+                return
+
+            traverse_and_update(first_child)
+
+        # Emit a single aggregated message
+        if all_changes:
+            self.info_message.emit("Settings updated with the following changes:\n" + "\n".join(all_changes))
+        else:
+            self.info_message.emit("No changes were made.")
