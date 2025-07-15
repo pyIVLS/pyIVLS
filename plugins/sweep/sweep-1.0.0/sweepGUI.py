@@ -285,7 +285,7 @@ class sweepGUI(QObject):
         # update to the correct GUI state
         self._update_GUI_state()
 
-        self.settingsWidget.spinBox_plotUpdate.setValue(self.settings["plotUpdate"])
+        self.settingsWidget.spinBox_plotUpdate.setValue(int(self.settings["plotupdate"]))
         self.settingsWidget.prescalerEdit.setText(f"{self.settings['prescaler']}")
 
         self.settingsWidget.lineEdit_path.setText(self.settings["address"])
