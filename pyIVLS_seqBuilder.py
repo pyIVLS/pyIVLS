@@ -113,6 +113,7 @@ class pyIVLS_seqBuilder(QObject):
         self.widget.testButton.clicked.connect(self._test_action)
         self._sigSeqEnd.connect(self._setNotRunning)
         self.widget.updateSettings.clicked.connect(self._updateInstructionSettings)
+        self.widget.readSettingsButton.clicked.connect(self.read_and_update_instruction_settings)
 
         # connect the label click on gds to a function
         # add a custom context menu in the list widget to allow point deletion
@@ -455,3 +456,97 @@ class pyIVLS_seqBuilder(QObject):
             self.info_message.emit("Settings updated with the following changes:\n" + "\n".join(all_changes))
         else:
             self.info_message.emit("No changes were made.")
+
+    def update_all_instruction_guis(self):
+        """
+        Iterates through all instructions in the sequence and calls `set_gui_from_settings` for each instruction plugin.
+        Logs a message if `set_gui_from_settings` is not implemented for a plugin.
+        """
+
+        def update_item_gui(item):
+            instruction_func = item.text()
+            if instruction_func not in self.available_instructions:
+                self.info_message.emit(f"Instruction {instruction_func} is not available.")
+                return
+
+            # Get the plugin's set_gui_from_settings function
+            plugin_functions = self.available_instructions[instruction_func]["functions"]
+            if "set_gui_from_settings" in plugin_functions:
+                try:
+                    plugin_functions["set_gui_from_settings"]()
+                except Exception as e:
+                    self.info_message.emit(f"Error while updating GUI for {instruction_func}: {str(e)}")
+            else:
+                self.info_message.emit(f"set_gui_from_settings is not implemented for {instruction_func}.")
+
+        def traverse_and_update(item):
+            for row in range(item.rowCount()):
+                child = item.child(row, 0)
+                update_item_gui(child)
+                traverse_and_update(child)
+
+        root_item = self.model.invisibleRootItem()
+        if root_item is None:
+            self.info_message.emit("Error: The sequence tree is not properly initialized.")
+            return
+
+        first_child = root_item.child(0)
+        if first_child is None:
+            self.info_message.emit("Error: The sequence tree has no root item.")
+            return
+
+        traverse_and_update(first_child)
+
+    def read_and_update_instruction_settings(self):
+        """
+        Sends the saved settings data for all instructions to the plugins,
+        and calls `set_gui_from_settings` to update the GUI fields based on the saved settings.
+        """
+
+        def process_item_settings(item):
+            instruction_func = item.text()
+            if instruction_func not in self.available_instructions:
+                self.info_message.emit(f"Instruction {instruction_func} is not available.")
+                return
+
+            # Retrieve saved settings from the item
+            saved_settings = item.data(Qt.ItemDataRole.UserRole)
+            if not saved_settings:
+                self.info_message.emit(f"No saved settings found for {instruction_func}.")
+                return
+
+            # Send the saved settings to the plugin
+            plugin_functions = self.available_instructions[instruction_func]["functions"]
+            if "setSettings" in plugin_functions:
+                try:
+                    plugin_functions["setSettings"](saved_settings)
+                except Exception as e:
+                    self.info_message.emit(f"Error sending settings to {instruction_func}: {str(e)}")
+                    return
+
+            # Update the GUI fields using set_gui_from_settings
+            if "set_gui_from_settings" in plugin_functions:
+                try:
+                    plugin_functions["set_gui_from_settings"]()
+                except Exception as e:
+                    self.info_message.emit(f"Error updating GUI for {instruction_func}: {str(e)}")
+            else:
+                self.info_message.emit(f"set_gui_from_settings is not implemented for {instruction_func}.")
+
+        def traverse_and_process(item):
+            for row in range(item.rowCount()):
+                child = item.child(row, 0)
+                process_item_settings(child)
+                traverse_and_process(child)
+
+        root_item = self.model.invisibleRootItem()
+        if root_item is None:
+            self.info_message.emit("Error: The sequence tree is not properly initialized.")
+            return
+
+        first_child = root_item.child(0)
+        if first_child is None:
+            self.info_message.emit("Error: The sequence tree has no root item.")
+            return
+
+        traverse_and_process(first_child)

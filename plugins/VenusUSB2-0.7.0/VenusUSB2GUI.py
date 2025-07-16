@@ -249,6 +249,7 @@ class VenusUSB2GUI(QObject):
         self.settingsWidget.saveButton.setEnabled(False)
         self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
         self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
+        self.settingsWidget.exposure.setCurrentText(str(plugin_info["exposure"]))
 
     def _getAddress(self):
         address = self.settingsWidget.lineEdit_path.text()

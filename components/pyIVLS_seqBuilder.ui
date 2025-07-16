@@ -75,16 +75,16 @@
              </widget>
             </item>
             <item row="1" column="0">
-             <widget class="QPushButton" name="pushButton">
+             <widget class="QPushButton" name="readSettingsButton">
               <property name="text">
-               <string>Read settings to GUI??</string>
+               <string>Read settings to GUI</string>
               </property>
              </widget>
             </item>
             <item row="1" column="1">
              <widget class="QPushButton" name="updateSettings">
               <property name="text">
-               <string>Update settings from GUI???</string>
+               <string>Update settings for all plugins</string>
               </property>
              </widget>
             </item>

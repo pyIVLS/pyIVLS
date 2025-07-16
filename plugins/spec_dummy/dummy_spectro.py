@@ -114,9 +114,8 @@ class dummy_spectro_GUI(QObject):
     def _log_verbose(self, message):
         """Logs a message if verbose mode is enabled."""
         if self.verbose:
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")
             classname = self.__class__.__name__
-            self.log_message.emit(timestamp + " : " + classname + " : " f"VERBOSE: {message}")
+            self.log_message.emit(classname + " : " f"VERBOSE : {message}")
 
     def _connect_signals(self):
         self.settingsWidget.connectButton.clicked.connect(self._connectAction)
@@ -215,7 +214,6 @@ class dummy_spectro_GUI(QObject):
         if self.preview_running:
             self._log_verbose("Stopping preview. Waiting for scan to finish if in progress.")
             self.preview_running = False
-            # Wait for the thread to finish the current scan before stopping
             if hasattr(self, 'run_thread') and self.run_thread.is_alive():
                 self.run_thread.join(timeout=2)  # Wait up to 2 seconds for the thread to finish
             self._enableSaveButton()

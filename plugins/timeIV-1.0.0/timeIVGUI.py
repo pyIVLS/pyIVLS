@@ -40,7 +40,7 @@ class timeIVGUI(QObject):
     """
 
     non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_widget", "set_running", "setSettings", "sequenceStep"]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_widget", "set_running", "setSettings", "sequenceStep", "set_gui_from_settings"]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
     ########Signals
     ##remove this if plugin will only provide functions to another plugins, but will not interract with the user directly
@@ -58,20 +58,16 @@ class timeIVGUI(QObject):
         plugin_name = self.__class__.__name__
         # only emit if error occurred
         if status != 0:
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")
             msg = state.get("Error message", "Unknown error")
             exception = state.get("Exception", "Not provided")
-
-            log = f"{timestamp} : {plugin_name} : {status} : {msg} : Exception: {exception}"
-
+            log = f"{plugin_name} : {status} : {msg} : Exception: {exception}"
             self.log_message.emit(log)
 
     def _log_verbose(self, message):
         """Logs a message if verbose mode is enabled."""
         if self.verbose:
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")
             classname = self.__class__.__name__
-            self.log_message.emit(timestamp + " : " + classname + f" : VERBOSE: {message}")
+            self.log_message.emit(classname + f" : VERBOSE : {message}")
 
     ########Functions
     def __init__(self):
@@ -533,7 +529,7 @@ class timeIVGUI(QObject):
 
         if status:
             self._update_GUI_state()
-        
+
     ########Functions
     ########plugins interraction
     def _getPublicFunctions(self, function_dict):
@@ -561,7 +557,7 @@ class timeIVGUI(QObject):
     def _getInfoSignal(self):
         return self.info_message
 
-    def setSettings(self, settings, update_gui=True):
+    def setSettings(self, settings):
         """Sets the settings for the plugin. Workflow from seqBuilder:
         1. Parse_settings_widget is called when step added to sequence
         2. When running, set_settings is called to set the settings for the plugin
@@ -573,8 +569,49 @@ class timeIVGUI(QObject):
         self.settings = []
         self.settings = copy.deepcopy(settings)
         self.smu_settings = settings["smu_settings"]
-        if update_gui: 
-            self._initGUI(settings)
+
+    def set_gui_from_settings(self):
+        """
+        Updates the GUI fields based on the internal settings dictionary.
+        This function assumes that the settings have already been set using the `setSettings` function.
+        """
+        self.settingsWidget.lineEdit_path.setText(self.settings["address"])
+        self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
+        self.settingsWidget.lineEdit_sampleName.setText(self.settings["samplename"])
+        self.settingsWidget.lineEdit_comment.setText(self.settings["comment"])
+
+        self.settingsWidget.step_lineEdit.setText(str(self.settings["timestep"]))
+        self.settingsWidget.stopAfterLineEdit.setText(str(self.settings["stopafter"]))
+        self.settingsWidget.autosaveLineEdit.setText(str(self.settings["autosaveinterval"]))
+
+        self.settingsWidget.stopTimerCheckBox.setChecked(self.settings["stoptimer"])
+        self.settingsWidget.autosaveCheckBox.setChecked(self.settings["autosave"])
+
+        # SMU settings
+        self.settingsWidget.checkBox_singleChannel.setChecked(self.settings["singlechannel"])
+
+        self.settingsWidget.comboBox_channel.setCurrentText(self.settings["channel"])
+        self.settingsWidget.comboBox_inject.setCurrentText(self.settings["inject"])
+        self.settingsWidget.comboBox_sourceSenseMode.setCurrentText(self.settings["sourcesensemode"])
+        self.settingsWidget.comboBox_sourceDelayMode.setCurrentText(self.settings["sourcedelaymode"])
+        self.settingsWidget.comboBox_drainInject.setCurrentText(self.settings["draininject"])
+        self.settingsWidget.comboBox_drainSenseMode.setCurrentText(self.settings["drainsensemode"])
+        self.settingsWidget.comboBox_drainDelayMode.setCurrentText(self.settings["draindelaymode"])
+
+        self.settingsWidget.lineEdit_sourceSetValue.setText(str(self.settings["sourcevalue"]))
+        self.settingsWidget.lineEdit_sourceLimit.setText(str(self.settings["sourcelimit"]))
+        self.settingsWidget.lineEdit_sourceNPLC.setText(str(self.settings["sourcenplc"] / (0.001 * self.smu_settings["lineFrequency"])))
+        self.settingsWidget.lineEdit_sourceDelay.setText(str(self.settings["sourcedelay"] * 1000))
+        self.settingsWidget.lineEdit_drainSetValue.setText(str(self.settings["drainvalue"]))
+        self.settingsWidget.lineEdit_drainLimit.setText(str(self.settings["drainlimit"]))
+        self.settingsWidget.lineEdit_drainNPLC.setText(str(self.settings["drainnplc"] / (0.001 * self.smu_settings["lineFrequency"])))
+        self.settingsWidget.lineEdit_drainDelay.setText(str(self.settings["draindelay"] * 1000))
+
+        # Update the SMU selection combobox
+        self.settingsWidget.smuBox.setCurrentText(self.settings["smu"])
+
+        # Update the GUI state to reflect the current settings
+        self._update_GUI_state()
 
     def _get_public_methods(self):
         """

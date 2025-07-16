@@ -54,7 +54,11 @@ import numpy as np
 
 
 class dummy_ll:
+    from os.path import dirname, sep
+
+    path = dirname(__file__) + sep
     datafile_address = "/u/17/hakkano1/unix/Documents/pyIVLS/plugins/smu_dummy/ivls_data.dat"
+    datafile_address = path + "ivls_data.dat"
     linepointer = 0
     dataarray = np.array([])
     ####################################  threads

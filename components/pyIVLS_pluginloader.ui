@@ -33,7 +33,11 @@
      </property>
      <layout class="QGridLayout" name="gridLayout">
       <item row="0" column="0">
-       <widget class="QTableWidget" name="pluginList"/>
+       <widget class="QTableWidget" name="pluginList">
+        <property name="sortingEnabled">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

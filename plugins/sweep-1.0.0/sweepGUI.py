@@ -122,7 +122,6 @@ class sweepGUI(QObject):
         self.settingsWidget.checkBox_singleChannel.stateChanged.connect(self._single_channel_changed)
 
         self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
-
         self.settingsWidget.stopButton.clicked.connect(self._stopAction)
         self.settingsWidget.runButton.clicked.connect(self._runAction)
 
@@ -145,6 +144,7 @@ class sweepGUI(QObject):
         self.parse_settings_widget()
         self.settings.update(plugin_info)
         self._setGUIfromSettings()
+        self._connect_signals()
         return 0
 
         if plugin_info["singlechannel"] == "True":
@@ -343,6 +343,8 @@ class sweepGUI(QObject):
         return 0, settings
 
     def _getAddress(self):
+        self.emit_log(0, {"Error message": "Select directory for saving"})
+        print("Select directory for saving")
         address = self.settingsWidget.lineEdit_path.text()
         if not (os.path.exists(address)):
             address = self.path

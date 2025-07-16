@@ -14,7 +14,7 @@ from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s : %(levelname)s : %(message)s",
     handlers=[
         logging.StreamHandler(),  # Log to stdout
@@ -36,6 +36,7 @@ class pyIVLS_GUI(QObject):
     ############################### Slots
     @pyqtSlot(str)
     def show_message(self, str):
+        logging.warning(str)
         msg = QtWidgets.QMessageBox()
         msg.setText(str)
         msg.setWindowTitle("Warning")
@@ -45,18 +46,23 @@ class pyIVLS_GUI(QObject):
         msg.exec()
 
     @pyqtSlot(str)
-    def addDataLog(self, message: str, type: str = "info"):
+    def addDataLog(
+        self,
+        message: str,
+    ):
         """
         Logs a message to both stdout and a log file.
 
         Args:
             message (str): The message to log.
         """
-        if type == "info":
+        removed_verbose_flag = message.lower().replace(": verbose :", ":")
+        if len(removed_verbose_flag) == len(message):
+            # does not contain verbose flag
             logging.info(message)
-
         else:
-            logging.warning(f"Unknown log type '{type}', logging as warning: {message}")
+            # contains verbose flag, log as verbose
+            logging.debug(removed_verbose_flag)
 
     @pyqtSlot()
     def reactClose(self):
@@ -182,11 +188,12 @@ class pyIVLS_GUI(QObject):
     def __init__(self):
         super(pyIVLS_GUI, self).__init__()
         self.path = dirname(__file__) + sep
-        
+
         self.window = pyIVLS_mainWindow(self.path)
         self.pluginloader = pyIVLS_pluginloader(self.path)
         self.seqBuilder = pyIVLS_seqBuilder(self.path)
-        self.window.setWindowIcon(QIcon(r'components/icon.png'))
+        icon_path = self.path + "components" + sep + "icon.png"
+        self.window.setWindowIcon(QIcon(icon_path))
 
         self.setSeqBuilder()
 

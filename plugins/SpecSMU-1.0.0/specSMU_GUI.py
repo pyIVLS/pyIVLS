@@ -36,9 +36,8 @@ class specSMU_GUI(QWidget):
     def _log_verbose(self, message):
         """Logs a message if verbose mode is enabled."""
         if self.verbose:
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")
             classname = self.__class__.__name__
-            self.log_message.emit(timestamp + " : " + classname + f" : VERBOSE: {message}")
+            self.log_message.emit(classname + f" : VERBOSE : {message}")
 
     ########Functions
     def __init__(self):
