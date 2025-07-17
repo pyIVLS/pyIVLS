@@ -169,12 +169,12 @@
                 </property>
                 <item>
                  <property name="text">
-                  <string>current</string>
+                  <string>Current</string>
                  </property>
                 </item>
                 <item>
                  <property name="text">
-                  <string>voltage</string>
+                  <string>Voltage</string>
                  </property>
                 </item>
                </widget>

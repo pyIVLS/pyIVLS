@@ -7,6 +7,7 @@
 from os.path import sep
 import os
 import copy
+import traceback
 
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, Qt
@@ -529,7 +530,8 @@ class pyIVLS_seqBuilder(QObject):
                 try:
                     plugin_functions["set_gui_from_settings"]()
                 except Exception as e:
-                    self.info_message.emit(f"Error updating GUI for {instruction_func}: {str(e)}")
+                    detailed_error = traceback.format_exc()
+                    self.info_message.emit(f"Error updating GUI for {instruction_func}: {str(e)}\n{detailed_error}")
             else:
                 self.info_message.emit(f"set_gui_from_settings is not implemented for {instruction_func}.")
 

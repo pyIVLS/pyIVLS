@@ -8,7 +8,7 @@ from datetime import datetime
 
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from PyQt6 import uic
-from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
 from sweepCommon import create_file_header, create_sweep_reciepe
 from threadStopped import (  # this should be moved to some pluginsShare
@@ -30,6 +30,7 @@ class sweepGUI(QObject):
         "set_running",
         "setSettings",
         "sequenceStep",
+        "set_gui_from_settings",
     ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ####################################  threads
 
@@ -42,6 +43,7 @@ class sweepGUI(QObject):
     log_message = pyqtSignal(str)
     info_message = pyqtSignal(str)
     closeLock = pyqtSignal(bool)
+    running = pyqtSignal(bool)
 
     def emit_log(self, status: int, state: dict) -> None:
         """
@@ -64,8 +66,15 @@ class sweepGUI(QObject):
 
     ########Functions
 
+    def _log_verbose(self, message):
+        """Logs a message if verbose mode is enabled."""
+        if self.verbose:
+            classname = self.__class__.__name__
+            self.log_message.emit(classname + f" : VERBOSE : {message}")
+
     def __init__(self):
         super(sweepGUI, self).__init__()
+        self.verbose = True  # Enable verbose logging
         # List of functions from another plugins required for functioning
         self.dependency = {
             "smu": [
@@ -134,215 +143,28 @@ class sweepGUI(QObject):
     ):
         ##populates GUI with values stored in settings
 
+        self._log_verbose("Initializing GUI with plugin_info: " + str(plugin_info))
+
         default_smu = plugin_info["smu"]
         # get channel names
         try:
             self.settingsWidget.comboBox_channel.addItems(self.function_dict["smu"][default_smu]["smu_channelNames"]())
         except KeyError:
             self.emit_log(1, {"Error message": f"SMU {default_smu} not found in function_dict"})
+        self.settingsWidget.smuBox.clear()  # clear previous items
         self.settingsWidget.smuBox.addItems(list(self.function_dict["smu"].keys()))
+        # set default SMU
+        if default_smu in self.function_dict["smu"]:
+            self.settingsWidget.smuBox.setCurrentText(default_smu)
         self.parse_settings_widget()
         self.settings.update(plugin_info)
-        self._setGUIfromSettings()
+        print("Settings after update:", self.settings)
+        self.set_gui_from_settings()
         self._connect_signals()
         return 0
 
-        if plugin_info["singlechannel"] == "True":
-            self.settingsWidget.checkBox_singleChannel.setChecked(True)
-        self.settingsWidget.comboBox_channel.clear()
-        # read default SMU from plugin_info
-        default_smu = plugin_info["smu"]
-        # get channel names
-        try:
-            self.settingsWidget.comboBox_channel.clear()
-            self.settingsWidget.comboBox_channel.addItems(self.function_dict["smu"][default_smu]["smu_channelNames"]())
-            self.settingsWidget.comboBox_channel.setCurrentText(plugin_info["channel"])
-        except KeyError:
-            self.emit_log(1, {"Error message": f"SMU {default_smu} not found in function_dict"})
-        self.settingsWidget.smuBox.addItems(list(self.function_dict["smu"].keys()))
-        if plugin_info["singlechannel"] == "True":
-            self.settingsWidget.checkBox_singleChannel.setChecked(True)
-        # read default SMU from plugin_info
-        default_smu = plugin_info["smu"]
-        # update the SMU selection combobox
-        self.settingsWidget.smuBox.setCurrentText(default_smu)
-
-        currentIndex = self.settingsWidget.comboBox_channel.findText(plugin_info["channel"], Qt.MatchFlag.MatchFixedString)
-        print(f"I DESIRE TO SET CHANNEL TO: {plugin_info['channel']}")
-        print(f"Current index for channel '{plugin_info['channel']}': {currentIndex}")
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_channel.setCurrentIndex(currentIndex)
-            print(f"Set channel to {plugin_info['channel']} at index {currentIndex}")
-
-        currentIndex = self.settingsWidget.comboBox_inject.findText(plugin_info["inject"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_inject.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_mode.findText(plugin_info["mode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_mode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_continuousDelayMode.findText(plugin_info["continuousdelaymode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_continuousDelayMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_pulsedDelayMode.findText(plugin_info["pulseddelaymode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_pulsedDelayMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_drainDelayMode.findText(plugin_info["draindelaymode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_drainDelayMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_sourceSenseMode.findText(plugin_info["sourcesensemode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_sourceSenseMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_drainSenseMode.findText(plugin_info["drainsensemode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_drainSenseMode.setCurrentIndex(currentIndex)
-        self.settingsWidget.lineEdit_repeat.setText(plugin_info["repeat"])
-        self.settingsWidget.lineEdit_continuousStart.setText(plugin_info["continuousstart"])
-        self.settingsWidget.lineEdit_continuousEnd.setText(plugin_info["continuousend"])
-        self.settingsWidget.lineEdit_continuousPoints.setText(plugin_info["continuouspoints"])
-        self.settingsWidget.lineEdit_continuousLimit.setText(plugin_info["continuouslimit"])
-        self.settingsWidget.lineEdit_continuousNPLC.setText(plugin_info["continuousnplc"])
-        self.settingsWidget.lineEdit_continuousDelay.setText(plugin_info["continuousdelay"])
-        self.settingsWidget.lineEdit_pulsedStart.setText(plugin_info["pulsedstart"])
-        self.settingsWidget.lineEdit_pulsedEnd.setText(plugin_info["pulsedend"])
-        self.settingsWidget.lineEdit_pulsedPoints.setText(plugin_info["pulsedpoints"])
-        self.settingsWidget.lineEdit_pulsedLimit.setText(plugin_info["pulsedlimit"])
-        self.settingsWidget.lineEdit_pulsedNPLC.setText(plugin_info["pulsednplc"])
-        self.settingsWidget.lineEdit_pulsedPause.setText(plugin_info["pulsedpause"])
-        self.settingsWidget.lineEdit_pulsedDelay.setText(plugin_info["pulseddelay"])
-        self.settingsWidget.lineEdit_drainStart.setText(plugin_info["drainstart"])
-        self.settingsWidget.lineEdit_drainEnd.setText(plugin_info["drainend"])
-        self.settingsWidget.lineEdit_drainPoints.setText(plugin_info["drainpoints"])
-        self.settingsWidget.lineEdit_drainLimit.setText(plugin_info["drainlimit"])
-        self.settingsWidget.lineEdit_drainNPLC.setText(plugin_info["drainnplc"])
-        self.settingsWidget.lineEdit_drainDelay.setText(plugin_info["draindelay"])
-
-        try:
-            intPlotUpdate = int(plugin_info["plotUpdate"])
-        except:
-            intPlotUpdate = 0
-        self.settingsWidget.spinBox_plotUpdate.setValue(intPlotUpdate)
-        self.settingsWidget.prescalerEdit.setText(plugin_info["prescaler"])
-
-        self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
-        self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
-        self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
-        self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
-        self._connect_signals()
-        self._update_GUI_state()
-
-    def _setGUIfromSettings(self):
-        ##populates GUI with values stored in settings
-        self.settingsWidget.smuBox.setCurrentText(self.settings["smu"])
-        if self.settings["singlechannel"]:
-            self.settingsWidget.checkBox_singleChannel.setChecked(True)
-        else:
-            self.settingsWidget.checkBox_singleChannel.setChecked(True)
-        currentIndex = self.settingsWidget.comboBox_channel.findText(self.settings["channel"], Qt.MatchFlag.MatchFixedString)
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_channel.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_inject.findText(self.settings["inject"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_inject.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_mode.findText(self.settings["mode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_mode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_continuousDelayMode.findText(self.settings["continuousdelaymode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_continuousDelayMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_pulsedDelayMode.findText(self.settings["pulseddelaymode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_pulsedDelayMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_drainDelayMode.findText(self.settings["draindelaymode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_drainDelayMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_sourceSenseMode.findText(self.settings["sourcesensemode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_sourceSenseMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_drainSenseMode.findText(self.settings["drainsensemode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_drainSenseMode.setCurrentIndex(currentIndex)
-        self.settingsWidget.lineEdit_repeat.setText(f"{self.settings['repeat']}")
-        self.settingsWidget.lineEdit_continuousStart.setText(f"{self.settings['continuousstart']}")
-        self.settingsWidget.lineEdit_continuousEnd.setText(f"{self.settings['continuousend']}")
-        self.settingsWidget.lineEdit_continuousPoints.setText(f"{self.settings['continuouspoints']}")
-        self.settingsWidget.lineEdit_continuousLimit.setText(f"{self.settings['continuouslimit']}")
-        self.settingsWidget.lineEdit_continuousNPLC.setText(f"{self.settings['continuousnplc']}")
-        self.settingsWidget.lineEdit_continuousDelay.setText(f"{self.settings['continuousdelay']}")
-        self.settingsWidget.lineEdit_pulsedStart.setText(f"{self.settings['pulsedstart']}")
-        self.settingsWidget.lineEdit_pulsedEnd.setText(f"{self.settings['pulsedend']}")
-        self.settingsWidget.lineEdit_pulsedPoints.setText(f"{self.settings['pulsedpoints']}")
-        self.settingsWidget.lineEdit_pulsedLimit.setText(f"{self.settings['pulsedlimit']}")
-        self.settingsWidget.lineEdit_pulsedNPLC.setText(f"{self.settings['pulsednplc']}")
-        self.settingsWidget.lineEdit_pulsedPause.setText(f"{self.settings['pulsedpause']}")
-        self.settingsWidget.lineEdit_pulsedDelay.setText(f"{self.settings['pulseddelay']}")
-        self.settingsWidget.lineEdit_drainStart.setText(f"{self.settings['drainstart']}")
-        self.settingsWidget.lineEdit_drainEnd.setText(f"{self.settings['drainend']}")
-        self.settingsWidget.lineEdit_drainPoints.setText(f"{self.settings['drainpoints']}")
-        self.settingsWidget.lineEdit_drainLimit.setText(f"{self.settings['drainlimit']}")
-        self.settingsWidget.lineEdit_drainNPLC.setText(f"{self.settings['drainnplc']}")
-        self.settingsWidget.lineEdit_drainDelay.setText(f"{self.settings['draindelay']}")
-
-        # update to the correct GUI state
-        self._update_GUI_state()
-
-        self.settingsWidget.spinBox_plotUpdate.setValue(int(self.settings["plotupdate"]))
-        self.settingsWidget.prescalerEdit.setText(f"{self.settings['prescaler']}")
-
-        self.settingsWidget.lineEdit_path.setText(self.settings["address"])
-        self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
-        self.settingsWidget.lineEdit_sampleName.setText(self.settings["samplename"])
-        self.settingsWidget.lineEdit_comment.setText(self.settings["comment"])
-
-    def get_current_gui_settings(self):
-        """Return the current settings from the GUI widgets as a dict, without validation or conversion."""
-        settings = {}
-        settings["smu"] = self.settingsWidget.smuBox.currentText()
-        settings["channel"] = self.settingsWidget.comboBox_channel.currentText().lower()
-        currentIndex = self.settingsWidget.comboBox_channel.currentIndex()
-        if self.settingsWidget.comboBox_channel.count() > 1:
-            if currentIndex == 0:
-                settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(1)
-            else:
-                settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(0)
-        else:
-            settings["drainchannel"] = "xxx"
-        settings["inject"] = self.settingsWidget.comboBox_inject.currentText().lower()
-        settings["mode"] = self.settingsWidget.comboBox_mode.currentText().lower()
-        settings["continuousdelaymode"] = self.settingsWidget.comboBox_continuousDelayMode.currentText().lower()
-        settings["pulseddelaymode"] = self.settingsWidget.comboBox_pulsedDelayMode.currentText().lower()
-        settings["draindelaymode"] = self.settingsWidget.comboBox_drainDelayMode.currentText().lower()
-        settings["sourcesensemode"] = self.settingsWidget.comboBox_sourceSenseMode.currentText().lower()
-        settings["drainsensemode"] = self.settingsWidget.comboBox_drainSenseMode.currentText().lower()
-        settings["singlechannel"] = self.settingsWidget.checkBox_singleChannel.isChecked()
-        settings["repeat"] = self.settingsWidget.lineEdit_repeat.text()
-        settings["continuousstart"] = self.settingsWidget.lineEdit_continuousStart.text()
-        settings["continuousend"] = self.settingsWidget.lineEdit_continuousEnd.text()
-        settings["continuouspoints"] = self.settingsWidget.lineEdit_continuousPoints.text()
-        settings["continuouslimit"] = self.settingsWidget.lineEdit_continuousLimit.text()
-        settings["continuousnplc"] = self.settingsWidget.lineEdit_continuousNPLC.text()
-        settings["continuousdelay"] = self.settingsWidget.lineEdit_continuousDelay.text()
-        settings["pulsedstart"] = self.settingsWidget.lineEdit_pulsedStart.text()
-        settings["pulsedend"] = self.settingsWidget.lineEdit_pulsedEnd.text()
-        settings["pulsedpoints"] = self.settingsWidget.lineEdit_pulsedPoints.text()
-        settings["pulsedlimit"] = self.settingsWidget.lineEdit_pulsedLimit.text()
-        settings["pulsednplc"] = self.settingsWidget.lineEdit_pulsedNPLC.text()
-        settings["pulsedpause"] = self.settingsWidget.lineEdit_pulsedPause.text()
-        settings["pulseddelay"] = self.settingsWidget.lineEdit_pulsedDelay.text()
-        settings["drainstart"] = self.settingsWidget.lineEdit_drainStart.text()
-        settings["drainend"] = self.settingsWidget.lineEdit_drainEnd.text()
-        settings["drainpoints"] = self.settingsWidget.lineEdit_drainPoints.text()
-        settings["drainlimit"] = self.settingsWidget.lineEdit_drainLimit.text()
-        settings["drainnplc"] = self.settingsWidget.lineEdit_drainNPLC.text()
-        settings["draindelay"] = self.settingsWidget.lineEdit_drainDelay.text()
-        settings["plotUpdate"] = self.settingsWidget.spinBox_plotUpdate.value()
-        settings["prescaler"] = self.settingsWidget.prescalerEdit.text()
-        settings["address"] = self.settingsWidget.lineEdit_path.text()
-        settings["filename"] = self.settingsWidget.lineEdit_filename.text()
-        settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
-        settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-        return 0, settings
-
     def _getAddress(self):
+        self._log_verbose("Opening directory selection dialog.")
         self.emit_log(0, {"Error message": "Select directory for saving"})
         print("Select directory for saving")
         address = self.settingsWidget.lineEdit_path.text()
@@ -471,6 +293,7 @@ class sweepGUI(QObject):
         self.settingsWidget.update()
 
     def _smu_plugin_changed(self):
+        self._log_verbose("SMU plugin changed to: " + self.settingsWidget.smuBox.currentText())
         """Handles the visibility of the SMU settings based on the selected SMU plugin."""
         smu_selection = self.settingsWidget.smuBox.currentText()
         if smu_selection in self.function_dict["smu"]:
@@ -478,6 +301,14 @@ class sweepGUI(QObject):
             # get channel names from the selected SMU plugin
             self.settingsWidget.comboBox_channel.clear()
             self.settingsWidget.comboBox_channel.addItems(available_channels)
+
+            # set the current channel to the saved channel if the selected smu is the saved smu:
+            if self.settings.get("smu") == smu_selection:
+                current_channel = self.settings.get("channel", available_channels[0])
+                if current_channel in available_channels:
+                    self.settingsWidget.comboBox_channel.setCurrentText(current_channel)
+                else:
+                    self.settingsWidget.comboBox_channel.setCurrentIndex(0)
         self.settingsWidget.update()
 
     ########Functions
@@ -610,14 +441,16 @@ class sweepGUI(QObject):
 
         # continuous nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            line_freq = self.smu_settings.get("lineFrequency")
+            if "lineFrequency" not in self.smu_settings:
+                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
+            line_freq = self.smu_settings["lineFrequency"]
             self.settings["continuousnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_continuousNPLC.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: continuous nplc field should be numeric"}]
         if self.settings["continuousnplc"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: continuous nplc field should be positive"}]
 
-        # delay (in fact it is stabilization time before the measurement), should be >0
+        # delay (in fact it is stabilization time before the measurement), should be >0:
         try:
             self.settings["continuousdelay"] = float(self.settingsWidget.lineEdit_continuousDelay.text()) / 1000
         except ValueError:
@@ -656,7 +489,9 @@ class sweepGUI(QObject):
 
         # pulsed nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            line_freq = self.smu_settings.get("lineFrequency", 50)  # fallback to 50Hz if not present
+            if "lineFrequency" not in self.smu_settings:
+                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
+            line_freq = self.smu_settings["lineFrequency"]
             self.settings["pulsednplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_pulsedNPLC.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: pulsed nplc field should be numeric"}]
@@ -710,7 +545,9 @@ class sweepGUI(QObject):
 
         # drain nplc (in fact it is integration time for the measurement) should be float >0
         try:
-            line_freq = self.smu_settings.get("lineFrequency", 50)  # fallback to 50Hz if not present
+            if "lineFrequency" not in self.smu_settings:
+                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
+            line_freq = self.smu_settings["lineFrequency"]
             self.settings["drainnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_drainNPLC.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: drain nplc field should be numeric"}]
@@ -725,7 +562,7 @@ class sweepGUI(QObject):
         if self.settings["draindelay"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: drain delay field should be positive"}]
 
-        self.settings["plotUpdate"] = self.settingsWidget.spinBox_plotUpdate.value()
+        self.settings["plotupdate"] = self.settingsWidget.spinBox_plotUpdate.value()
         try:
             self.settings["prescaler"] = float(self.settingsWidget.prescalerEdit.text())
         except ValueError:
@@ -748,6 +585,7 @@ class sweepGUI(QObject):
         return [0, self.settings]
 
     def setSettings(self, settings):
+        self._log_verbose("Setting settings for sweep plugin: " + str(settings))
         # the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
         self.settings = {}
         self.settings = copy.deepcopy(settings)
@@ -757,7 +595,7 @@ class sweepGUI(QObject):
         #        self._setGUIfromSettings()
 
     ###############GUI enable/disable
-
+    @pyqtSlot(bool)
     def set_running(self, status):
         self.settingsWidget.groupBox_general.setEnabled(not status)
         self.settingsWidget.groupBox_sweep.setEnabled(not status)
@@ -769,6 +607,7 @@ class sweepGUI(QObject):
         self.settingsWidget.runButton.setEnabled(not status)
         self.settingsWidget.groupBox_dep.setEnabled(not status)
         self.closeLock.emit(status)
+        self.set_gui_from_settings()
 
     ########sweep implementation
 
@@ -848,7 +687,7 @@ class sweepGUI(QObject):
             self.sc.draw()
             buffer_prev = 0
             while True:
-                time.sleep(self.settings["plotUpdate"])
+                time.sleep(self.settings["plotupdate"])
                 [lastI, lastV, lastPoints] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["source"])
                 if lastPoints >= measurement["steps"] * measurement["repeat"]:
                     break
@@ -883,7 +722,7 @@ class sweepGUI(QObject):
                         break
                     buffer_prev = lastPoints
             #### Keithley may produce a 5042 error, so make a delay here
-            time.sleep(self.settings["plotUpdate"])
+            time.sleep(self.settings["plotupdate"])
             self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
             IV_source = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](measurement["source"])
             self.axes.cla()
@@ -962,3 +801,80 @@ class sweepGUI(QObject):
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")
                 self.info_message.emit("SMU turn off failed. Check log")
             self.set_running(False)
+
+    def set_gui_from_settings(self):
+        """
+        Updates the GUI fields based on the internal settings dictionary.
+        This function assumes that the settings have already been set using the `setSettings` function.
+        """
+
+        def set_combobox_value(combobox, value):
+            """
+            Helper function to set the value of a QComboBox in a case-insensitive manner.
+
+            Args:
+                combobox (QComboBox): The combobox to set the value for.
+                value (str): The value to set.
+
+            Returns:
+                bool: True if the value was found and set, False otherwise.
+            """
+            self._log_verbose(f"Setting combobox {combobox.objectName()} to value: {value}")
+            index = combobox.findText(value, Qt.MatchFlag.MatchFixedString)
+            print(f"Combobox {combobox.objectName()} index for value '{value}': {index}")
+            if index != -1:
+                combobox.setCurrentIndex(index)
+                return True
+            return False
+
+        self._log_verbose("Setting GUI from internal settings")
+        self.settingsWidget.lineEdit_path.setText(self.settings["address"])
+        self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
+        self.settingsWidget.lineEdit_sampleName.setText(self.settings["samplename"])
+        self.settingsWidget.lineEdit_comment.setText(self.settings["comment"])
+
+        set_combobox_value(self.settingsWidget.comboBox_channel, self.settings["channel"])
+        set_combobox_value(self.settingsWidget.comboBox_inject, self.settings["inject"])
+        set_combobox_value(self.settingsWidget.comboBox_mode, self.settings["mode"])
+        set_combobox_value(self.settingsWidget.comboBox_continuousDelayMode, self.settings["continuousdelaymode"])
+        set_combobox_value(self.settingsWidget.comboBox_pulsedDelayMode, self.settings["pulseddelaymode"])
+        set_combobox_value(self.settingsWidget.comboBox_drainDelayMode, self.settings["draindelaymode"])
+        set_combobox_value(self.settingsWidget.comboBox_sourceSenseMode, self.settings["sourcesensemode"])
+        set_combobox_value(self.settingsWidget.comboBox_drainSenseMode, self.settings["drainsensemode"])
+
+        line_freq = self.smu_settings["lineFrequency"]
+        self.settingsWidget.lineEdit_continuousNPLC.setText(str(float(self.settings["continuousnplc"]) / (0.001 * line_freq)))
+        self.settingsWidget.lineEdit_continuousDelay.setText(str(float(self.settings["continuousdelay"]) * 1000))
+        self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"]) / (0.001 * line_freq)))
+        self.settingsWidget.lineEdit_pulsedDelay.setText(str(float(self.settings["pulseddelay"]) * 1000))
+        self.settingsWidget.lineEdit_drainNPLC.setText(str(float(self.settings["drainnplc"]) / (0.001 * line_freq)))
+        self.settingsWidget.lineEdit_drainDelay.setText(str(float(self.settings["draindelay"]) * 1000))
+        self.settingsWidget.spinBox_plotUpdate.setValue(int(self.settings["plotupdate"]))
+        self.settingsWidget.prescalerEdit.setText(str(self.settings["prescaler"]))
+
+        self.settingsWidget.lineEdit_continuousStart.setText(str(self.settings["continuousstart"]))
+        self.settingsWidget.lineEdit_continuousEnd.setText(str(self.settings["continuousend"]))
+        self.settingsWidget.lineEdit_continuousPoints.setText(str(self.settings["continuouspoints"]))
+        self.settingsWidget.lineEdit_continuousLimit.setText(str(self.settings["continuouslimit"]))
+
+        self.settingsWidget.lineEdit_pulsedStart.setText(str(self.settings["pulsedstart"]))
+        self.settingsWidget.lineEdit_pulsedEnd.setText(str(self.settings["pulsedend"]))
+        self.settingsWidget.lineEdit_pulsedPoints.setText(str(self.settings["pulsedpoints"]))
+        self.settingsWidget.lineEdit_pulsedLimit.setText(str(self.settings["pulsedlimit"]))
+        self.settingsWidget.lineEdit_pulsedPause.setText(str(self.settings["pulsedpause"]))
+
+        self.settingsWidget.lineEdit_drainStart.setText(str(self.settings["drainstart"]))
+        self.settingsWidget.lineEdit_drainEnd.setText(str(self.settings["drainend"]))
+        self.settingsWidget.lineEdit_drainPoints.setText(str(self.settings["drainpoints"]))
+        self.settingsWidget.lineEdit_drainLimit.setText(str(self.settings["drainlimit"]))
+
+        self.settingsWidget.lineEdit_repeat.setText(str(self.settings["repeat"]))
+        if isinstance(self.settings["singlechannel"], bool):
+            self.settingsWidget.checkBox_singleChannel.setChecked(self.settings["singlechannel"])
+        elif isinstance(self.settings["singlechannel"], str):
+            if self.settings["singlechannel"].lower() == "true":
+                self.settingsWidget.checkBox_singleChannel.setChecked(True)
+        else:
+            raise ValueError("Invalid type for singlechannel setting: expected bool or str, got {}".format(type(self.settings["singlechannel"])))
+        self._log_verbose("GUI settings set from internal settings")
+        self._update_GUI_state()

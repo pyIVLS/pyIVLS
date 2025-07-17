@@ -230,7 +230,7 @@ class specSMU_GUI(QWidget):
             if line_edit and value != "":
                 line_edit.setText(str(value))
 
-        # set checkboxes 
+        # set checkboxes
         single_channel = plugin_info["singlechannel"] == "True"
         self.settingsWidget.checkBox_singleChannel.setChecked(single_channel)
         # update to the correct GUI state
@@ -309,7 +309,7 @@ class specSMU_GUI(QWidget):
             self.settings["delaymode"] = raw_settings["delaymode"].lower()
             self.settings["sourcesensemode"] = raw_settings["sourcesensemode"].lower()
             self.settings["singlechannel"] = raw_settings["singlechannel"]
-            self.settings["drainchannel"] = "" # PLACEHOLDER FIXME:  
+            self.settings["drainchannel"] = ""  # PLACEHOLDER FIXME:
 
             # Parse numeric fields
             self.settings["start"] = float(raw_settings["start"])

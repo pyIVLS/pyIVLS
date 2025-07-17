@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, Qt
 
 
 class dialog(QDialog):
@@ -39,7 +39,7 @@ class dialog(QDialog):
             settings: Settings dictionary for preprocessing and matching.
             pointslist: Optional list of points for manual mode.
         """
-        super(QDialog, self).__init__()
+        super().__init__(None, Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint)
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
         # Connect UI elements to settings change handler

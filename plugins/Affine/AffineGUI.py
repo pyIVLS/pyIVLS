@@ -96,7 +96,10 @@ class AffineGUI(QObject):
         ratiotest = float(settings["ratiotest"])
         residualthreshold = int(settings["residualthreshold"])
         crosscheck = True if settings["crosscheck"] == "True" else False
-
+        default_camera = settings["cameracombobox"]
+        # set the camera combobox to the default camera
+        if default_camera:
+            settingsWidget.cameraComboBox.setCurrentText(default_camera)
         # set the settings widget values
         self.settingsWidget.pointCount.setCurrentText(str(pointcount))
         self.settingsWidget.addPointsCheck.setChecked(addpointscheck)

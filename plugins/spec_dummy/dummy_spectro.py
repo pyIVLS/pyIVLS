@@ -45,6 +45,7 @@ import copy
 
 from mockspec import MockCCSDRV
 
+
 class dummy_spectro_GUI(QObject):
     """spectrometer plugin for pyIVLS"""
 
@@ -115,7 +116,7 @@ class dummy_spectro_GUI(QObject):
         """Logs a message if verbose mode is enabled."""
         if self.verbose:
             classname = self.__class__.__name__
-            self.log_message.emit(classname + " : " f"VERBOSE : {message}")
+            self.log_message.emit(classname + f" : VERBOSE : {message}")
 
     def _connect_signals(self):
         self.settingsWidget.connectButton.clicked.connect(self._connectAction)
@@ -214,7 +215,7 @@ class dummy_spectro_GUI(QObject):
         if self.preview_running:
             self._log_verbose("Stopping preview. Waiting for scan to finish if in progress.")
             self.preview_running = False
-            if hasattr(self, 'run_thread') and self.run_thread.is_alive():
+            if hasattr(self, "run_thread") and self.run_thread.is_alive():
                 self.run_thread.join(timeout=2)  # Wait up to 2 seconds for the thread to finish
             self._enableSaveButton()
             self.closeLock.emit(self.preview_running)
@@ -313,7 +314,6 @@ class dummy_spectro_GUI(QObject):
         else:
             self.closeLock.emit(False)
             return [4, {"Error message": "TLCCSGUI: spectrometer is not in IDLE state when setting auto integration time"}]
-          
 
     def getAutoTime(self) -> tuple[int, float | dict]:
         self._log_verbose("Calculating auto integration time.")
@@ -509,7 +509,6 @@ class dummy_spectro_GUI(QObject):
             [status, info] = self._parse_settings_integrationTime()
             if status:
                 return [status, info]
-        
 
         return [0, "OK"]
 
@@ -523,10 +522,7 @@ class dummy_spectro_GUI(QObject):
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : address string should point to a valid directory")
-            return [
-                1,
-                {"Error message": "TLCCS plugin : address string should point to a valid directory"},
-            ]
+            return [1, {"Error message": "TLCCS plugin : address string should point to a valid directory"}]
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : filename is not valid")
@@ -535,7 +531,7 @@ class dummy_spectro_GUI(QObject):
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-        self.settings["externalTrigger"] = self.settingsWidget.extTriggerCheck.isChecked() # this is here since this is written into the header
+        self.settings["externalTrigger"] = self.settingsWidget.extTriggerCheck.isChecked()  # this is here since this is written into the header
 
         return [0, "Ok"]
 
@@ -594,7 +590,7 @@ class dummy_spectro_GUI(QObject):
         else:
             self.settings["externalTrigger"] = False
         self.settings["previewCorrection"] = self._parse_spectrumCorrection()
-        self.settings["usecorrection"] = self._parse_spectrumCorrection() 
+        self.settings["usecorrection"] = self._parse_spectrumCorrection()
         # duplicate value for spectrum correction since i don't want to break anything now. This is used to save the value to the ini.
 
         return [0, self.settings]

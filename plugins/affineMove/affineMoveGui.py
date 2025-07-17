@@ -231,7 +231,7 @@ class affineMoveGUI(QObject):
         np.save(file_path, self.calibrations)
         self.info_message.emit(f"Calibration data saved to {file_path}")
 
-    def _load_calibration(self):
+    def _load_calibration(self) -> tuple[int, dict[str, str]]:
         """Load the calibration data from a file. This implemetation keeps a single calibration file
         for all manipulators instead of multiple files to choose from. TODO: implement a way to choose where to load from and with what name (if really necessary)
         """
@@ -239,23 +239,19 @@ class affineMoveGUI(QObject):
 
         if not os.path.exists(file_path):
             self.emit_log(f"No calibration data found at {file_path}")
-            return
+            return 1, {"Error message": f"No calibration data found at {file_path}"}
 
-        # Load the calibration data
-        self.calibrations = np.load(file_path, allow_pickle=True).item()
-        self.info_message.emit(f"Calibration data loaded from {file_path}")
-        self.update_status()
 
         # calibrate all manipulators
         mm, _, _ = self._fetch_dep_plugins()
         status, state = mm.mm_open()
         if status:
             self.emit_log(f"{state['Error message']} {state.get('Exception', '')}")
-            return
+            return status, state
         status, ret = mm.mm_devices()
         if status:
             self.emit_log(f"{state['Error message']} {state.get('Exception', '')}")
-            return
+            return status, state
         dev_count, dev_statuses = ret
         # calibrate every available manipulator
         for i, status in enumerate(dev_statuses):
@@ -263,6 +259,11 @@ class affineMoveGUI(QObject):
                 code, status = mm.mm_change_active_device(i + 1)
                 status, state = mm.mm_calibrate()
 
+        # Load the calibration data
+        self.calibrations = np.load(file_path, allow_pickle=True).item()
+        self.update_status()
+        return 0, {"message": f"Calibration data loaded from {file_path}"}
+    
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
         """
         Converts a point from camera coordinates to micromanipulator coordinates

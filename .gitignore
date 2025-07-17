@@ -10,3 +10,6 @@ widgets_list
 .ruff_cache
 .*
 pyIVLS.log
+*.log
+*.dat
+*.csv
