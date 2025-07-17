@@ -20,14 +20,13 @@ from settingsWidget import Ui_Form
 import numpy as np
 import copy
 from typing import Optional
-from datetime import datetime
 
 
 class specSMU_GUI(QWidget):
     """GUI implementation"""
 
     non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_widget", "sequenceStep", "setSettings"]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_widget", "sequenceStep", "setSettings", "set_gui_from_settings"]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ########Signals
     log_message = pyqtSignal(str)
     ##not needed for sequence implementation, may be added later only for standalone mode
@@ -51,6 +50,7 @@ class specSMU_GUI(QWidget):
         self.settingsWidget.setupUi(self)
         self.verbose = True  # FIXME
         self._connect_signals()
+        self.settings = {}
 
     def _connect_signals(self) -> None:
         """
@@ -168,72 +168,77 @@ class specSMU_GUI(QWidget):
         Args:
             plugin_info (dict): Settings from plugin_data in pyIVLS_*_plugin.
         """
-        # Set SMU selection and populate SMU box
-        smu_name = plugin_info["smu"]
+        self.settings.update(plugin_info)
+        self.set_gui_from_settings()
+
+    def set_gui_from_settings(self) -> None:
+        """
+        Updates the GUI fields based on the provided settings dictionary.
+
+        Args:
+            settings (dict): Dictionary containing settings to update the GUI.
+        """
+        self._log_verbose("Setting GUI from provided settings.")
+        settings = self.settings
+        # Set SMU selection
+        smu_name = settings.get("smu", "")
         self.settingsWidget.smuBox.clear()
         self.settingsWidget.smuBox.addItems(list(self.function_dict["smu"].keys()))
         if smu_name:
             idx = self.settingsWidget.smuBox.findText(smu_name, Qt.MatchFlag.MatchFixedString)
             if idx > -1:
                 self.settingsWidget.smuBox.setCurrentIndex(idx)
-        # Populate channel combo box for selected SMU
-        self._smu_plugin_changed()
-        channel_to_set = plugin_info.get("channel", "")
-        if channel_to_set:
-            idx = self.settingsWidget.comboBox_channel.findText(channel_to_set, Qt.MatchFlag.MatchFixedString)
-            if idx > -1:
-                self.settingsWidget.comboBox_channel.setCurrentIndex(idx)
 
-        # Set spectrometer selection and populate spectrometerBox
-        spectro_name = plugin_info["spectrometer"]
+        # Set spectrometer selection
+        spectro_name = settings.get("spectrometer", "")
         self.settingsWidget.spectrometerBox.clear()
         self.settingsWidget.spectrometerBox.addItems(list(self.function_dict["spectrometer"].keys()))
         if spectro_name:
             idx = self.settingsWidget.spectrometerBox.findText(spectro_name, Qt.MatchFlag.MatchFixedString)
             if idx > -1:
                 self.settingsWidget.spectrometerBox.setCurrentIndex(idx)
-        # Populate channel combo box for selected spectrometer
-        self._spectrometer_plugin_changed()
-        channel_to_set = plugin_info.get("channel", "")
-        if channel_to_set:
-            idx = self.settingsWidget.comboBox_channel.findText(channel_to_set, Qt.MatchFlag.MatchFixedString)
-            if idx > -1:
-                self.settingsWidget.comboBox_channel.setCurrentIndex(idx)
 
-        # Set all other combo boxes
-        combo_map = [
-            ("comboBox_inject", "inject"),
-            ("comboBox_mode", "mode"),
-            ("comboBox_DelayMode", "delaymode"),
-            ("comboBox_sourceSenseMode", "sourcesensemode"),
-        ]
-        for box_name, key in combo_map:
+        # Set combo boxes
+        combo_map = {
+            "comboBox_channel": "channel",
+            "comboBox_inject": "inject",
+            "comboBox_mode": "mode",
+            "comboBox_DelayMode": "delaymode",
+            "comboBox_sourceSenseMode": "sourcesensemode",
+        }
+        for box_name, key in combo_map.items():
             box = getattr(self.settingsWidget, box_name, None)
-            value = plugin_info.get(key, "")
+            value = settings.get(key, "")
             if box and value:
                 idx = box.findText(value, Qt.MatchFlag.MatchFixedString)
                 if idx > -1:
                     box.setCurrentIndex(idx)
 
-        # Set all line edits
-        line_map = [
-            ("lineEdit_Start", "start"),
-            ("lineEdit_End", "end"),
-            ("lineEdit_Points", "points"),
-            ("lineEdit_Limit", "limit"),
-            ("lineEdit_NPLC", "nplc"),
-            ("lineEdit_Delay", "delay"),
-        ]
-        for line_name, key in line_map:
+        # Set line edits
+        line_map = {
+            "lineEdit_Start": "start",
+            "lineEdit_End": "end",
+            "lineEdit_Points": "points",
+            "lineEdit_Limit": "limit",
+            "lineEdit_NPLC": "nplc",
+            "lineEdit_Delay": "delay",
+        }
+        for line_name, key in line_map.items():
             line_edit = getattr(self.settingsWidget, line_name, None)
-            value = plugin_info.get(key, "")
+            value = settings.get(key, "")
             if line_edit and value != "":
                 line_edit.setText(str(value))
 
-        # set checkboxes
-        single_channel = plugin_info["singlechannel"] == "True"
-        self.settingsWidget.checkBox_singleChannel.setChecked(single_channel)
-        # update to the correct GUI state
+        # Set checkboxes
+        if isinstance(settings.get("singlechannel"), bool):
+            self.settingsWidget.checkBox_singleChannel.setChecked(settings["singlechannel"])
+        elif isinstance(settings.get("singlechannel"), str):
+            # If singlechannel is a string, convert it to boolean
+            self.settingsWidget.checkBox_singleChannel.setChecked(settings["singlechannel"].lower() in ["true"])
+        else:
+            raise TypeError("singlechannel must be a boolean or a string representing a boolean value.")
+
+        # Update GUI state
         self._update_GUI_state()
 
     ########Functions
