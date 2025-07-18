@@ -32,6 +32,8 @@ class TraceGui(QObject):
         self.lineCountLabel = QLabel("Max displayed lines:")
         self.lineCountSpin = QSpinBox()
         self.lineCountSpin.setRange(100, 100000)
+        self.liveUpdateCheck = QCheckBox("Live update")
+        self.liveUpdateCheck.setChecked(True)
         layout.addWidget(self.logFileLabel)
         layout.addWidget(self.logFilePathEdit)
         layout.addWidget(self.browseButton)
@@ -40,6 +42,7 @@ class TraceGui(QObject):
         layout.addWidget(self.sessionOnlyCheck)
         layout.addWidget(self.lineCountLabel)
         layout.addWidget(self.lineCountSpin)
+        layout.addWidget(self.liveUpdateCheck)
 
     def _create_mdi_widget(self):
         self.MDIWidget = QWidget()
@@ -54,6 +57,13 @@ class TraceGui(QObject):
         self.levelCombo.currentTextChanged.connect(self._set_log_level)
         self.sessionOnlyCheck.toggled.connect(self._set_session_only)
         self.lineCountSpin.valueChanged.connect(self._set_line_count)
+        self.liveUpdateCheck.toggled.connect(self._set_live_update)
+    def _set_live_update(self, checked):
+        if checked:
+            if self.log_file_path and os.path.exists(self.log_file_path):
+                self.timer.start(1000)
+        else:
+            self.timer.stop()
 
     def _browse_log_file(self):
         file_path, _ = QFileDialog.getOpenFileName(None, "Select log file", os.getcwd(), "Log Files (*.log);;All Files (*)")
@@ -83,7 +93,7 @@ class TraceGui(QObject):
     def _update_log_view(self):
         if not self.log_file_path or not os.path.exists(self.log_file_path):
             return
-        # Always read the last MAX_LOG_LINES from the file for robust updates
+        # read file
         with open(self.log_file_path, "r", encoding="utf-8", errors="ignore") as f:
             all_lines = f.readlines()
         # Remove empty lines and filter by log level
@@ -98,14 +108,25 @@ class TraceGui(QObject):
                 if session_marker in filtered_lines[i]:
                     filtered_lines = filtered_lines[i:]
                     break
-        # Print to the log view
+        # Save current scrollbar position and check if at bottom
+        SCROLLBAR_BOTTOM_THRESHOLD = 3
+        scrollbar = self.logView.verticalScrollBar()
+        at_bottom = False
+        prev_value = 0
+        if scrollbar is not None:
+            at_bottom = (scrollbar.maximum() - scrollbar.value()) <= SCROLLBAR_BOTTOM_THRESHOLD
+            prev_value = scrollbar.value()
         self.logView.setPlainText("".join(filtered_lines))
-        self.logView.moveCursor(QTextCursor.MoveOperation.End)
+        if scrollbar is not None:
+            if at_bottom:
+                scrollbar.setValue(scrollbar.maximum())
+            else:
+                scrollbar.setValue(prev_value)
         # Reset last_pos so that a new browse/settings change will reload from the end
         self.last_pos = 0
 
     def _line_passes_filter(self, line):
-        # Simple filter: expects log lines to contain the level as a word
+        # Simple filter: check if line contains the current log level
         levels = self.log_levels
         min_level_idx = levels.index(self.current_log_level)
         for idx, level in enumerate(levels):
@@ -115,13 +136,13 @@ class TraceGui(QObject):
 
     def parse_settings_widget(self):
         """Parse the current settings from the widget and return as a dict."""
-        # nothing to check, just return
         settings = {
             "log_file": self.logFilePathEdit.text(),
             "show_current_session": str(self.sessionOnlyCheck.isChecked()),
             "show_level": self.levelCombo.currentText(),
             "display_line_count": str(self.lineCountSpin.value()),
-            "poll_frequency": "1000" 
+            "poll_frequency": "1000",
+            "live_update": str(self.liveUpdateCheck.isChecked())
         }
         return 0, settings
 
@@ -140,6 +161,7 @@ class TraceGui(QObject):
         if idx != -1:
             self.levelCombo.setCurrentIndex(idx)
         self.lineCountSpin.setValue(int(settings["display_line_count"]))
+        self.liveUpdateCheck.setChecked(settings.get("live_update", "True") == "True")
         # poll_frequency is not used in the UI, but could be set here if needed
         # Automatically open the stored logfile if present
         log_file = settings["log_file"]
@@ -148,4 +170,7 @@ class TraceGui(QObject):
             self.last_pos = 0
             self.logView.clear()
             self._update_log_view()
-            self.timer.start(int(settings["poll_frequency"]))  # Ensure timer is started for live updates
+            if self.liveUpdateCheck.isChecked():
+                self.timer.start(int(settings["poll_frequency"]))  # Ensure timer is started for live updates
+            else:
+                self.timer.stop()
