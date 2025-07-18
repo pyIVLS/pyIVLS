@@ -1,8 +1,48 @@
 import os
 from PyQt6.QtCore import QObject, QTimer
-from PyQt6.QtGui import QTextCursor
+from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
 from PyQt6.QtWidgets import QVBoxLayout, QWidget, QComboBox, QLabel, QPushButton, QFileDialog, QCheckBox, QPlainTextEdit, QSpinBox
 
+
+class LogHighlighter(QSyntaxHighlighter):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.highlighting_rules = []
+
+        # Define formats for different log levels
+        debug_format = QTextCharFormat()
+        debug_format.setForeground(QColor("blue"))
+        self.highlighting_rules.append(("DEBUG", debug_format))
+
+        info_format = QTextCharFormat()
+        info_format.setForeground(QColor("green"))
+        self.highlighting_rules.append(("INFO", info_format))
+
+        warning_format = QTextCharFormat()
+        warning_format.setForeground(QColor("orange"))
+        self.highlighting_rules.append(("WARNING", warning_format))
+
+        error_format = QTextCharFormat()
+        error_format.setForeground(QColor("red"))
+        self.highlighting_rules.append(("ERROR", error_format))
+
+        critical_format = QTextCharFormat()
+        critical_format.setForeground(QColor("darkred"))
+        self.highlighting_rules.append(("CRITICAL", critical_format))
+
+        # Format for session start
+        session_format = QTextCharFormat()
+        session_format.setBackground(QColor("yellow"))
+        session_format.setForeground(QColor("black"))
+        self.highlighting_rules.append(("pyIVLS session started", session_format))
+
+    def highlightBlock(self, text):
+        text = str(text)  
+        for pattern, fmt in self.highlighting_rules:
+            start_index = text.find(pattern)
+            while start_index != -1:
+                self.setFormat(start_index, len(pattern), fmt)
+                start_index = text.find(pattern, start_index + len(pattern))
 
 class TraceGui(QObject):
 
@@ -17,6 +57,7 @@ class TraceGui(QObject):
         self._connect_signals()
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_log_view)
+        self.highlighter = LogHighlighter(self.logView.document())
 
     def _create_settings_widget(self):
         self.settingsWidget = QWidget()
