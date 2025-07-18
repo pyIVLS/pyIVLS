@@ -1,5 +1,7 @@
 import sys
 from threading import Lock
+from PyQt6.QtCore import QObject, pyqtSignal
+import numpy as np
 
 
 """
@@ -53,7 +55,9 @@ from threading import Lock
 import numpy as np
 
 
-class dummy_ll:
+class dummy_ll(QObject):
+    log_message = pyqtSignal(str)
+
     from os.path import dirname, sep
 
     path = dirname(__file__) + sep
@@ -71,6 +75,7 @@ class dummy_ll:
 
     ########Functions
     def __init__(self, dbg_mode=False):
+        super().__init__()
         # handler for Keithley
         self.k = None
 
@@ -86,30 +91,20 @@ class dummy_ll:
     ## Communication functions
     def safewrite(self, command):
         try:
-            # self.k.write(command)
-            print(command)
-            ##IRtothink#### debug_mode may be replaced with something like logging
-            # if self.debug_mode:
-            #    error_code = self.k.query("print(errorqueue.next())")
-            #    if "Queue Is Empty" not in error_code:
-            #        print(f"Error sending command: {command}\nError code: {error_code}")
+            # Simulate writing a command
+            self.log_message.emit(f"Command written: {command}")
         except Exception as e:
-            ##IRtodo#### mov to the log
-            print(f"Exception sending command: {command}\nException: {e}")
-            ##IRtothink#### some exception handling should be implemented
+            self.log_message.emit(f"Error writing command: {command}, Exception: {e}")
             raise e
-        # finally:
-        #    if self.debug_mode:
-        #        self.k.write("errorqueue.clear()")
 
     def safequery(self, command):
         try:
-            self.k.write(command)
-            return self.k.read()
+            # Simulate querying a command
+            response = f"Response to {command}"  # Placeholder for actual response
+            self.log_message.emit(f"Command queried: {command}, Response: {response}")
+            return response
         except Exception as e:
-            ##IRtodo#### mov to the log
-            print(f"Exception querying command: {command}\nException: {e}")
-            ##IRtothink#### some exception handling implemented
+            self.log_message.emit(f"Error querying command: {command}, Exception: {e}")
             raise e
 
     # def safequery(self, command):
@@ -226,14 +221,12 @@ class dummy_ll:
         return [i_value, v_value, readings]
 
     def setOutput(self, channel, outputType, value):
-        """sets smu output but does not switch it ON
-        channel = "smua" or "smub"
-        outputType = "i" or "v"
-        value = float
-        """
-        ##IRtothink#### some check may be added
-        # self.safewrite(f"{source}.source.level{outputType} = {value}")
-        print(f"{source}.source.level{outputType} = {value}")
+        try:
+            if channel is not None:
+                self.log_message.emit(f"{channel}.source.level{outputType} = {value}")
+        except Exception as e:
+            self.log_message.emit(f"Error setting output: {e}")
+            raise e
 
     def get_last_buffer_value(self, channel):
         """
@@ -285,10 +278,14 @@ class dummy_ll:
         """
         swihces on channels
         """
-        if not source == None:
-            self.safewrite(f"{source}.source.output={source}.OUTPUT_ON")
-        if not drain == None:
-            self.safewrite(f"{drain}.source.output={drain}.OUTPUT_ON")
+        try:
+            if source is not None:
+                self.log_message.emit(f"Turning on source: {source}")
+            if drain is not None:
+                self.log_message.emit(f"Turning on drain: {drain}")
+        except Exception as e:
+            self.log_message.emit(f"Error turning on channels: {e}")
+            raise e
 
     def keithley_init(self, s: dict):
         ##IRtothink#### pulsed operation should be rechecked if strict pulse duration will be needed

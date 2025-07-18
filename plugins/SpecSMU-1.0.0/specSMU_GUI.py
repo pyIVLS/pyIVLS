@@ -20,7 +20,7 @@ from settingsWidget import Ui_Form
 import numpy as np
 import copy
 from typing import Optional
-
+import traceback
 
 class specSMU_GUI(QWidget):
     """GUI implementation"""
@@ -394,7 +394,8 @@ class specSMU_GUI(QWidget):
             self._log_verbose("SpecSMU action finished successfully")
             return [0, "specSMU action finished"]
         except Exception as e:
-            self._log_verbose(f"Error in SpecSMU implementation: {e}")
+            detailed_error = traceback.format_exc()
+            self._log_verbose(f"Error in SpecSMU implementation: {str(e)}\n{detailed_error}")
             return [1, {"Error message": "SpecSMU plugin: error in seq implementation", "Exception": str(e)}]
         finally:
             self.function_dict["smu"][smu_name]["smu_disconnect"]()
@@ -415,11 +416,11 @@ class specSMU_GUI(QWidget):
         s["delayduration"] = self.settings["delay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["limit"] = self.settings["limit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["sourcehighc"] = self.smu_settings["sourcehighc"]
-
         if self.settings["sourcesensemode"] == "4 wire":
             s["sourcesense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
         else:
             s["sourcesense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
+        self._log_verbose(f"SMU settings: {s}")
 
         if not s["single_ch"]:
             self._log_verbose("Dual channel mode not implemented")
@@ -429,8 +430,8 @@ class specSMU_GUI(QWidget):
             self._log_verbose("Error initializing SMU")
             return [2, {"Error message": "SpecSMU plugin: error in SMU plugin can not initialize"}]
 
-        self._log_verbose("SMU initialized successfully")
-        return {0, "OK"}
+        self._log_verbose("Leaving smuInit")
+        return (0, "OK")
 
     def _SpecSMUImplementation(self):
         self._log_verbose("Entering _SpecSMUImplementation")
@@ -474,9 +475,12 @@ class specSMU_GUI(QWidget):
             self.spectrometer_settings["filename"] = specFilename + f"_{smuSetValue:.4f}" + " iv"
             if self.spectrometer_settings["integrationtimetype"] == "auto":
                 self.function_dict["spectrometer"][spectro_name]["setSettings"](self.spectrometer_settings)
-                self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
-                status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"]()
-                self.function_dict["smu"][smu_name]["smu_outputOFF"]()
+
+                # "Abandon all hope, ye who enter here"
+                status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](external_action=self.function_dict["smu"][smu_name]["smu_outputON"],
+                                                                                                    external_action_args=(self.settings["channel"],),
+                                                                                                    external_cleanup=self.function_dict["smu"][smu_name]["smu_outputOFF"],
+                                                                                                    pause_duration=self.settings["pause"])
                 if not status:
                     integration_time_setting = auto_time
             if self.settings["mode"] == "pulsed":

@@ -71,3 +71,9 @@ class pyIVLS_smu_dummy_plugin:
         """
         if args is None or args.get("function") == self.metadata["function"]:
             return [self.smu, self.metadata]
+
+    @hookimpl
+    def get_log(self, args=None):
+        """Provides the log_message signal for logging to the main app."""
+        if args is None or args.get("function") == self.metadata["function"]:
+            return {self.name: self.smu.smu.log_message}

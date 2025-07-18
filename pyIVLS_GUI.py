@@ -154,26 +154,34 @@ class pyIVLS_GUI(QObject):
         subwindows = self.window.mdiArea.subWindowList()
         subwindow_names = [subwindow.windowTitle() for subwindow in subwindows]
 
-        for name, widget in widgets.items():
+        default_width = 400  # Default width for MDI widgets
+        default_height = 300  # Default height for MDI widgets
+        vertical_spacing = 30 # Spacing between stacked widgets
+        # FIXME: Have a hard think on wheter a fixed size is good or not
+        for index, (name, widget) in enumerate(widgets.items()):
             if name not in subwindow_names:
                 subwindow = pyIVLS_mdiWindow(self.window.mdiArea)
                 subwindow.setWidget(widget)
-                # widget.show()
                 subwindow.setWindowTitle(name)
+                subwindow.resize(default_width, default_height)  # Set default size
+
+                # Position the subwindow to stack vertically
+                subwindow.move(0, index * (vertical_spacing))
+
                 subwindow.closeSignal.connect(self.mdi_window_react_close)
-                subwindow.setVisible(True)  # set window to be visible upon loading.
+                subwindow.setVisible(True)  # Set window to be visible upon loading.
             else:
-                # subwindow already exists, do nothing. Widget should be set and correct
+                # Subwindow already exists, do nothing. Widget should be set and correct
                 pass
 
-        # close subwindows that are not in the widgets dict
+        # Close subwindows that are not in the widgets dict
         for sw in subwindows:
             if sw.windowTitle() not in widgets:
                 self.window.mdiArea.removeSubWindow(sw)  # Remove subwindow because the subwindow list is used to iterate over existing windows
-                sw.setCloseLock(False)  # closelock is set to False to allow closing
-                sw.close()  # actually close
+                sw.close()  # Actually close
 
     def setSeqBuilder(self):
+        
         self.window.seqBuilder_dockWidget.setWidget(self.seqBuilder.widget)
 
     def clearDockWidget(self):

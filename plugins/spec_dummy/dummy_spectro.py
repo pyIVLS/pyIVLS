@@ -315,7 +315,27 @@ class dummy_spectro_GUI(QObject):
             self.closeLock.emit(False)
             return [4, {"Error message": "TLCCSGUI: spectrometer is not in IDLE state when setting auto integration time"}]
 
-    def getAutoTime(self) -> tuple[int, float | dict]:
+    def getAutoTime(
+        self,
+        external_action=None,
+        external_action_args=None,
+        external_cleanup=None,
+        external_cleanup_args=None,
+        pause_duration: float = 0.0
+    ) -> tuple[int, float | dict]:
+        """
+        Calculates the optimal integration time, allowing external actions and cleanup with arguments.
+
+        Args:
+            external_action (callable): External function to execute during auto time calculation.
+            external_action_args (tuple): Arguments for the external action.
+            external_cleanup (callable): External cleanup function to execute after auto time calculation.
+            external_cleanup_args (tuple): Arguments for the external cleanup function.
+            pause_duration (float): Duration to pause after each iteration.
+
+        Returns:
+            tuple[int, float | dict]: Status and integration time or error information.
+        """
         self._log_verbose("Calculating auto integration time.")
         low = self.autoTime_min * 1000  # time min ms
         high = self.autoTime_max * 1000  # time max ms
@@ -336,13 +356,29 @@ class dummy_spectro_GUI(QObject):
                 if status:
                     self._log_verbose(f"getAutoTime: Failed to set integration time. {status}, {info}")
                     return [status, info]
+                # external action if needed
+                if external_action:
+                    self._log_verbose(f"getAutoTime: Executing external action.")
+                    try:
+                        if external_action_args:
+                            status, info = external_action(*external_action_args)
+                        else:
+                            status, info = external_action()
+                        if status:
+                            self._log_verbose(f"getAutoTime: External action failed. {status}, {info}")
+                            return status, info
+                    except TypeError:
+                        self._log_verbose(f"getAutoTime: External action completed without standard return value")
                 [status, info] = self.spectrometerStartScan()
                 if status:
                     self._log_verbose(f"getAutoTime: Failed to start spectrum. {status}, {info}")
                     return [status, info]
                 [status, info] = self._update_spectrum()
                 self._log_verbose(f"getAutoTime: Retrieved spectrum with shape {info[1].shape} and max value {max(info[1])}.")
-                ################ check that info is [wv, spectrum] !!!!!
+                if status:
+                    self._log_verbose(f"getAutoTime: Failed to update spectrum. {status}, {info}")
+                    return [status, info]
+                # save the spectrum if needed
                 if self.settings["saveautoattmepts"]:
                     varDict = {}
                     varDict["integrationtime"] = guessIntTime / 1000.0
@@ -350,6 +386,23 @@ class dummy_spectro_GUI(QObject):
                     varDict["name"] = self.settings["samplename"]
                     varDict["comment"] = self.settings["comment"] + " Auto adjust of integration time."
                     self.createFile(varDict=varDict, filedelimeter=self.filedelimeter, address=self.settings["address"] + os.sep + self.settings["filename"] + f"_{int(guessIntTime)}ms.csv", data=info[1])
+                # external cleanup if needed
+                if external_cleanup:
+                    self._log_verbose(f"getAutoTime: Executing external cleanup.")
+                    try:
+                        if external_cleanup_args:
+                            status, info = external_cleanup(*external_cleanup_args)
+                        else:
+                            status, info = external_cleanup()
+                        if status:
+                            self._log_verbose(f"getAutoTime: External cleanup failed. {status}, {info}")
+                    except TypeError:
+                        self._log_verbose(f"getAutoTime: External cleanup completed without standard return value")
+                # pause if needed
+                if pause_duration > 0:
+                    self._log_verbose(f"getAutoTime: Pausing for {pause_duration} seconds.")
+                    time.sleep(pause_duration)
+
                 target = max(info[1])  # target value to optimize
                 # if spectrum is in the range, found good integration time
                 if low_spectrum <= target <= high_spectrum:
@@ -360,14 +413,14 @@ class dummy_spectro_GUI(QObject):
                     self._log_verbose(f"Spectrum value {target} is below the range ({low_spectrum}), increasing integration time.")
                     if guessIntTime >= high:
                         self._log_verbose(f"Integration time is too high, returning: {guessIntTime / 1000.0} seconds.")
-                        return [0, guessIntTime / 1000.0]  # return in seconds
+                        return [1, {"Error message": "Integration time too high"}]
                     low = guessIntTime
                 # if spectrum is above the range, decrease integration time
                 else:
                     self._log_verbose(f"Spectrum value {target} is above the range ({high_spectrum}), decreasing integration time.")
                     if guessIntTime <= low:
                         self._log_verbose(f"Integration time is too low, returning: {guessIntTime / 1000.0} seconds.")
-                        return [0, guessIntTime / 1000.0]  # return in seconds
+                        return [1, {"Error message": "Integration time too low"}]
                     high = guessIntTime
                 # Compute new guess in milliseconds, rounded to nearest millisecond
                 guessIntTime = int(round((low + high) / 2))
