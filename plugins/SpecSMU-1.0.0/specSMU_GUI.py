@@ -416,6 +416,10 @@ class specSMU_GUI(QWidget):
         s["delayduration"] = self.settings["delay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["limit"] = self.settings["limit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["sourcehighc"] = self.smu_settings["sourcehighc"]
+
+        s["start"] = self.settings["start"]  # start value for source, added for current injection to work 
+        s["end"] = self.settings["end"]  # end value for source -||-
+        s["points"] = self.settings["points"]  # number of points for source -||-
         if self.settings["sourcesensemode"] == "4 wire":
             s["sourcesense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
         else:
@@ -472,7 +476,7 @@ class specSMU_GUI(QWidget):
                 if status:
                     self._log_verbose(f"Error setting integration time or getting spectrum: {spectrum}")
                     raise NotImplementedError(f"Error in setting integration time or getting spectrum: {spectrum}, no handling provided")
-            self.spectrometer_settings["filename"] = specFilename + f"_{smuSetValue:.4f}" + " iv"
+            self.spectrometer_settings["filename"] = specFilename + f"_{smuSetValue:.4f}" + " iv.csv"
             if self.spectrometer_settings["integrationtimetype"] == "auto":
                 self.function_dict["spectrometer"][spectro_name]["setSettings"](self.spectrometer_settings)
 
