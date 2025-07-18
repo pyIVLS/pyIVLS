@@ -17,7 +17,6 @@ class DummyCamera:
         return [0, {"Error message": "OK"}]
 
     def set_exposure(self, exposure):
-        # No-op for mock
         return [0, {"Error message": "OK"}]
 
     def close(self):
