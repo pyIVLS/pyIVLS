@@ -10,8 +10,7 @@ import skimage as ski
 from klayout import lay
 
 # Sift detection moved over to skimage since I prefer it.
-from skimage.feature import SIFT, match_descriptors
-
+from skimage.feature import SIFT, ORB, BRIEF, match_descriptors
 
 
 class Preprocessor:
@@ -175,8 +174,8 @@ class Affine_IO:
 
 class Affine:
     """
-    Calculates the affine transformation between two images using SIFT keypoints and descriptors.
-    Assumes the images are grayscale or RGB (converted internally).
+    Calculates the affine transformation between two images using feature keypoints and descriptors.
+    Supports multiple backends: SIFT, ORB, and BRIEF. Assumes the images are grayscale or RGB (converted internally).
     Usage:
         - Create an Affine object.
         - Load the mask image using update_internal_mask().
@@ -196,6 +195,7 @@ class Affine:
     ratio_test: float
     residual_threshold: int
     cross_check: bool
+    backend: str
 
     def __init__(self, settings: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -214,6 +214,7 @@ class Affine:
         self.ratio_test = 0.75
         self.residual_threshold = 10
         self.cross_check = True
+        self.backend = "SIFT"  # Default backend
         if settings is not None:
             self.update_settings(settings)
 
@@ -234,18 +235,37 @@ class Affine:
                 self.cross_check = val.lower() == "true"
             else:
                 self.cross_check = bool(val)
+        if "backend" in settings:
+            self.backend = settings["backend"]
         self.preprocessor.update_settings(settings)
+
+    def _create_feature_detector(self):
+        """
+        Creates the appropriate feature detector based on the selected backend.
+        Returns:
+            Feature detector instance.
+        Raises:
+            AffineError: If unsupported backend is specified.
+        """
+        if self.backend == "SIFT":
+            return SIFT()
+        elif self.backend == "ORB":
+            return ORB()
+        elif self.backend == "BRIEF":
+            return BRIEF()
+        else:
+            raise AffineError(f"Unsupported backend: {self.backend}", 4)
 
     def try_match(self, img: np.ndarray) -> bool:
         """
         Attempts to find the affine transformation between the input image and
-        mask using SIFT keypoints and descriptors.
+        mask using feature keypoints and descriptors (SIFT, ORB, or BRIEF).
         Args:
             img (np.ndarray): Input image to match with the mask.
         Returns:
             bool: True if transformation is found, raises AffineError otherwise.
         Raises:
-            AffineError: If no image/mask is loaded, or not enough matches, or SIFT fails.
+            AffineError: If no image/mask is loaded, or not enough matches, or feature detection fails.
         """
         cross_check = self.cross_check
         residual_threshold = self.residual_threshold
@@ -260,13 +280,13 @@ class Affine:
         self.result["img"] = img
         self.result["mask"] = mask
         try:
-            sift = SIFT()
-            sift.detect_and_extract(img)
-            kp_img, desc_img = sift.keypoints, sift.descriptors
-            sift.detect_and_extract(mask)
-            kp_mask, desc_mask = sift.keypoints, sift.descriptors
+            detector = self._create_feature_detector()
+            detector.detect_and_extract(img)
+            kp_img, desc_img = detector.keypoints, detector.descriptors
+            detector.detect_and_extract(mask)
+            kp_mask, desc_mask = detector.keypoints, detector.descriptors
         except RuntimeError as e:
-            raise AffineError(f"Runtime error during SIFT detection: {e}", 3) from e
+            raise AffineError(f"Runtime error during {self.backend} detection: {e}", 3) from e
         self.result["kp1"] = kp_mask
         self.result["kp2"] = kp_img
         matches = match_descriptors(desc_mask, desc_img, max_ratio=max_ratio, cross_check=cross_check)
@@ -380,7 +400,7 @@ class Affine:
             self.internal_mask = mask
             self.result.clear()
             return mask
-        except Exception as e: 
+        except Exception as e:
             raise AffineError(f"Error loading mask from {path}: {e}", 2) from e
 
     def center_on_component(self, x: int, y: int) -> Tuple[int, int]:
@@ -410,5 +430,3 @@ class Affine:
                 cy, cx = region.centroid
                 return (int(cx), int(cy))
         return (x, y)  # return original coords if no region found
-
-

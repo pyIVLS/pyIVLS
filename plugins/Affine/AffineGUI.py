@@ -96,6 +96,7 @@ class AffineGUI(QObject):
         ratiotest = float(settings["ratiotest"])
         residualthreshold = int(settings["residualthreshold"])
         crosscheck = True if settings["crosscheck"] == "True" else False
+        backend = settings.get("backend", "SIFT")
         default_camera = settings["cameracombobox"]
         # set the camera combobox to the default camera
         if default_camera:
@@ -131,6 +132,7 @@ class AffineGUI(QObject):
         s["ratiotest"] = ratiotest
         s["residualthreshold"] = residualthreshold
         s["crosscheck"] = crosscheck
+        s["backend"] = backend
 
         # set the preprocessing settings to the affine object
         self.affine.update_settings(s)
@@ -614,6 +616,7 @@ class AffineGUI(QObject):
             settings["ratiotest"] = float(self.affine.ratio_test)
             settings["residualthreshold"] = int(self.affine.residual_threshold)
             settings["crosscheck"] = True if self.affine.cross_check else False
+            settings["backend"] = self.affine.backend
             settings.update(s)
 
             assert settings["sigmaimage"] >= 0, "sigmaImage must be non-negative"

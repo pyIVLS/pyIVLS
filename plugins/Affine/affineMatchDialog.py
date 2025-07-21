@@ -104,6 +104,16 @@ class Ui_Dialog(object):
 
         self.gridLayout_4.addWidget(self.crossCheck, 2, 0, 1, 1)
 
+        self.label_3 = QLabel(self.groupBox_2)
+        self.label_3.setObjectName("label_3")
+
+        self.gridLayout_4.addWidget(self.label_3, 3, 0, 1, 1)
+
+        self.backendCombo = QComboBox(self.groupBox_2)
+        self.backendCombo.setObjectName("backendCombo")
+
+        self.gridLayout_4.addWidget(self.backendCombo, 3, 1, 1, 1)
+
         self.gridLayout.addWidget(self.groupBox_2, 1, 0, 1, 2)
 
         self.groupBox_4 = QGroupBox(Dialog)
@@ -164,10 +174,11 @@ class Ui_Dialog(object):
         self.invertMask.setText(QCoreApplication.translate("Dialog", "invert mask", None))
         self.equalizeMask.setText(QCoreApplication.translate("Dialog", "equalize mask", None))
         self.cannyImage.setText(QCoreApplication.translate("Dialog", "edge detect image", None))
-        self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", "SIFT settings", None))
+        self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", "Feature detector settings", None))
         self.label_2.setText(QCoreApplication.translate("Dialog", "Residual threshold (larger -> more matches but less accurate)", None))
         self.label.setText(QCoreApplication.translate("Dialog", "ratio test) ", None))
         self.crossCheck.setText(QCoreApplication.translate("Dialog", "Crosscheck", None))
+        self.label_3.setText(QCoreApplication.translate("Dialog", "Feature detector backend", None))
         self.groupBox_4.setTitle("")
         self.groupBox_3.setTitle("")
         self.matchButton.setText(QCoreApplication.translate("Dialog", "Match", None))

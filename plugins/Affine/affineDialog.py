@@ -50,6 +50,10 @@ class dialog(QDialog):
                 child.currentTextChanged.connect(self._preprocessing_settings_changed)
             elif isinstance(child, QLineEdit):
                 child.textChanged.connect(self._preprocessing_settings_changed)
+        # Connect backend combobox to settings change handler
+        for child in self.ui.groupBox_2.children():
+            if isinstance(child, QComboBox):
+                child.currentTextChanged.connect(self._preprocessing_settings_changed)
         self.affine = affine
         self.pointslist = pointslist
         self.img = img
@@ -75,6 +79,12 @@ class dialog(QDialog):
             self.ui.ratioCombo.addItem(str(ratio))
         for residual in self.residual_list:
             self.ui.residualCombo.addItem(str(residual))
+
+        # Fill backend combobox
+        backends = ["SIFT", "ORB", "BRIEF"]
+        for backend in backends:
+            self.ui.backendCombo.addItem(backend)
+
         # Set initial values from settings
         self.ui.blurMask.setChecked(settings["blurmask"])
         self.ui.invertMask.setChecked(settings["invertmask"])
@@ -89,6 +99,10 @@ class dialog(QDialog):
         self.ui.crossCheck.setChecked(settings["crosscheck"])
         self.ui.ratioCombo.setCurrentText(str(settings["ratiotest"]))
         self.ui.residualCombo.setCurrentText(str(settings["residualthreshold"]))
+
+        # Set backend if provided in settings, otherwise default to SIFT
+        backend = settings.get("backend", "SIFT")
+        self.ui.backendCombo.setCurrentText(backend)
         if self.affine.A is not None:
             result = self.affine.result
             self.draw_result(result, self.pointslist)
@@ -123,6 +137,10 @@ class dialog(QDialog):
             settings["residualthreshold"] = int(self.ui.residualCombo.currentText())
         except ValueError:
             pass
+
+        # Get backend setting
+        settings["backend"] = self.ui.backendCombo.currentText()
+
         settings["blurmask"] = blurMask
         settings["invertmask"] = invertMask
         settings["equalizemask"] = equalizeMask
