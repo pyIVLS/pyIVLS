@@ -96,6 +96,12 @@ class sweepGUI(QObject):
         self.path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(self.path + "sweep_settingsWidget.ui")
         self.MDIWidget = uic.loadUi(self.path + "sweep_MDIWidget.ui")
+        # connect signals moved here since _initGUI is called every time 
+        # the widget list changes. This bug resulted in multiple
+        # connections from the single button press -> multiple dialogs
+        self._connect_signals()
+        # added as empty 
+        self.settings = {}
 
         self._create_plt()
 
@@ -160,13 +166,11 @@ class sweepGUI(QObject):
         self.settings.update(plugin_info)
         print("Settings after update:", self.settings)
         self.set_gui_from_settings()
-        self._connect_signals()
         return 0
 
     def _getAddress(self):
         self._log_verbose("Opening directory selection dialog.")
         self.emit_log(0, {"Error message": "Select directory for saving"})
-        print("Select directory for saving")
         address = self.settingsWidget.lineEdit_path.text()
         if not (os.path.exists(address)):
             address = self.path
