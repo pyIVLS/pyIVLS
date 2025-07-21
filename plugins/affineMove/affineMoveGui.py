@@ -46,7 +46,7 @@ class ViewportClickCatcher(QObject):
 
 class affineMoveGUI(QObject):
     non_public_methods = []
-    public_methods = ["parse_settings_widget", "affine_move", "setSettings", "getIterations", "sequenceStep", "loopingIteration"]
+    public_methods = ["parse_settings_widget", "affine_move", "setSettings", "getIterations", "loopingIteration"]
     green_style = "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
     red_style = "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
 
@@ -97,6 +97,7 @@ class affineMoveGUI(QObject):
         self.measurement_points = []
         self.measurement_point_names = []
         self.calibrations = {}  # manipulator 1, manipulator 2, ... calibration points
+        self.settings = {}  # settings dictionary for sequence builder
 
         # find status labels and indicators
         self.mm_status = self.settingsWidget.mmStatus
@@ -241,7 +242,6 @@ class affineMoveGUI(QObject):
             self.emit_log(f"No calibration data found at {file_path}")
             return 1, {"Error message": f"No calibration data found at {file_path}"}
 
-
         # calibrate all manipulators
         mm, _, _ = self._fetch_dep_plugins()
         status, state = mm.mm_open()
@@ -263,7 +263,7 @@ class affineMoveGUI(QObject):
         self.calibrations = np.load(file_path, allow_pickle=True).item()
         self.update_status()
         return 0, {"message": f"Calibration data loaded from {file_path}"}
-    
+
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
         """
         Converts a point from camera coordinates to micromanipulator coordinates
@@ -397,9 +397,9 @@ class affineMoveGUI(QObject):
     ########Functions to be used externally
 
     def affine_move(self):
-        """This function is the main entry point. It is called from the seq builder to excecute the next measurement point movement.
-        # NOTE: currently accepts no arguments, but might be wise to add some in the future. For instance keeping track of the current iteration?
-        # might be implementable with keeping internal track of the current iteration and resetting it to 0 after the last point is reached.
+        """
+        This function is the main entry point for standalone testing. It moves to the next measurement point.
+        For sequence builder operation, use loopingIteration() instead.
         """
         try:
             mm, _, pos = self._fetch_dep_plugins()
@@ -411,49 +411,119 @@ class affineMoveGUI(QObject):
             # open mm and check for errors
             status, state = mm.mm_open()
             if status:
-                return [1, state["Error message"]]
+                return [1, state.get("Error message", str(state))]
 
             # check if there are measurement points available
             if len(self.measurement_points) == 0:
                 return [3, "No measurement points available"]
 
-            # reset the iteration if it exceeds the number of measurement points. The goal is in (my opinion) to be able to just call this and it works.
-            if self.iter == len(self.measurement_points):
+            # reset the iteration if it exceeds the number of measurement points
+            if self.iter >= len(self.measurement_points):
                 self.iter = 0
 
             points = self.measurement_points[self.iter]
             point_name = self.measurement_point_names[self.iter]
 
-            # TODO: Add checking for the relative positions of the points and the manipulators.
-            # Should be done to avoid collisions if trying to reach a point on the other side.
+            # Move to the measurement point
             for i, point in enumerate(points):
                 mm.mm_change_active_device(i + 1)  # manipulators indexed from 0
                 mm.mm_up_max()
                 # convert the point to camera coordinates
                 x, y = pos.positioning_coords(point)
                 # convert camera point to micromanipulator coordinates
-                x, y = self.convert_to_mm_coords((x, y), i + 1)
+                mm_coords = self.convert_to_mm_coords((x, y), i + 1)
+                if mm_coords is None:
+                    return [2, f"No calibration data for manipulator {i + 1}"]
+
+                x, y = mm_coords
                 status, state = mm.mm_move(x, y)
                 if status:
-                    self.emit_log(state["Error message"])
-                    return [2, state["Error message"]]
+                    self.emit_log(state.get("Error message", str(state)))
+                    return [2, state.get("Error message", str(state))]
+
+            self.iter += 1
+            return [0, f"Moved to point {point_name} ({self.iter}/{len(self.measurement_points)})"]
+
         except Exception as e:
             self.emit_log(f"Error in affine_move: {str(e)}")
             return [2, f"Affine_move: {str(e)}"]
-        finally:
-            self.iter += 1
 
-    # dummy:
     def setSettings(self, settings):
-        print(f"set affineMove settings: {settings}")
+        """
+        Sets the settings for the affineMove plugin. Called by the sequence builder.
 
-    def getIterations(self):
-        return 10
+        Args:
+            settings (dict): A dictionary containing the settings for the affineMove plugin.
+        """
+        self.settings = settings
+        self.emit_log(f"AffineMove settings updated: {settings}")
 
-    def sequenceStep(self, namePostfix):
-        print(f"sequenceStep called with namePostfix: {namePostfix}")
-        return [0, "affineMove: sequenceStep executed"]
+    def getIterations(self) -> int:
+        """Get the number of iterations for the affineMove plugin. This is the number of measurement points available.
+
+        Returns:
+            int: The number of iterations.
+        """
+        return len(self.measurement_points)
 
     def loopingIteration(self, currentIteration):
-        print(f"loopingIteration called with currentIteration: {currentIteration}")
-        return [0, f"_iter{currentIteration}"]
+        """
+        Called by the sequence builder during loop execution. Moves to the measurement point
+        corresponding to the current iteration.
+
+        Args:
+            currentIteration (int): The current iteration index (0-based)
+
+        Returns:
+            tuple: [status, namePostfix] where status is 0 for success, namePostfix for file naming
+        """
+        try:
+            mm, _, pos = self._fetch_dep_plugins()
+
+            # check if plugins are available
+            if mm is None or pos is None:
+                return [3, f"_error_iter{currentIteration}"]
+
+            # open mm and check for errors
+            status, state = mm.mm_open()
+            if status:
+                self.emit_log(f"Error opening micromanipulator: {state.get('Error message', str(state))}")
+                return [1, f"_error_iter{currentIteration}"]
+
+            # check if there are measurement points available
+            if len(self.measurement_points) == 0:
+                self.emit_log("No measurement points available")
+                return [3, f"_error_iter{currentIteration}"]
+
+            # check if currentIteration is valid
+            if currentIteration >= len(self.measurement_points):
+                self.emit_log(f"Invalid iteration {currentIteration}, only {len(self.measurement_points)} points available")
+                return [3, f"_error_iter{currentIteration}"]
+
+            points = self.measurement_points[currentIteration]
+            point_name = self.measurement_point_names[currentIteration]
+
+            # Move to the measurement point
+            for i, point in enumerate(points):
+                mm.mm_change_active_device(i + 1)  # manipulators indexed from 0
+                mm.mm_up_max()
+                # convert the point to camera coordinates
+                x, y = pos.positioning_coords(point)
+                # convert camera point to micromanipulator coordinates
+                mm_coords = self.convert_to_mm_coords((x, y), i + 1)
+                if mm_coords is None:
+                    self.emit_log(f"No calibration data for manipulator {i + 1}")
+                    return [2, f"_error_iter{currentIteration}"]
+
+                x, y = mm_coords
+                status, state = mm.mm_move(x, y)
+                if status:
+                    self.emit_log(f"Error moving manipulator {i + 1}: {state.get('Error message', str(state))}")
+                    return [2, f"_error_iter{currentIteration}"]
+
+            self.emit_log(f"Moved to measurement point {point_name} (iteration {currentIteration})")
+            return [0, f"_{point_name}"]
+
+        except Exception as e:
+            self.emit_log(f"Error in loopingIteration: {str(e)}")
+            return [2, f"_error_iter{currentIteration}"]
