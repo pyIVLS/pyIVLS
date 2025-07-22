@@ -184,7 +184,7 @@ class conDetectGUI(QObject):
     ########device functions
 
     def deviceConnect(self):
-        status, state = self._parse_settings_preview()
+        status, state = self.parse_settings_widget()
         if status:
             return [status, {"Error message": f"{state}"}]
         if self.settings.get("source", "") == "":

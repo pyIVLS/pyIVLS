@@ -12,14 +12,20 @@ from pyIVLS_seqBuilder import pyIVLS_seqBuilder
 # move this to mainwindow?
 from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
 
-# Configure logging
+# Create file handler (logs everything)
+file_handler = logging.FileHandler("pyIVLS.log")
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(logging.Formatter("%(asctime)s : %(levelname)s : %(message)s"))
+
+# Create stream handler (logs INFO and above)
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+stream_handler.setFormatter(logging.Formatter("%(asctime)s : %(levelname)s : %(message)s"))
+
+# Configure root logger
 logging.basicConfig(
     level=logging.DEBUG,
-    format="%(asctime)s : %(levelname)s : %(message)s",
-    handlers=[
-        logging.StreamHandler(),  # Log to stdout
-        logging.FileHandler("pyIVLS.log"),  # Log to a file
-    ],
+    handlers=[file_handler, stream_handler]
 )
 
 
