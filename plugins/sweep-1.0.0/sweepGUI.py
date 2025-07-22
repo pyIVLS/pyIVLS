@@ -164,7 +164,7 @@ class sweepGUI(QObject):
             self.settingsWidget.smuBox.setCurrentText(default_smu)
         self.parse_settings_widget()
         self.settings.update(plugin_info)
-        print("Settings after update:", self.settings)
+        self._log_verbose(f"Settings after update: {self.settings}")
         self.set_gui_from_settings()
         return 0
 
@@ -825,7 +825,6 @@ class sweepGUI(QObject):
             """
             self._log_verbose(f"Setting combobox {combobox.objectName()} to value: {value}")
             index = combobox.findText(value, Qt.MatchFlag.MatchFixedString)
-            print(f"Combobox {combobox.objectName()} index for value '{value}': {index}")
             if index != -1:
                 combobox.setCurrentIndex(index)
                 return True

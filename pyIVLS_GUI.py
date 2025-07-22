@@ -47,7 +47,11 @@ class pyIVLS_GUI(QObject):
         msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint)
+        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | 
+                           Qt.WindowType.WindowTitleHint | 
+                           Qt.WindowType.WindowShadeButtonHint |
+                           Qt.WindowType.WindowStaysOnTopHint)
+        msg.raise_()
         msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
         msg.exec()
 

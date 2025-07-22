@@ -359,22 +359,29 @@ class SutterGUI(QObject):
         """Moves the micromanipulator in the z axis. If the move is out of bounds, it will return False.
 
         Args:
-            z_change (float): change in z axis in micron
+            z_change (float): change in z axis in micron (or absolute z position if absolute=True)
+            absolute (bool): If True, z_change is treated as absolute z position
 
         Returns:
             status
         """
         try:
             (x, y, z) = self.hal.get_current_position()
-            if z + z_change > self.hal._MAXIMUM_M or z + z_change < self.hal._MINIMUM_MS:
-                return [1, {"Error message": "Sutter move out of bounds"}]
+            
+            if absolute:
+                # For absolute positioning, z_change is the target z position
+                target_z = z_change
+                if target_z > self.hal._MAXIMUM_M or target_z < self.hal._MINIMUM_MS:
+                    return [1, {"Error message": "Sutter move out of bounds"}]
+                self.hal.move(x, y, target_z)
+                return [0, {"Error message": "Sutter moved"}]
             else:
-                if absolute:
-                    self.hal.move(x, y, z)
-                    return [0, {"Error message": "Sutter moved"}]
-                else:
-                    self.hal.move(x, y, z + z_change)
-                    return [0, {"Error message": "Sutter moved"}]
+                # For relative positioning, z_change is the offset
+                target_z = z + z_change
+                if target_z > self.hal._MAXIMUM_M or target_z < self.hal._MINIMUM_MS:
+                    return [1, {"Error message": "Sutter move out of bounds"}]
+                self.hal.move(x, y, target_z)
+                return [0, {"Error message": "Sutter moved"}]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 

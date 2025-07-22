@@ -27,15 +27,27 @@ class touchDetectGUI(QObject):
 
         """
         plugin_name = self.__class__.__name__
-        # only emit if error occurred
-        if status != 0:
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")
-            msg = state.get("Error message", "Unknown error")
-            exception = state.get("Exception", "Not provided")
+        msg = state.get("Error message", "Unknown error")
+        exception = state.get("Exception", "Not provided")
 
-            log = f"{timestamp} : {plugin_name} : {status} : {msg} : Exception: {exception}"
+        if status == 0:
+            log = f"{plugin_name} : INFO : {msg} : Exception: {exception}"
+        else:
+            log = f"{plugin_name} : WARN : {msg} : Exception: {exception}"
 
-            self.log_message.emit(log)
+        self.log_message.emit(log)
+
+    def _log_verbose(self, message: str) -> None:
+        """Log verbose messages with VERBOSE flag"""
+        plugin_name = self.__class__.__name__
+        log = f"{plugin_name} : VERBOSE : {message}"
+        self.log_message.emit(log)
+
+    def _log_info(self, message: str) -> None:
+        """Log informational messages with INFO flag"""
+        plugin_name = self.__class__.__name__
+        log = f"{plugin_name} : INFO : {message}"
+        self.log_message.emit(log)
 
     @property
     def dependency(self):
@@ -55,7 +67,11 @@ class touchDetectGUI(QObject):
         self.path = os.path.dirname(__file__) + os.path.sep
         # depenenies are in format plugin: object, metadata: dict.
         self._dependencies = [None, None]
-        self.functionality = touchDetect()
+        self.functionality = touchDetect(
+            log_verbose=self._log_verbose,
+            log_info=self._log_info,
+            log_warn=lambda msg: self._log_info(f"WARN : {msg}")  
+        )
 
         self.settingsWidget = uic.loadUi(self.path + "touchDetect_Settings.ui")
 
@@ -92,6 +108,7 @@ class touchDetectGUI(QObject):
         # find threshold line edit
         self.threshold = self.settingsWidget.reshold
         self.stride = self.settingsWidget.stride
+        self.sample_width = self.settingsWidget.sampleWidth  # New field for max distance
 
     ########Functions
     ########GUI Slots
@@ -137,14 +154,17 @@ class touchDetectGUI(QObject):
         Updates the status of the mm, smu and contacting plugins.
         This function is called when the status changes.
         """
+        self._log_verbose("Updating plugin status")
         mm, smu, con = self._fetch_dep_plugins()
         self.channel_names = smu.smu_channelNames()
         if self.channel_names is not None:
             self.smu_indicator.setStyleSheet(self.green_style)
+            self._log_verbose(f"SMU channels available: {self.channel_names}")
         status, state = mm.mm_devices()
 
         if status == 0:
             self.mm_indicator.setStyleSheet(self.green_style)
+            self._log_info(f"Micromanipulator devices detected: {state}")
             for i, status in enumerate(state):
                 if status:
                     box, smu_box, con_box = self.manipulator_boxes[i]
@@ -164,11 +184,13 @@ class touchDetectGUI(QObject):
         con_status, con_state = con.deviceConnect()
         if con_status == 0:
             self.con_indicator.setStyleSheet(self.green_style)
+            self._log_info("Contact detection device connected successfully")
             con_status, con_state = con.deviceDisconnect()
         else:
             self.emit_log(con_status, con_state)
 
     def dependencies_changed(self):
+        self._log_verbose("Dependencies changed, updating combo boxes")
         self.smu_box.clear()
         self.micromanipulator_box.clear()
         self.condet_box.clear()
@@ -183,6 +205,7 @@ class touchDetectGUI(QObject):
         self.micromanipulator_box.setCurrentIndex(0)
         self.smu_box.setCurrentIndex(0)
         self.condet_box.setCurrentIndex(0)
+        self._log_info("Plugin dependencies updated successfully")
 
     ########Functions
     ########plugins interraction
@@ -221,21 +244,24 @@ class touchDetectGUI(QObject):
                     continue
             stride = settings.get("stride", "")
             threshold = settings.get("res_threshold", "")
-            return temp, threshold, stride
+            sample_width = settings.get("sample_width", "")
+            return temp, threshold, stride, sample_width
 
         for box, _, _ in self.manipulator_boxes:
             box.setVisible(False)
         # save the settings dict to be used later
-        self.settings, threshold, stride = parse_ini(settings)
+        self.settings, threshold, stride, sample_width = parse_ini(settings)
         self.threshold.setText(threshold)
         self.stride.setText(stride)
+        self.sample_width.setText(sample_width)
         self.settingsWidget.initButton.clicked.connect(self.update_status)
         self.settingsWidget.pushButton.clicked.connect(self._test)
         self.settingsWidget.pushButton_2.clicked.connect(self._monitor)
         return self.settingsWidget
 
     def _monitor(self):
-        mm, smu, con = self._fetch_dep_plugins()
+        self._log_info("Starting resistance monitoring")
+        _, smu, con = self._fetch_dep_plugins()
         status, state = con.deviceConnect()
         status_smu, state_smu = smu.smu_connect()
         if status != 0:
@@ -243,15 +269,19 @@ class touchDetectGUI(QObject):
         if status_smu != 0:
             return (status_smu, {"Error message": f"{state_smu}"})
         con.deviceHiCheck(True)
-        smu.smu_setup_resmes("smub")
+        smu.smu_setup_resmes("smua")
         while True:
-            status, r = smu.smu_resmes("smub")
+            status, r = smu.smu_resmes("smua")
             if status != 0:
                 return (status, {"Error message": f"TouchDetect: {r}"})
             r = float(r)
-            print(r)
+            self._log_verbose(f"Current resistance: {r}")
+            print(r) 
+            if r < 150:
+                break
 
     def _test(self):
+        self._log_info("Testing move to contact functionality")
         status, state = self.move_to_contact()
         self.emit_log(status, state)
 
@@ -288,12 +318,22 @@ class touchDetectGUI(QObject):
             return (1, {"Error message": "TouchDetect: Stride must be an integer."})
         settings["stride"] = stride
 
+        # Check that the sample width is a float
+        try:
+            sample_width = float(self.sample_width.text())
+        except ValueError:
+            return (1, {"Error message": "TouchDetect: Sample width must be a number."})
+        settings["sample_width"] = sample_width
+
         return (0, settings)
 
     ########Functions to be used externally
     def move_to_contact(self):
+        self._log_info("Starting move to contact operation")
+        
         def create_dict():
             # check settings
+            self._log_verbose("Parsing settings for move to contact")
             status, settings = self.parse_settings_widget()
             if status == 0:
                 # convert settings to a format that self.functionality expects
@@ -305,7 +345,9 @@ class touchDetectGUI(QObject):
                     con_val = settings.get(con_key, "")
                     threshold = float(settings["res_threshold"])
                     stride = int(settings["stride"])
-                    temp.append((smu_val, con_val, threshold, stride))
+                    sample_width = float(settings["sample_width"])
+                    temp.append((smu_val, con_val, threshold, stride, sample_width))
+                self._log_verbose(f"Created manipulator info: {temp}")
                 return temp
             else:
                 self.emit_log(status, settings)
@@ -319,4 +361,5 @@ class touchDetectGUI(QObject):
         if status != 0:
             self.emit_log(status, state)
             return (status, state)
+        self._log_info("Move to contact operation completed successfully")
         return (status, state)
