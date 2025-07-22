@@ -47,7 +47,7 @@ class touchDetectGUI(QObject):
             self._dependencies = value
             self.dependencies_changed()
         else:
-            raise TypeError("AffineMove: Dependencies must be a list")
+            raise TypeError("touchDetectGUI : dependencies must be a list")
 
     ########Functions
     def __init__(self):

@@ -431,7 +431,8 @@ class timeIVGUI(QObject):
         self._drain_delay_mode_changed(self.settingsWidget.comboBox_drainDelayMode.currentIndex())
         self._source_inject_changed(self.settingsWidget.comboBox_inject.currentIndex())
         self._drain_inject_changed(self.settingsWidget.comboBox_drainInject.currentIndex())
-
+        self._smu_plugin_changed()
+        
     def _single_channel_changed(self, int):
         """Handles the visibility of the drain input fields based use single chennel box"""
         if self.settingsWidget.checkBox_singleChannel.isChecked():

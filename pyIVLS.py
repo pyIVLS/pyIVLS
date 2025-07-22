@@ -43,9 +43,15 @@ def update_settings_widget():
         except Exception:
             pass
 
-    for closeLockSignal in pluginsContainer.getCloseLockSignals():
+    # Connect close lock signals with plugin names
+    plugin_closeLockSignals = pluginsContainer.pm.hook.get_closeLock()
+    for closeLockSignal_dict in plugin_closeLockSignals:
         try:
-            closeLockSignal.connect(GUI_mainWindow.setCloseLock, type=Qt.ConnectionType.UniqueConnection)
+            plugin_name = list(closeLockSignal_dict.keys())[0]
+            signal = closeLockSignal_dict[plugin_name]
+            # Use lambda to capture plugin_name
+            signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name), 
+                          type=Qt.ConnectionType.UniqueConnection)
         except Exception:
             pass
 
@@ -82,8 +88,13 @@ if __name__ == "__main__":
     for infoSignal in pluginsContainer.getInfoSignals():
         infoSignal.connect(GUI_mainWindow.show_message)
 
-    for closeLockSignal in pluginsContainer.getCloseLockSignals():
-        closeLockSignal.connect(GUI_mainWindow.setCloseLock)
+    # Connect close lock signals with plugin names in main loop too
+    plugin_closeLockSignals = pluginsContainer.pm.hook.get_closeLock()
+    for closeLockSignal_dict in plugin_closeLockSignals:
+        plugin_name = list(closeLockSignal_dict.keys())[0]
+        signal = closeLockSignal_dict[plugin_name]
+        # Use lambda to capture plugin_name
+        signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name))
 
     pluginsContainer.seqComponents_signal.connect(GUI_mainWindow.seqBuilder.getPluginFunctions)
 

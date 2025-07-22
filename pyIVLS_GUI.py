@@ -72,11 +72,31 @@ class pyIVLS_GUI(QObject):
 
     @pyqtSlot()
     def reactClose(self):
-        self.show_message("Stop running processes and disconnect devices before close")
+        if hasattr(self, '_blocking_plugins') and self._blocking_plugins:
+            plugin_list = ", ".join(sorted(self._blocking_plugins))
+            self.show_message(f"Cannot close: The following plugins are still active: {plugin_list}. Stop running processes and disconnect devices before closing.")
+        else:
+            self.show_message("Stop running processes and disconnect devices before close")
 
-    def setCloseLock(self, value):
+    def setCloseLock(self, value, plugin_name=None):
+        # Track which plugins are blocking closure
+        if not hasattr(self, '_blocking_plugins'):
+            self._blocking_plugins = set()
+        
+        if plugin_name:
+            if value:
+                self._blocking_plugins.add(plugin_name)
+                logging.debug(f"Plugin {plugin_name} is blocking closure")
+            else:
+                self._blocking_plugins.discard(plugin_name)
+                logging.debug(f"Plugin {plugin_name} no longer blocking closure")
+        else:
+            logging.debug(f"Close lock signal received without plugin name: {value}")
+        
         # reverted closelock, since plugins return True when they are not ready to close
-        self.window.setCloseOK(not value)
+        any_blocked = len(self._blocking_plugins) > 0
+        self.window.setCloseOK(not any_blocked)
+        logging.debug(f"Current blocking plugins: {list(self._blocking_plugins)}, Close allowed: {not any_blocked}")
 
     @pyqtSlot()
     def seqBuilderReactClose(self):

@@ -93,3 +93,10 @@ class pyIVLS_touchDetect_plugin:
         """
         if args is None or args.get("function") == self.function:
             return {self.name: self.pluginClass._get_public_methods()}
+    
+    @hookimpl
+    def get_plugin_settings(self, args=None):
+        """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
+        if args is None or args.get("function") == self.function:
+            status, settings = self.pluginClass.parse_settings_widget()
+            return (self.name, status, settings)
