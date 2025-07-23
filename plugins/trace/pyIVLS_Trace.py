@@ -43,7 +43,6 @@ class pyIVLS_Trace_plugin:
         if self.name not in plugin_data:
             raise ValueError(f"Plugin data for {self.name} not found in plugin_data")
         plugin_data = plugin_data[self.name]
-        print("pyIVLS_Trace_plugin.get_setup_interface called with plugin_data:", plugin_data)
         self.trace_control.set_settings_from_plugin_data(plugin_data)
         return {self.name: self.trace_control.settingsWidget}
 

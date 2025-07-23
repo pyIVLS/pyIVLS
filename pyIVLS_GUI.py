@@ -23,10 +23,7 @@ stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(logging.Formatter("%(asctime)s : %(levelname)s : %(message)s"))
 
 # Configure root logger
-logging.basicConfig(
-    level=logging.DEBUG,
-    handlers=[file_handler, stream_handler]
-)
+logging.basicConfig(level=logging.DEBUG, handlers=[file_handler, stream_handler])
 
 
 class pyIVLS_GUI(QObject):
@@ -47,10 +44,7 @@ class pyIVLS_GUI(QObject):
         msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | 
-                           Qt.WindowType.WindowTitleHint | 
-                           Qt.WindowType.WindowShadeButtonHint |
-                           Qt.WindowType.WindowStaysOnTopHint)
+        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint | Qt.WindowType.WindowStaysOnTopHint)
         msg.raise_()
         msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
         msg.exec()
@@ -67,16 +61,28 @@ class pyIVLS_GUI(QObject):
             message (str): The message to log.
         """
         removed_verbose_flag = message.lower().replace(": verbose :", ":")
-        if len(removed_verbose_flag) == len(message):
-            # does not contain verbose flag
-            logging.info(message)
-        else:
-            # contains verbose flag, log as verbose
+        removed_info_flag = removed_verbose_flag.lower().replace(": info :", ":")
+        removed_warn_flag = removed_info_flag.lower().replace(": warn :", ":")
+        removed_debug_flag = removed_warn_flag.lower().replace(": debug :", ":")
+        if len(removed_verbose_flag) != len(message):
+            # Contains the verbose flag
             logging.debug(removed_verbose_flag)
+        elif len(removed_debug_flag) != len(message):
+            # Contains the debug flag
+            logging.debug(removed_debug_flag)
+        elif len(removed_info_flag) != len(message):
+            # Contains the info flag
+            logging.info(removed_info_flag)
+        elif len(removed_warn_flag) != len(message):
+            # Contains the warn flag
+            logging.warning(removed_warn_flag)
+        else:
+            # base case for no flags
+            logging.info(message)
 
     @pyqtSlot()
     def reactClose(self):
-        if hasattr(self, '_blocking_plugins') and self._blocking_plugins:
+        if hasattr(self, "_blocking_plugins") and self._blocking_plugins:
             plugin_list = ", ".join(sorted(self._blocking_plugins))
             self.show_message(f"Cannot close: The following plugins are still active: {plugin_list}. Stop running processes and disconnect devices before closing.")
         else:
@@ -84,9 +90,9 @@ class pyIVLS_GUI(QObject):
 
     def setCloseLock(self, value, plugin_name=None):
         # Track which plugins are blocking closure
-        if not hasattr(self, '_blocking_plugins'):
+        if not hasattr(self, "_blocking_plugins"):
             self._blocking_plugins = set()
-        
+
         if plugin_name:
             if value:
                 self._blocking_plugins.add(plugin_name)
@@ -96,7 +102,7 @@ class pyIVLS_GUI(QObject):
                 logging.debug(f"Plugin {plugin_name} no longer blocking closure")
         else:
             logging.debug(f"Close lock signal received without plugin name: {value}")
-        
+
         # reverted closelock, since plugins return True when they are not ready to close
         any_blocked = len(self._blocking_plugins) > 0
         self.window.setCloseOK(not any_blocked)
@@ -186,7 +192,7 @@ class pyIVLS_GUI(QObject):
 
         default_width = 400  # Default width for MDI widgets
         default_height = 300  # Default height for MDI widgets
-        vertical_spacing = 30 # Spacing between stacked widgets
+        vertical_spacing = 30  # Spacing between stacked widgets
         # FIXME: Have a hard think on wheter a fixed size is good or not
         for index, (name, widget) in enumerate(widgets.items()):
             if name not in subwindow_names:
@@ -211,7 +217,6 @@ class pyIVLS_GUI(QObject):
                 sw.close()  # Actually close
 
     def setSeqBuilder(self):
-        
         self.window.seqBuilder_dockWidget.setWidget(self.seqBuilder.widget)
 
     def clearDockWidget(self):

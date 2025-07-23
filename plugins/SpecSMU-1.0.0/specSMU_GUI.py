@@ -395,7 +395,7 @@ class specSMU_GUI(QWidget):
             return [0, "specSMU action finished"]
         except Exception as e:
             detailed_error = traceback.format_exc()
-            self._log_verbose(f"Error in SpecSMU implementation: {str(e)}\n{detailed_error}")
+            self.log_message.emit(f"Error in SpecSMU implementation: {str(e)}\n{detailed_error}")
             return [1, {"Error message": "SpecSMU plugin: error in seq implementation", "Exception": str(e)}]
         finally:
             self.function_dict["smu"][smu_name]["smu_disconnect"]()
