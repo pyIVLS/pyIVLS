@@ -11,19 +11,19 @@ This file should provide
 
 import os
 import time
+import copy
 from datetime import datetime
 from pathvalidate import is_valid_filename
 from PyQt6 import uic
-from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
+from PyQt6.QtWidgets import QVBoxLayout, QFileDialog, QWidget
 from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from threadStopped import thread_with_exception, ThreadStopped
 from enum import Enum
-from specTimeIV_utils import LoggingHelper, FileManager, DynamicGuiFieldMapper
+from specTimeIV_utils import LoggingHelper, FileManager, GuiMapper, DependencyManager
 
 # DynamicGuiFieldMapper available for future use
 import numpy as np
-import copy
 import pandas as pd
 
 
@@ -47,8 +47,6 @@ class specTimeIVGUI:
 
     ########Functions
     def __init__(self):
-        super().__init__()
-        self.verbose = True  # FIXME
         # List of functions from another plugins required for functioning
         self.dependency: dict[str, list[str]] = {
             "smu": [
@@ -61,22 +59,39 @@ class specTimeIVGUI:
                 "set_running",
                 "smu_setOutput",
                 "smu_channelNames",
+                #"A very necessary function",  
             ],
+            "spectrometer": ["parse_settings_preview", "setSettings", "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum", "spectrometerGetScan"],
         }
         self.settings = {}
 
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
 
-        self.settingsWidget = uic.loadUi(self.path + "specTimeIV.ui")
-        self.MDIWidget = uic.loadUi(self.path + "specTimeIV_MDIWidget.ui")
+        self.settingsWidget: QWidget = uic.loadUi(self.path + "specTimeIV.ui")
+        self.MDIWidget: QWidget = uic.loadUi(self.path + "specTimeIV_MDIWidget.ui")
+
+        # stop yelling at me linter
+        assert self.settingsWidget is not None, "Failed to load settingsWidget UI"
+        assert self.MDIWidget is not None, "Failed to load MDIWidget UI"
 
         # remove next if no plots
         self._create_plt()
         self.filemanager = FileManager()
         self.logger = LoggingHelper(self)
 
-        self.dynamic_mapper = DynamicGuiFieldMapper(self.settingsWidget, "timeIV plugin")
+        # Initialize dependency manager
+        self.dependency_manager = DependencyManager(
+            plugin_name=self.__class__.__name__,
+            dependencies=self.dependency,
+            widget=self.settingsWidget,
+            mapping={
+            "smu": "smuBox",
+            "spectrometer": "spectroBox",
+            }
+        )
+        
+        self.dynamic_mapper = GuiMapper(self.settingsWidget, self.__class__.__name__)
         self._setup_dynamic_mappings()
 
     def _connect_signals(self):
@@ -90,7 +105,21 @@ class specTimeIVGUI:
         self.settingsWidget.comboBox_drainDelayMode.currentIndexChanged.connect(self._drain_delay_mode_changed)
         self.settingsWidget.comboBox_inject.currentIndexChanged.connect(self._source_inject_changed)
         self.settingsWidget.comboBox_drainInject.currentIndexChanged.connect(self._drain_inject_changed)
-        self.settingsWidget.smuBox.currentIndexChanged.connect(self._smu_plugin_changed)
+        self.settingsWidget.smuBox.currentIndexChanged.connect(self._update_smu_channels)
+
+    def _update_smu_channels(self):
+        smu_plugin = self.dependency_manager.get_selected_dependencies().get("smu")
+        if smu_plugin:
+            # fetch channels from the selected SMU plugin and update the channel combobox
+            channels = self.dependency_manager.function_dict["smu"][smu_plugin]["smu_channelNames"]()
+            self.settingsWidget.comboBox_channel.clear()
+            self.settingsWidget.comboBox_channel.addItems(channels)
+            # if the channel in the settings is not in the list, reset it to the first available channel
+            current_channel = self.settings.get("channel", "")
+            if current_channel not in channels:
+                self.settingsWidget.comboBox_channel.setCurrentIndex(0)
+            else:
+                self.settingsWidget.comboBox_channel.setCurrentText(current_channel)
 
     def _create_plt(self):
         self.sc = MplCanvas(self, width=5, height=4, dpi=100)
@@ -106,7 +135,7 @@ class specTimeIVGUI:
         layout.addWidget(self.sc)
         self.MDIWidget.setLayout(layout)
 
-    def _setup_dynamic_mappings(self):
+    def _setup_dynamic_mappings(self, line_frequency=50):
         """Setup dynamic field mappings - simplified approach with just widget mapping."""
 
         # Simple field mapping: setting_name -> widget_name
@@ -133,26 +162,52 @@ class specTimeIVGUI:
             # SMU values (will need conversion for some)
             "sourcevalue": "lineEdit_sourceSetValue",
             "sourcelimit": "lineEdit_sourceLimit",
-            "sourcenplc_cycles": "lineEdit_sourceNPLC",  # Will convert to sourcenplc
-            "sourcedelay_ms": "lineEdit_sourceDelay",  # Will convert to sourcedelay
+            "sourcenplc": "lineEdit_sourceNPLC",  
+            "sourcedelay": "lineEdit_sourceDelay",  
             "drainvalue": "lineEdit_drainSetValue",
             "drainlimit": "lineEdit_drainLimit",
-            "drainnplc_cycles": "lineEdit_drainNPLC",  # Will convert to drainnplc
-            "draindelay_ms": "lineEdit_drainDelay",  # Will convert to draindelay
-        }  # Validation rules separate from field mapping
+            "drainnplc": "lineEdit_drainNPLC",  
+            "draindelay": "lineEdit_drainDelay",  
+            "smu": "smuBox",
+            "spectrometer": "spectroBox"
+        }  
+        
+        # Validation and conversion rules for extracting values from GUI
+        # FIXME: The validation rules contain a magic constant for line frequency
         self.dynamic_validation_rules = {
-            "address": {"required": True, "validator": lambda x: isinstance(x, str) and len(x.strip()) > 0, "error_message": "Address is required"},
-            "filename": {"required": True, "validator": lambda x: isinstance(x, str) and is_valid_filename(x), "error_message": "Must be a valid filename"},
-            "timestep": {"required": True, "validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Time step must be positive"},
-            "stopafter": {"required": True, "validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Stop time must be positive"},
-            "autosaveinterval": {"required": True, "validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Auto save interval must be positive"},
-            "sourcelimit": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Source limit must be positive"},
-            "drainlimit": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Drain limit must be positive"},
-            "sourcenplc_cycles": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Source NPLC must be positive"},
-            "sourcedelay_ms": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Source delay must be positive"},
-            "drainnplc_cycles": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Drain NPLC must be positive"},
-            "draindelay_ms": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Drain delay must be positive"},
+            "address": {"validator": lambda x: isinstance(x, str) and len(x.strip()) > 0 and os.path.exists(x), "error_message": "Address is required"},
+            "filename": {"validator": lambda x: isinstance(x, str) and is_valid_filename(x), "error_message": "filename must be a valid filename"},
+            "timestep": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Time step must be positive"},
+            "stopafter": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Stop time must be positive"},
+            "autosaveinterval": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Auto save interval must be positive"},
+            "sourcelimit": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Source limit must be positive"},
+            "drainlimit": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Drain limit must be positive"},
+            "sourcenplc": {
+                "converter": lambda x: float(x) * 0.001 * line_frequency,
+                "display_converter": lambda x: float(x) / (0.001 * line_frequency),
+                "validator": lambda x: isinstance(x, (float)) and x > 0,
+                "error_message": "Source NPLC must be positive"
+            },
+            "sourcedelay": {
+                "converter": lambda x: float(x) / 1000,
+                "display_converter": lambda x: float(x) * 1000,
+                "validator": lambda x: isinstance(x, (float)) and x > 0,
+                "error_message": "Source delay must be positive"
+            },
+            "drainnplc": {
+                "converter": lambda x: float(x) * 0.001 * line_frequency,
+                "display_converter": lambda x: float(x) / (0.001 * line_frequency),
+                "validator": lambda x: isinstance(x, (float)) and x > 0,
+                "error_message": "Drain NPLC must be positive"
+            },
+            "draindelay": {
+                "converter": lambda x: float(x) / 1000,
+                "display_converter": lambda x: float(x) * 1000,
+                "validator": lambda x: isinstance(x, (float)) and x > 0,
+                "error_message": "Drain delay must be positive"
+            },
         }
+        
 
     ########Functions
     ########GUI Slots
@@ -165,57 +220,66 @@ class specTimeIVGUI:
         Updates the GUI fields based on the internal settings dictionary.
         This function assumes that the settings have already been set using the `setSettings` function.
         """
-        # Prepare settings for GUI with conversions
-        gui_settings = dict(self.settings)  # Copy settings
+        # Use dynamic mapper to set all GUI values with automatic conversion
+        status, error_msg = self.dynamic_mapper.set_values(
+            self.settings, 
+            self.dynamic_field_mapping,
+            self.dynamic_validation_rules 
+        )
+        
+        if status != 0:
+            self.logger.log_warn(f"Error setting GUI values: {error_msg}")
+            self.logger.info_popup(f"Error setting GUI values: {error_msg}")
 
-        # Convert values that need GUI-specific formatting
-        if hasattr(self, "smu_settings") and self.smu_settings:
-            line_freq = self.smu_settings.get("lineFrequency", 50)
-            # Convert NPLC time back to cycles for GUI
-            if "sourcenplc" in self.settings:
-                gui_settings["sourcenplc_cycles"] = self.settings["sourcenplc"] / (0.001 * line_freq)
-            if "drainnplc" in self.settings:
-                gui_settings["drainnplc_cycles"] = self.settings["drainnplc"] / (0.001 * line_freq)
+        self._update_GUI_state()
 
-        # Convert delay from seconds back to ms for GUI
-        if "sourcedelay" in self.settings:
-            gui_settings["sourcedelay_ms"] = self.settings["sourcedelay"] * 1000
-        if "draindelay" in self.settings:
-            gui_settings["draindelay_ms"] = self.settings["draindelay"] * 1000
-
-        # Use dynamic mapper to set all GUI values at once!
-        self.dynamic_mapper.set_values(gui_settings, self.dynamic_field_mapping)
-
-        # Update the SMU selection combobox
-        if hasattr(self.settingsWidget, "smuBox") and "smu" in self.settings:
-            self.settingsWidget.smuBox.setCurrentText(self.settings["smu"])
-
-        # Update the GUI state to reflect the current settings
-        if hasattr(self, "_update_GUI_state"):
-            self._update_GUI_state()
-
-    def parse_settings_widget(self) -> "status":
+    def parse_settings_widget(self) -> tuple[int, dict[str, str|float|bool]]:
         """Parses the settings widget for the templatePlugin. Extracts current values. Checks if values are allowed. Provides settings of template plugin to an external plugin
 
         Returns [status, settings_dict]:
-            status: 0 - no error, ~0 - error (add error code later on if needed)
+            status: 0 - no error, ~0 - error 
             self.settings
         """
-        if not self.function_dict:
-            return [3, {"Error message": "Missing functions in timeIV plugin. Check log", "Missing functions": self.missing_functions}]
+        if not self.dependency_manager.function_dict:
+            return (3, {"Error message": "Missing functions in timeIV plugin. Check log", "Missing functions": self.missing_functions})
 
-        smu_selection = self.settingsWidget.smuBox.currentText()
-        if smu_selection not in self.function_dict["smu"]:
-            return [3, {"Error message": "SMU plugin not found in function_dict"}]
-        self.settings["smu"] = smu_selection
-        [status, self.smu_settings] = self.function_dict["smu"][self.settings["smu"]]["parse_settings_widget"]()
-        if status:
-            return [2, self.smu_settings]
+        # Get selected dependencies
+        selected_deps = self.dependency_manager.get_selected_dependencies()
+        
+        # Validate SMU selection
+        if "smu" in selected_deps:
+            smu_selection = selected_deps["smu"]
+            is_valid, error_msg = self.dependency_manager.validate_selection("smu", smu_selection)
+            if not is_valid:
+                return (3, {"Error message": f"SMU validation failed: {error_msg}"})
+                
+            self.settings["smu"] = smu_selection
+            status, self.smu_settings = self.dependency_manager.function_dict["smu"][smu_selection]["parse_settings_widget"]()
+            if status:
+                return (2, self.smu_settings)
+        else:
+            return (3, {"Error message": "No SMU plugin selected"})
 
-        # Use dynamic mapper for basic settings
+        # Validate spectro selection
+        if "spectro" in selected_deps:
+            spectro_selection = selected_deps["spectro"]
+            is_valid, error_msg = self.dependency_manager.validate_selection("spectro", spectro_selection)
+            if not is_valid:
+                return (3, {"Error message": f"Spectro validation failed: {error_msg}"})
+                
+            self.settings["spectro"] = spectro_selection
+            status, self.spectro_settings = self.dependency_manager.function_dict["spectro"][spectro_selection]["parse_settings_widget"]()
+            if status:
+                return (2, self.spectro_settings)
+        else:
+            # Spectro might be optional, so just log a warning
+            self.logger.log_warn("No spectro plugin selected")
+        
+
+        # Use mapper component for value extraction and validation
         status, all_values = self.dynamic_mapper.get_values(self.dynamic_field_mapping, self.dynamic_validation_rules)
         if status:
-            return [status, all_values]
+            return (status, all_values)
 
         # Update settings with extracted values
         self.settings.update(all_values)
@@ -230,102 +294,22 @@ class specTimeIVGUI:
         else:
             self.settings["drainchannel"] = "xxx"  # for compatibility if the smu does not support second channel
 
-        # Handle conversions for NPLC and delay values (extracted by dynamic mapper)
-        if "sourcenplc_cycles" in all_values:
-            line_freq = self.smu_settings.get("lineFrequency", 50)  # Default to 50Hz
-            self.settings["sourcenplc"] = 0.001 * line_freq * all_values["sourcenplc_cycles"]
-
-        if "drainnplc_cycles" in all_values:
-            line_freq = self.smu_settings.get("lineFrequency", 50)  # Default to 50Hz
-            self.settings["drainnplc"] = 0.001 * line_freq * all_values["drainnplc_cycles"]
-
-        # Convert delay from ms to seconds
-        if "sourcedelay_ms" in all_values:
-            self.settings["sourcedelay"] = all_values["sourcedelay_ms"] / 1000
-
-        if "draindelay_ms" in all_values:
-            self.settings["draindelay"] = all_values["draindelay_ms"] / 1000
-
         retset = self.settings
         retset["smu_settings"] = self.smu_settings
-        return [0, retset]
+        return (0, retset)
 
     ########Functions
     ###############GUI setting up
     def _initGUI(
         self,
-        plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
+        plugin_settings: dict[str, str|float|bool],
     ):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
-        self.logger.log_debug("Initializing GUI with plugin_info: " + str(plugin_info))
-        self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
-        self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
-        self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
-        self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
+        self.logger.log_debug("Initializing GUI with plugin_settings: " + str(plugin_settings))
+        self.setSettings(plugin_settings)  # Update settings with plugin_settings
 
-        self.settingsWidget.step_lineEdit.setText(plugin_info["timestep"])
-        self.settingsWidget.stopAfterLineEdit.setText(plugin_info["stopafter"])
-        self.settingsWidget.autosaveLineEdit.setText(plugin_info["autosaveinterval"])
-
-        if plugin_info["stoptimer"] == "True":
-            self.settingsWidget.stopTimerCheckBox.setChecked(True)
-        else:
-            self.settingsWidget.stopTimerCheckBox.setChecked(False)
-
-        if plugin_info["autosave"] == "True":
-            self.settingsWidget.autosaveCheckBox.setChecked(True)
-        else:
-            self.settingsWidget.autosaveCheckBox.setChecked(False)
-        # SMU settings
-        if plugin_info["singlechannel"] == "True":
-            self.settingsWidget.checkBox_singleChannel.setChecked(True)
-
-        # fill channels
-        default_smu = plugin_info["smu"]
-        try:
-            self.settingsWidget.comboBox_channel.clear()
-            self.settingsWidget.comboBox_channel.addItems(self.function_dict["smu"][default_smu]["smu_channelNames"]())
-            self.settingsWidget.comboBox_channel.setCurrentText(plugin_info["channel"])
-        except KeyError:
-            self.logger.log_info(1, {"Error message": f"SMU {default_smu} not found in function_dict"})
-        # update the SMU selection combobox
-        self.settingsWidget.smuBox.clear()
-        self.settingsWidget.smuBox.addItems(list(self.function_dict["smu"].keys()))
-        self.settingsWidget.smuBox.setCurrentText(default_smu)
-
-        currentIndex = self.settingsWidget.comboBox_channel.findText(plugin_info["channel"], Qt.MatchFlag.MatchFixedString)
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_channel.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_inject.findText(plugin_info["inject"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_inject.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_sourceSenseMode.findText(plugin_info["sourcesensemode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_sourceSenseMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_sourceDelayMode.findText(plugin_info["sourcedelaymode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_sourceDelayMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_drainInject.findText(plugin_info["draininject"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_drainInject.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_drainSenseMode.findText(plugin_info["drainsensemode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_drainSenseMode.setCurrentIndex(currentIndex)
-        currentIndex = self.settingsWidget.comboBox_drainDelayMode.findText(plugin_info["draindelaymode"])
-        if currentIndex > -1:
-            self.settingsWidget.comboBox_drainDelayMode.setCurrentIndex(currentIndex)
-
-        self.settingsWidget.lineEdit_sourceSetValue.setText(plugin_info["sourcesetvalue"])
-        self.settingsWidget.lineEdit_sourceLimit.setText(plugin_info["sourcelimit"])
-        self.settingsWidget.lineEdit_sourceNPLC.setText(plugin_info["sourcenplc"])
-        self.settingsWidget.lineEdit_sourceDelay.setText(plugin_info["sourcedelay"])
-        self.settingsWidget.lineEdit_drainSetValue.setText(plugin_info["drainsetvalue"])
-        self.settingsWidget.lineEdit_drainLimit.setText(plugin_info["drainlimit"])
-        self.settingsWidget.lineEdit_drainNPLC.setText(plugin_info["drainnplc"])
-        self.settingsWidget.lineEdit_drainDelay.setText(plugin_info["draindelay"])
-
-        # update to the correct GUI state
+        self.set_gui_from_settings()  # update to the correct GUI state
         self.set_running(False)
         self._connect_signals()
         self._update_GUI_state()
@@ -353,7 +337,7 @@ class specTimeIVGUI:
         self._drain_delay_mode_changed(self.settingsWidget.comboBox_drainDelayMode.currentIndex())
         self._source_inject_changed(self.settingsWidget.comboBox_inject.currentIndex())
         self._drain_inject_changed(self.settingsWidget.comboBox_drainInject.currentIndex())
-        self._smu_plugin_changed()
+        self._update_smu_channels()  # Update SMU channels based on current selection
 
     def _single_channel_changed(self, int):
         """Handles the visibility of the drain input fields based use single chennel box"""
@@ -430,17 +414,6 @@ class specTimeIVGUI:
             self.settingsWidget.autosaveLineEdit.setEnabled(False)
             self.settingsWidget.autosaveintervalUnitslabel.setEnabled(False)
 
-    def _smu_plugin_changed(self):
-        """Handles the visibility of the SMU settings based on the selected SMU plugin.
-        Not connected to the _update_gui_state calls, since it is already called when the SMU plugin is changed.
-        """
-        smu_selection = self.settingsWidget.smuBox.currentText()
-        if smu_selection in self.function_dict["smu"]:
-            available_channels = self.function_dict["smu"][smu_selection]["smu_channelNames"]()
-            # get channel names from the selected SMU plugin
-            self.settingsWidget.comboBox_channel.clear()
-            self.settingsWidget.comboBox_channel.addItems(available_channels)
-
     def set_running(self, status):
         # status == True the measurement is running
         self.settingsWidget.stopButton.setEnabled(status)
@@ -456,22 +429,21 @@ class specTimeIVGUI:
     ########Functions
     ########plugins interraction
     def _getPublicFunctions(self, function_dict):
-        self.missing_functions = []
-        for dependency_plugin in list(self.dependency.keys()):
-            if dependency_plugin not in function_dict:
-                self.logger.log_warn(f"timeIV plugin : Functions for dependency plugin '{dependency_plugin}' not found")
-                self.missing_functions.append(dependency_plugin)
-                continue
-            for dependency_function in self.dependency[dependency_plugin]:
-                if dependency_function not in function_dict[dependency_plugin]:
-                    self.logger.log_warn(f"timeIV plugin : Function '{dependency_function}' for dependency plugin '{dependency_plugin}' not found")
-                    self.missing_functions.append(f"{dependency_plugin}:{dependency_function}")
-        if not self.missing_functions:
+        # Set function dict in dependency manager (this will automatically update comboboxes)
+        self.dependency_manager.function_dict = function_dict
+        
+        # Validate dependencies
+        is_valid, missing_functions = self.dependency_manager.validate_dependencies()
+        
+        if is_valid:
+            self.logger.log_debug("All dependencies satisfied")
             self.settingsWidget.runButton.setEnabled(True)
-            self.function_dict = function_dict
+            self.missing_functions = []
         else:
+            self.logger.log_warn(f"Missing dependencies: {missing_functions}")
             self.settingsWidget.runButton.setDisabled(True)
-            self.function_dict = {}
+            self.missing_functions = missing_functions
+            
         return self.missing_functions
 
     def setSettings(self, settings):
@@ -483,52 +455,15 @@ class specTimeIVGUI:
             settings (dict): outputs from parse_settings_widget function
         """
         self.logger.log_debug("Setting settings for timeIV plugin: " + str(settings))
-        self.settings = []
+        
+        # Check if settings might be string values (from external import)
+
         self.settings = copy.deepcopy(settings)
-        self.smu_settings = settings["smu_settings"]
+            
+        # Handle SMU settings separately
+        if "smu_settings" in settings:
+            self.smu_settings = settings["smu_settings"]
 
-    def set_gui_from_settings(self):
-        """
-        Updates the GUI fields based on the internal settings dictionary.
-        This function assumes that the settings have already been set using the `setSettings` function.
-        """
-        self.settingsWidget.lineEdit_path.setText(self.settings["address"])
-        self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
-        self.settingsWidget.lineEdit_sampleName.setText(self.settings["samplename"])
-        self.settingsWidget.lineEdit_comment.setText(self.settings["comment"])
-
-        self.settingsWidget.step_lineEdit.setText(str(self.settings["timestep"]))
-        self.settingsWidget.stopAfterLineEdit.setText(str(self.settings["stopafter"]))
-        self.settingsWidget.autosaveLineEdit.setText(str(self.settings["autosaveinterval"]))
-
-        self.settingsWidget.stopTimerCheckBox.setChecked(self.settings["stoptimer"])
-        self.settingsWidget.autosaveCheckBox.setChecked(self.settings["autosave"])
-
-        # SMU settings
-        self.settingsWidget.checkBox_singleChannel.setChecked(self.settings["singlechannel"])
-
-        self.settingsWidget.comboBox_channel.setCurrentText(self.settings["channel"])
-        self.settingsWidget.comboBox_inject.setCurrentText(self.settings["inject"])
-        self.settingsWidget.comboBox_sourceSenseMode.setCurrentText(self.settings["sourcesensemode"])
-        self.settingsWidget.comboBox_sourceDelayMode.setCurrentText(self.settings["sourcedelaymode"])
-        self.settingsWidget.comboBox_drainInject.setCurrentText(self.settings["draininject"])
-        self.settingsWidget.comboBox_drainSenseMode.setCurrentText(self.settings["drainsensemode"])
-        self.settingsWidget.comboBox_drainDelayMode.setCurrentText(self.settings["draindelaymode"])
-
-        self.settingsWidget.lineEdit_sourceSetValue.setText(str(self.settings["sourcevalue"]))
-        self.settingsWidget.lineEdit_sourceLimit.setText(str(self.settings["sourcelimit"]))
-        self.settingsWidget.lineEdit_sourceNPLC.setText(str(self.settings["sourcenplc"] / (0.001 * self.smu_settings["lineFrequency"])))
-        self.settingsWidget.lineEdit_sourceDelay.setText(str(self.settings["sourcedelay"] * 1000))
-        self.settingsWidget.lineEdit_drainSetValue.setText(str(self.settings["drainvalue"]))
-        self.settingsWidget.lineEdit_drainLimit.setText(str(self.settings["drainlimit"]))
-        self.settingsWidget.lineEdit_drainNPLC.setText(str(self.settings["drainnplc"] / (0.001 * self.smu_settings["lineFrequency"])))
-        self.settingsWidget.lineEdit_drainDelay.setText(str(self.settings["draindelay"] * 1000))
-
-        # Update the SMU selection combobox
-        self.settingsWidget.smuBox.setCurrentText(self.settings["smu"])
-
-        # Update the GUI state to reflect the current settings
-        self._update_GUI_state()
 
     def _get_public_methods(self):
         """
@@ -548,6 +483,7 @@ class specTimeIVGUI:
                 status: 0 - no error, ~0 - error
                 message
         """
+        function_dict = self.dependency_manager.function_dict
         s = {}
         # THIS IS MISSING SOURCE VALUE ak start and end
         s["pulse"] = False
@@ -576,7 +512,7 @@ class specTimeIVGUI:
             s["drainsense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
         else:
             s["drainsense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
-        if self.function_dict["smu"][self.settings["smu"]]["smu_init"](s):
+        if function_dict["smu"][self.settings["smu"]]["smu_init"](s):
             return [2, {"Error message": "timeIV plugin: error in SMU plugin can not initialize"}]
 
         return {0, "OK"}
@@ -594,6 +530,7 @@ class specTimeIVGUI:
         self.run_thread.thread_stop()
 
     def _runAction(self):
+        function_dict = self.dependency_manager.function_dict
         self.logger.log_debug("Running timeIV plugin action")
         self.set_running(True)
         [status, message] = self.parse_settings_widget()
@@ -603,14 +540,14 @@ class specTimeIVGUI:
             self.set_running(False)
             return [status, message]
 
-        self.function_dict["smu"][self.settings["smu"]]["set_running"](True)
-        [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
+        function_dict["smu"][self.settings["smu"]]["set_running"](True)
+        [status, message] = function_dict["smu"][self.settings["smu"]]["smu_connect"]()
         if status:
             self.logger.log_warn("timeIV plugin: smu_connect returned error: " + str(message))
             self.logger.info_popup(f"{message['Error message']}")
 
             self.set_running(False)
-            self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
+            function_dict["smu"][self.settings["smu"]]["set_running"](False)
             return [status, message]
 
         ##IRtodo#### check that the new file will not overwrite existing data -> implement dialog
@@ -636,16 +573,18 @@ class specTimeIVGUI:
             pd.DataFrame(data).to_csv(f, index=False, header=False, float_format="%.12e", sep=",")
 
     def sequenceStep(self, postfix):
+        function_dict = self.dependency_manager.function_dict
         self.logger.log_debug("Running sequence step with postfix: " + postfix)
         self.settings["filename"] = self.settings["filename"] + postfix
-        [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
+        [status, message] = function_dict["smu"][self.settings["smu"]]["smu_connect"]()
         if status:
             return [status, message]
         self._sequenceImplementation()
-        self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
+        function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
         return [0, "sweep finished"]
 
     def _timeIVimplementation(self):
+        function_dict = self.dependency_manager.function_dict
         self.logger.log_debug("_timeIVimplementation: Creating file header.")
         header = self.create_file_header(self.settings, self.smu_settings)
 
@@ -655,10 +594,10 @@ class specTimeIVGUI:
             raise timeIVexception(f"{message['Error message']}")
 
         self.logger.log_debug("_timeIVimplementation: Turning off SMU output.")
-        self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
+        function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
 
         self.logger.log_debug("_timeIVimplementation: Setting SMU output for source channel.")
-        self.function_dict["smu"][self.settings["smu"]]["smu_setOutput"](
+        function_dict["smu"][self.settings["smu"]]["smu_setOutput"](
             self.settings["channel"],
             "v" if self.settings["inject"] == "voltage" else "i",
             self.settings["sourcevalue"],
@@ -666,7 +605,7 @@ class specTimeIVGUI:
 
         if not self.settings["singlechannel"]:
             self.logger.log_debug("_timeIVimplementation: Setting SMU output for drain channel.")
-            self.function_dict["smu"][self.settings["smu"]]["smu_setOutput"](
+            function_dict["smu"][self.settings["smu"]]["smu_setOutput"](
                 self.settings["drainchannel"],
                 "v" if self.settings["draininject"] == "voltage" else "i",
                 self.settings["drainvalue"],
@@ -679,20 +618,20 @@ class specTimeIVGUI:
 
         if not self.settings["singlechannel"]:
             self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source and drain channels.")
-            self.function_dict["smu"][self.settings["smu"]]["smu_outputON"](self.settings["channel"], self.settings["drainchannel"])
+            function_dict["smu"][self.settings["smu"]]["smu_outputON"](self.settings["channel"], self.settings["drainchannel"])
         else:
             self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source channel.")
-            self.function_dict["smu"][self.settings["smu"]]["smu_outputON"](self.settings["channel"])
+            function_dict["smu"][self.settings["smu"]]["smu_outputON"](self.settings["channel"])
 
         while True:
             self.logger.log_debug("_timeIVimplementation: Fetching IV data for source channel.")
-            status, sourceIV = self.function_dict["smu"][self.settings["smu"]]["smu_getIV"](self.settings["channel"])
+            status, sourceIV = function_dict["smu"][self.settings["smu"]]["smu_getIV"](self.settings["channel"])
             if status:
                 raise timeIVexception(sourceIV["Error message"])
 
             if not self.settings["singlechannel"]:
                 self.logger.log_debug("_timeIVimplementation: Fetching IV data for drain channel.")
-                status, drainIV = self.function_dict["smu"][self.settings["smu"]]["smu_getIV"](self.settings["drainchannel"])
+                status, drainIV = function_dict["smu"][self.settings["smu"]]["smu_getIV"](self.settings["drainchannel"])
                 if status:
                     raise timeIVexception(drainIV["Error message"])
 
@@ -759,8 +698,8 @@ class specTimeIVGUI:
             time.sleep(self.settings["timestep"])
 
         self.logger.log_debug("_timeIVimplementation: Turning off SMU output and disconnecting.")
-        self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
-        self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
+        function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
+        function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
         self.set_running(False)
         self.logger.log_debug("_timeIVimplementation: Completed successfully.")
         return [0, "OK"]
@@ -773,6 +712,7 @@ class specTimeIVGUI:
                status: 0 - no error, ~0 - error
         """
         try:
+            function_dict = self.dependency_manager.function_dict
             exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
             self._timeIVimplementation()
         except timeIVexception as e:
@@ -786,8 +726,8 @@ class specTimeIVGUI:
             exception = 3
         finally:
             try:
-                self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
-                self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
+                function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
+                function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
                 if exception == 3 or exception == 1:
                     self.logger.info_popup("Implementation stopped because of exception. Check log")
             except Exception as e:
@@ -795,43 +735,4 @@ class specTimeIVGUI:
                 self.logger.info_popup("SMU turn off failed. Check log")
             self.set_running(False)
 
-    def get_current_gui_settings(self):
-        """Return the current settings from the GUI widgets as a dict, without validation or conversion."""
-        settings = {}
-        settings["timestep"] = self.settingsWidget.step_lineEdit.text()
-        settings["stopafter"] = self.settingsWidget.stopAfterLineEdit.text()
-        settings["autosaveinterval"] = self.settingsWidget.autosaveLineEdit.text()
-        settings["stoptimer"] = self.settingsWidget.stopTimerCheckBox.isChecked()
-        settings["autosave"] = self.settingsWidget.autosaveCheckBox.isChecked()
-        settings["channel"] = self.settingsWidget.comboBox_channel.currentText().lower()
-        currentIndex = self.settingsWidget.comboBox_channel.currentIndex()
-        if self.settingsWidget.comboBox_channel.count() > 1:
-            if currentIndex == 0:
-                settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(1)
-            else:
-                settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(0)
-        else:
-            settings["drainchannel"] = "xxx"
-        settings["inject"] = self.settingsWidget.comboBox_inject.currentText().lower()
-        settings["sourcedelaymode"] = self.settingsWidget.comboBox_sourceDelayMode.currentText().lower()
-        settings["sourcesensemode"] = self.settingsWidget.comboBox_sourceSenseMode.currentText().lower()
-        settings["draindelaymode"] = self.settingsWidget.comboBox_drainDelayMode.currentText().lower()
-        settings["draininject"] = self.settingsWidget.comboBox_drainInject.currentText().lower()
-        settings["drainsensemode"] = self.settingsWidget.comboBox_drainSenseMode.currentText().lower()
-        settings["singlechannel"] = self.settingsWidget.checkBox_singleChannel.isChecked()
-        settings["sourcevalue"] = self.settingsWidget.lineEdit_sourceSetValue.text()
-        settings["sourcelimit"] = self.settingsWidget.lineEdit_sourceLimit.text()
-        settings["sourcenplc"] = self.settingsWidget.lineEdit_sourceNPLC.text()
-        settings["sourcedelay"] = self.settingsWidget.lineEdit_sourceDelay.text()
-        settings["drainvalue"] = self.settingsWidget.lineEdit_drainSetValue.text()
-        settings["drainlimit"] = self.settingsWidget.lineEdit_drainLimit.text()
-        settings["drainnplc"] = self.settingsWidget.lineEdit_drainNPLC.text()
-        settings["draindelay"] = self.settingsWidget.lineEdit_drainDelay.text()
-        settings["smu"] = self.settingsWidget.smuBox.currentText()
-        # Add any additional fields as needed
-        settings["address"] = self.settingsWidget.lineEdit_path.text()
-        settings["filename"] = self.settingsWidget.lineEdit_filename.text()
-        settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-        settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
 
-        return 0, settings

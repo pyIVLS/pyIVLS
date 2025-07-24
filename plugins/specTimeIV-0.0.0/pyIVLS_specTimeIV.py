@@ -95,14 +95,14 @@ class pyIVLS_specTimeIV_plugin:
             dict: name, widget
         """
         pruned = {function_dict_key: function_dict[function_dict_key] for function_dict_key in self.dependencies if function_dict_key in function_dict}
-        self.pluginClass.function_dict = pruned
-        return self.pluginClass.function_dict
+        self.pluginClass.dependency_manager.function_dict = pruned
+        return self.pluginClass.dependency_manager.function_dict
 
     @hookimpl
     def get_plugin_settings(self, args=None):
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
         if args is None or args.get("function") == self.function:
-            status, settings = self.pluginClass.get_current_gui_settings()
+            status, settings = self.pluginClass.parse_settings_widget()
             return (self.name, status, settings)
 
     @hookimpl
