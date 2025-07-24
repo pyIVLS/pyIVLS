@@ -19,7 +19,9 @@ from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from threadStopped import thread_with_exception, ThreadStopped
 from enum import Enum
-from specTimeIV_utils import FileManager, LoggingHelper, SettingsValidator, DependencyManager, UIWidgetAccessor, SettingsParser, SignalConnector, FileManager, PluginSettingsManager, GuiStateManager
+from specTimeIV_utils import LoggingHelper, FileManager, DynamicGuiFieldMapper
+
+# DynamicGuiFieldMapper available for future use
 import numpy as np
 import copy
 import pandas as pd
@@ -48,7 +50,7 @@ class specTimeIVGUI:
         super().__init__()
         self.verbose = True  # FIXME
         # List of functions from another plugins required for functioning
-        self.dependency = {
+        self.dependency: dict[str, list[str]] = {
             "smu": [
                 "parse_settings_widget",
                 "smu_connect",
@@ -73,6 +75,9 @@ class specTimeIVGUI:
         self._create_plt()
         self.filemanager = FileManager()
         self.logger = LoggingHelper(self)
+
+        self.dynamic_mapper = DynamicGuiFieldMapper(self.settingsWidget, "timeIV plugin")
+        self._setup_dynamic_mappings()
 
     def _connect_signals(self):
         self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
@@ -101,27 +106,93 @@ class specTimeIVGUI:
         layout.addWidget(self.sc)
         self.MDIWidget.setLayout(layout)
 
+    def _setup_dynamic_mappings(self):
+        """Setup dynamic field mappings - simplified approach with just widget mapping."""
+
+        # Simple field mapping: setting_name -> widget_name
+        self.dynamic_field_mapping = {
+            # Basic file and timing settings
+            "address": "lineEdit_path",
+            "filename": "lineEdit_filename",
+            "samplename": "lineEdit_sampleName",
+            "comment": "lineEdit_comment",
+            "timestep": "step_lineEdit",
+            "stopafter": "stopAfterLineEdit",
+            "autosaveinterval": "autosaveLineEdit",
+            "stoptimer": "stopTimerCheckBox",
+            "autosave": "autosaveCheckBox",
+            # SMU configuration
+            "singlechannel": "checkBox_singleChannel",
+            "channel": "comboBox_channel",
+            "inject": "comboBox_inject",
+            "sourcedelaymode": "comboBox_sourceDelayMode",
+            "sourcesensemode": "comboBox_sourceSenseMode",
+            "draindelaymode": "comboBox_drainDelayMode",
+            "draininject": "comboBox_drainInject",
+            "drainsensemode": "comboBox_drainSenseMode",
+            # SMU values (will need conversion for some)
+            "sourcevalue": "lineEdit_sourceSetValue",
+            "sourcelimit": "lineEdit_sourceLimit",
+            "sourcenplc_cycles": "lineEdit_sourceNPLC",  # Will convert to sourcenplc
+            "sourcedelay_ms": "lineEdit_sourceDelay",  # Will convert to sourcedelay
+            "drainvalue": "lineEdit_drainSetValue",
+            "drainlimit": "lineEdit_drainLimit",
+            "drainnplc_cycles": "lineEdit_drainNPLC",  # Will convert to drainnplc
+            "draindelay_ms": "lineEdit_drainDelay",  # Will convert to draindelay
+        }  # Validation rules separate from field mapping
+        self.dynamic_validation_rules = {
+            "address": {"required": True, "validator": lambda x: isinstance(x, str) and len(x.strip()) > 0, "error_message": "Address is required"},
+            "filename": {"required": True, "validator": lambda x: isinstance(x, str) and is_valid_filename(x), "error_message": "Must be a valid filename"},
+            "timestep": {"required": True, "validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Time step must be positive"},
+            "stopafter": {"required": True, "validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Stop time must be positive"},
+            "autosaveinterval": {"required": True, "validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Auto save interval must be positive"},
+            "sourcelimit": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Source limit must be positive"},
+            "drainlimit": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Drain limit must be positive"},
+            "sourcenplc_cycles": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Source NPLC must be positive"},
+            "sourcedelay_ms": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Source delay must be positive"},
+            "drainnplc_cycles": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Drain NPLC must be positive"},
+            "draindelay_ms": {"validator": lambda x: isinstance(x, (int, float)) and x > 0, "error_message": "Drain delay must be positive"},
+        }
+
     ########Functions
     ########GUI Slots
 
     ########Functions
     ################################### internal
 
-    def _parseSaveData(self) -> "status":
-        self.settings["address"] = self.settingsWidget.lineEdit_path.text()
-        if not os.path.isdir(self.settings["address"] + os.sep):
-            self.logger.log_warn("timeIV plugin: address string should point to a valid directory")
-            return [1, {"Error message": "timeIV plugin: address string should point to a valid directory"}]
+    def set_gui_from_settings(self):
+        """
+        Updates the GUI fields based on the internal settings dictionary.
+        This function assumes that the settings have already been set using the `setSettings` function.
+        """
+        # Prepare settings for GUI with conversions
+        gui_settings = dict(self.settings)  # Copy settings
 
-        self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
-        if not is_valid_filename(self.settings["filename"]):
-            self.logger.log_warn("timeIV plugin: filename is not valid")
-            self.logger.info_popup("timeIV plugin: filename is not valid")
-            return [1, {"Error message": "timeIV plugin: filename is not valid"}]
+        # Convert values that need GUI-specific formatting
+        if hasattr(self, "smu_settings") and self.smu_settings:
+            line_freq = self.smu_settings.get("lineFrequency", 50)
+            # Convert NPLC time back to cycles for GUI
+            if "sourcenplc" in self.settings:
+                gui_settings["sourcenplc_cycles"] = self.settings["sourcenplc"] / (0.001 * line_freq)
+            if "drainnplc" in self.settings:
+                gui_settings["drainnplc_cycles"] = self.settings["drainnplc"] / (0.001 * line_freq)
 
-        self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
-        self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-        return [0, "Ok"]
+        # Convert delay from seconds back to ms for GUI
+        if "sourcedelay" in self.settings:
+            gui_settings["sourcedelay_ms"] = self.settings["sourcedelay"] * 1000
+        if "draindelay" in self.settings:
+            gui_settings["draindelay_ms"] = self.settings["draindelay"] * 1000
+
+        # Use dynamic mapper to set all GUI values at once!
+        self.dynamic_mapper.set_values(gui_settings, self.dynamic_field_mapping)
+
+        # Update the SMU selection combobox
+        if hasattr(self.settingsWidget, "smuBox") and "smu" in self.settings:
+            self.settingsWidget.smuBox.setCurrentText(self.settings["smu"])
+
+        # Update the GUI state to reflect the current settings
+        if hasattr(self, "_update_GUI_state"):
+            self._update_GUI_state()
 
     def parse_settings_widget(self) -> "status":
         """Parses the settings widget for the templatePlugin. Extracts current values. Checks if values are allowed. Provides settings of template plugin to an external plugin
@@ -137,39 +208,19 @@ class specTimeIVGUI:
         if smu_selection not in self.function_dict["smu"]:
             return [3, {"Error message": "SMU plugin not found in function_dict"}]
         self.settings["smu"] = smu_selection
-
         [status, self.smu_settings] = self.function_dict["smu"][self.settings["smu"]]["parse_settings_widget"]()
         if status:
             return [2, self.smu_settings]
 
-        status, message = self._parseSaveData()
+        # Use dynamic mapper for basic settings
+        status, all_values = self.dynamic_mapper.get_values(self.dynamic_field_mapping, self.dynamic_validation_rules)
         if status:
-            return [status, message]
+            return [status, all_values]
 
-        try:
-            self.settings["timestep"] = float(self.settingsWidget.step_lineEdit.text())
-        except ValueError:
-            return [1, {"Error message": "Value error in timeIV plugin: time step field should be numeric"}]
-        if self.settings["timestep"] <= 0:
-            return [1, {"Error message": "Value error in timeIV plugin: time step field should be greater than 0"}]
-        try:
-            self.settings["stopafter"] = float(self.settingsWidget.stopAfterLineEdit.text())
-        except ValueError:
-            return [1, {"Error message": "Value error in timeIV plugin: stop after field should be numeric"}]
-        if self.settings["stopafter"] <= 0:
-            return [1, {"Error message": "Value error in timeIV plugin: autosave interval field should be numeric"}]
-        try:
-            self.settings["autosaveinterval"] = float(self.settingsWidget.autosaveLineEdit.text())
-        except ValueError:
-            return [1, {"Error message": "Value error in timeIV plugin: autosave interval field should be greater than 0"}]
-        if self.settings["autosaveinterval"] <= 0:
-            return [1, {"Error message": "Value error in timeIV plugin: autosave interval field should be greater than 0"}]
-        self.settings["stoptimer"] = self.settingsWidget.stopTimerCheckBox.isChecked()
-        self.settings["autosave"] = self.settingsWidget.autosaveCheckBox.isChecked()
+        # Update settings with extracted values
+        self.settings.update(all_values)
 
-        # SMU settings
-        # Determine source channel: may take values depending on the channel names in smu, eg. for Keithley 2612B [smua, smub]
-        self.settings["channel"] = (self.settingsWidget.comboBox_channel.currentText()).lower()
+        # Handle dual channel logic
         currentIndex = self.settingsWidget.comboBox_channel.currentIndex()
         if self.settingsWidget.comboBox_channel.count() > 1:
             if currentIndex == 0:
@@ -177,129 +228,24 @@ class specTimeIVGUI:
             else:
                 self.settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(0)
         else:
-            self.settings["drainchannel"] = "xxx"  # for compatability if the smu does not support second channel
+            self.settings["drainchannel"] = "xxx"  # for compatibility if the smu does not support second channel
 
-        # Determine source type: may take values [current, voltage]
-        self.settings["inject"] = (self.settingsWidget.comboBox_inject.currentText()).lower()
-        # Determine delay mode for source: may take values [auto, manual]
-        self.settings["sourcedelaymode"] = (self.settingsWidget.comboBox_sourceDelayMode.currentText()).lower()
-        # Determine source sence mode: may take values [2 wire, 4 wire, 2 & 4 wire]
-        self.settings["sourcesensemode"] = (self.settingsWidget.comboBox_sourceSenseMode.currentText()).lower()
-        # Determine delay mode for drain: may take values [auto, manual]
-        self.settings["draindelaymode"] = (self.settingsWidget.comboBox_drainDelayMode.currentText()).lower()
-        # Determine drain type: may take values [current, voltage]
-        self.settings["draininject"] = (self.settingsWidget.comboBox_drainInject.currentText()).lower()
-        # Determine drain sence mode: may take values [2 wire, 4 wire, 2 & 4 wire]
-        self.settings["drainsensemode"] = (self.settingsWidget.comboBox_drainSenseMode.currentText()).lower()
+        # Handle conversions for NPLC and delay values (extracted by dynamic mapper)
+        if "sourcenplc_cycles" in all_values:
+            line_freq = self.smu_settings.get("lineFrequency", 50)  # Default to 50Hz
+            self.settings["sourcenplc"] = 0.001 * line_freq * all_values["sourcenplc_cycles"]
 
-        # Determine a single channel mode: may be True or False
-        if self.settingsWidget.checkBox_singleChannel.isChecked():
-            self.settings["singlechannel"] = True
-        else:
-            self.settings["singlechannel"] = False
+        if "drainnplc_cycles" in all_values:
+            line_freq = self.smu_settings.get("lineFrequency", 50)  # Default to 50Hz
+            self.settings["drainnplc"] = 0.001 * line_freq * all_values["drainnplc_cycles"]
 
-        # Determine settings for source
-        # start should be float
-        try:
-            self.settings["sourcevalue"] = float(self.settingsWidget.lineEdit_sourceSetValue.text())
-        except ValueError:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: source set value field should be numeric"},
-            ]
+        # Convert delay from ms to seconds
+        if "sourcedelay_ms" in all_values:
+            self.settings["sourcedelay"] = all_values["sourcedelay_ms"] / 1000
 
-        # limit should be float >0
-        try:
-            self.settings["sourcelimit"] = float(self.settingsWidget.lineEdit_sourceLimit.text())
-        except ValueError:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: source limit field should be numeric"},
-            ]
-        if self.settings["sourcelimit"] <= 0:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: source limit field should be positive"},
-            ]
+        if "draindelay_ms" in all_values:
+            self.settings["draindelay"] = all_values["draindelay_ms"] / 1000
 
-        # source nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
-        try:
-            self.settings["sourcenplc"] = 0.001 * self.smu_settings["lineFrequency"] * float(self.settingsWidget.lineEdit_sourceNPLC.text())
-        except ValueError:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: source nplc field should be numeric"},
-            ]
-        if self.settings["sourcenplc"] <= 0:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: source nplc field should be positive"},
-            ]
-
-        # delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
-        try:
-            self.settings["sourcedelay"] = float(self.settingsWidget.lineEdit_sourceDelay.text()) / 1000
-        except ValueError:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: source delay field should be numeric"},
-            ]
-        if self.settings["sourcedelay"] <= 0:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: source delay field should be positive"},
-            ]
-
-        # start should be float
-        try:
-            self.settings["drainvalue"] = float(self.settingsWidget.lineEdit_drainSetValue.text())
-        except ValueError:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: drain set value field should be numeric"},
-            ]
-
-        # limit should be float >0
-        try:
-            self.settings["drainlimit"] = float(self.settingsWidget.lineEdit_drainLimit.text())
-        except ValueError:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: drain limit field should be numeric"},
-            ]
-        if self.settings["drainlimit"] <= 0:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: drain limit field should be positive"},
-            ]
-
-        # drain nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
-        try:
-            self.settings["drainnplc"] = 0.001 * self.smu_settings["lineFrequency"] * float(self.settingsWidget.lineEdit_drainNPLC.text())
-        except ValueError:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: drain nplc field should be numeric"},
-            ]
-        if self.settings["drainnplc"] <= 0:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: drain nplc field should be positive"},
-            ]
-
-        # delay (in fact it is stabilization time before the measurement), for Keithley control should be in s in GUI is ms, should be >0
-        try:
-            self.settings["draindelay"] = float(self.settingsWidget.lineEdit_drainDelay.text()) / 1000
-        except ValueError:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: drain delay field should be numeric"},
-            ]
-        if self.settings["draindelay"] <= 0:
-            return [
-                1,
-                {"Error message": "Value error in timeIV plugin: drain delay field should be positive"},
-            ]
         retset = self.settings
         retset["smu_settings"] = self.smu_settings
         return [0, retset]
