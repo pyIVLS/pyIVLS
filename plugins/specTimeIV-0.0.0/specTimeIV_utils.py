@@ -16,8 +16,8 @@ from PyQt6.QtCore import QObject, pyqtSignal
 class FileManager:
     """Handles file operations for plugins."""
 
-
-    def create_file_header(self, settings: Dict[str, Any], smu_settings: Dict[str, Any]) -> str:
+    @staticmethod
+    def create_file_header(settings: Dict[str, Any], smu_settings: Dict[str, Any]) -> str:
         """
         creates a header for the csv file in the old measuremnt system style
 
@@ -117,6 +117,10 @@ class FileManager:
 
         return comment
 
+    @staticmethod
+    def get_address() -> str:
+        """Returns the address of the SMU device."""
+        return "Not implemented"
 
 class GuiMapper:
     """Enhanced GUI field mapper with dynamic type detection and bidirectional conversion."""

@@ -261,19 +261,18 @@ class specTimeIVGUI:
             return (3, {"Error message": "No SMU plugin selected"})
 
         # Validate spectro selection
-        if "spectro" in selected_deps:
-            spectro_selection = selected_deps["spectro"]
-            is_valid, error_msg = self.dependency_manager.validate_selection("spectro", spectro_selection)
+        if "spectrometer" in selected_deps:
+            spectro_selection = selected_deps["spectrometer"]
+            is_valid, error_msg = self.dependency_manager.validate_selection("spectrometer", spectro_selection)
             if not is_valid:
-                return (3, {"Error message": f"Spectro validation failed: {error_msg}"})
+                return (3, {"Error message": f"Spectrometer validation failed: {error_msg}"})
                 
-            self.settings["spectro"] = spectro_selection
-            status, self.spectro_settings = self.dependency_manager.function_dict["spectro"][spectro_selection]["parse_settings_widget"]()
+            self.settings["spectrometer"] = spectro_selection
+            status, self.spectrometer_settings = self.dependency_manager.function_dict["spectrometer"][spectro_selection]["parse_settings_widget"]()
             if status:
-                return (2, self.spectro_settings)
+                return (2, self.spectrometer_settings)
         else:
-            # Spectro might be optional, so just log a warning
-            self.logger.log_warn("No spectro plugin selected")
+            return (3, {"Error message": "No spectrometer plugin selected"})
         
 
         # Use mapper component for value extraction and validation
@@ -296,6 +295,7 @@ class specTimeIVGUI:
 
         retset = self.settings
         retset["smu_settings"] = self.smu_settings
+        retset["spectrometer_settings"] = self.spectrometer_settings
         return (0, retset)
 
     ########Functions
@@ -463,6 +463,10 @@ class specTimeIVGUI:
         # Handle SMU settings separately
         if "smu_settings" in settings:
             self.smu_settings = settings["smu_settings"]
+            
+        # Handle spectrometer settings separately  
+        if "spectrometer_settings" in settings:
+            self.spectrometer_settings = settings["spectrometer_settings"]
 
 
     def _get_public_methods(self):
@@ -562,7 +566,7 @@ class specTimeIVGUI:
         fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
         self.logger.log_debug("Saving data to file: " + fulladdress)
 
-        if drainI == None:
+        if drainI is None:
             data = list(zip(time, sourceI, sourceV))
             # np.savetxt(fulladdress, data, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')
         else:
@@ -583,61 +587,114 @@ class specTimeIVGUI:
         function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
         return [0, "sweep finished"]
 
-    def _timeIVimplementation(self):
+    def _initialize_smu(self):
+        """Initializes the SMU with the settings provided in self.settings."""
         function_dict = self.dependency_manager.function_dict
-        self.logger.log_debug("_timeIVimplementation: Creating file header.")
-        header = self.create_file_header(self.settings, self.smu_settings)
-
-        self.logger.log_debug("_timeIVimplementation: Initializing SMU.")
+        smu_name = self.settings["smu"]
+        self.logger.log_debug(f"Initializing SMU: {smu_name}")
         [status, message] = self.smuInit()
         if status:
             raise timeIVexception(f"{message['Error message']}")
-
+        
+        # turn off outputs, setup new source
         self.logger.log_debug("_timeIVimplementation: Turning off SMU output.")
-        function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
-
+        function_dict["smu"][smu_name]["smu_outputOFF"]()
         self.logger.log_debug("_timeIVimplementation: Setting SMU output for source channel.")
-        function_dict["smu"][self.settings["smu"]]["smu_setOutput"](
+        function_dict["smu"][smu_name]["smu_setOutput"](
             self.settings["channel"],
             "v" if self.settings["inject"] == "voltage" else "i",
             self.settings["sourcevalue"],
         )
 
+        # setup drain channel if not in single channel mode
         if not self.settings["singlechannel"]:
             self.logger.log_debug("_timeIVimplementation: Setting SMU output for drain channel.")
-            function_dict["smu"][self.settings["smu"]]["smu_setOutput"](
+            function_dict["smu"][smu_name]["smu_setOutput"](
                 self.settings["drainchannel"],
                 "v" if self.settings["draininject"] == "voltage" else "i",
                 self.settings["drainvalue"],
             )
+        
+        # Turn on output
+        if not self.settings["singlechannel"]:
+            self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source and drain channels.")
+            function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"], self.settings["drainchannel"])
+        else:
+            self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source channel.")
+            function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
 
+        return [0, "SMU initialized successfully"]
+    
+    def _initialize_spectrometer(self):
+        """Initializes the spectrometer with the settings provided in self.spectrometer_settings."""
+        function_dict = self.dependency_manager.function_dict
+        spectrometer_name = self.settings["spectrometer"]
+        self.logger.log_debug(f"Initializing spectrometer: {spectrometer_name}")
+
+        function_dict["spectrometer"][spectrometer_name]["setSettings"](self.spectrometer_settings)
+        [status, message] = function_dict["spectrometer"][spectrometer_name]["spectrometerConnect"]()
+        if status:
+            self.logger.log_warn(f"Error connecting Spectrometer: {message}")
+            return [status, message]
+        
+        # check what mode spectrometer is in for integration time
+        auto_mode = self.spectrometer_settings["integrationtimetype"] == "auto"
+        if auto_mode:
+            self.logger.log_warn("Spectrometer auto integration time mode is not supported in spectimeIV plugin. Defaulting to constant integration time.")
+        # Get and set constant integration time for the measurement
+        integration_time_setting = self.spectrometer_settings["integrationTime"]
+        self.logger.log_debug(f"Setting constant integration time: {integration_time_setting}")
+        status, message = function_dict["spectrometer"][spectrometer_name]["spectrometerSetIntegrationTime"](integration_time_setting)
+        
+        if status:
+            self.logger.log_warn(f"Error setting integration time: {message}")
+            raise timeIVexception(f"Error setting integration time: {message}")
+        
+        return [0, "Spectrometer initialized successfully"]
+
+    def _timeIVimplementation(self):
+        function_dict = self.dependency_manager.function_dict
+        self.logger.log_debug("_timeIVimplementation: Creating file header.")
+        header = self.create_file_header(self.settings, self.smu_settings)
+        spectrometer_name = self.settings["spectrometer"]
+        smu_name = self.settings["smu"]
+        
+        status, state = self._initialize_smu()
+        if status:
+            self.logger.log_warn(f"Error initializing SMU: {state}")
+            raise timeIVexception(f"Error initializing SMU: {state}")
+        # output channels are now both on.
+        status, state = self._initialize_spectrometer()
+        if status:
+            self.logger.log_warn(f"Error initializing Spectrometer: {state}")
+            raise timeIVexception(f"Error initializing Spectrometer: {state}")
+        # spectrometer now connected with integration time set
+        
         timeData = []
         startTic = time.time()
         saveTic = startTic
+        scan_counter = 0  # Counter for spectrometer file naming
         self.logger.log_debug("_timeIVimplementation: SMU initialized successfully.")
 
-        if not self.settings["singlechannel"]:
-            self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source and drain channels.")
-            function_dict["smu"][self.settings["smu"]]["smu_outputON"](self.settings["channel"], self.settings["drainchannel"])
-        else:
-            self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source channel.")
-            function_dict["smu"][self.settings["smu"]]["smu_outputON"](self.settings["channel"])
-
+        # start of measurement loop
         while True:
+            # fetch IV Data for source
             self.logger.log_debug("_timeIVimplementation: Fetching IV data for source channel.")
-            status, sourceIV = function_dict["smu"][self.settings["smu"]]["smu_getIV"](self.settings["channel"])
+            status, sourceIV = function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
             if status:
                 raise timeIVexception(sourceIV["Error message"])
 
+            # fetch IV Data for drain if not in single channel mode
             if not self.settings["singlechannel"]:
                 self.logger.log_debug("_timeIVimplementation: Fetching IV data for drain channel.")
-                status, drainIV = function_dict["smu"][self.settings["smu"]]["smu_getIV"](self.settings["drainchannel"])
+                status, drainIV = function_dict["smu"][smu_name]["smu_getIV"](self.settings["drainchannel"])
                 if status:
                     raise timeIVexception(drainIV["Error message"])
 
             currentTime = time.time()
             toc = currentTime - startTic
 
+            # Plot doesn't exist yet, initialize it
             if not timeData:
                 self.logger.log_debug("_timeIVimplementation: Initializing plots.")
                 self.axes.cla()
@@ -673,33 +730,78 @@ class specTimeIVGUI:
                 self.axes_twinx.cla()
                 self.axes_twinx.plot(timeData, sourceI, "b*")
 
-                if not self.settings["singlechannel"]:
+                if not self.settings["singlechannel"] and drainV is not None and drainI is not None:
                     drainV.append(drainIV[dataOrder.V.value])
                     drainI.append(drainIV[dataOrder.I.value])
                     self.axes_twinx.plot(timeData, drainI, "g*")
                     self.axes.plot(timeData, drainV, "go")
 
+            # plot is now updated, redraw the canvas
             self.axes.relim()
             self.axes.autoscale_view()
             self.sc.draw()
 
+            # Take spectrometer scan after each plot update
+            self.logger.log_debug("_timeIVimplementation: Taking spectrometer scan.")
+            status, spectrum = function_dict["spectrometer"][spectrometer_name]["spectrometerGetScan"]()
+            if status:
+                self.logger.log_warn(f"Error getting spectrum: {spectrum}")
+            else:
+                # Save spectrum data with timestamp and IV data
+                scan_counter += 1
+                spectrum_filename = f"{self.spectrometer_settings['filename']}_scan_{scan_counter:04d}_t_{toc:.2f}s.csv"
+                
+                # Create metadata dictionary
+                varDict = {}
+                varDict["integrationtime"] = self.spectrometer_settings["integrationTime"]
+                varDict["triggermode"] = 1 if self.spectrometer_settings.get("externalTrigger", False) else 0
+                varDict["name"] = self.spectrometer_settings.get("samplename", "")
+                varDict["timestamp"] = toc
+                sourceIV_formatted = [float(sourceIV[dataOrder.I.value]), float(sourceIV[dataOrder.V.value])]
+                
+                # add IV data to the comment on the spectrometer file
+                if not self.settings["singlechannel"] and drainI is not None and drainV is not None:
+                    drainIV_formatted = [float(drainI[-1]), float(drainV[-1])]
+                    varDict["comment"] = (self.spectrometer_settings.get("comment", "") + 
+                                        f" Time: {toc:.2f}s, Source I/V: {sourceIV_formatted}, Drain I/V: {drainIV_formatted}")
+                else:
+                    varDict["comment"] = (self.spectrometer_settings.get("comment", "") + 
+                                        f" Time: {toc:.2f}s, Source I/V: {sourceIV_formatted}")
+                
+                # Save spectrum file
+                spectrum_address = self.spectrometer_settings["address"] + os.sep + spectrum_filename
+                try:
+                    function_dict["spectrometer"][spectrometer_name]["createFile"](
+                        varDict=varDict, 
+                        filedelimeter=";", 
+                        address=spectrum_address, 
+                        data=spectrum
+                    )
+                    self.logger.log_debug(f"Spectrum saved to: {spectrum_filename}")
+                except Exception as e:
+                    self.logger.log_warn(f"Error saving spectrum: {e}")
+
+            # check if it is time to stop
             if self.settings["stoptimer"]:
                 if (currentTime - startTic) >= self.settings["stopafter"] * 60:  # convert to sec from min
                     self.logger.log_debug("_timeIVimplementation: Stop timer reached, saving data and exiting.")
                     self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
                     break
-
+            
+            # check if it is time to autosave
             if self.settings["autosave"]:
                 if (currentTime - saveTic) >= self.settings["autosaveinterval"] * 60:  # convert to sec from min
                     self.logger.log_debug("_timeIVimplementation: Autosave interval reached, saving data.")
                     self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
                     saveTic = currentTime
 
+            # take a nap until we need to take the next measurement
             time.sleep(self.settings["timestep"])
 
         self.logger.log_debug("_timeIVimplementation: Turning off SMU output and disconnecting.")
         function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
         function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
+        function_dict["spectrometer"][spectrometer_name]["spectrometerDisconnect"]()
         self.set_running(False)
         self.logger.log_debug("_timeIVimplementation: Completed successfully.")
         return [0, "OK"]
@@ -728,6 +830,7 @@ class specTimeIVGUI:
             try:
                 function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
                 function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
+                function_dict["spectrometer"][self.settings["spectrometer"]]["spectrometerDisconnect"]()
                 if exception == 3 or exception == 1:
                     self.logger.info_popup("Implementation stopped because of exception. Check log")
             except Exception as e:

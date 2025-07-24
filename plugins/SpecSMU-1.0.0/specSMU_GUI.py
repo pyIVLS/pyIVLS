@@ -487,6 +487,8 @@ class specSMU_GUI(QWidget):
                                                                                                     pause_duration=self.settings["pause"])
                 if not status:
                     integration_time_setting = auto_time
+                    self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](integration_time_setting)
+                    self._log_verbose(f"Auto integration time set to {integration_time_setting} seconds")
             if self.settings["mode"] == "pulsed":
                 self._log_verbose("Pulsed mode: sleeping for pause duration")
                 time.sleep(self.settings["pause"])
