@@ -113,7 +113,7 @@ class TraceGui(QObject):
         self.lineCountSpin.valueChanged.connect(self._set_line_count)
         self.liveUpdateCheck.toggled.connect(self._set_live_update)
         self.autoRotateCheck.toggled.connect(self._set_auto_rotate)
-        self.maxFileSizeSpin.valueChanged.connect(self._set_max_file_size)
+    
     def _set_live_update(self, checked):
         if checked:
             if self.log_file_path and os.path.exists(self.log_file_path):
@@ -127,10 +127,7 @@ class TraceGui(QObject):
         self.maxFileSizeSpin.setEnabled(checked)
         self.maxFileSizeLabel.setEnabled(checked)
 
-    def _set_max_file_size(self, value):
-        """Set the maximum file size for log rotation."""
-        # This value is used in _check_and_rotate_log method
-        pass
+
 
     def _check_and_rotate_log(self):
         """Check if log file needs rotation and perform it if necessary."""
@@ -157,11 +154,8 @@ class TraceGui(QObject):
             with open(self.log_file_path, "r", encoding="utf-8", errors="ignore") as f:
                 all_lines = f.readlines()
             
-            # Keep only the last 50% of lines to ensure we don't hit the limit again soon
+            # Keep 50 % of lines
             keep_lines = len(all_lines) // 2
-            if keep_lines < 1000:  # Always keep at least 1000 lines
-                keep_lines = min(1000, len(all_lines))
-                
             recent_lines = all_lines[-keep_lines:]
             
             # Write back the truncated content

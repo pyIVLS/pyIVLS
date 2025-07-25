@@ -834,8 +834,8 @@ class specTimeIVGUI:
                 if exception == 3 or exception == 1:
                     self.logger.info_popup("Implementation stopped because of exception. Check log")
             except Exception as e:
-                self.logger.log_warn(f"timeIV plugin: smu turn off failed because of unexpected exception: {e}")
-                self.logger.info_popup("SMU turn off failed. Check log")
+                self.logger.log_warn(f"timeIV plugin: smu or spectrometer turn off failed because of unexpected exception: {e}")
+                self.logger.info_popup("SMU or spectrometer turn off failed. Check log")
             self.set_running(False)
 
 
