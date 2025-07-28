@@ -73,6 +73,16 @@ class Ui_Dialog(object):
 
         self.gridLayout_3.addWidget(self.sigmaMask, 0, 4, 1, 1)
 
+        self.otsuMask = QCheckBox(self.groupBox)
+        self.otsuMask.setObjectName("otsuMask")
+
+        self.gridLayout_3.addWidget(self.otsuMask, 0, 5, 1, 1)
+
+        self.otsuImage = QCheckBox(self.groupBox)
+        self.otsuImage.setObjectName("otsuImage")
+
+        self.gridLayout_3.addWidget(self.otsuImage, 1, 5, 1, 1)
+
         self.gridLayout.addWidget(self.groupBox, 0, 0, 1, 2)
 
         self.groupBox_2 = QGroupBox(Dialog)
@@ -174,6 +184,8 @@ class Ui_Dialog(object):
         self.invertMask.setText(QCoreApplication.translate("Dialog", "invert mask", None))
         self.equalizeMask.setText(QCoreApplication.translate("Dialog", "equalize mask", None))
         self.cannyImage.setText(QCoreApplication.translate("Dialog", "edge detect image", None))
+        self.otsuMask.setText(QCoreApplication.translate("Dialog", "otsu mask", None))
+        self.otsuImage.setText(QCoreApplication.translate("Dialog", "otsu img", None))
         self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", "Feature detector settings", None))
         self.label_2.setText(QCoreApplication.translate("Dialog", "Residual threshold (larger -> more matches but less accurate)", None))
         self.label.setText(QCoreApplication.translate("Dialog", "ratio test) ", None))

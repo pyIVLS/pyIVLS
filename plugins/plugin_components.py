@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, Any, Tuple, Optional
 from enum import Enum
 
-from PyQt6.QtWidgets import QLineEdit, QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox
+from PyQt6.QtWidgets import QLineEdit, QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox, QWidget
 from PyQt6.QtCore import QObject, pyqtSignal
 
 
@@ -50,14 +50,14 @@ class FileManager:
         if settings["sourcedelaymode"] == "auto":
             comment = f"{comment}Measurement acquisition period is done in AUTO mode\n#"
         else:
-            comment = f"{comment}Measurement stabilization period is{settings['sourcedelay'] / 1000} ms\n#"
+            comment = f"{comment}Measurement stabilization period is {settings['sourcedelay'] / 1000} ms\n#"
         comment = f"{comment}NPLC value {settings['sourcenplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['sourcenplc']})\n#"
         comment = f"{comment}\n#\n#"
         comment = f"{comment}Continuous operation of the source with step time settings['timestep'] \n#\n#\n#"
 
         if not settings["singlechannel"]:
             comment = f"{comment}Drain in {settings['draininject']} injection mode\n#"
-            if settings["inject"] == "voltage":
+            if settings["draininject"] == "voltage":
                 stepunit = "V"
                 limitunit = "A"
             else:
@@ -68,7 +68,7 @@ class FileManager:
             if settings["draindelaymode"] == "auto":
                 comment = f"{comment}Measurement acquisition period for drain is done in AUTO mode\n#"
             else:
-                comment = f"{comment}Measurement stabilization period for drain is{settings['draindelay'] / 1000} ms\n#"
+                comment = f"{comment}Measurement stabilization period for drain is {settings['draindelay'] / 1000} ms\n#"
             comment = f"{comment}NPLC value {settings['drainnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['drainnplc']})\n#"
         else:
             comment = f"{comment}\n#\n#\n#\n#\n#"
@@ -127,8 +127,8 @@ class GuiMapper:
     """Enhanced GUI field mapper with dynamic type detection and bidirectional conversion."""
 
     def __init__(self, widget, plugin_name):
-        self.widget = widget
-        self.plugin_name = plugin_name
+        self.widget: QWidget = widget
+        self.plugin_name: str = plugin_name
 
     def get_values(self, field_mapping: Dict[str, str], validation_rules: Optional[Dict[str, Dict[str, Any]]] = None) -> Tuple[int, Dict[str, Any]]:
         """Extract values from GUI widgets with dynamic type detection.
@@ -170,7 +170,7 @@ class GuiMapper:
 
     def set_values(self, settings: Dict[str, Any], field_mapping: Dict[str, str], validation_rules: Dict[str, Dict[str, Any]]) -> Tuple[int, Dict[str, Any]]:
         """Set GUI widget values from settings dictionary with dynamic type detection and conversion.
-        
+
         Args:
             settings: Settings dictionary with values to set
             field_mapping: Dict mapping setting names to widget attribute names
@@ -225,7 +225,7 @@ class GuiMapper:
             widget_obj.setText(str(value))
         elif isinstance(widget_obj, QCheckBox):
             # handle various truths, since a pure conversion to bool for a string evaluates to True for any non-empty string
-            widget_obj.setChecked(value in [True, "True", "true"]) 
+            widget_obj.setChecked(value in [True, "True", "true"])
         elif isinstance(widget_obj, QComboBox):
             widget_obj.setCurrentText(str(value))
         elif isinstance(widget_obj, QSpinBox):
@@ -235,7 +235,7 @@ class GuiMapper:
         else:
             # what is that widget??
             raise ValueError(f"Unsupported widget type called for guimapper: {value}: {type(widget_obj)}")
-    
+
     def _validate_value_dynamic(self, setting_name: str, value: Any, validation_config: Dict[str, Any]) -> Tuple[int, Any]:
         """Validate a value using dynamic validation rules."""
 
@@ -246,7 +246,6 @@ class GuiMapper:
             except Exception as e:
                 return (1, {"Error message": f"Value error in {self.plugin_name}: conversion failed for {setting_name}: {str(e)}"})
 
-
         # Apply custom validator function
         if "validator" in validation_config:
             validator_func = validation_config["validator"]
@@ -256,7 +255,6 @@ class GuiMapper:
                     return (1, {"Error message": f"Value error in {self.plugin_name}: {error_msg}"})
             except Exception as e:
                 return (1, {"Error message": f"Value error in {self.plugin_name}: validation failed for {setting_name}: {str(e)}"})
-
 
         return (0, value)
 
@@ -280,7 +278,7 @@ class DependencyManager:
     def __init__(self, plugin_name: str, dependencies: Dict[str, list], widget, mapping: Dict[str, str]):
         """
         Initialize dependency manager.
-        
+
         Args:
             plugin_name: Name of the plugin using this manager
             dependencies: Dict mapping dependency types to required function lists
@@ -295,136 +293,133 @@ class DependencyManager:
         self.missing_functions = []
         self.dependency_settings = {}
         self.combobox_mapping = mapping
-        # connect 
-        
+
     @property
     def function_dict(self) -> Dict[str, Any]:
         """Get the current function dictionary."""
         return self._function_dict
-        
+
     @function_dict.setter
     def function_dict(self, value: Dict[str, Any]) -> None:
         """Set the function dictionary and automatically update GUI comboboxes."""
         self._function_dict = value
         # Automatically update comboboxes when function dict is set
         self.update_comboboxes()
-        
+
     def set_function_dict(self, function_dict: Dict[str, Any]) -> None:
         """Set the available function dictionary from plugin system."""
         self.function_dict = function_dict
-        
-        
+
     def validate_dependencies(self) -> Tuple[bool, list]:
         """
         Validate that all required dependencies are available.
-        
+
         Returns:
             Tuple[bool, list]: (is_valid, missing_functions_list)
         """
         self.missing_functions = []
-        
+
         for dependency_type, required_functions in self.dependencies.items():
             if dependency_type not in self._function_dict:
                 self.missing_functions.extend([f"{dependency_type}.{func}" for func in required_functions])
                 continue
-                
+
             available_plugins = self._function_dict[dependency_type]
-            
+
             # Check if any plugin provides all required functions
             has_valid_plugin = False
             for plugin_name, plugin_functions in available_plugins.items():
                 if all(func in plugin_functions for func in required_functions):
                     has_valid_plugin = True
                     break
-                    
+
             if not has_valid_plugin:
                 missing_for_type = []
                 for func in required_functions:
                     if not any(func in plugin_funcs for plugin_funcs in available_plugins.values()):
                         missing_for_type.append(f"{dependency_type}.{func}")
                 self.missing_functions.extend(missing_for_type)
-        
+
         return len(self.missing_functions) == 0, self.missing_functions
-        
+
     def update_comboboxes(self) -> None:
         """Update all dependency comboboxes with available plugins."""
         if not self.widget:
             return
-            
+
         for dependency_type, combobox_name in self.combobox_mapping.items():
             if dependency_type in self._function_dict:
                 try:
                     combobox = getattr(self.widget, combobox_name)
                     # Store current selection to restore if possible
                     current_selection = combobox.currentText()
-                    
+
                     combobox.clear()
                     available_plugins = list(self._function_dict[dependency_type].keys())
                     combobox.addItems(available_plugins)
-                    
+
                     # Try to restore previous selection if it's still available
                     if current_selection in available_plugins:
                         combobox.setCurrentText(current_selection)
                 except AttributeError:
                     # Combobox not found, skip silently
                     continue
-                # add custom implementations here 
-    
+                # add custom implementations here
 
     def get_selected_dependencies(self) -> Dict[str, str]:
         """
         Get currently selected dependencies from comboboxes.
-        
+
         Returns:
             Dict mapping dependency type to selected plugin name
         """
         selected = {}
         if not self.widget:
             return selected
-            
+
         for dependency_type, combobox_name in self.combobox_mapping.items():
             try:
                 combobox = getattr(self.widget, combobox_name)
                 selected[dependency_type] = combobox.currentText()
             except AttributeError:
                 continue
-                
+
         return selected
-                          
+
     def validate_selection(self, dependency_type: str, plugin_name: str) -> Tuple[bool, str]:
         """
         Validate that a selected plugin provides all required functions.
-        
+
         Args:
             dependency_type: Type of dependency (e.g., "smu")
             plugin_name: Name of selected plugin
-            
+
         Returns:
             Tuple[bool, str]: (is_valid, error_message)
         """
         if dependency_type not in self.dependencies:
             return False, f"Unknown dependency type: {dependency_type}"
-            
+
         if dependency_type not in self._function_dict:
             return False, f"No {dependency_type} plugins available"
-            
+
         if plugin_name not in self._function_dict[dependency_type]:
             return False, f"{dependency_type} plugin '{plugin_name}' not found"
-            
+
         plugin_functions = self._function_dict[dependency_type][plugin_name]
         required_functions = self.dependencies[dependency_type]
-        
+
         missing_functions = [func for func in required_functions if func not in plugin_functions]
-        
+
         if missing_functions:
             return False, f"{dependency_type} plugin '{plugin_name}' missing functions: {', '.join(missing_functions)}"
-            
+
         return True, ""
-        
+
     def get_function_dict_for_dependencies(self) -> Dict[str, Any]:
         """
         Get a filtered function dictionary containing only the dependencies needed by this plugin.
-        
+
         Returns:
             Dict containing only the dependency types this plugin needs
         """
@@ -433,6 +428,66 @@ class DependencyManager:
             if dependency_type in self._function_dict:
                 filtered_dict[dependency_type] = self._function_dict[dependency_type]
         return filtered_dict
+
+    def validate_and_extract_dependency_settings(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+        """
+        Validates all dependency selections and extracts their settings.
+
+        This method:
+        1. Checks if function_dict is available
+        2. Gets selected dependencies from comboboxes
+        3. Validates each dependency selection
+        4. Calls parse_settings_widget for each valid dependency
+        5. Updates target_settings_dict with dependency names and settings
+
+        Args:
+            target_settings_dict: Dictionary to update with dependency information
+
+        Returns:
+            Tuple[int, Dict]: (status, error_dict_or_settings_dict)
+            - status 0: Success, returns dict with dependency settings
+            - status 2: Dependency parse_settings_widget failed, returns error dict
+            - status 3: Validation or missing dependency error, returns error dict
+        """
+        if not self._function_dict:
+            return (3, {"Error message": f"Missing functions in {self.plugin_name} plugin. Check log", "Missing functions": self.missing_functions})
+
+        # Get selected dependencies from GUI
+        selected_deps = self.get_selected_dependencies()
+        dependency_settings = {}
+
+        # Validate and extract settings for each dependency type
+        for dependency_type in self.dependencies.keys():
+            if dependency_type not in selected_deps or not selected_deps[dependency_type]:
+                return (3, {"Error message": f"No {dependency_type} plugin selected"})
+
+            selected_plugin = selected_deps[dependency_type]
+
+            # Validate selection
+            is_valid, error_msg = self.validate_selection(dependency_type, selected_plugin)
+            if not is_valid:
+                return (3, {"Error message": f"{dependency_type} validation failed: {error_msg}"})
+
+            # Update target settings with selected plugin name
+            target_settings_dict[dependency_type] = selected_plugin
+
+            # Extract settings from the dependency plugin
+            try:
+                parse_function = self._function_dict[dependency_type][selected_plugin]["parse_settings_widget"]
+                status, settings = parse_function()
+                if status:
+                    return (2, settings)  # Forward the error from dependency
+
+                # Store settings with a standardized key
+                settings_key = f"{dependency_type}_settings"
+                dependency_settings[settings_key] = settings
+
+            except KeyError as e:
+                return (3, {"Error message": f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}"})
+            except Exception as e:
+                return (3, {"Error message": f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}"})
+
+        return (0, dependency_settings)
 
 
 class LoggingHelper(QObject):
@@ -466,4 +521,77 @@ class LoggingHelper(QObject):
         self.info_popup_signal.emit(message)
 
 
-class smuHelper
+class SMUHelper:
+    """FORMAT OF SMU SETTINGS:
+    # s["source"] source channel: may take values [smua, smub]
+    # s["drain"] dain channel: may take values [smub, smua]
+    # s["type"] source inject current or voltage: may take values [i ,v]
+    # s["sourcesense"] source sence mode: may take values [True - 4 wire, False - 2 wire]
+    # s["drainsense"] drain sence mode: may take values [True - 4 wire, False - 2 wire]
+
+    # s["single_ch"] single channel mode: may be True or False
+
+    # s["pulse"] set pulsed mode: may be True - pulsed, False - continuous
+    # s["pulsepause"] pause between pulses in sweep
+
+    # s['sourcenplc'] integration time in nplc units
+    # s["drainnplc"] integration time in nplc units
+
+    # s["delay"] stabilization time mode for source: may take values [True - Auto, False - manual]
+    # s["delayduration"] stabilization time duration if manual
+
+    # s["draindelay"] stabilization time mode for drain: may take values [True - Auto, False - manual]
+    # s["draindelayduration"] stabilization time duration if manual
+
+    # s["steps"] number of points in sweep
+    # s["start"] start point of sweep
+    # s["end"] end point of sweep
+    # s["limit"] limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
+
+    # s["sourcehighc"] high capacitance mode for source
+    # s["drainhighc"] high capacitance mode for drain
+
+    # s["repeat"] repeat count
+
+    # settings for drain
+    ## s["drainvoltage"] voltage on drain
+    ## s["drainlimit"] limit for current in voltage mode or for voltage in current mode
+    """
+
+    def __init__(self, plugin_name: str):
+        """Initialize the SMU helper with the plugin name."""
+        self.plugin_name = plugin_name
+
+    def smu_init(self, plugin_settings_dict, smu_settings, smu_functions) -> tuple[int, dict[str, Any]]:
+        """Initialize the SMU with the provided settings."""
+        s = {}
+        s["pulse"] = False
+        s["source"] = plugin_settings_dict["channel"]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
+        s["drain"] = plugin_settings_dict["drainchannel"]
+        s["type"] = "v" if plugin_settings_dict["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
+        s["single_ch"] = plugin_settings_dict["singlechannel"]  # single channel mode: may be True or False
+
+        s["sourcenplc"] = plugin_settings_dict["sourcenplc"]  # drain NPLC (may not be used in single channel mode)
+        s["delay"] = True if plugin_settings_dict["sourcedelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["delayduration"] = plugin_settings_dict["sourcedelay"]  # stabilization time duration if manual (may not be used in single channel mode)
+        s["limit"] = plugin_settings_dict["sourcelimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+        s["sourcehighc"] = smu_settings["sourcehighc"]
+
+        s["drainnplc"] = plugin_settings_dict["drainnplc"]  # drain NPLC (may not be used in single channel mode)
+        s["draindelay"] = True if plugin_settings_dict["draindelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["draindelayduration"] = plugin_settings_dict["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
+        s["drainlimit"] = plugin_settings_dict["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+        s["drainhighc"] = smu_settings["drainhighc"]
+
+        if plugin_settings_dict["sourcesensemode"] == "4 wire":
+            s["sourcesense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
+        else:
+            s["sourcesense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
+        if plugin_settings_dict["drainsensemode"] == "4 wire":
+            s["drainsense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
+        else:
+            s["drainsense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
+        if smu_functions["smu_init"](s):
+            return 2, {"Error message": f"{self.plugin_name}: error in SMU plugin can not initialize"}
+
+        return 0, {"Error message": "OK"}

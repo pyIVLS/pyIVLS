@@ -199,6 +199,26 @@ def test_preprocessor_settings():
     assert canny.ndim == 2
     assert canny.shape == img.shape[:2]
     assert canny.dtype == np.uint8
+    # Test otsuimage
+    aff.preprocessor.update_settings({"otsuimage": True, "cannyimage": False})
+    otsu = aff.preprocessor.preprocess_img(img)
+    assert otsu.ndim == 2
+    assert otsu.shape == img.shape[:2]
+    assert otsu.dtype == np.uint8
+    # Otsu should produce binary output (only 0 and 255 values)
+    unique_values = np.unique(otsu)
+    assert len(unique_values) <= 2  # Binary thresholding should produce at most 2 values
+    assert all(val in [0, 255] for val in unique_values)
+    # Test otsumask
+    aff.preprocessor.update_settings({"otsumask": True, "otsuimage": False})
+    otsu_mask = aff.preprocessor.preprocess_mask(img)
+    assert otsu_mask.ndim == 2
+    assert otsu_mask.shape == img.shape[:2]
+    assert otsu_mask.dtype == np.uint8
+    # Otsu should produce binary output (only 0 and 255 values)
+    unique_values_mask = np.unique(otsu_mask)
+    assert len(unique_values_mask) <= 2  # Binary thresholding should produce at most 2 values
+    assert all(val in [0, 255] for val in unique_values_mask)
 
 
 def test_affine_settings_update():

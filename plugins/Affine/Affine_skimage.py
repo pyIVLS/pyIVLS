@@ -25,10 +25,12 @@ class Preprocessor:
             "invertmask": False,
             "equalizemask": False,
             "cannymask": False,
+            "otsumask": False,
             "blurimage": False,
             "invertimage": False,
             "equalizeimage": False,
             "cannyimage": False,
+            "otsuimage": False,
             "sigmaimage": 1.0,
             "sigmamask": 1.0,
         }
@@ -61,6 +63,12 @@ class Preprocessor:
         if s["cannyimage"]:
             img = ski.feature.canny(img, sigma=s["sigmaimage"])
             img = img.astype(float)
+        if s["otsuimage"]:
+            # Convert to uint8 for threshold_otsu
+            img_uint8 = (img * 255).astype("uint8")
+            threshold = ski.filters.threshold_otsu(img_uint8)
+            img = img_uint8 > threshold
+            img = img.astype(float)
         img = (img * 255).astype("uint8")
         return img
 
@@ -83,6 +91,12 @@ class Preprocessor:
             mask = ski.filters.gaussian(mask, sigma=s["sigmamask"])
         if s["cannymask"]:
             mask = ski.feature.canny(mask, sigma=s["sigmamask"])
+            mask = mask.astype(float)
+        if s["otsumask"]:
+            # Convert to uint8 for threshold_otsu
+            mask_uint8 = (mask * 255).astype("uint8")
+            threshold = ski.filters.threshold_otsu(mask_uint8)
+            mask = mask_uint8 > threshold
             mask = mask.astype(float)
         mask = (mask * 255).astype("uint8")
         return mask

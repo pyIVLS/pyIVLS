@@ -82,6 +82,20 @@
       <item row="0" column="4">
        <widget class="QComboBox" name="sigmaMask"/>
       </item>
+      <item row="0" column="5">
+       <widget class="QCheckBox" name="otsuMask">
+        <property name="text">
+         <string>otsu mask</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="5">
+       <widget class="QCheckBox" name="otsuImage">
+        <property name="text">
+         <string>otsu img</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

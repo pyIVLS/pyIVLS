@@ -116,19 +116,23 @@ class AffineGUI(QObject):
         s["invertmask"] = settings["invertmask"]
         s["equalizemask"] = settings["equalizemask"]
         s["cannymask"] = settings["cannymask"]
+        s["otsumask"] = settings["otsumask"]
         s["blurimage"] = settings["blurimage"]
         s["invertimage"] = settings["invertimage"]
         s["equalizeimage"] = settings["equalizeimage"]
         s["cannyimage"] = settings["cannyimage"]
+        s["otsuimage"] = settings["otsuimage"]
         # convert to boolean from string literals "True" and "False"
         s["blurmask"] = True if s["blurmask"] == "True" else False
         s["invertmask"] = True if s["invertmask"] == "True" else False
         s["equalizemask"] = True if s["equalizemask"] == "True" else False
         s["cannymask"] = True if s["cannymask"] == "True" else False
+        s["otsumask"] = True if s["otsumask"] == "True" else False
         s["blurimage"] = True if s["blurimage"] == "True" else False
         s["invertimage"] = True if s["invertimage"] == "True" else False
         s["equalizeimage"] = True if s["equalizeimage"] == "True" else False
         s["cannyimage"] = True if s["cannyimage"] == "True" else False
+        s["otsuimage"] = True if s["otsuimage"] == "True" else False
         s["ratiotest"] = ratiotest
         s["residualthreshold"] = residualthreshold
         s["crosscheck"] = crosscheck

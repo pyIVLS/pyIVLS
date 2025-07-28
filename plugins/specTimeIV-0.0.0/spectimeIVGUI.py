@@ -20,9 +20,8 @@ from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from threadStopped import thread_with_exception, ThreadStopped
 from enum import Enum
-from specTimeIV_utils import LoggingHelper, FileManager, GuiMapper, DependencyManager
+from plugin_components import LoggingHelper, FileManager, GuiMapper, DependencyManager, SMUHelper
 
-# DynamicGuiFieldMapper available for future use
 import numpy as np
 import pandas as pd
 
@@ -59,9 +58,20 @@ class specTimeIVGUI:
                 "set_running",
                 "smu_setOutput",
                 "smu_channelNames",
-                #"A very necessary function",  
+                # "A very necessary function",
             ],
-            "spectrometer": ["parse_settings_preview", "setSettings", "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum", "spectrometerGetScan"],
+            "spectrometer": [
+                "parse_settings_preview",
+                "setSettings",
+                "spectrometerConnect",
+                "spectrometerDisconnect",
+                "spectrometerSetIntegrationTime",
+                "spectrometerGetIntegrationTime",
+                "spectrometerStartScan",
+                "spectrometerGetSpectrum",
+                "spectrometerGetScan",
+                # "Very very important function",
+            ],
         }
         self.settings = {}
 
@@ -86,11 +96,11 @@ class specTimeIVGUI:
             dependencies=self.dependency,
             widget=self.settingsWidget,
             mapping={
-            "smu": "smuBox",
-            "spectrometer": "spectroBox",
-            }
+                "smu": "smuBox",
+                "spectrometer": "spectroBox",
+            },
         )
-        
+
         self.dynamic_mapper = GuiMapper(self.settingsWidget, self.__class__.__name__)
         self._setup_dynamic_mappings()
 
@@ -136,7 +146,7 @@ class specTimeIVGUI:
         self.MDIWidget.setLayout(layout)
 
     def _setup_dynamic_mappings(self, line_frequency=50):
-        """Setup dynamic field mappings - simplified approach with just widget mapping."""
+        """Setup dynamic field mappings for the GUI"""
 
         # Simple field mapping: setting_name -> widget_name
         self.dynamic_field_mapping = {
@@ -162,16 +172,16 @@ class specTimeIVGUI:
             # SMU values (will need conversion for some)
             "sourcevalue": "lineEdit_sourceSetValue",
             "sourcelimit": "lineEdit_sourceLimit",
-            "sourcenplc": "lineEdit_sourceNPLC",  
-            "sourcedelay": "lineEdit_sourceDelay",  
+            "sourcenplc": "lineEdit_sourceNPLC",
+            "sourcedelay": "lineEdit_sourceDelay",
             "drainvalue": "lineEdit_drainSetValue",
             "drainlimit": "lineEdit_drainLimit",
-            "drainnplc": "lineEdit_drainNPLC",  
-            "draindelay": "lineEdit_drainDelay",  
+            "drainnplc": "lineEdit_drainNPLC",
+            "draindelay": "lineEdit_drainDelay",
             "smu": "smuBox",
-            "spectrometer": "spectroBox"
-        }  
-        
+            "spectrometer": "spectroBox",
+        }
+
         # Validation and conversion rules for extracting values from GUI
         # FIXME: The validation rules contain a magic constant for line frequency
         self.dynamic_validation_rules = {
@@ -182,32 +192,11 @@ class specTimeIVGUI:
             "autosaveinterval": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Auto save interval must be positive"},
             "sourcelimit": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Source limit must be positive"},
             "drainlimit": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Drain limit must be positive"},
-            "sourcenplc": {
-                "converter": lambda x: float(x) * 0.001 * line_frequency,
-                "display_converter": lambda x: float(x) / (0.001 * line_frequency),
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Source NPLC must be positive"
-            },
-            "sourcedelay": {
-                "converter": lambda x: float(x) / 1000,
-                "display_converter": lambda x: float(x) * 1000,
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Source delay must be positive"
-            },
-            "drainnplc": {
-                "converter": lambda x: float(x) * 0.001 * line_frequency,
-                "display_converter": lambda x: float(x) / (0.001 * line_frequency),
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Drain NPLC must be positive"
-            },
-            "draindelay": {
-                "converter": lambda x: float(x) / 1000,
-                "display_converter": lambda x: float(x) * 1000,
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Drain delay must be positive"
-            },
+            "sourcenplc": {"converter": lambda x: float(x) * 0.001 * line_frequency, "display_converter": lambda x: float(x) / (0.001 * line_frequency), "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Source NPLC must be positive"},
+            "sourcedelay": {"converter": lambda x: float(x) / 1000, "display_converter": lambda x: float(x) * 1000, "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Source delay must be positive"},
+            "drainnplc": {"converter": lambda x: float(x) * 0.001 * line_frequency, "display_converter": lambda x: float(x) / (0.001 * line_frequency), "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Drain NPLC must be positive"},
+            "draindelay": {"converter": lambda x: float(x) / 1000, "display_converter": lambda x: float(x) * 1000, "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Drain delay must be positive"},
         }
-        
 
     ########Functions
     ########GUI Slots
@@ -221,59 +210,29 @@ class specTimeIVGUI:
         This function assumes that the settings have already been set using the `setSettings` function.
         """
         # Use dynamic mapper to set all GUI values with automatic conversion
-        status, error_msg = self.dynamic_mapper.set_values(
-            self.settings, 
-            self.dynamic_field_mapping,
-            self.dynamic_validation_rules 
-        )
-        
+        status, error_msg = self.dynamic_mapper.set_values(self.settings, self.dynamic_field_mapping, self.dynamic_validation_rules)
+
         if status != 0:
             self.logger.log_warn(f"Error setting GUI values: {error_msg}")
             self.logger.info_popup(f"Error setting GUI values: {error_msg}")
 
         self._update_GUI_state()
 
-    def parse_settings_widget(self) -> tuple[int, dict[str, str|float|bool]]:
+    def parse_settings_widget(self) -> tuple[int, dict[str, str | float | bool]]:
         """Parses the settings widget for the templatePlugin. Extracts current values. Checks if values are allowed. Provides settings of template plugin to an external plugin
 
         Returns [status, settings_dict]:
-            status: 0 - no error, ~0 - error 
+            status: 0 - no error, ~0 - error
             self.settings
         """
-        if not self.dependency_manager.function_dict:
-            return (3, {"Error message": "Missing functions in timeIV plugin. Check log", "Missing functions": self.missing_functions})
+        # Use dependency manager to handle all dependency validation and settings extraction
+        status, dependency_result = self.dependency_manager.validate_and_extract_dependency_settings(self.settings)
+        if status:
+            return (status, dependency_result)
 
-        # Get selected dependencies
-        selected_deps = self.dependency_manager.get_selected_dependencies()
-        
-        # Validate SMU selection
-        if "smu" in selected_deps:
-            smu_selection = selected_deps["smu"]
-            is_valid, error_msg = self.dependency_manager.validate_selection("smu", smu_selection)
-            if not is_valid:
-                return (3, {"Error message": f"SMU validation failed: {error_msg}"})
-                
-            self.settings["smu"] = smu_selection
-            status, self.smu_settings = self.dependency_manager.function_dict["smu"][smu_selection]["parse_settings_widget"]()
-            if status:
-                return (2, self.smu_settings)
-        else:
-            return (3, {"Error message": "No SMU plugin selected"})
-
-        # Validate spectro selection
-        if "spectrometer" in selected_deps:
-            spectro_selection = selected_deps["spectrometer"]
-            is_valid, error_msg = self.dependency_manager.validate_selection("spectrometer", spectro_selection)
-            if not is_valid:
-                return (3, {"Error message": f"Spectrometer validation failed: {error_msg}"})
-                
-            self.settings["spectrometer"] = spectro_selection
-            status, self.spectrometer_settings = self.dependency_manager.function_dict["spectrometer"][spectro_selection]["parse_settings_widget"]()
-            if status:
-                return (2, self.spectrometer_settings)
-        else:
-            return (3, {"Error message": "No spectrometer plugin selected"})
-        
+        # Extract dependency settings from the result
+        self.smu_settings = dependency_result.get("smu_settings", {})
+        self.spectrometer_settings = dependency_result.get("spectrometer_settings", {})
 
         # Use mapper component for value extraction and validation
         status, all_values = self.dynamic_mapper.get_values(self.dynamic_field_mapping, self.dynamic_validation_rules)
@@ -302,7 +261,7 @@ class specTimeIVGUI:
     ###############GUI setting up
     def _initGUI(
         self,
-        plugin_settings: dict[str, str|float|bool],
+        plugin_settings: dict[str, str | float | bool],
     ):
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
@@ -431,10 +390,10 @@ class specTimeIVGUI:
     def _getPublicFunctions(self, function_dict):
         # Set function dict in dependency manager (this will automatically update comboboxes)
         self.dependency_manager.function_dict = function_dict
-        
+
         # Validate dependencies
         is_valid, missing_functions = self.dependency_manager.validate_dependencies()
-        
+
         if is_valid:
             self.logger.log_debug("All dependencies satisfied")
             self.settingsWidget.runButton.setEnabled(True)
@@ -443,7 +402,7 @@ class specTimeIVGUI:
             self.logger.log_warn(f"Missing dependencies: {missing_functions}")
             self.settingsWidget.runButton.setDisabled(True)
             self.missing_functions = missing_functions
-            
+
         return self.missing_functions
 
     def setSettings(self, settings):
@@ -455,19 +414,22 @@ class specTimeIVGUI:
             settings (dict): outputs from parse_settings_widget function
         """
         self.logger.log_debug("Setting settings for timeIV plugin: " + str(settings))
-        
+
         # Check if settings might be string values (from external import)
 
         self.settings = copy.deepcopy(settings)
-            
+
         # Handle SMU settings separately
         if "smu_settings" in settings:
             self.smu_settings = settings["smu_settings"]
-            
-        # Handle spectrometer settings separately  
+        else:
+            self.smu_settings = {}
+
+        # Handle spectrometer settings separately
         if "spectrometer_settings" in settings:
             self.spectrometer_settings = settings["spectrometer_settings"]
-
+        else:
+            self.spectrometer_settings = {}
 
     def _get_public_methods(self):
         """
@@ -595,7 +557,7 @@ class specTimeIVGUI:
         [status, message] = self.smuInit()
         if status:
             raise timeIVexception(f"{message['Error message']}")
-        
+
         # turn off outputs, setup new source
         self.logger.log_debug("_timeIVimplementation: Turning off SMU output.")
         function_dict["smu"][smu_name]["smu_outputOFF"]()
@@ -614,7 +576,7 @@ class specTimeIVGUI:
                 "v" if self.settings["draininject"] == "voltage" else "i",
                 self.settings["drainvalue"],
             )
-        
+
         # Turn on output
         if not self.settings["singlechannel"]:
             self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source and drain channels.")
@@ -624,7 +586,7 @@ class specTimeIVGUI:
             function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
 
         return [0, "SMU initialized successfully"]
-    
+
     def _initialize_spectrometer(self):
         """Initializes the spectrometer with the settings provided in self.spectrometer_settings."""
         function_dict = self.dependency_manager.function_dict
@@ -636,7 +598,7 @@ class specTimeIVGUI:
         if status:
             self.logger.log_warn(f"Error connecting Spectrometer: {message}")
             return [status, message]
-        
+
         # check what mode spectrometer is in for integration time
         auto_mode = self.spectrometer_settings["integrationtimetype"] == "auto"
         if auto_mode:
@@ -645,11 +607,11 @@ class specTimeIVGUI:
         integration_time_setting = self.spectrometer_settings["integrationTime"]
         self.logger.log_debug(f"Setting constant integration time: {integration_time_setting}")
         status, message = function_dict["spectrometer"][spectrometer_name]["spectrometerSetIntegrationTime"](integration_time_setting)
-        
+
         if status:
             self.logger.log_warn(f"Error setting integration time: {message}")
             raise timeIVexception(f"Error setting integration time: {message}")
-        
+
         return [0, "Spectrometer initialized successfully"]
 
     def _timeIVimplementation(self):
@@ -658,7 +620,7 @@ class specTimeIVGUI:
         header = self.create_file_header(self.settings, self.smu_settings)
         spectrometer_name = self.settings["spectrometer"]
         smu_name = self.settings["smu"]
-        
+
         status, state = self._initialize_smu()
         if status:
             self.logger.log_warn(f"Error initializing SMU: {state}")
@@ -669,7 +631,7 @@ class specTimeIVGUI:
             self.logger.log_warn(f"Error initializing Spectrometer: {state}")
             raise timeIVexception(f"Error initializing Spectrometer: {state}")
         # spectrometer now connected with integration time set
-        
+
         timeData = []
         startTic = time.time()
         saveTic = startTic
@@ -750,7 +712,7 @@ class specTimeIVGUI:
                 # Save spectrum data with timestamp and IV data
                 scan_counter += 1
                 spectrum_filename = f"{self.spectrometer_settings['filename']}_scan_{scan_counter:04d}_t_{toc:.2f}s.csv"
-                
+
                 # Create metadata dictionary
                 varDict = {}
                 varDict["integrationtime"] = self.spectrometer_settings["integrationTime"]
@@ -758,25 +720,18 @@ class specTimeIVGUI:
                 varDict["name"] = self.spectrometer_settings.get("samplename", "")
                 varDict["timestamp"] = toc
                 sourceIV_formatted = [float(sourceIV[dataOrder.I.value]), float(sourceIV[dataOrder.V.value])]
-                
+
                 # add IV data to the comment on the spectrometer file
                 if not self.settings["singlechannel"] and drainI is not None and drainV is not None:
                     drainIV_formatted = [float(drainI[-1]), float(drainV[-1])]
-                    varDict["comment"] = (self.spectrometer_settings.get("comment", "") + 
-                                        f" Time: {toc:.2f}s, Source I/V: {sourceIV_formatted}, Drain I/V: {drainIV_formatted}")
+                    varDict["comment"] = self.spectrometer_settings.get("comment", "") + f" Time: {toc:.2f}s, Source I/V: {sourceIV_formatted}, Drain I/V: {drainIV_formatted}"
                 else:
-                    varDict["comment"] = (self.spectrometer_settings.get("comment", "") + 
-                                        f" Time: {toc:.2f}s, Source I/V: {sourceIV_formatted}")
-                
+                    varDict["comment"] = self.spectrometer_settings.get("comment", "") + f" Time: {toc:.2f}s, Source I/V: {sourceIV_formatted}"
+
                 # Save spectrum file
                 spectrum_address = self.spectrometer_settings["address"] + os.sep + spectrum_filename
                 try:
-                    function_dict["spectrometer"][spectrometer_name]["createFile"](
-                        varDict=varDict, 
-                        filedelimeter=";", 
-                        address=spectrum_address, 
-                        data=spectrum
-                    )
+                    function_dict["spectrometer"][spectrometer_name]["createFile"](varDict=varDict, filedelimeter=";", address=spectrum_address, data=spectrum)
                     self.logger.log_debug(f"Spectrum saved to: {spectrum_filename}")
                 except Exception as e:
                     self.logger.log_warn(f"Error saving spectrum: {e}")
@@ -787,7 +742,7 @@ class specTimeIVGUI:
                     self.logger.log_debug("_timeIVimplementation: Stop timer reached, saving data and exiting.")
                     self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
                     break
-            
+
             # check if it is time to autosave
             if self.settings["autosave"]:
                 if (currentTime - saveTic) >= self.settings["autosaveinterval"] * 60:  # convert to sec from min
@@ -798,11 +753,6 @@ class specTimeIVGUI:
             # take a nap until we need to take the next measurement
             time.sleep(self.settings["timestep"])
 
-        self.logger.log_debug("_timeIVimplementation: Turning off SMU output and disconnecting.")
-        function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
-        function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
-        function_dict["spectrometer"][spectrometer_name]["spectrometerDisconnect"]()
-        self.set_running(False)
         self.logger.log_debug("_timeIVimplementation: Completed successfully.")
         return [0, "OK"]
 
@@ -813,9 +763,9 @@ class specTimeIVGUI:
         Returns [status, message]:
                status: 0 - no error, ~0 - error
         """
+        exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
+        function_dict = self.dependency_manager.function_dict
         try:
-            function_dict = self.dependency_manager.function_dict
-            exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
             self._timeIVimplementation()
         except timeIVexception as e:
             self.logger.log_warn(f"timeIV plugin implementation stopped because of exception: {e}")
@@ -837,5 +787,3 @@ class specTimeIVGUI:
                 self.logger.log_warn(f"timeIV plugin: smu or spectrometer turn off failed because of unexpected exception: {e}")
                 self.logger.info_popup("SMU or spectrometer turn off failed. Check log")
             self.set_running(False)
-
-

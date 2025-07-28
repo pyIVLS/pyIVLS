@@ -94,6 +94,8 @@ class dialog(QDialog):
         self.ui.invertImage.setChecked(settings["invertimage"])
         self.ui.equalizeImage.setChecked(settings["equalizeimage"])
         self.ui.cannyImage.setChecked(settings["cannyimage"])
+        self.ui.otsuMask.setChecked(settings["otsumask"])
+        self.ui.otsuImage.setChecked(settings["otsuimage"])
         self.ui.sigmaImage.setCurrentText(str(settings["sigmaimage"]))
         self.ui.sigmaMask.setCurrentText(str(settings["sigmamask"]))
         self.ui.crossCheck.setChecked(settings["crosscheck"])
@@ -120,6 +122,8 @@ class dialog(QDialog):
         invertImage = self.ui.invertImage.isChecked()
         equalizeImage = self.ui.equalizeImage.isChecked()
         cannyImage = self.ui.cannyImage.isChecked()
+        otsuMask = self.ui.otsuMask.isChecked()
+        otsuImage = self.ui.otsuImage.isChecked()
         crossCheck = self.ui.crossCheck.isChecked()
         try:
             sigmaImage = float(self.ui.sigmaImage.currentText())
@@ -145,10 +149,12 @@ class dialog(QDialog):
         settings["invertmask"] = invertMask
         settings["equalizemask"] = equalizeMask
         settings["cannymask"] = cannyMask
+        settings["otsumask"] = otsuMask
         settings["blurimage"] = blurImage
         settings["invertimage"] = invertImage
         settings["equalizeimage"] = equalizeImage
         settings["cannyimage"] = cannyImage
+        settings["otsuimage"] = otsuImage
         settings["sigmaimage"] = sigmaImage
         settings["sigmamask"] = sigmaMask
         settings["crosscheck"] = crossCheck
