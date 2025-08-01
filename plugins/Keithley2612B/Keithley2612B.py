@@ -520,3 +520,28 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
 
                 return 1
+
+    def set_digio(self, line_id: int, value: bool):
+        """Set a digital I/O line to a value.
+
+        Args:
+            line_id (int): digio id. see keithley 2600b reference manual p.4-41 for details.
+            value (bool): The value to set the line to (True for HIGH, False for LOW) low=0v, high=5v. See 2600b reference manual p.4-39 for details.
+        Returns:
+            bool: last value of the line before writing to it (True for HIGH, False for LOW).
+        """
+        # set the line to be user controlled. 
+        self.safewrite(f"digio.trigger[{line_id}].mode = digio.TRIG_BYPASS")
+        
+        # fetch return
+        last_value = self.safequery(f"print(digio.readbit({line_id}))")
+
+        # write to the line
+        self.safewrite(f"digio.writebit({line_id}, {int(value)})")
+        # get set value for validation
+        curr_value = self.safequery(f"print(digio.readbit({line_id}))")
+        curr_value = True if int(curr_value) == 1 else False
+        if curr_value != value:
+            raise ValueError(f"Failed to set digio line {line_id} to {value}. Current value is {curr_value}.")
+        
+        return True if int(last_value) == 1 else False

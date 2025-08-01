@@ -289,3 +289,19 @@ class Keithley2612BGUI:
             return (0, resistance)
         except Exception as e:
             return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})
+
+    def smu_set_digio(self, channel, value):
+        """Sets digital output on the specified channel.
+
+        Args:
+            channel (str): The channel to set ('smua' or 'smub').
+            value (int): The value to set (0 or 1).
+
+        Returns:
+            tuple: (status, message) where status is 0 for success, non-zero for error.
+        """
+        try:
+            self.smu.set_digio(channel, value)
+            return (0, {"Error message": "Digital output set successfully"})
+        except Exception as e:
+            return (4, {"Error message": "Failed to set digital output", "Exception": str(e)})

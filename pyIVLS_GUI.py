@@ -64,6 +64,7 @@ class pyIVLS_GUI(QObject):
         removed_info_flag = removed_verbose_flag.lower().replace(": info :", ":")
         removed_warn_flag = removed_info_flag.lower().replace(": warn :", ":")
         removed_debug_flag = removed_warn_flag.lower().replace(": debug :", ":")
+        removed_error_flag = removed_debug_flag.lower().replace(": error :", ":")
         if len(removed_verbose_flag) != len(message):
             # Contains the verbose flag
             logging.debug(removed_verbose_flag)
@@ -76,6 +77,9 @@ class pyIVLS_GUI(QObject):
         elif len(removed_warn_flag) != len(message):
             # Contains the warn flag
             logging.warning(removed_warn_flag)
+        elif len(removed_error_flag) != len(message):
+            # Contains the error flag
+            logging.error(removed_error_flag)
         else:
             # base case for no flags
             logging.info(message)

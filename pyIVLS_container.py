@@ -81,6 +81,7 @@ class pyIVLS_container(QObject):
                     self.config[section]["hidden"] = "False"
 
         if changes_applied:
+            self.public_function_exchange()  
             self.plugins_updated_signal.emit()
             self.cleanup()
 
@@ -332,7 +333,6 @@ class pyIVLS_container(QObject):
                 # Register the plugin with the standard name to prevent multiple instances
                 self.pm.register(plugin_instance, name=plugin_name)
                 self.config[plugin]["load"] = "True"
-                self.public_function_exchange()
                 self.emit_log(f"Plugin {plugin_name} loaded")
                 return True
             else:
