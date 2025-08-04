@@ -412,9 +412,9 @@ class dummy_spectro_GUI:
         currentIndex = self.settingsWidget.getIntegrationTime_combo.findText(plugin_info["integrationtimetype"], Qt.MatchFlag.MatchFixedString)
         if currentIndex > -1:
             self.settingsWidget.getIntegrationTime_combo.setCurrentIndex(currentIndex)
-        if plugin_info["useintegrationtimeguess"]:
+        if plugin_info["useintegrationtimeguess"] == "True":
             self.settingsWidget.useIntegrationTimeGuess_check.setChecked(True)
-        if plugin_info["saveattempts_check"]:
+        if plugin_info["saveattempts_check"] == "True":
             self.settingsWidget.saveAttempts_check.setChecked(True)
         self._GUIchange_deviceConnected(False)
         self.settingsWidget.saveButton.setEnabled(False)

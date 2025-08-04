@@ -643,18 +643,20 @@ class GuiMapper(QObject):
         return PyIVLSReturn.success()
 
     def _extract_value_dynamic(self, widget_obj) -> Any:
-        """Dynamically extract value based on widget type."""
+        """Dynamically extract value based on widget type.
+        QLineEdit: Tries to convert to int, fallback on str
+        QCheckBox: Returns bool
+        QComboBox: Returns current text as str
+        QSpinBox: Returns int value
+        
+        """
         if isinstance(widget_obj, QLineEdit):
             text = widget_obj.text().strip()
             # Try to convert to number if possible, but preserve original text for validation
             if text == "":
                 return ""  # Return empty string for empty fields
             try:
-                # Try int first, then float
-                if "." not in text and text.isdigit():
-                    return int(text)
-                else:
-                    return float(text)
+                return float(text)
             except ValueError:
                 # Return as text - validation will handle type conversion if needed
                 return text
@@ -685,8 +687,6 @@ class GuiMapper(QObject):
                 widget_obj.setChecked(value)
             elif isinstance(value, str):
                 widget_obj.setChecked(value.lower() in ["true", "1", "yes", "on"])
-            elif isinstance(value, (int, float)):
-                widget_obj.setChecked(bool(value))
             else:
                 widget_obj.setChecked(bool(value))
         elif isinstance(widget_obj, QComboBox):

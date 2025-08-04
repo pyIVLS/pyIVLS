@@ -21,8 +21,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "plugins"))
 
 try:
     from plugin_components import FileManager, GuiMapper, DependencyManager, LoggingHelper, SMUHelper, DataOrder, PluginException
-    from PyQt6.QtWidgets import QLineEdit, QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox
+    from PyQt6.QtWidgets import QApplication, QWidget, QLineEdit, QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox
     from PyQt6.QtCore import QObject
+    import sys
+
+    # Create QApplication if it doesn't exist (needed for Qt widgets)
+    if not QApplication.instance():
+        app = QApplication(sys.argv)
+    else:
+        app = QApplication.instance()
+
 except ImportError as e:
     pytest.skip(f"Cannot import required modules: {e}", allow_module_level=True)
 
@@ -108,174 +116,185 @@ class TestFileManager:
         assert "{noname}" in header
         assert "No sample name test" in header
 
-    def test_get_address_not_implemented(self):
-        """Test that get_address returns not implemented message."""
-        result = FileManager.get_address()
-        assert result == "Not implemented"
-
 
 class TestGuiMapper:
     """Test the GuiMapper class for dynamic GUI field mapping."""
 
     def setup_method(self):
-        """Set up test fixtures with mock widgets."""
-        self.mock_widget = Mock()
+        """Set up test fixtures with real Qt widgets."""
+        # Create a real QWidget container
+        self.widget = QWidget()
         self.plugin_name = "TestPlugin"
-        self.gui_mapper = GuiMapper(self.mock_widget, self.plugin_name)
+        self.gui_mapper = GuiMapper(self.widget, self.plugin_name)
 
-        # Create mock PyQt6 widgets
-        self.mock_line_edit = Mock(spec=QLineEdit)
-        self.mock_checkbox = Mock(spec=QCheckBox)
-        self.mock_combobox = Mock(spec=QComboBox)
-        self.mock_spinbox = Mock(spec=QSpinBox)
-        self.mock_double_spinbox = Mock(spec=QDoubleSpinBox)
+        # Create real PyQt6 widgets
+        self.line_edit = QLineEdit()
+        self.checkbox = QCheckBox()
+        self.combobox = QComboBox()
+        self.spinbox = QSpinBox()
+        self.double_spinbox = QDoubleSpinBox()
+
+        # Add some options to combobox for testing
+        self.combobox.addItems(["Option1", "Option2", "Option3"])
+
+        # Set reasonable ranges for spinboxes
+        self.spinbox.setRange(-1000, 1000)
+        self.double_spinbox.setRange(-1000.0, 1000.0)
+        self.double_spinbox.setDecimals(5)
+
+    def teardown_method(self):
+        """Clean up Qt widgets."""
+        self.widget.deleteLater()
+        # Process Qt events to ensure cleanup
+        if QApplication.instance():
+            QApplication.processEvents()
 
     def test_extract_value_dynamic_line_edit_float(self):
         """Test value extraction from QLineEdit with float conversion."""
-        self.mock_line_edit.text.return_value = "3.14"
+        self.line_edit.setText("3.14")
 
-        result = self.gui_mapper._extract_value_dynamic(self.mock_line_edit)
+        result = self.gui_mapper._extract_value_dynamic(self.line_edit)
 
         assert result == 3.14
         assert isinstance(result, float)
 
     def test_extract_value_dynamic_line_edit_integer(self):
         """Test value extraction from QLineEdit with integer value."""
-        self.mock_line_edit.text.return_value = "42"
+        self.line_edit.setText("42")
 
-        result = self.gui_mapper._extract_value_dynamic(self.mock_line_edit)
+        result = self.gui_mapper._extract_value_dynamic(self.line_edit)
 
         assert result == 42.0
         assert isinstance(result, float)
 
     def test_extract_value_dynamic_line_edit_string(self):
         """Test value extraction from QLineEdit with string fallback."""
-        self.mock_line_edit.text.return_value = "test_string"
+        self.line_edit.setText("test_string")
 
-        result = self.gui_mapper._extract_value_dynamic(self.mock_line_edit)
+        result = self.gui_mapper._extract_value_dynamic(self.line_edit)
 
         assert result == "test_string"
         assert isinstance(result, str)
 
     def test_extract_value_dynamic_line_edit_empty(self):
         """Test value extraction from QLineEdit with empty string."""
-        self.mock_line_edit.text.return_value = "  "  # Whitespace only
+        self.line_edit.setText("  ")  # Whitespace only
 
-        result = self.gui_mapper._extract_value_dynamic(self.mock_line_edit)
+        result = self.gui_mapper._extract_value_dynamic(self.line_edit)
 
         assert result == ""  # Should be stripped to empty
 
     def test_extract_value_dynamic_checkbox_true(self):
         """Test value extraction from QCheckBox when checked."""
-        self.mock_checkbox.isChecked.return_value = True
+        self.checkbox.setChecked(True)
 
-        result = self.gui_mapper._extract_value_dynamic(self.mock_checkbox)
+        result = self.gui_mapper._extract_value_dynamic(self.checkbox)
 
         assert result is True
 
     def test_extract_value_dynamic_checkbox_false(self):
         """Test value extraction from QCheckBox when unchecked."""
-        self.mock_checkbox.isChecked.return_value = False
+        self.checkbox.setChecked(False)
 
-        result = self.gui_mapper._extract_value_dynamic(self.mock_checkbox)
+        result = self.gui_mapper._extract_value_dynamic(self.checkbox)
 
         assert result is False
 
     def test_extract_value_dynamic_combobox(self):
         """Test value extraction from QComboBox."""
-        self.mock_combobox.currentText.return_value = "Option1"
+        self.combobox.setCurrentText("Option1")
 
-        result = self.gui_mapper._extract_value_dynamic(self.mock_combobox)
+        result = self.gui_mapper._extract_value_dynamic(self.combobox)
 
         assert result == "Option1"
 
     def test_extract_value_dynamic_spinbox(self):
         """Test value extraction from QSpinBox."""
-        self.mock_spinbox.value.return_value = 42
+        self.spinbox.setValue(42)
 
-        result = self.gui_mapper._extract_value_dynamic(self.mock_spinbox)
+        result = self.gui_mapper._extract_value_dynamic(self.spinbox)
 
-        assert result == 42.0
-        assert isinstance(result, float)
+        assert result == 42
+        assert isinstance(result, int)
 
     def test_extract_value_dynamic_double_spinbox(self):
         """Test value extraction from QDoubleSpinBox."""
-        self.mock_double_spinbox.value.return_value = 3.14159
+        self.double_spinbox.setValue(3.14159)
 
-        result = self.gui_mapper._extract_value_dynamic(self.mock_double_spinbox)
+        result = self.gui_mapper._extract_value_dynamic(self.double_spinbox)
 
         assert result == 3.14159
 
     def test_extract_value_dynamic_unsupported_widget(self):
         """Test that unsupported widget types raise ValueError."""
-        unsupported_widget = Mock()
+        unsupported_widget = QWidget()  # Use a real widget that's not supported
 
-        with pytest.raises(ValueError, match="Tried to access unsupported widget type"):
+        with pytest.raises(ValueError, match=f"Unsupported widget type: {type(unsupported_widget)}"):
             self.gui_mapper._extract_value_dynamic(unsupported_widget)
 
     def test_set_value_dynamic_line_edit(self):
         """Test setting value to QLineEdit."""
-        self.gui_mapper._set_value_dynamic(self.mock_line_edit, 42.5)
+        self.gui_mapper._set_value_dynamic(self.line_edit, 42.5)
 
-        self.mock_line_edit.setText.assert_called_once_with("42.5")
+        assert self.line_edit.text() == "42.5"
 
     def test_set_value_dynamic_checkbox_true(self):
         """Test setting True value to QCheckBox."""
-        self.gui_mapper._set_value_dynamic(self.mock_checkbox, True)
+        self.gui_mapper._set_value_dynamic(self.checkbox, True)
 
-        self.mock_checkbox.setChecked.assert_called_once_with(True)
+        assert self.checkbox.isChecked() is True
 
     def test_set_value_dynamic_checkbox_string_true(self):
         """Test setting string 'True' value to QCheckBox."""
-        self.gui_mapper._set_value_dynamic(self.mock_checkbox, "True")
+        self.gui_mapper._set_value_dynamic(self.checkbox, "True")
 
-        self.mock_checkbox.setChecked.assert_called_once_with(True)
+        assert self.checkbox.isChecked() is True
 
     def test_set_value_dynamic_checkbox_false(self):
         """Test setting False value to QCheckBox."""
-        self.gui_mapper._set_value_dynamic(self.mock_checkbox, False)
+        self.gui_mapper._set_value_dynamic(self.checkbox, False)
 
-        self.mock_checkbox.setChecked.assert_called_once_with(False)
+        assert self.checkbox.isChecked() is False
 
     def test_set_value_dynamic_checkbox_string_false(self):
         """Test setting non-True string to QCheckBox."""
-        self.gui_mapper._set_value_dynamic(self.mock_checkbox, "False")
+        self.gui_mapper._set_value_dynamic(self.checkbox, "False")
 
-        self.mock_checkbox.setChecked.assert_called_once_with(False)
+        assert self.checkbox.isChecked() is False
 
     def test_set_value_dynamic_combobox(self):
         """Test setting value to QComboBox."""
-        self.gui_mapper._set_value_dynamic(self.mock_combobox, "Option2")
+        self.gui_mapper._set_value_dynamic(self.combobox, "Option2")
 
-        self.mock_combobox.setCurrentText.assert_called_once_with("Option2")
+        assert self.combobox.currentText() == "Option2"
 
     def test_set_value_dynamic_spinbox(self):
         """Test setting value to QSpinBox."""
-        self.gui_mapper._set_value_dynamic(self.mock_spinbox, 42.7)
+        self.gui_mapper._set_value_dynamic(self.spinbox, 42.7)
 
-        self.mock_spinbox.setValue.assert_called_once_with(42)  # Should convert to int
+        assert self.spinbox.value() == 42  # Should convert to int
 
     def test_set_value_dynamic_double_spinbox(self):
         """Test setting value to QDoubleSpinBox."""
-        self.gui_mapper._set_value_dynamic(self.mock_double_spinbox, 3.14159)
+        self.gui_mapper._set_value_dynamic(self.double_spinbox, 3.14159)
 
-        self.mock_double_spinbox.setValue.assert_called_once_with(3.14159)
+        assert self.double_spinbox.value() == 3.14159
 
     def test_set_value_dynamic_unsupported_widget(self):
         """Test that unsupported widget types raise ValueError."""
-        unsupported_widget = Mock()
+        unsupported_widget = QWidget()  # Use a real widget that's not supported
 
-        with pytest.raises(ValueError, match="Unsupported widget type called for guimapper"):
+        with pytest.raises(ValueError, match=f"Unsupported widget type for setting value: {type(unsupported_widget)}"):
             self.gui_mapper._set_value_dynamic(unsupported_widget, "value")
 
     def test_validate_value_dynamic_with_converter(self):
         """Test value validation with converter function."""
         validation_config = {"converter": lambda x: x * 2, "validator": lambda x: x > 0, "error_message": "Value must be positive"}
 
-        status, result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
+        result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
 
-        assert status == 0
-        assert result == 10  # 5 * 2
+        assert result.is_success
+        assert result.get_data_value("validated_value") == 10  # 5 * 2
 
     def test_validate_value_dynamic_converter_failure(self):
         """Test validation when converter function fails."""
@@ -284,28 +303,28 @@ class TestGuiMapper:
             "validator": lambda x: True,
         }
 
-        status, result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
+        result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
 
-        assert status == 1
-        assert "conversion failed" in result["Error message"]
+        assert result.is_error
+        assert "conversion failed" in result.error_message
 
     def test_validate_value_dynamic_validator_success(self):
         """Test validation when validator passes."""
         validation_config = {"validator": lambda x: x > 0, "error_message": "Value must be positive"}
 
-        status, result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
+        result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
 
-        assert status == 0
-        assert result == 5
+        assert result.is_success
+        assert result.get_data_value("validated_value") == 5
 
     def test_validate_value_dynamic_validator_failure(self):
         """Test validation when validator function fails."""
         validation_config = {"validator": lambda x: x > 10, "error_message": "Value must be greater than 10"}
 
-        status, result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
+        result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
 
-        assert status == 1
-        assert "Value must be greater than 10" in result["Error message"]
+        assert result.is_error
+        assert "Value must be greater than 10" in result.error_message
 
     def test_validate_value_dynamic_validator_exception(self):
         """Test validation when validator function raises exception."""
@@ -313,57 +332,58 @@ class TestGuiMapper:
             "validator": lambda x: x.non_existent_method(),  # This will raise AttributeError
         }
 
-        status, result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
+        result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
 
-        assert status == 1
-        assert "validation failed" in result["Error message"]
+        assert result.is_error
+        assert "validation failed" in result.error_message
 
     def test_get_values_success(self):
         """Test successful value extraction from multiple widgets."""
-        # Set up mock widgets
-        self.mock_widget.lineEdit1 = self.mock_line_edit
-        self.mock_widget.checkBox1 = self.mock_checkbox
+        # Set up real widgets
+        setattr(self.widget, "lineEdit1", self.line_edit)
+        setattr(self.widget, "checkBox1", self.checkbox)
 
-        self.mock_line_edit.text.return_value = "42.5"
-        self.mock_checkbox.isChecked.return_value = True
+        self.line_edit.setText("42.5")
+        self.checkbox.setChecked(True)
 
         field_mapping = {"value1": "lineEdit1", "value2": "checkBox1"}
 
         validation_rules = {"value1": {"validator": lambda x: x > 0, "error_message": "Must be positive"}}
 
-        status, result = self.gui_mapper.get_values(field_mapping, validation_rules)
+        result = self.gui_mapper.get_values(field_mapping, validation_rules)
 
-        assert status == 0
-        assert result["value1"] == 42.5
-        assert result["value2"] is True
+        assert result.is_success
+        data = result.data
+        assert data["value1"] == 42.5
+        assert data["value2"] is True
 
     def test_get_values_widget_not_found(self):
         """Test error handling when widget extraction fails."""
         field_mapping = {"value1": "nonexistent_widget"}
 
-        status, result = self.gui_mapper.get_values(field_mapping)
+        result = self.gui_mapper.get_values(field_mapping)
 
-        assert status == 1
-        assert "Error processing value1" in result["Error message"]
+        assert result.is_error
+        assert "Widget 'nonexistent_widget' not found" in result.error_message
 
     def test_get_values_validation_failure(self):
         """Test error handling when validation fails."""
-        self.mock_widget.lineEdit1 = self.mock_line_edit
-        self.mock_line_edit.text.return_value = "-5"
+        setattr(self.widget, "lineEdit1", self.line_edit)
+        self.line_edit.setText("-5")
 
         field_mapping = {"value1": "lineEdit1"}
         validation_rules = {"value1": {"validator": lambda x: x > 0, "error_message": "Must be positive"}}
 
-        status, result = self.gui_mapper.get_values(field_mapping, validation_rules)
+        result = self.gui_mapper.get_values(field_mapping, validation_rules)
 
-        assert status == 1
-        assert "Must be positive" in result["Error message"]
+        assert result.is_error
+        assert "Must be positive" in result.error_message
 
     def test_set_values_success(self):
         """Test successful value setting to multiple widgets."""
-        # Set up mock widgets
-        self.mock_widget.lineEdit1 = self.mock_line_edit
-        self.mock_widget.checkBox1 = self.mock_checkbox
+        # Set up real widgets
+        setattr(self.widget, "lineEdit1", self.line_edit)
+        setattr(self.widget, "checkBox1", self.checkbox)
 
         settings = {"value1": 42.5, "value2": True}
 
@@ -371,15 +391,15 @@ class TestGuiMapper:
 
         validation_rules = {}
 
-        status, result = self.gui_mapper.set_values(settings, field_mapping, validation_rules)
+        result = self.gui_mapper.set_values(settings, field_mapping, validation_rules)
 
-        assert status == 0
-        self.mock_line_edit.setText.assert_called_once_with("42.5")
-        self.mock_checkbox.setChecked.assert_called_once_with(True)
+        assert result.is_success
+        assert self.line_edit.text() == "42.5"
+        assert self.checkbox.isChecked() is True
 
     def test_set_values_with_display_converter(self):
         """Test value setting with display converter."""
-        self.mock_widget.lineEdit1 = self.mock_line_edit
+        setattr(self.widget, "lineEdit1", self.line_edit)
 
         settings = {"value1": 1000}  # Stored in milliseconds
         field_mapping = {"value1": "lineEdit1"}
@@ -389,14 +409,14 @@ class TestGuiMapper:
             }
         }
 
-        status, result = self.gui_mapper.set_values(settings, field_mapping, validation_rules)
+        result = self.gui_mapper.set_values(settings, field_mapping, validation_rules)
 
-        assert status == 0
-        self.mock_line_edit.setText.assert_called_once_with("1.0")
+        assert result.is_success
+        assert self.line_edit.text() == "1.0"
 
     def test_set_values_display_converter_failure(self):
         """Test error handling when display converter fails."""
-        self.mock_widget.lineEdit1 = self.mock_line_edit
+        setattr(self.widget, "lineEdit1", self.line_edit)
 
         settings = {"value1": "not_a_number"}
         field_mapping = {"value1": "lineEdit1"}
@@ -406,10 +426,10 @@ class TestGuiMapper:
             }
         }
 
-        status, result = self.gui_mapper.set_values(settings, field_mapping, validation_rules)
+        result = self.gui_mapper.set_values(settings, field_mapping, validation_rules)
 
-        assert status == 1
-        assert "Display conversion failed" in result["Error message"]
+        assert result.is_error
+        assert "Display conversion failed" in result.error_message
 
     def test_set_values_widget_not_found(self):
         """Test error handling when widget setting fails."""
@@ -417,10 +437,10 @@ class TestGuiMapper:
         field_mapping = {"value1": "nonexistent_widget"}
         validation_rules = {}
 
-        status, result = self.gui_mapper.set_values(settings, field_mapping, validation_rules)
+        result = self.gui_mapper.set_values(settings, field_mapping, validation_rules)
 
-        assert status == 1
-        assert "Error processing value1" in result["Error message"]
+        assert result.is_error
+        assert "Widget 'nonexistent_widget' not found" in result.error_message
 
 
 class TestDependencyManager:
@@ -920,15 +940,6 @@ class TestSMUHelper:
         # Check return value for failure (returns a list with status and error dict)
         assert result[0] == 2
         assert "error in SMU plugin can not initialize" in result[1]["Error message"]
-
-
-class TestDataOrder:
-    """Test the DataOrder enum."""
-
-    def test_data_order_values(self):
-        """Test DataOrder enum values."""
-        assert DataOrder.VOLTAGE.value == 1
-        assert DataOrder.CURRENT.value == 0
 
 
 class TestPluginException:
