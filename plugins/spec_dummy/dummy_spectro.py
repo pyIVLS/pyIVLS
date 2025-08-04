@@ -340,10 +340,10 @@ class dummy_spectro_GUI:
                             return status, info
                     except TypeError:
                         self.logger.log_debug(f"getAutoTime: External action completed without standard return value")
-                [status, info] = self.spectrometerGetScan()
+                [status, data] = self.spectrometerGetScan()
                 if status:
-                    self.logger.log_debug(f"getAutoTime: Failed to get scan. {status}, {info}")
-                    return [status, info]
+                    self.logger.log_debug(f"getAutoTime: Failed to get scan. {status}, {data}")
+                    return [status, data]
 
                 # save the spectrum if needed
                 if self.settings["saveautoattmepts"]:
@@ -352,7 +352,7 @@ class dummy_spectro_GUI:
                     varDict["triggermode"] = 1 if self.settings["externalTrigger"] else 0
                     varDict["name"] = self.settings["samplename"]
                     varDict["comment"] = self.settings["comment"] + " Auto adjust of integration time."
-                    self.createFile(varDict=varDict, filedelimeter=self.filedelimeter, address=self.settings["address"] + os.sep + self.settings["filename"] + f"_{int(guessIntTime)}ms.csv", data=info[1])
+                    self.createFile(varDict=varDict, filedelimeter=self.filedelimeter, address=self.settings["address"] + os.sep + self.settings["filename"] + f"_{int(guessIntTime)}ms.csv", data=data)
                 # external cleanup if needed
                 if external_cleanup:
                     self.logger.log_debug(f"getAutoTime: Executing external cleanup.")
@@ -369,8 +369,7 @@ class dummy_spectro_GUI:
                 if pause_duration > 0:
                     self.logger.log_debug(f"getAutoTime: Pausing for {pause_duration} seconds.")
                     time.sleep(pause_duration)
-
-                target = max(info[1])  # target value to optimize
+                target = max(data)  # target value to optimize
                 # if spectrum is in the range, found good integration time
                 if low_spectrum <= target <= high_spectrum:
                     self.logger.log_debug(f"Optimal integration time found: {guessIntTime / 1000.0} seconds.")
@@ -735,7 +734,10 @@ class dummy_spectro_GUI:
 
     @public
     def spectrometerGetScan(self):
-        """Atomically get a spectrum to prevent weird behavior when a scan is already running."""
+        """Atomically get a spectrum to prevent weird behavior when a scan is already running.
+        Returns:
+            list: [status, data] where status is 0 for success, 4 for error, and data is the scan data or error message.
+        """
         with self._scan_lock:
             try:
                 statuses = self.drv.get_device_status()
