@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>206</width>
-    <height>213</height>
+    <width>944</width>
+    <height>876</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -22,6 +22,12 @@
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QSplitter" name="splitter">
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>16777215</height>
+      </size>
+     </property>
      <property name="orientation">
       <enum>Qt::Orientation::Horizontal</enum>
      </property>
@@ -29,7 +35,7 @@
       <property name="maximumSize">
        <size>
         <width>16777215</width>
-        <height>471</height>
+        <height>16777215</height>
        </size>
       </property>
       <property name="sizeAdjustPolicy">
@@ -40,7 +46,7 @@
       <property name="maximumSize">
        <size>
         <width>16777215</width>
-        <height>471</height>
+        <height>16777215</height>
        </size>
       </property>
       <property name="sizeAdjustPolicy">

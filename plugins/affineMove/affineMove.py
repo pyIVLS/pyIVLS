@@ -1,9 +1,3 @@
 class affineMove:
-
-    def __init__(self, ):
-        self.
-
-    
-
-
-
+    def __init__(self):
+        pass

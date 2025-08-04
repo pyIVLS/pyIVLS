@@ -8,3 +8,9 @@ __pycache__/
 pyIVLS.ini.old
 widgets_list
 .ruff_cache
+.*
+pyIVLS.log
+*.log
+*.dat
+*.csv
+pyIVLS.ini

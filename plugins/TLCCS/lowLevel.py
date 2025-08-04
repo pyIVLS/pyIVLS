@@ -76,9 +76,7 @@ class LLIO:
         length = 2
         attr_value = "DEFAULT"
         # Perform the control transfer
-        statusdata = self.dev.ctrl_transfer(
-            bmRequestType, bRequest, wValue, wIndex, length, timeout=self.timeout
-        )
+        statusdata = self.dev.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, length, timeout=self.timeout)
 
         # Check the returned status
         if len(statusdata) < 2:
@@ -94,7 +92,7 @@ class LLIO:
         """Reads the bulk_in_pipe until timeout and throws out the result."""
         try:
             full_flush_size = const.CCS_SERIES_NUM_RAW_PIXELS * 2
-            self.dev.read(self.bulk_in_pipe, full_flush_size, timeout=self.timeout)
+            self.dev.read(self.bulk_in_pipe, full_flush_size, timeout=2000)
             return True
         except Exception:
             return True
@@ -121,15 +119,11 @@ class LLIO:
             wIndex (int, optional): Defaults to 0.
         """
         try:
-            self.dev.ctrl_transfer(
-                bmRequestType, bRequest, wValue, wIndex, payload, timeout=self.timeout
-            )
+            self.dev.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, payload, timeout=self.timeout)
         except usb.core.USBError as e:
             print(f"USB error in TLCCS control_out: {e}")
 
-    def control_in(
-        self, bRequest, readTo: array, bmRequestType=0xC0, wValue=0, wIndex=0
-    ):
+    def control_in(self, bRequest, readTo: array, bmRequestType=0xC0, wValue=0, wIndex=0):
         """Sends a control IN transfer and reads data. (usually) For reading data.
 
         Args:
@@ -141,8 +135,6 @@ class LLIO:
 
         """
         try:
-            self.dev.ctrl_transfer(
-                bmRequestType, bRequest, wValue, wIndex, readTo, timeout=self.timeout
-            )
+            self.dev.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, readTo, timeout=self.timeout)
         except usb.core.USBError as e:
             print(f"USB error in TLCCS control_in: {e}")

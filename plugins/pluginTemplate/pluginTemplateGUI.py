@@ -15,7 +15,6 @@ The standard implementation may (but not must) include
 import os
 
 from PyQt6 import uic
-from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject, pyqtSignal
 from pluginTemplate import pluginTemplate
 from MplCanvas import (
@@ -37,7 +36,7 @@ class pluginTemplateGUI(QObject):
 
     ########Functions
     def __init__(self):
-        super(pluginTemplateGUI,self).__init__() ### this is needed if the class is a child of QObject
+        super(pluginTemplateGUI, self).__init__()  ### this is needed if the class is a child of QObject
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
 
@@ -84,9 +83,7 @@ class pluginTemplateGUI(QObject):
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
 
         #### for example
-        self.settingsWidget.cameraExposure.setValue(
-            self.camera.exposures.index(int(plugin_info["exposure"]))
-        )
+        self.settingsWidget.cameraExposure.setValue(self.camera.exposures.index(int(plugin_info["exposure"])))
         self.settingsWidget.cameraSource.setText(plugin_info["source"])
 
     ########Functions
@@ -100,15 +97,7 @@ class pluginTemplateGUI(QObject):
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-            and method in self.public_methods
-        }
+        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
         return methods
 
     def _getLogSignal(self):
@@ -130,9 +119,7 @@ class pluginTemplateGUI(QObject):
             self.settings
         """
         #### for example
-        self.settings["exposure"] = self.camera.exposures[
-            int(self.settingsWidget.cameraExposure.value())
-        ]
+        self.settings["exposure"] = self.camera.exposures[int(self.settingsWidget.cameraExposure.value())]
         self.settings["source"] = self.settingsWidget.cameraSource.text()
         ##IRtodo######### add here checks that the values are allowed
         return [0, self.settings]

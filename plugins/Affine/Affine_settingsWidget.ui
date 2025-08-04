@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1139</width>
-    <height>712</height>
+    <width>742</width>
+    <height>511</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -30,8 +30,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>1119</width>
-        <height>692</height>
+        <width>728</width>
+        <height>479</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -55,23 +55,9 @@
               </widget>
              </item>
              <item>
-              <widget class="QCheckBox" name="dispKP">
+              <widget class="QLabel" name="label">
                <property name="text">
-                <string>Display keypoints (W.I.P)</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="centerClicks">
-               <property name="text">
-                <string>Center clicks on patch</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="checkBox">
-               <property name="text">
-                <string>debug</string>
+                <string>No mask loaded</string>
                </property>
               </widget>
              </item>
@@ -88,16 +74,9 @@
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
-              <widget class="QPushButton" name="findButton">
+              <widget class="QPushButton" name="showButton">
                <property name="text">
-                <string>Find affine</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="manualButton">
-               <property name="text">
-                <string>Manual (W.I.P)</string>
+                <string>Match</string>
                </property>
               </widget>
              </item>
@@ -120,6 +99,16 @@
                </property>
                <property name="tristate">
                 <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="centerClicks">
+               <property name="text">
+                <string>Center clicks on patch</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
@@ -169,10 +158,10 @@
              <item>
               <widget class="QListWidget" name="definedPoints">
                <property name="contextMenuPolicy">
-                <enum>Qt::ContextMenuPolicy::DefaultContextMenu</enum>
+                <enum>Qt::ContextMenuPolicy::NoContextMenu</enum>
                </property>
                <property name="selectionMode">
-                <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
+                <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
                </property>
               </widget>
              </item>

@@ -4,9 +4,8 @@
 import pluggy
 from affineMoveGui import affineMoveGUI
 
+
 class pyIVLS_affineMove_plugin:
-
-
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
@@ -16,8 +15,6 @@ class pyIVLS_affineMove_plugin:
         self._class = "loop"
         self.dependencies = ["positioning", "micromanipulator", "camera"]
         self.pluginClass = affineMoveGUI()
-
-
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
@@ -39,6 +36,7 @@ class pyIVLS_affineMove_plugin:
             dict: name, widget
         """
         return {self.name: self.pluginClass.MDIWidget}
+
     @hookimpl
     def get_functions(self, args=None):
         """Returns a dictionary of publicly accessible functions. This function is called from pyIVLS_container
@@ -50,7 +48,7 @@ class pyIVLS_affineMove_plugin:
             dict: functions
         """
         if args is None or args.get("function") == self.plugin_function:
-            return {self.name: {}}
+            return {self.name: self.pluginClass._get_public_methods()}
 
     @hookimpl
     def get_log(self, args=None):
@@ -60,7 +58,7 @@ class pyIVLS_affineMove_plugin:
         """
 
         if args is None or args.get("function") == self.plugin_function:
-            return {self.name : self.pluginClass._getLogSignal()}
+            return {self.name: self.pluginClass._getLogSignal()}
 
     @hookimpl
     def get_info(self, args=None):
@@ -70,7 +68,7 @@ class pyIVLS_affineMove_plugin:
         """
 
         if args is None or args.get("function") == self.plugin_function:
-            return {self.name : self.pluginClass._getInfoSignal()}
+            return {self.name: self.pluginClass._getInfoSignal()}
 
     @hookimpl
     def get_closeLock(self, args=None):
@@ -90,10 +88,9 @@ class pyIVLS_affineMove_plugin:
             plugin_list (list): list of plugins in the form of [plugin1, plugin2, ...]
         """
         plugins_to_fetch = []
-        
+
         for plugin, metadata in plugin_list:
             if metadata.get("function", "") in self.dependencies:
                 plugins_to_fetch.append([plugin, metadata])
-        
-                
+
         self.pluginClass.dependency = plugins_to_fetch

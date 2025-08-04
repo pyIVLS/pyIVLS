@@ -9,6 +9,7 @@ import time
 THORSPEC_VID = 0x1313
 THORSPEC_PID = 0x8087
 
+
 class CCSDRV:
     #    def __init__(self):
     #
@@ -90,10 +91,7 @@ class CCSDRV:
             bool: pass or fail for setting the value.
         """
         # Check for valid integration time range
-        if (
-            intg_time < const.CCS_SERIES_MIN_INT_TIME
-            or intg_time > const.CCS_SERIES_MAX_INT_TIME
-        ):
+        if intg_time < const.CCS_SERIES_MIN_INT_TIME or intg_time > const.CCS_SERIES_MAX_INT_TIME:
             raise ValueError("Integration time out of valid range")
 
         # Convert integration time from seconds to microseconds
@@ -148,37 +146,27 @@ class CCSDRV:
 
         statuses = []
         if debug:
-            print(
-                f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_IDLE, '016b')}"
-            )
+            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_IDLE, '016b')}")
         if status & const.CCS_SERIES_STATUS_SCAN_IDLE:
             statuses.append("SCAN_IDLE")
 
         if debug:
-            print(
-                f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_TRIGGERED, '016b')}"
-            )
+            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_TRIGGERED, '016b')}")
         if status & const.CCS_SERIES_STATUS_SCAN_TRIGGERED:
             statuses.append("SCAN_TRIGGERED")
 
         if debug:
-            print(
-                f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_START_TRANS, '016b')}"
-            )
+            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_START_TRANS, '016b')}")
         if status & const.CCS_SERIES_STATUS_SCAN_START_TRANS:
             statuses.append("SCAN_START_TRANS")
 
         if debug:
-            print(
-                f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_TRANSFER, '016b')}"
-            )
+            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_TRANSFER, '016b')}")
         if status & const.CCS_SERIES_STATUS_SCAN_TRANSFER:
             statuses.append("SCAN_TRANSFER")
 
         if debug:
-            print(
-                f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_WAIT_FOR_EXT_TRIG, '016b')}"
-            )
+            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_WAIT_FOR_EXT_TRIG, '016b')}")
         if status & const.CCS_SERIES_STATUS_WAIT_FOR_EXT_TRIG:
             statuses.append("WAIT_FOR_EXT_TRIG")
 
@@ -186,28 +174,24 @@ class CCSDRV:
 
     def start_scan(self):
         """Starts a single scan"""
-        self.io.control_out(
-            const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_INTERN_SINGLE_SHOT
-        )
+        self.io.control_out(const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_INTERN_SINGLE_SHOT)
         time.sleep(self.integration_time * 1.2)  # Wait for scan to complete
 
     def start_scan_continuous(self):
         """Starts continuous scanning. Any function except get_scan_data() and get_device_status() will stop the scan."""
-        self.io.control_out(
-            const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_INTERN_CONTINUOUS
-        )
+        self.io.control_out(const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_INTERN_CONTINUOUS)
 
     def start_scan_ext_trigger(self):
         """Starts a single scan with external trigger"""
-        self.io.control_out(
-            const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_EXTERN_SINGLE_SHOT
-        )
+        self.io.control_out(const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_EXTERN_SINGLE_SHOT)
 
-    def get_scan_data(self):
-        """Get scan data from the device buffer
+    def get_scan_data(self) -> np.ndarray:
+        """Get processed scan data from the device buffer.
+
+        This method retrieves raw scan data from the device, processes it, and returns the normalized scan data.
 
         Returns:
-            np.array(np.float64): scan data
+            np.ndarray: Processed scan data as a NumPy array of type np.float64.
         """
         # Get raw data
         raw = self._get_raw_data()
@@ -216,13 +200,13 @@ class CCSDRV:
         data = self._acquire_raw_scan_data(raw)
         return data
 
-    # FIXME: There seems to be a a period of zeroes at the beginning and end of the data.
-    def _get_raw_data(self):
-        """Get raw scan data for a single scan from the device buffer
-        The scan is sent from the device in uint16 with size CCS_SERIES_NUM_RAW_PIXELS
+    def _get_raw_data(self) -> np.ndarray:
+        """Retrieve raw scan data from the device buffer.
+
+        The raw scan data is read from the device as a NumPy array of type np.uint16.
 
         Returns:
-            np.array(np.uint16): raw scan data
+            np.ndarray: Raw scan data as a NumPy array of type np.uint16.
         """
         # Calculate size of read and create a buffer to read into
         buffer_size = const.CCS_SERIES_NUM_RAW_PIXELS * 2  # since uint16 is 2 bytes
@@ -234,17 +218,22 @@ class CCSDRV:
 
         return readTo
 
-    def _acquire_raw_scan_data(self, raw: np.ndarray):
+    def _acquire_raw_scan_data(self, raw: np.ndarray) -> np.ndarray:
+        """Process raw scan data to normalize it.
+
+        This method calculates the dark current average, normalizing factor, and processes the raw data to produce normalized scan data.
+
+        Args:
+            raw (np.ndarray): Raw scan data as a NumPy array of type np.uint16.
+
+        Returns:
+            np.ndarray: Normalized scan data as a NumPy array of type np.float64.
+        """
         # Initialize array for modified data
         data = np.zeros(const.CCS_SERIES_NUM_PIXELS, dtype=np.float64)
 
         # Sum the dark pixels
-        dark_com = np.sum(
-            raw[
-                const.DARK_PIXELS_OFFSET : const.DARK_PIXELS_OFFSET
-                + const.NO_DARK_PIXELS
-            ]
-        )
+        dark_com = np.sum(raw[const.DARK_PIXELS_OFFSET : const.DARK_PIXELS_OFFSET + const.NO_DARK_PIXELS])
 
         # Calculate dark current average
         dark_com /= const.NO_DARK_PIXELS

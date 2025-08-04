@@ -22,31 +22,26 @@ class pyIVLS_VenusUSB2_plugin:
         Initialize the plugin and set up properties.
         """
 
-            # iterate current directory to find the .ini file
+        # iterate current directory to find the .ini file
         path = os.path.dirname(__file__)
         for file in os.listdir(path):
             if file.endswith(".ini"):
                 path = os.path.join(path, file)
                 break
         config = configparser.ConfigParser()
-        # no need to close resource, since configparser handles it internally
-        # https://stackoverflow.com/questions/990867/closing-file-opened-by-configparser
         config.read(path)
 
         self.name = config.get("plugin", "name")
-        self.type = config.get("plugin", "type",)
+        self.type = config.get(
+            "plugin",
+            "type",
+        )
         self.function = config.get("plugin", "function", fallback="")
         self._class = config.get("plugin", "class", fallback="")
         self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
         self.version = config.get("plugin", "version", fallback="")
-        self.metadata = {
-            "name": self.name,
-            "type": self.type,
-            "function": self.function,
-            "version": "placeholder",
-            "dependencies": self.dependencies
-        }
-        
+        self.metadata = {"name": self.name, "type": self.type, "function": self.function, "version": self.version, "dependencies": self.dependencies}
+
         self.camera_control = VenusUSB2GUI()
 
     @hookimpl
@@ -112,7 +107,7 @@ class pyIVLS_VenusUSB2_plugin:
 
         if args is None or args.get("function") == self.metadata["function"]:
             return {self.metadata["name"]: self.camera_control._getCloseLockSignal()}
-        
+
     @hookimpl
     def get_plugin(self, args=None):
         """Returns the plugin as a reference to itself.
@@ -120,18 +115,17 @@ class pyIVLS_VenusUSB2_plugin:
 
         Args:
             args (_type_, optional): can be used to specify which plugin is needed based on
-            type, function, etc. 
+            type, function, etc.
 
         Returns:
             tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
         """
         if args is None or args.get("function") == self.metadata["function"]:
             return [self.camera_control, self.metadata]
-        
+
     @hookimpl
     def get_plugin_settings(self, args=None):
-        """See pyIVLS_hookspec.py for details.
-        """
+        """See pyIVLS_hookspec.py for details."""
         if args is None or args.get("function") == self.metadata["function"]:
             status, settings = self.camera_control._parse_settings_preview()
             return (self.metadata["name"], status, settings)

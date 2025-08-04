@@ -48,7 +48,7 @@ class pyIVLS_hookspec:
 
         Args:
             args (_type_, optional): can be used to specify which plugin is needed based on
-            type, function, etc. 
+            type, function, etc.
 
         Returns:
             tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
@@ -61,7 +61,6 @@ class pyIVLS_hookspec:
         Args:
             plugin_list (list): list of plugins in the form of [plugin1, plugin2, ...]
         """
-
 
     @hookspec
     def get_log(self, args=None):
@@ -92,10 +91,10 @@ class pyIVLS_hookspec:
         This argument will allow the specific implementation of the hook to identify if any response is needed or not.
         :return: dict containing signal for logging
         """
-    
+
     @hookspec
     def get_plugin_settings(self, args=None):
-        """Reads the current settings from the settingswidget, returns a dict. 
+        """Reads the current settings from the settingswidget, returns a dict.
 
         Args:
             args (dict??, optional): Spesifies if a response is needed, for instance when saving a spesific plugin's settings.

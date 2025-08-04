@@ -21,9 +21,7 @@ import os
 from datetime import datetime, timedelta
 import matplotlib.dates as mdates
 from PyQt6 import uic
-from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QTextEdit
 from itc503 import itc503
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 
@@ -92,19 +90,14 @@ class itc503GUI(QObject):
             self.closeLock.emit(False)
             return [0, "OK"]
         except Exception as e:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : itc503 plugin : {e}, status = 4"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
             self.info_message.emit(f"itc503 plugin : {e}")
             return [e, {"Error message": f"{e}"}]
 
     def _disconnectAction(self):
         if self.timer.isActive():
-            self.info_message.emit(
-                f"itc503 plugin : stop temperture monitor before disconnecting"
-            )
-            return [1, {"Error message": f"Temperature monitor is running"}]
+            self.info_message.emit("itc503 plugin : stop temperture monitor before disconnecting")
+            return [1, {"Error message": "Temperature monitor is running"}]
         else:
             try:
                 self.itc503.close()
@@ -112,28 +105,19 @@ class itc503GUI(QObject):
                 self.closeLock.emit(True)
                 return [0, "OK"]
             except Exception as e:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : itc503 plugin : {e}, status = 4"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
                 self.info_message.emit(f"itc503 plugin : {e}")
                 return [4, {"Error message": f"{e}"}]
 
     def _setTAction(self):
         [status, info] = self._parse_settings_setT()
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : itc503 plugin : {info}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
             self.info_message.emit(f"itc503 plugin : {info}")
             return [status, info]
         [status, info] = self._setT()
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : itc503 plugin : {info}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
             self.info_message.emit(f"itc503 plugin : {info}")
             return [status, info]
         return [0, "OK"]
@@ -145,10 +129,7 @@ class itc503GUI(QObject):
         else:
             [status, info] = self._parse_settings_display()
             if status:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : itc503 : {info}, status = {status}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 : {info}, status = {status}")
                 self.info_message.emit(f"itc503 plugin : {info}")
             else:
                 self.Xdata = []
@@ -173,9 +154,7 @@ class itc503GUI(QObject):
         except ValueError:
             return [
                 1,
-                {
-                    "Error message": "Value error: set temperature field should be numeric"
-                },
+                {"Error message": "Value error: set temperature field should be numeric"},
             ]
 
         return [0, self.settings]
@@ -191,9 +170,7 @@ class itc503GUI(QObject):
         if self.settings["period"] < 1:
             return [
                 1,
-                {
-                    "Error message": "Value error: check period field should be greater than 0"
-                },
+                {"Error message": "Value error: check period field should be greater than 0"},
             ]
 
         try:
@@ -201,16 +178,12 @@ class itc503GUI(QObject):
         except ValueError:
             return [
                 1,
-                {
-                    "Error message": "Value error: points to show field should be integer"
-                },
+                {"Error message": "Value error: points to show field should be integer"},
             ]
         if self.settings["periodpts"] < 1:
             return [
                 1,
-                {
-                    "Error message": "Value error: points to show field should be greater than 0"
-                },
+                {"Error message": "Value error: points to show field should be greater than 0"},
             ]
 
         return [0, self.settings]
@@ -219,10 +192,7 @@ class itc503GUI(QObject):
         try:
             info = self.itc503.getData()
         except Exception as e:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : itc503 plugin : {e}, status = 4"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
             self.info_message.emit(f"itc503 plugin : {e}")
             self.timer.stop()
             self._GUIchange_display(False)
@@ -231,9 +201,7 @@ class itc503GUI(QObject):
         timeNow = datetime.now()
         if self.display_data.count("\n") == self.settings["periodpts"]:
             self.display_data = self.display_data[self.display_data.find("\n") + 1 :]
-        self.display_data = (
-            self.display_data + timeNow.strftime("%H:%M:%S.%f") + f": {info}K\n"
-        )
+        self.display_data = self.display_data + timeNow.strftime("%H:%M:%S.%f") + f": {info}K\n"
         self.MDIWidget.outputEdit.clear()
         self.MDIWidget.outputEdit.append(self.display_data)
         temperature = info
@@ -248,9 +216,7 @@ class itc503GUI(QObject):
             self.axes.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
             self.axes.set_xlim(
                 self.Xdata[-1] - timedelta(seconds=self.settings["period"]),
-                self.Xdata[-1]
-                + timedelta(seconds=self.settings["period"])
-                * self.settings["periodpts"],
+                self.Xdata[-1] + timedelta(seconds=self.settings["period"]) * self.settings["periodpts"],
             )
         else:
             self.Xdata.append(timeNow)
@@ -259,15 +225,10 @@ class itc503GUI(QObject):
             self._plot_temperature.set_ydata(self.Ydata)
             if len(self.Xdata) > self.settings["periodpts"]:
                 self.axes.set_xlim(
-                    self.Xdata[-1]
-                    - timedelta(
-                        seconds=self.settings["period"] * self.settings["periodpts"]
-                    ),
+                    self.Xdata[-1] - timedelta(seconds=self.settings["period"] * self.settings["periodpts"]),
                     self.Xdata[-1] + timedelta(seconds=self.settings["period"]),
                 )
-        self.axes.set_ylim(
-            min(self.Ydata) - 10, max(self.Ydata) + 10
-        )  # +/- 10 just a random margin for plotting
+        self.axes.set_ylim(min(self.Ydata) - 10, max(self.Ydata) + 10)  # +/- 10 just a random margin for plotting
         self.sc.draw()
 
     def _setT(self):
@@ -295,9 +256,7 @@ class itc503GUI(QObject):
         self.settingsWidget.sweepStartEdit.setText(plugin_info["sweepstart"])
         self.settingsWidget.sweepEndEdit.setText(plugin_info["sweepend"])
         self.settingsWidget.sweepPtsEdit.setText(plugin_info["sweeppts"])
-        self.settingsWidget.sweepStabilizationEdit.setText(
-            plugin_info["sweepstabilization"]
-        )
+        self.settingsWidget.sweepStabilizationEdit.setText(plugin_info["sweepstabilization"])
 
     def _setGUIfromSettings(self):
         ##populates GUI with values stored in settings
@@ -309,22 +268,16 @@ class itc503GUI(QObject):
         self.settingsWidget.sweepStartEdit.setText(f"{self.settings['sweepstart']}")
         self.settingsWidget.sweepEndEdit.setText(f"{self.settings['sweepend']}")
         self.settingsWidget.sweepPtsEdit.setText(f"{self.settings['sweeppts']}")
-        self.settingsWidget.sweepStabilizationEdit.setText(
-            f"{self.settings['sweepstabilization']}"
-        )
+        self.settingsWidget.sweepStabilizationEdit.setText(f"{self.settings['sweepstabilization']}")
 
     ########Functions
     ###############GUI react to change
 
     def _GUIchange_deviceConnected(self, status):
         if status:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
         else:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
         self.settingsWidget.settingsGroupBox.setEnabled(status)
         self.settingsWidget.DisplayGroupBox.setEnabled(status)
         self.settingsWidget.disconnectButton.setEnabled(status)
@@ -346,15 +299,7 @@ class itc503GUI(QObject):
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-            and method in self.public_methods
-        }
+        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
         return methods
 
     def _getLogSignal(self):
@@ -405,9 +350,7 @@ class itc503GUI(QObject):
         self._parse_settings_setT()
 
         try:
-            self.settings["sweepstart"] = float(
-                self.settingsWidget.sweepStartEdit.text()
-            )
+            self.settings["sweepstart"] = float(self.settingsWidget.sweepStartEdit.text())
         except ValueError:
             return [
                 1,
@@ -423,7 +366,7 @@ class itc503GUI(QObject):
             ]
 
         try:
-            self.settings["sweeppts"] = int(self.settingsWidget.periodPtsEdit.text())
+            self.settings["sweeppts"] = int(self.settingsWidget.sweepPtsEdit.text())
         except ValueError:
             return [
                 1,
@@ -432,35 +375,29 @@ class itc503GUI(QObject):
         if self.settings["sweeppts"] < 1:
             return [
                 2,
-                {
-                    "Error message": "Value error: sweep points field should be greater than 0"
-                },
+                {"Error message": "Value error: sweep points field should be greater than 0"},
             ]
 
         try:
-            self.settings["sweepstabilization"] = int(
-                self.settingsWidget.periodEdit.text()
-            )
+            self.settings["sweepstabilization"] = int(self.settingsWidget.sweepStabilizationEdit.text())
         except ValueError:
             return [
                 1,
-                {
-                    "Error message": "Value error: stabilization time field should be integer"
-                },
+                {"Error message": "Value error: stabilization time field should be integer"},
             ]
         if self.settings["sweepstabilization"] < 1:
             return [
                 2,
-                {
-                    "Error message": "Value error: stabilization time field should be greater than 0"
-                },
+                {"Error message": "Value error: stabilization time field should be greater than 0"},
             ]
 
         return [0, self.settings]
 
     def setSettings(self, settings):
         self.settings = settings
-        self._setGUIfromSettings()
+
+    # this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
+    #        self._setGUIfromSettings()
 
     ########Functions
     ########Tsweep implementation
@@ -469,13 +406,26 @@ class itc503GUI(QObject):
         return self.settings["sweeppts"]
 
     def loopingIteration(self, iteration):
-        self.settings["sett"] = (
-            self.settings["sweepstart"]
-            + iteration
-            * (self.settings["sweepend"] - self.settings["sweepstart"])
-            / self.settings["sweeppts"]
-        )
-        self.settingsWidget.setTEdit.setText(f"{self.settings['sett']}")
+        if self.settings["sweeppts"] == 1:
+            self.settings["sett"] = self.settings["sweepstart"]
+        else:
+            self.settings["sett"] = self.settings["sweepstart"] + iteration * (self.settings["sweepend"] - self.settings["sweepstart"]) / (self.settings["sweeppts"] - 1)
+        # this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
+        #        self.settingsWidget.setTEdit.setText(f"{self.settings['sett']}")
         [status, info] = self._setT()
         if status:
             return [status, info]
+        #########IRtodo: workaround, make a proper update display
+        tic = time.time()
+        while (time.time() - tic) < self.settings["sweepstabilization"]:
+            try:
+                info = self.itc503.getData()
+            except Exception as e:
+                return [4, {"Error message": f"{e}"}]
+            if abs(info - self.settings["sett"]) > 0.2:
+                print(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")
+                tic = time.time()
+            else:
+                print(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")
+            time.sleep(20)
+        return [0, f"_{info}K"]

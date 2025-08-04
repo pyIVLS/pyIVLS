@@ -1,9 +1,9 @@
-#!/home/ivarad/git_pyIVLS/.venv/bin/python3
+#!/home/ivls/git_pyIVLS/pyIVLS/.venv/bin/python3
 import sys
 from os.path import dirname, sep
 
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot
 
 from pyIVLS_container import pyIVLS_container
 from pyIVLS_GUI import pyIVLS_GUI
@@ -34,20 +34,26 @@ def update_settings_widget():
     for logSignal in pluginsContainer.getLogSignals():
         try:
             logSignal.connect(GUI_mainWindow.addDataLog, type=Qt.ConnectionType.UniqueConnection)
-        except Exception as e:
+        except Exception:
             pass
 
     for infoSignal in pluginsContainer.getInfoSignals():
         try:
             infoSignal.connect(GUI_mainWindow.show_message, type=Qt.ConnectionType.UniqueConnection)
-        except Exception as e:
+        except Exception:
             pass
 
-    for closeLockSignal in pluginsContainer.getCloseLockSignals():
+    # Connect close lock signals with plugin names
+    plugin_closeLockSignals = pluginsContainer.pm.hook.get_closeLock()
+    for closeLockSignal_dict in plugin_closeLockSignals:
         try:
-            closeLockSignal.connect(GUI_mainWindow.setCloseLock, type=Qt.ConnectionType.UniqueConnection)
-        except Exception as e:
+            plugin_name = list(closeLockSignal_dict.keys())[0]
+            signal = closeLockSignal_dict[plugin_name]
+            # Use lambda to capture plugin_name
+            signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name), type=Qt.ConnectionType.UniqueConnection)
+        except Exception:
             pass
+
 
 ############################### main function
 
@@ -57,31 +63,23 @@ if __name__ == "__main__":
 
     pluginsContainer = pyIVLS_container()
     GUI_mainWindow = pyIVLS_GUI()
-
+    # log startup
+    GUI_mainWindow.addDataLog("pyIVLS session started")
     ### initalize signals for pluginloader <-> container communication
-    GUI_mainWindow.pluginloader.request_available_plugins_signal.connect(
-        pluginsContainer.read_available_plugins
-    )
-    GUI_mainWindow.pluginloader.update_config_signal.connect(
-        pluginsContainer.update_config
-    )
-    pluginsContainer.available_plugins_signal.connect(
-        GUI_mainWindow.pluginloader.populate_list
-    )
-    GUI_mainWindow.pluginloader.register_plugins_signal.connect(
-        pluginsContainer.update_registration
-    )
+    GUI_mainWindow.pluginloader.request_available_plugins_signal.connect(pluginsContainer.read_available_plugins)
+    GUI_mainWindow.pluginloader.update_config_signal.connect(pluginsContainer.update_config)
+    pluginsContainer.available_plugins_signal.connect(GUI_mainWindow.pluginloader.populate_list)
+    GUI_mainWindow.pluginloader.register_plugins_signal.connect(pluginsContainer.update_registration)
     pluginsContainer.plugins_updated_signal.connect(update_settings_widget)
 
     pluginsContainer.show_message_signal.connect(GUI_mainWindow.show_message)
 
     pluginsContainer.log_message.connect(GUI_mainWindow.addDataLog)
     GUI_mainWindow.seqBuilder.info_message.connect(GUI_mainWindow.show_message)
+    GUI_mainWindow.seqBuilder.log_message.connect(GUI_mainWindow.addDataLog)
 
-    GUI_mainWindow.window.actionWrite_settings_to_file.triggered.connect(
-        pluginsContainer.save_settings
-    )
-
+    GUI_mainWindow.window.actionWrite_settings_to_file.triggered.connect(pluginsContainer.save_settings)
+    GUI_mainWindow.update_config_signal.connect(pluginsContainer.update_config_file)
     pluginsContainer.register_start_up()
 
     for logSignal in pluginsContainer.getLogSignals():
@@ -90,12 +88,15 @@ if __name__ == "__main__":
     for infoSignal in pluginsContainer.getInfoSignals():
         infoSignal.connect(GUI_mainWindow.show_message)
 
-    for closeLockSignal in pluginsContainer.getCloseLockSignals():
-        closeLockSignal.connect(GUI_mainWindow.setCloseLock)
+    # Connect close lock signals with plugin names in main loop too
+    plugin_closeLockSignals = pluginsContainer.pm.hook.get_closeLock()
+    for closeLockSignal_dict in plugin_closeLockSignals:
+        plugin_name = list(closeLockSignal_dict.keys())[0]
+        signal = closeLockSignal_dict[plugin_name]
+        # Use lambda to capture plugin_name
+        signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name))
 
-    pluginsContainer.seqComponents_signal.connect(
-        GUI_mainWindow.seqBuilder.getPluginFunctions
-    )
+    pluginsContainer.seqComponents_signal.connect(GUI_mainWindow.seqBuilder.getPluginFunctions)
 
     pluginsContainer.public_function_exchange()
     ### init interfaces

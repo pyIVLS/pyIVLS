@@ -3,7 +3,6 @@ This is a class for peltier controller
 
 """
 
-import os
 import pyvisa
 from threading import Lock
 
@@ -30,6 +29,7 @@ class itc503:
             # "C3" tells instrument to be at REMOTE UNLOCKED state different numbers after C tell ITC to be at different states -> see ITC503 user manual
             self.device.write("C3")
             self.device.read_bytes(3)
+            self.device.clear()
         return 0
 
     def close(self):
@@ -59,6 +59,7 @@ class itc503:
             else:
                 self.device.write(f"T{temperature:.1f}")
             self.device.read_bytes(3)
+            self.device.clear()
         return 0
 
     def getData(self):
@@ -68,7 +69,12 @@ class itc503:
             temperature as a float
         """
         with self.lock:
+            self.device.clear()  # it may be an exageration, but it feels that sometimes there are some bytes left in buffer
             self.device.write("R1")
-            return float(
-                self.device.read_bytes(8)[1:-2]
-            )  # response is of the form "Rttttt\r\n" see manual for details
+            str = self.device.read_bytes(8)  # a workaround, as the number of bytes is different, and self.device.read does not work
+            if str[-1] == ord("\r"):
+                temp = float(str[1:-1])
+                self.device.clear()
+            else:
+                temp = float(str[1:-2])
+            return temp

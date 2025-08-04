@@ -3,17 +3,13 @@ This is a class for peltier controller
 
 """
 
-import os
-import numpy as np
 import serial
 from threading import Lock
 
 
 class peltierController:
     def __init__(self):
-        self.device = (
-            serial.Serial()
-        )  # https://pyserial.readthedocs.io/en/latest/pyserial_api.html
+        self.device = serial.Serial()  # https://pyserial.readthedocs.io/en/latest/pyserial_api.html
         self.device.baudrate = 115200
         self.device.bytesize = serial.EIGHTBITS  # number of bits per bytes
         self.device.parity = serial.PARITY_NONE  # set parity check: no parity
@@ -40,7 +36,7 @@ class peltierController:
                     self.device.open()
                     self.device.reset_input_buffer()
                     self.device.reset_output_buffer()
-                    self.device.write(f"SETP 0\r".encode())
+                    self.device.write("SETP 0\r".encode())
                 return [0, "device connected"]
             except serial.SerialException:
                 return [4, "can not connect the device"]
@@ -57,7 +53,7 @@ class peltierController:
         else:
             try:
                 with self.lock:
-                    self.device.write(f"SETP 0\r".encode())
+                    self.device.write("SETP 0\r".encode())
                     self.device.reset_input_buffer()
                     self.device.reset_output_buffer()
                     self.device.close()
@@ -169,12 +165,12 @@ class peltierController:
         dataOutput["raw"] = ""
         try:
             with self.lock:
-                self.device.write(f" \r".encode())
+                self.device.write(" \r".encode())
                 for cnt, _ in enumerate(dataOrder):
                     response = self.device.readline().decode("utf-8")
                     if len(dataOrder[cnt]) < 1:
                         continue
-                    if not (dataOrder[cnt][-1] in [":", "="]):
+                    if dataOrder[cnt][-1] not in [":", "="]:
                         dict_key = dataOrder[cnt]
                     else:
                         dict_key = dataOrder[cnt][0:-1]
@@ -183,9 +179,7 @@ class peltierController:
                         if response[len(dataOrder[cnt]) + 1 : -1] == "na":
                             dataOutput[dict_key] = float("nan")
                         else:
-                            dataOutput[dict_key] = float(
-                                response[len(dataOrder[cnt]) + 1 : -1]
-                            )
+                            dataOutput[dict_key] = float(response[len(dataOrder[cnt]) + 1 : -1])
                     if cnt in stringValues:
                         dataOutput[dict_key] = response[len(dataOrder[cnt]) : -1]
             return [0, dataOutput]

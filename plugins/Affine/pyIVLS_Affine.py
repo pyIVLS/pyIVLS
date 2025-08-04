@@ -41,7 +41,7 @@ class pyIVLS_Affine_plugin:
         return {self.name: self.affine_control.settingsWidget}
 
     @hookimpl
-    def get_MDI_interface(self, args=None) -> dict:
+    def get_MDI_interface(self, args=None):
         """Returns MDI window
 
         Returns:
@@ -74,9 +74,7 @@ class pyIVLS_Affine_plugin:
             dict: functions
         """
 
-        return {
-            self.name: self.affine_control._fetch_dependency_functions(function_dict)
-        }
+        return {self.name: self.affine_control._fetch_dependency_functions(function_dict)}
 
     @hookimpl
     def get_log(self, args=None):
@@ -104,7 +102,7 @@ class pyIVLS_Affine_plugin:
         """
         if args is None or args.get("function") == self.function:
             return {self.name: self.affine_control._getCloseLockSignal()}
-        
+
     @hookimpl
     def get_plugin(self, args=None):
         """Returns the plugin as a reference to itself.
@@ -112,10 +110,17 @@ class pyIVLS_Affine_plugin:
 
         Args:
             args (_type_, optional): can be used to specify which plugin is needed based on
-            type, function, etc. 
+            type, function, etc.
 
         Returns:
             tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
         """
         if args is None or args.get("function") == self.metadata["function"]:
             return [self.affine_control, self.metadata]
+
+    @hookimpl
+    def get_plugin_settings(self, args=None):
+        """See pyIVLS_hookspec.py for details."""
+        if args is None or args.get("function") == self.metadata["function"]:
+            status, settings = self.affine_control.parse_settings_widget()
+            return (self.metadata["name"], status, settings)

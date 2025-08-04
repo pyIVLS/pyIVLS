@@ -16,6 +16,7 @@ dependencies = [
     "numpy==2.2.1",
     "opencv-python==4.10.0.84",
     "packaging==24.2",
+    "pandas>=2.3.0",
     "pathvalidate==3.2.3",
     "pillow==11.1.0",
     "pluggy==1.5.0",
@@ -37,8 +38,14 @@ dependencies = [
     "setuptools>=78.1.1",
     "six==1.17.0",
     "typing-extensions==4.12.2",
+    "uv>=0.7.15",
     "zeroconf==0.137.2",
     "zope-interface==7.2",
 ]
 
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "INFO"
 
+[tool.ruff]
+line-length = 320

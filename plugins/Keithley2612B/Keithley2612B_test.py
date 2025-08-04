@@ -1,19 +1,6 @@
 import sys
 import os
-import time
 from threading import Lock
-
-
-from PyQt6 import uic
-from PyQt6.QtWidgets import (
-    QWidget,
-    QCheckBox,
-    QComboBox,
-    QLineEdit,
-    QPushButton,
-    QHBoxLayout,
-    QLabel,
-)
 
 
 """
@@ -63,10 +50,8 @@ from PyQt6.QtWidgets import (
 # At the moment all the pyvisa methods are commented
 
 # import pyvisa
-import usbtmc
+# import usbtmc
 import numpy as np
-import time
-
 
 
 class Keithley2612B:
@@ -245,7 +230,7 @@ class Keithley2612B:
         """
         ##IRtothink#### some check may be added
         # self.safewrite(f"{source}.source.level{outputType} = {value}")
-        print(f"{source}.source.level{outputType} = {value}")
+        print(f"{channel}.source.level{outputType} = {value}")
 
     def get_last_buffer_value(self, channel):
         """
@@ -290,8 +275,8 @@ class Keithley2612B:
         """
         swihces off both channels
         """
-        self.safewrite(f"smua.source.output=smua.OUTPUT_OFF")
-        self.safewrite(f"smub.source.output=smub.OUTPUT_OFF")
+        self.safewrite("smua.source.output=smua.OUTPUT_OFF")
+        self.safewrite("smub.source.output=smub.OUTPUT_OFF")
 
     def channelsON(self, source, drain):
         """
@@ -332,9 +317,7 @@ class Keithley2612B:
         if s["sourcehighc"]:
             self.safewrite(f"{s['source']}.source.highc = {s['source']}.ENABLE")
 
-        self.safewrite(
-            f"{s['source']}.source.settling = {s['source']}.SETTLE_FAST_RANGE"
-        )
+        self.safewrite(f"{s['source']}.source.settling = {s['source']}.SETTLE_FAST_RANGE")
 
         ####set stabilization times for source
         ##IRtodo#### add delay factor to GUI
@@ -358,42 +341,24 @@ class Keithley2612B:
                 # Set filter for source
                 ##IRtodo#### create filter section in GUI
                 self.safewrite(f"{s['source']}.measure.filter.count = 4")
-                self.safewrite(
-                    f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON"
-                )
-                self.safewrite(
-                    f"{s['source']}.measure.filter.type = {s['source']}.FILTER_REPEAT_AVG"
-                )
+                self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
+                self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.FILTER_REPEAT_AVG")
 
                 # set autoranges on for source. see ranges on 2-83 (108) of the manual
-                self.safewrite(
-                    f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_ON"
-                )
-                self.safewrite(
-                    f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_ON"
-                )
+                self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_ON")
+                self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_ON")
             else:
                 # If the sweep maximum is over 1.5 A, make sure pulses are as short as possible, i.e. no range adjust, no delays, no filtering:
-                self.safewrite(
-                    f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
-                )
-                self.safewrite(
-                    f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
-                )
-                self.safewrite(
-                    f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
-                )
+                self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF")
+                self.safewrite(f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
+                self.safewrite(f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['source']}.source.delay = 100e-6")
-                self.safewrite(
-                    f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF"
-                )
+                self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
                 self.safewrite(f"{s['source']}.source.rangei = 10")
                 self.safewrite(f"{s['source']}.source.leveli = 0")
                 self.safewrite(f"{s['source']}.source.limitv = 6")
                 self.safewrite(f"{s['source']}.trigger.source.limiti = 10")
-            self.safewrite(
-                f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS"
-            )
+            self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
         else:  # if voltage injection
             if abs(s["limit"]) < 1.5:
                 # if the sweep maximum is under 1.5 A, set the limit from the GUI.
@@ -402,27 +367,17 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
             else:
                 # If the current limit is over 1.5 A, make sure pulses are as short as possible, i.e. no range adjust, no delays, no filtering:
-                self.safewrite(
-                    f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF"
-                )
-                self.safewrite(
-                    f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
-                )
-                self.safewrite(
-                    f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
-                )
+                self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF")
+                self.safewrite(f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
+                self.safewrite(f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['source']}.measure.rangei = 10")
                 self.safewrite(f"{s['source']}.source.delay = 100e-6")
-                self.safewrite(
-                    f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF"
-                )
+                self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
                 self.safewrite(f"{s['source']}.source.rangev = 6")
                 self.safewrite(f"{s['source']}.source.levelv = 0")
                 self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
                 self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
-            self.safewrite(
-                f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS"
-            )
+            self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
 
         ####################setting up drain
         if not s["single_ch"]:
@@ -438,13 +393,9 @@ class Keithley2612B:
             if s["drainhighc"]:
                 self.safewrite(f"{s['drain']}.source.highc = {s['drain']}.ENABLE")
 
-            self.safewrite(
-                f"{s['drain']}.source.settling = {s['drain']}.SETTLE_FAST_RANGE"
-            )
+            self.safewrite(f"{s['drain']}.source.settling = {s['drain']}.SETTLE_FAST_RANGE")
 
-            self.safewrite(
-                f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS"
-            )
+            self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
             ###set stabilization times for source
             ##IRtodo#### add delay factor to GUI
             if s["draindelay"]:
@@ -454,40 +405,22 @@ class Keithley2612B:
                 else:
                     self.safewrite(f"{s['drain']}.measure.delayfactor = 1.0")
             else:
-                self.safewrite(
-                    f"{s['drain']}.measure.delay = {s['draindelayduration']}"
-                )
+                self.safewrite(f"{s['drain']}.measure.delay = {s['draindelayduration']}")
 
             # set limits and modes
-            if (
-                s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)
-            ) or (s["type"] == "v" and abs(s["limit"]) >= 1.5):
-                self.safewrite(
-                    f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF"
-                )
-                self.safewrite(
-                    f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF"
-                )
-                self.safewrite(
-                    f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF"
-                )
+            if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (s["type"] == "v" and abs(s["limit"]) >= 1.5):
+                self.safewrite(f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF")
+                self.safewrite(f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
+                self.safewrite(f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['drain']}.source.rangei = 10")
             else:
                 ##IRtodo#### create filter section in GUI
                 self.safewrite(f"{s['drain']}.measure.filter.count = 4")
-                self.safewrite(
-                    f"{s['drain']}.measure.filter.enable = {s['drain']}.FILTER_ON"
-                )
-                self.safewrite(
-                    f"{s['drain']}.measure.filter.type = {s['drain']}.FILTER_REPEAT_AVG"
-                )
+                self.safewrite(f"{s['drain']}.measure.filter.enable = {s['drain']}.FILTER_ON")
+                self.safewrite(f"{s['drain']}.measure.filter.type = {s['drain']}.FILTER_REPEAT_AVG")
                 # set autoranges on for drain. see ranges on 2-83 (108) of the manual
-                self.safewrite(
-                    f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_ON"
-                )
-                self.safewrite(
-                    f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_ON"
-                )
+                self.safewrite(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_ON")
+                self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_ON")
 
         return 0
 
@@ -523,58 +456,32 @@ class Keithley2612B:
 
             ####set pulse mode for single channel
             if not s["pulse"]:
-                self.safewrite(
-                    f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_HOLD"
-                )
+                self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_HOLD")
             #### by default smuX.trigger.source.stimulus = 0, i.e. next set point in sweep will be set py source without waiting for an event (7-250, 595)
             else:
-                self.safewrite(
-                    f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE"
-                )
+                self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
                 self.safewrite(f"trigger.timer[1].delay = {s['pulsepause']}")
                 self.safewrite("trigger.timer[1].passthrough = false")
                 self.safewrite("trigger.timer[1].count = 1")
                 self.safewrite("trigger.blender[1].orenable = true")
-                self.safewrite(
-                    f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.SWEEPING_EVENT_ID"
-                )
-                self.safewrite(
-                    f"trigger.blender[1].stimulus[2] = {s['source']}.trigger.PULSE_COMPLETE_EVENT_ID"
-                )
-                self.safewrite(
-                    "trigger.timer[1].stimulus = trigger.blender[1].EVENT_ID"
-                )
-                self.safewrite(
-                    f"{s['source']}.trigger.source.stimulus = trigger.timer[1].EVENT_ID"
-                )
+                self.safewrite(f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.SWEEPING_EVENT_ID")
+                self.safewrite(f"trigger.blender[1].stimulus[2] = {s['source']}.trigger.PULSE_COMPLETE_EVENT_ID")
+                self.safewrite("trigger.timer[1].stimulus = trigger.blender[1].EVENT_ID")
+                self.safewrite(f"{s['source']}.trigger.source.stimulus = trigger.timer[1].EVENT_ID")
 
             # see trigger models on pp 3-35-36 (172-173) of the manual
             self.safewrite(f"{s['source']}.trigger.count = {s['steps']}")
             self.safewrite(f"{s['source']}.trigger.arm.count = {s['repeat']}")
-            self.safewrite(
-                f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})"
-            )
+            self.safewrite(f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})")
 
             #### initialize actions for sweep (see trigger models on pp 3-35-36 (172-173) of the manual)
-            self.safewrite(
-                f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)"
-            )
-            self.safewrite(
-                f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE"
-            )
-            self.safewrite(
-                f"{s['source']}.trigger.source.action = {s['source']}.ENABLE"
-            )
-            self.safewrite(
-                f"{s['source']}.trigger.endsweep.action = {s['source']}.SOURCE_IDLE"
-            )
-            self.safewrite(
-                f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
-            )
+            self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
+            self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE")
+            self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")
+            self.safewrite(f"{s['source']}.trigger.endsweep.action = {s['source']}.SOURCE_IDLE")
+            self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
             if s["single_ch"]:
-                self.safewrite(
-                    f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID"
-                )
+                self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
 
             ####################setting up drain
             else:
@@ -585,32 +492,16 @@ class Keithley2612B:
                 self.safewrite(f"{s['drain']}.trigger.arm.count = {s['repeat']}")
 
                 #### initialize sweep actions
-                self.safewrite(
-                    f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)"
-                )
-                self.safewrite(
-                    f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE"
-                )
-                self.safewrite(
-                    f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE"
-                )  # do not sweep the source (see 7-243 or 590 of the manual)
-                self.safewrite(
-                    f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
-                )
+                self.safewrite(f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)")
+                self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE")
+                self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")  # do not sweep the source (see 7-243 or 590 of the manual)
+                self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                 self.safewrite("trigger.blender[2].orenable = false")
-                self.safewrite(
-                    f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID"
-                )
-                self.safewrite(
-                    f"trigger.blender[2].stimulus[2] = {s['drain']}.trigger.MEASURE_COMPLETE_EVENT_ID"
-                )
-                self.safewrite(
-                    f"{s['source']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID"
-                )
+                self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
+                self.safewrite(f"trigger.blender[2].stimulus[2] = {s['drain']}.trigger.MEASURE_COMPLETE_EVENT_ID")
+                self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID")
 
-                self.safewrite(
-                    f"{s['drain']}.source.func = {s['drain']}.OUTPUT_DCVOLTS"
-                )
+                self.safewrite(f"{s['drain']}.source.func = {s['drain']}.OUTPUT_DCVOLTS")
                 self.safewrite(f"{s['drain']}.source.levelv = {s['drainvoltage']}")
                 self.safewrite(f"{s['drain']}.source.limiti = {s['drainlimit']}")
 

@@ -27,7 +27,6 @@ class pyIVLS_pluginTemplate_plugin:
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
-
     def __init__(self):
         # iterate current directory to find the .ini file
         path = os.path.dirname(__file__)
@@ -78,7 +77,7 @@ class pyIVLS_pluginTemplate_plugin:
         """
         if args is None or args.get("function") == self.function:
             return {self.name: self.pluginClass._get_public_methods()}
-    
+
     @hookimpl
     def set_function(self, function_dict):
         """provides a list of publicly available functions to the plugin as a nested dict
@@ -96,13 +95,12 @@ class pyIVLS_pluginTemplate_plugin:
 
         Args:
             args (_type_, optional): can be used to specify which plugin is needed based on
-            type, function, etc. 
+            type, function, etc.
 
         Returns:
             tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
         """
         raise NotImplementedError()
-
 
     @hookimpl
     def set_plugin(self, plugin_list, args=None):

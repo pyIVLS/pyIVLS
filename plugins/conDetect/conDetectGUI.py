@@ -41,9 +41,7 @@ class conDetectGUI(QObject):
     ########Functions
 
     def __init__(self):
-        super(
-            conDetectGUI, self
-        ).__init__()  ### this is needed if the class is a child of QObject
+        super(conDetectGUI, self).__init__()  ### this is needed if the class is a child of QObject
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
 
@@ -70,7 +68,7 @@ class conDetectGUI(QObject):
     ########Functions
     ################################### internal
 
-    def _parse_settings_preview(self) -> "status":
+    def parse_settings_widget(self) -> "status":
         """Parses the settings widget for the conDetect. Extracts current values
 
         Returns:
@@ -85,14 +83,11 @@ class conDetectGUI(QObject):
     ########GUI Slots
 
     def _connectAction(self):
-        self._parse_settings_preview()
+        self.parse_settings_widget()
         # try to open device
         [status, info] = self.deviceConnect()
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : conDetect plugin :  {info}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : conDetect plugin :  {info}, status = {status}")
             self.info_message.emit(f"conDetect plugin : {info['Error message']}")
             return
         self.connected = True
@@ -105,29 +100,18 @@ class conDetectGUI(QObject):
         self._GUIchange_deviceConnected(self.connected)
         self.closeLock.emit(self.connected)
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : conDetect plugin :  {info}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : conDetect plugin :  {info}, status = {status}")
             self.info_message.emit(f"conDetect plugin : {info['Error message']}")
             self.settingsWidget.connectButton.setEnabled(self.connected)
 
     def _hiConnectionCheck(self):
         if self.loCheck:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : conDetect plugin :  {'Error message':'Simultaneous check of Hi and Lo not permitted'}, status = 1"
-            )
-            self.info_message.emit(
-                f"conDetect plugin : {info['Simultaneous check of Hi and Lo not permitted']}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : conDetect plugin :  {'Error message':'Simultaneous check of Hi and Lo not permitted'}, status = 1")
+            self.info_message.emit(f"conDetect plugin : {info['Simultaneous check of Hi and Lo not permitted']}")
         else:
             [status, info] = self.deviceHiCheck(not self.hiCheck)
             if status:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : conDetect plugin :  {info}, status = {status}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : conDetect plugin :  {info}, status = {status}")
                 self.info_message.emit(f"conDetect plugin : {info['Error message']}")
                 return [status, info]
             else:
@@ -136,28 +120,18 @@ class conDetectGUI(QObject):
 
     def _loConnectionCheck(self):
         if self.hiCheck:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + f" : conDetect plugin :  {'Error message':'Simultaneous check of Hi and Lo not permitted'}, status = 1"
-            )
-            self.info_message.emit(
-                f"conDetect plugin : {info['Simultaneous check of Hi and Lo not permitted']}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : conDetect plugin :  {'Error message':'Simultaneous check of Hi and Lo not permitted'}, status = 1")
+            self.info_message.emit(f"conDetect plugin : {info['Simultaneous check of Hi and Lo not permitted']}")
         else:
             [status, info] = self.deviceLoCheck(not self.loCheck)
             if status:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : conDetect plugin :  {info}, status = {status}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : conDetect plugin :  {info}, status = {status}")
                 self.info_message.emit(f"conDetect plugin : {info['Error message']}")
                 return [status, info]
             else:
                 self.loCheck = not self.loCheck
                 return [0, "OK"]
-                
 
-		
     ########Functions
     ###############GUI setting up
 
@@ -175,13 +149,9 @@ class conDetectGUI(QObject):
     def _GUIchange_deviceConnected(self, status):
         # NOTE: status is inverted, i.e. when preview is started received status should False, when preview is stopped status should be True
         if status:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
         else:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
         self.settingsWidget.sourceText.setEnabled(not status)
         self.settingsWidget.sourceLabel.setEnabled(not status)
         self.settingsWidget.sourceLine.setEnabled(not status)
@@ -198,15 +168,7 @@ class conDetectGUI(QObject):
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-            and method in self.public_methods
-        }
+        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
         return methods
 
     def _getLogSignal(self):
@@ -222,10 +184,10 @@ class conDetectGUI(QObject):
     ########device functions
 
     def deviceConnect(self):
-        status, state = self._parse_settings_preview()
+        status, state = self.parse_settings_widget()
         if status:
             return [status, {"Error message": f"{state}"}]
-        if self.settings.get("source","") == "":
+        if self.settings.get("source", "") == "":
             return [1, {"Error message": "Source address is empty"}]
         try:
             self.functionality.connect(self.settings["source"])
@@ -239,12 +201,8 @@ class conDetectGUI(QObject):
     def deviceDisconnect(self):
         try:
             self.functionality.setDefault()
-            self.settingsWidget.hiConnectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            ) # red
-            self.settingsWidget.loConnectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            ) # red
+            self.settingsWidget.hiConnectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")  # red
+            self.settingsWidget.loConnectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")  # red
             self.functionality.disconnect()
             self.connected = False
             self._GUIchange_deviceConnected(self.connected)
@@ -256,13 +214,9 @@ class conDetectGUI(QObject):
         try:
             self.functionality.hiCheck(status)
             if status:
-                self.settingsWidget.hiConnectionIndicator.setStyleSheet(
-                    "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-                ) # green
+                self.settingsWidget.hiConnectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")  # green
             else:
-                self.settingsWidget.hiConnectionIndicator.setStyleSheet(
-                    "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-                ) # red
+                self.settingsWidget.hiConnectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")  # red
             return [0, "OK"]
         except Exception as e:
             return [4, {"Error message": f"{e}"}]
@@ -271,13 +225,9 @@ class conDetectGUI(QObject):
         try:
             self.functionality.loCheck(status)
             if status:
-                self.settingsWidget.loConnectionIndicator.setStyleSheet(
-                    "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-                )
+                self.settingsWidget.loConnectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
             else:
-                self.settingsWidget.loConnectionIndicator.setStyleSheet(
-                    "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-                )
+                self.settingsWidget.loConnectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
             return [0, "OK"]
         except Exception as e:
             return [4, {"Error message": f"{e}"}]
