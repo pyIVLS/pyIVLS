@@ -20,27 +20,13 @@ from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from threadStopped import thread_with_exception, ThreadStopped
 from enum import Enum
-from plugin_components import LoggingHelper, FileManager, GuiMapper, DependencyManager, SMUHelper, PyIVLSReturn
+from plugin_components import LoggingHelper, FileManager, GuiMapper, DependencyManager, SMUHelper, PyIVLSReturn, DataOrder, PluginException
 
 import numpy as np
 import pandas as pd
 
 
-class timeIVexception(Exception):
-    pass
-
-
-#
-class dataOrder(Enum):
-    V = 1
-    I = 0
-
-
 class specTimeIVGUI:
-    """GUI implementation
-    this class may be a child of QObject if Signals or Slot will be needed
-    """
-
     non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
     public_methods = ["parse_settings_widget", "set_running", "setSettings", "sequenceStep", "set_gui_from_settings"]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
@@ -564,7 +550,7 @@ class specTimeIVGUI:
 
         smu_init_result = self.smuInit()
         if smu_init_result.is_error:
-            raise timeIVexception(smu_init_result.error_message)
+            raise PluginException(smu_init_result.error_message)
 
         # turn off outputs, setup new source
         self.logger.log_debug("_timeIVimplementation: Turning off SMU output.")
@@ -627,7 +613,7 @@ class specTimeIVGUI:
         status, state = function_dict["spectrometer"][spectrometer_name]["spectrometerSetIntegrationTime"](integration_time_setting)
         if status:
             self.logger.log_warn(f"Error setting integration time: {state}")
-            raise timeIVexception(f"Error setting integration time: {state}")
+            raise PluginException(f"Error setting integration time: {state}")
 
         return PyIVLSReturn.success({"message": "Spectrometer initialized successfully"})
 
@@ -641,13 +627,13 @@ class specTimeIVGUI:
         smu_init_result = self._initialize_smu()
         if smu_init_result.is_error:
             self.logger.log_warn(f"Error initializing SMU: {smu_init_result.error_message}")
-            raise timeIVexception(f"Error initializing SMU: {smu_init_result.error_message}")
+            raise PluginException(f"Error initializing SMU: {smu_init_result.error_message}")
         # output channels are now both on.
 
         spectrometer_init_result = self._initialize_spectrometer()
         if spectrometer_init_result.is_error:
             self.logger.log_warn(f"Error initializing Spectrometer: {spectrometer_init_result.error_message}")
-            raise timeIVexception(f"Error initializing Spectrometer: {spectrometer_init_result.error_message}")
+            raise PluginException(f"Error initializing Spectrometer: {spectrometer_init_result.error_message}")
         # spectrometer now connected with integration time set
 
         timeData = []
@@ -669,7 +655,7 @@ class specTimeIVGUI:
             # Handle legacy [status, data] format for smu_getIV
             status, sourceIV = function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
             if status:
-                raise timeIVexception(f"SMU getIV error for source: {sourceIV}")
+                raise PluginException(f"SMU getIV error for source: {sourceIV}")
 
             # fetch IV Data for drain if not in single channel mode
             if not self.settings["singlechannel"]:
@@ -677,7 +663,7 @@ class specTimeIVGUI:
 
                 status, drainIV = function_dict["smu"][smu_name]["smu_getIV"](self.settings["drainchannel"])
                 if status:
-                    raise timeIVexception(f"SMU getIV error for drain: {drainIV}")
+                    raise PluginException(f"SMU getIV error for drain: {drainIV}")
             else:
                 drainIV = None
 
@@ -690,21 +676,21 @@ class specTimeIVGUI:
                 self.axes.cla()
                 self.axes_twinx.cla()
                 timeData.append(toc)
-                sourceV = [sourceIV[dataOrder.V.value]]
+                sourceV = [sourceIV[DataOrder.V.value]]
                 plot_refs = self.axes.plot(timeData, sourceV, "bo")
                 self.axes.set_xlabel("time (s)")
                 self.axes.set_ylabel("Voltage (V)")
                 self._plot_sourceV = plot_refs[0]
                 self.axes_twinx.set_ylabel("Current (A)")
-                sourceI = [sourceIV[dataOrder.I.value]]
+                sourceI = [sourceIV[DataOrder.I.value]]
                 plot_refs = self.axes_twinx.plot(timeData, sourceI, "b*")
                 self._plot_sourceI = plot_refs[0]
 
                 if not self.settings["singlechannel"] and drainIV is not None:
-                    drainV = [drainIV[dataOrder.V.value]]
+                    drainV = [drainIV[DataOrder.V.value]]
                     plot_refs = self.axes.plot(timeData, drainV, "go")
                     self._plot_drainV = plot_refs[0]
-                    drainI = [drainIV[dataOrder.I.value]]
+                    drainI = [drainIV[DataOrder.I.value]]
                     plot_refs = self.axes_twinx.plot(timeData, drainI, "g*")
                     self._plot_drainI = plot_refs[0]
                 else:
@@ -714,15 +700,15 @@ class specTimeIVGUI:
                 self.logger.log_debug("_timeIVimplementation: Updating plots.")
                 timeData.append(toc)
                 self.axes.cla()
-                sourceV.append(sourceIV[dataOrder.V.value])
-                sourceI.append(sourceIV[dataOrder.I.value])
+                sourceV.append(sourceIV[DataOrder.V.value])
+                sourceI.append(sourceIV[DataOrder.I.value])
                 self.axes.plot(timeData, sourceV, "bo")
                 self.axes_twinx.cla()
                 self.axes_twinx.plot(timeData, sourceI, "b*")
 
                 if not self.settings["singlechannel"] and drainIV is not None and drainV is not None and drainI is not None:
-                    drainV.append(drainIV[dataOrder.V.value])
-                    drainI.append(drainIV[dataOrder.I.value])
+                    drainV.append(drainIV[DataOrder.V.value])
+                    drainI.append(drainIV[DataOrder.I.value])
                     self.axes_twinx.plot(timeData, drainI, "g*")
                     self.axes.plot(timeData, drainV, "go")
 
@@ -751,7 +737,7 @@ class specTimeIVGUI:
                 varDict["triggermode"] = 1 if self.spectrometer_settings.get("externalTrigger", False) else 0
                 varDict["name"] = self.spectrometer_settings.get("samplename", "")
                 varDict["timestamp"] = toc
-                sourceIV_formatted = [float(sourceIV[dataOrder.I.value]), float(sourceIV[dataOrder.V.value])]
+                sourceIV_formatted = [float(sourceIV[DataOrder.I.value]), float(sourceIV[DataOrder.V.value])]
 
                 # add IV data to the comment on the spectrometer file
                 if not self.settings["singlechannel"] and drainI is not None and drainV is not None:
@@ -802,7 +788,7 @@ class specTimeIVGUI:
         function_dict = self.dependency_manager.function_dict
         try:
             self._timeIVimplementation()
-        except timeIVexception as e:
+        except PluginException as e:
             self.logger.log_error(f"timeIV plugin implementation stopped because of exception: {e}")
             print("sajfiasjfas")
             exception = 1

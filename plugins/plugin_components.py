@@ -21,6 +21,7 @@ This file includes:
 - CloseLockSignalProvider: Component to provide closelock signal functionality without QObject inheritance
 - public: Decorator to mark a function as public in the plugin system. Also checks that the return type is annotated correctly.
 - PyIVLSReturnCode: Enum for standard return codes for pyIVLS plugins.
+
 - PyIVLSReturn: Class providing a standardized way to handle returns across all plugin GUIs while maintaining full backward compatibility with the existing [status, data] tuple pattern.
 this is still w.i.p, but in my opinion this could simplify the codebase. Some legacy plugins return [status, data] lists instead of tuples, so some standardization will be needed in any case.
 I think it would be the most intuitive to use a class for this, since the current format is not very intuitive. e.g:
@@ -30,6 +31,7 @@ if status:
 else:
     good_value = data
 when unpacking, the data could be anything and contain any keys. lots of room for error.
+
 - is_success: Function to check if a return value indicates success, works with both new and legacy formats.
 - get_error_message: Function to extract error message from return value, works with both new and legacy formats.
 - FileManager: Class for handling file operations for plugins, including creating headers for CSV files and spectrometer files.
@@ -48,7 +50,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QSpinBox, QWidget
 
 
@@ -550,12 +552,16 @@ class FileManager:
         return "Not implemented"
 
 
-class GuiMapper:
+class GuiMapper(QObject):
     """Enhanced GUI field mapper with dynamic type detection and bidirectional conversion."""
 
+    update_gui = pyqtSignal(dict, dict, dict)
+
     def __init__(self, widget, plugin_name):
+        super().__init__()
         self.widget: QWidget = widget
         self.plugin_name: str = plugin_name
+        self.update_gui.connect(self.set_values)
 
     def get_values(self, field_mapping: Dict[str, str], validation_rules: Optional[Dict[str, Dict[str, Any]]] = None) -> PyIVLSReturn:
         """Extract values from GUI widgets with dynamic type detection.
@@ -595,7 +601,18 @@ class GuiMapper:
 
         return PyIVLSReturn.success(result)
 
-    def set_values(self, settings: Dict[str, Any], field_mapping: Dict[str, str], validation_rules: Dict[str, Dict[str, Any]]) -> PyIVLSReturn:
+    def schedule_gui_update(self, settings, field_mapping, validation_rules):
+        """Schedule a GUI update. Callable from other threads to update the GUI safely?
+
+        Args:
+            settings (dict): The settings to apply.
+            field_mapping (dict): The mapping of fields to update.
+            validation_rules (dict): The validation rules to apply.
+        """
+        self.update_gui.emit(settings, field_mapping, validation_rules)
+
+    @pyqtSlot(dict, dict, dict)
+    def set_values(self, settings: dict, field_mapping: dict, validation_rules: dict) -> PyIVLSReturn:
         """Set GUI widget values from settings dictionary with dynamic type detection and conversion.
 
         Args:
@@ -720,8 +737,8 @@ class GuiMapper:
 class DataOrder(Enum):
     """Enum for data ordering."""
 
-    VOLTAGE = 1
-    CURRENT = 0
+    V = 1
+    I = 0
 
 
 class PluginException(Exception):
@@ -939,10 +956,8 @@ class DependencyManager:
                 dependency_settings[settings_key] = settings
 
             except KeyError as e:
-
                 return PyIVLSReturn.missing_dependency(f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}")
             except Exception as e:
-
                 return PyIVLSReturn.missing_dependency(f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}")
 
         return PyIVLSReturn.success(dependency_settings)
@@ -1091,3 +1106,21 @@ class SMUHelper:
             return PyIVLSReturn.hardware_error(f"SMU initialization failed: {str(e)}", self.plugin_name)
 
         return PyIVLSReturn.success({"smu_config": s})
+
+
+class GuiPluginBase:
+    """TODO"""
+
+    @property
+    def settings(self):
+        return self._settings
+
+    @settings.setter
+    def settings(self, value: Dict[str, Any]):
+        """Settings setter. Could be a useful tool to validate settings before applying, or automatically updating GUI elements."""
+        if not isinstance(value, dict):
+            raise ValueError("Settings must be a dictionary")
+        self._settings = value
+
+    def __init__(self):
+        self._settings = {}

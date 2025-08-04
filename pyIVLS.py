@@ -50,8 +50,7 @@ def update_settings_widget():
             plugin_name = list(closeLockSignal_dict.keys())[0]
             signal = closeLockSignal_dict[plugin_name]
             # Use lambda to capture plugin_name
-            signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name), 
-                          type=Qt.ConnectionType.UniqueConnection)
+            signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name), type=Qt.ConnectionType.UniqueConnection)
         except Exception:
             pass
 
@@ -77,6 +76,7 @@ if __name__ == "__main__":
 
     pluginsContainer.log_message.connect(GUI_mainWindow.addDataLog)
     GUI_mainWindow.seqBuilder.info_message.connect(GUI_mainWindow.show_message)
+    GUI_mainWindow.seqBuilder.log_message.connect(GUI_mainWindow.addDataLog)
 
     GUI_mainWindow.window.actionWrite_settings_to_file.triggered.connect(pluginsContainer.save_settings)
     GUI_mainWindow.update_config_signal.connect(pluginsContainer.update_config_file)
