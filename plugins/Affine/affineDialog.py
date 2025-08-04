@@ -81,7 +81,7 @@ class dialog(QDialog):
             self.ui.residualCombo.addItem(str(residual))
 
         # Fill backend combobox
-        backends = ["SIFT", "ORB", "BRIEF"]
+        backends = ["SIFT", "ORB"]
         for backend in backends:
             self.ui.backendCombo.addItem(backend)
 

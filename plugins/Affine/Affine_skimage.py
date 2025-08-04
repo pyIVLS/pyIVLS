@@ -10,7 +10,7 @@ import skimage as ski
 from klayout import lay
 
 # Sift detection moved over to skimage since I prefer it.
-from skimage.feature import SIFT, ORB, BRIEF, match_descriptors
+from skimage.feature import SIFT, ORB, match_descriptors
 
 
 class Preprocessor:
@@ -189,7 +189,7 @@ class Affine_IO:
 class Affine:
     """
     Calculates the affine transformation between two images using feature keypoints and descriptors.
-    Supports multiple backends: SIFT, ORB, and BRIEF. Assumes the images are grayscale or RGB (converted internally).
+    Supports multiple backends: SIFT, ORB, and . Assumes the images are grayscale or RGB (converted internally).
     Usage:
         - Create an Affine object.
         - Load the mask image using update_internal_mask().
@@ -265,15 +265,14 @@ class Affine:
             return SIFT()
         elif self.backend == "ORB":
             return ORB()
-        elif self.backend == "BRIEF":
-            return BRIEF()
+
         else:
             raise AffineError(f"Unsupported backend: {self.backend}", 4)
 
     def try_match(self, img: np.ndarray) -> bool:
         """
         Attempts to find the affine transformation between the input image and
-        mask using feature keypoints and descriptors (SIFT, ORB, or BRIEF).
+        mask using feature keypoints and descriptors (SIFT, ORB,).
         Args:
             img (np.ndarray): Input image to match with the mask.
         Returns:
