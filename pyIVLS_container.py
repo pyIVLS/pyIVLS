@@ -35,6 +35,11 @@ class pyIVLS_container(QObject):
         classname = self.__class__.__name__
         self.log_message.emit(f"{classname} : {message}")
 
+    def emit_error(self, message: str):
+        """Emit an error message to the log."""
+        classname = self.__class__.__name__
+        self.log_message.emit(f"{classname} : ERROR : {message}")
+
     #### Slots for communication
     @pyqtSlot()
     def read_available_plugins(self):
@@ -81,7 +86,7 @@ class pyIVLS_container(QObject):
                     self.config[section]["hidden"] = "False"
 
         if changes_applied:
-            self.public_function_exchange()  
+            self.public_function_exchange()
             self.plugins_updated_signal.emit()
             self.cleanup()
 
@@ -164,11 +169,11 @@ class pyIVLS_container(QObject):
             self.cleanup()
 
         except ImportError as e:
-            self.emit_log(f" : Failed to import plugin {plugin_name} from {plugin_address}: {e}")
+            self.emit_error(f" : Failed to import plugin {plugin_name} from {plugin_address}: {e}")
         except AttributeError as e:
-            self.emit_log(f" : Failed to get plugin class {class_name} from module {module_name}: {e}.")
+            self.emit_error(f" : Failed to get plugin class {class_name} from module {module_name}: {e}.")
         except Exception as e:
-            self.emit_log(f" : Unknown exception when importing {plugin_name}: {e}")
+            self.emit_error(f" : Unknown exception when importing {plugin_name}: {e}")
         finally:
             sys.path.remove(self.path + "plugins" + sep + new_config[section_plugin]["address"])
 
@@ -197,7 +202,7 @@ class pyIVLS_container(QObject):
         current_config: list = self.pm.hook.get_plugin_settings()
         for plugin, code, settings in current_config:
             if code != 0:
-                self.emit_log(f"Error saving settings for plugin {plugin}: {code}, {settings['Error message']}")
+                self.emit_error(f"Error saving settings for plugin {plugin}: {code}, {settings['Error message']}, {settings.get('Error message', 'No error message')}")
                 continue
             if self.config.has_section(f"{plugin}_settings"):
                 for key, value in settings.items():
@@ -340,7 +345,7 @@ class pyIVLS_container(QObject):
                 # Commented out since I think it is not needed. Might lead to issues where reloading the plugin removes the path.
                 return False
         except (ImportError, AttributeError) as e:
-            self.emit_log(f"Failed to load plugin {plugin_name}: {e}")
+            self.emit_error(f"Failed to load plugin {plugin_name}: {e}")
             self.config[plugin]["load"] = "False"
             sys.path.remove(self.path + "plugins" + sep + self.config[plugin]["address"])
             return False
@@ -378,10 +383,10 @@ class pyIVLS_container(QObject):
             # plugin not registered, do nothing.
             return False
         except ImportError:
-            self.emit_log(f"Failed to unload plugin {plugin}")
+            self.emit_error(f"Failed to unload plugin {plugin}")
             return False
         except AttributeError as e:
-            self.emit_log(f"Failed to unload plugin {plugin}: {e}")
+            self.emit_error(f"Failed to unload plugin {plugin}: {e}")
             return False
 
     def register_start_up(self):

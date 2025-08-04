@@ -37,15 +37,15 @@ class LogHighlighter(QSyntaxHighlighter):
         self.highlighting_rules.append(("pyIVLS session started", session_format))
 
     def highlightBlock(self, text):
-        text = str(text)  
+        text = str(text)
         for pattern, fmt in self.highlighting_rules:
             start_index = text.find(pattern)
             while start_index != -1:
                 self.setFormat(start_index, len(pattern), fmt)
                 start_index = text.find(pattern, start_index + len(pattern))
 
-class TraceGui(QObject):
 
+class TraceGui(QObject):
     def __init__(self):
         super().__init__()
         self.log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -75,16 +75,16 @@ class TraceGui(QObject):
         self.lineCountSpin.setRange(100, 100000)
         self.liveUpdateCheck = QCheckBox("Live update")
         self.liveUpdateCheck.setChecked(True)
-        
+
         # Log rotation settings
         self.autoRotateCheck = QCheckBox("Auto-rotate log file")
         self.autoRotateCheck.setToolTip("Automatically truncate log file when it gets too large")
         self.maxFileSizeLabel = QLabel("Max file size (MB):")
         self.maxFileSizeSpin = QSpinBox()
         self.maxFileSizeSpin.setRange(1, 1000)
-        self.maxFileSizeSpin.setValue(10)  # Default 10 MB
+        self.maxFileSizeSpin.setValue(10)
         self.maxFileSizeSpin.setToolTip("Maximum log file size before rotation")
-        
+
         layout.addWidget(self.logFileLabel)
         layout.addWidget(self.logFilePathEdit)
         layout.addWidget(self.browseButton)
@@ -113,7 +113,7 @@ class TraceGui(QObject):
         self.lineCountSpin.valueChanged.connect(self._set_line_count)
         self.liveUpdateCheck.toggled.connect(self._set_live_update)
         self.autoRotateCheck.toggled.connect(self._set_auto_rotate)
-    
+
     def _set_live_update(self, checked):
         if checked:
             if self.log_file_path and os.path.exists(self.log_file_path):
@@ -127,21 +127,19 @@ class TraceGui(QObject):
         self.maxFileSizeSpin.setEnabled(checked)
         self.maxFileSizeLabel.setEnabled(checked)
 
-
-
     def _check_and_rotate_log(self):
         """Check if log file needs rotation and perform it if necessary."""
         if not self.autoRotateCheck.isChecked() or not self.log_file_path:
             return
-            
+
         if not os.path.exists(self.log_file_path):
             return
-            
+
         try:
             # Get current file size in MB
             file_size_mb = os.path.getsize(self.log_file_path) / (1024 * 1024)
             max_size_mb = self.maxFileSizeSpin.value()
-            
+
             if file_size_mb > max_size_mb:
                 self._rotate_log_file()
         except Exception as e:
@@ -153,25 +151,26 @@ class TraceGui(QObject):
             # Read all lines
             with open(self.log_file_path, "r", encoding="utf-8", errors="ignore") as f:
                 all_lines = f.readlines()
-            
+
             # Keep 50 % of lines
             keep_lines = len(all_lines) // 2
             recent_lines = all_lines[-keep_lines:]
-            
+
             # Write back the truncated content
             with open(self.log_file_path, "w", encoding="utf-8") as f:
                 f.writelines(recent_lines)
-                
+
             # Add a marker to indicate rotation occurred
             with open(self.log_file_path, "a", encoding="utf-8") as f:
                 from datetime import datetime
+
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 f.write(f"\n{timestamp} : INFO : Log file rotated - keeping last {keep_lines} entries\n")
-                
+
             # Reset position to reload the view
             self.last_pos = 0
             self.logView.clear()
-            
+
         except Exception as e:
             print(f"Error rotating log file: {e}")
 
@@ -203,10 +202,10 @@ class TraceGui(QObject):
     def _update_log_view(self):
         if not self.log_file_path or not os.path.exists(self.log_file_path):
             return
-            
+
         # Check if log rotation is needed
         self._check_and_rotate_log()
-        
+
         # read file
         with open(self.log_file_path, "r", encoding="utf-8", errors="ignore") as f:
             all_lines = f.readlines()
@@ -214,11 +213,11 @@ class TraceGui(QObject):
         filtered_lines = [line for line in all_lines if line.strip() and self._line_passes_filter(line)]
         # Limit to last MAX_LOG_LINES
         if len(filtered_lines) > self.MAX_LOG_LINES:
-            filtered_lines = filtered_lines[-self.MAX_LOG_LINES:]
+            filtered_lines = filtered_lines[-self.MAX_LOG_LINES :]
         # If session only, cut off at the session marker (but only within the last MAX_LOG_LINES)
         if self.sessionOnlyCheck.isChecked():
             session_marker = "pyIVLS session started"
-            for i in range(len(filtered_lines)-1, -1, -1):
+            for i in range(len(filtered_lines) - 1, -1, -1):
                 if session_marker in filtered_lines[i]:
                     filtered_lines = filtered_lines[i:]
                     break
@@ -255,10 +254,10 @@ class TraceGui(QObject):
             "show_current_session": str(self.sessionOnlyCheck.isChecked()),
             "show_level": self.levelCombo.currentText(),
             "display_line_count": str(self.lineCountSpin.value()),
-            "poll_frequency": "1000",
+            "poll_frequency": "1000",  # default, not possible to set in UI
             "live_update": str(self.liveUpdateCheck.isChecked()),
             "auto_rotate": str(self.autoRotateCheck.isChecked()),
-            "max_file_size_mb": str(self.maxFileSizeSpin.value())
+            "max_file_size_mb": str(self.maxFileSizeSpin.value()),
         }
         return 0, settings
 
@@ -278,17 +277,16 @@ class TraceGui(QObject):
             self.levelCombo.setCurrentIndex(idx)
         self.lineCountSpin.setValue(int(settings["display_line_count"]))
         self.liveUpdateCheck.setChecked(settings.get("live_update", "True") == "True")
-        
+
         # Handle new rotation settings with defaults for backward compatibility
         self.autoRotateCheck.setChecked(settings.get("auto_rotate", "False") == "True")
         self.maxFileSizeSpin.setValue(int(settings.get("max_file_size_mb", "10")))
-        
+
         # Enable/disable max file size controls based on auto-rotate setting
         auto_rotate_enabled = self.autoRotateCheck.isChecked()
         self.maxFileSizeSpin.setEnabled(auto_rotate_enabled)
         self.maxFileSizeLabel.setEnabled(auto_rotate_enabled)
-        
-        # poll_frequency is not used in the UI, but could be set here if needed
+
         # Automatically open the stored logfile if present
         log_file = settings["log_file"]
         if log_file and os.path.exists(log_file):
@@ -297,6 +295,6 @@ class TraceGui(QObject):
             self.logView.clear()
             self._update_log_view()
             if self.liveUpdateCheck.isChecked():
-                self.timer.start(int(settings["poll_frequency"]))  # Ensure timer is started for live updates
+                self.timer.start(int(settings["poll_frequency"]))  # Start update timer
             else:
                 self.timer.stop()

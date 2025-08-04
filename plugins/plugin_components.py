@@ -22,6 +22,14 @@ This file includes:
 - public: Decorator to mark a function as public in the plugin system. Also checks that the return type is annotated correctly.
 - PyIVLSReturnCode: Enum for standard return codes for pyIVLS plugins.
 - PyIVLSReturn: Class providing a standardized way to handle returns across all plugin GUIs while maintaining full backward compatibility with the existing [status, data] tuple pattern.
+this is still w.i.p, but in my opinion this could simplify the codebase. Some legacy plugins return [status, data] lists instead of tuples, so some standardization will be needed in any case.
+I think it would be the most intuitive to use a class for this, since the current format is not very intuitive. e.g:
+status, data = plugin.try_something()
+if status:
+    logger.log(data["error message"])
+else:
+    good_value = data
+when unpacking, the data could be anything and contain any keys. lots of room for error.
 - is_success: Function to check if a return value indicates success, works with both new and legacy formats.
 - get_error_message: Function to extract error message from return value, works with both new and legacy formats.
 - FileManager: Class for handling file operations for plugins, including creating headers for CSV files and spectrometer files.
@@ -29,6 +37,7 @@ This file includes:
 - DependencyManager: Class to handle dependencies between plugins, including checking for missing dependencies and handling dependency-related GUI changes
 - LoggingHelper: Class for logging messages with different severity levels
 - SMUHelper: I don't know what this is yet.
+
 
 """
 
@@ -67,11 +76,13 @@ def public(func):
     """Decorator to mark a function as public in the plugin system. Also checks that the return type is annotated correctly.
     HOX: this does not enforce anything but that the annotation is correct. The user can still return anything, but any IDE or linter should at least warn the developer about it.
     """
+    # currently enforcement of the return type is not active.
+    """
     expected_type = PyIVLSReturn
     sig = inspect.signature(func)
 
     assert sig.return_annotation == expected_type, f"Function '{func.__name__}' must have return type annotation {expected_type}, but got {sig.return_annotation}"
-
+    """
     func._is_public = True
     return func
 
@@ -86,11 +97,7 @@ def get_public_methods(obj) -> List[str]:
     Returns:
         List of method names that are public
     """
-    return [
-        name
-        for name in dir(obj)
-        if callable(getattr(obj, name, None)) and getattr(getattr(obj, name, None), "_is_public", False)
-    ]
+    return [name for name in dir(obj) if callable(getattr(obj, name, None)) and getattr(getattr(obj, name, None), "_is_public", False)]
 
 
 class PyIVLSReturnCode(Enum):
@@ -108,6 +115,9 @@ class PyIVLSReturn:
     """
     This class provides a standardized way to handle returns across all plugin (GUIs, since the ll-implementation should be stand-alone) while
     maintaining full backward compatibility with the existing [status, data] tuple pattern.
+    TODO:
+    - add a field for the exception that was raised instead of just the exception as a str. Might help future debugging.
+    (To be fair, this would just be reinventing the exception wheel again. )
     """
 
     def __init__(self, code: PyIVLSReturnCode, data: Dict[str, Any]):
@@ -150,7 +160,6 @@ class PyIVLSReturn:
     def error_message(self) -> str:
         """Get error message if present, empty string otherwise."""
         return self._data.get("Error message", "")
-
 
     def to_tuple(self) -> Tuple[int, Dict[str, Any]]:
         """Convert to legacy tuple format"""
@@ -228,7 +237,7 @@ class PyIVLSReturn:
         """
         data = {"Error message": message}
         if missing_functions:
-            data["Missing functions"] = missing_functions  # type: ignore
+            data["Missing functions"] = missing_functions
         data.update(extra_data)
         return cls(PyIVLSReturnCode.MISSING_DEPENDENCY, data)
 

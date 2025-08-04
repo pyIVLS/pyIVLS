@@ -22,7 +22,7 @@ stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(logging.Formatter("%(asctime)s : %(levelname)s : %(message)s"))
 
-# Configure root logger
+# Configure logger, print all to file and info and above to the console
 logging.basicConfig(level=logging.DEBUG, handlers=[file_handler, stream_handler])
 
 
@@ -86,7 +86,7 @@ class pyIVLS_GUI(QObject):
 
     @pyqtSlot()
     def reactClose(self):
-        if hasattr(self, "_blocking_plugins") and self._blocking_plugins:
+        if self._blocking_plugins:
             plugin_list = ", ".join(sorted(self._blocking_plugins))
             self.show_message(f"Cannot close: The following plugins are still active: {plugin_list}. Stop running processes and disconnect devices before closing.")
         else:
@@ -94,9 +94,6 @@ class pyIVLS_GUI(QObject):
 
     def setCloseLock(self, value, plugin_name=None):
         # Track which plugins are blocking closure
-        if not hasattr(self, "_blocking_plugins"):
-            self._blocking_plugins = set()
-
         if plugin_name:
             if value:
                 self._blocking_plugins.add(plugin_name)
@@ -235,7 +232,7 @@ class pyIVLS_GUI(QObject):
     def __init__(self):
         super(pyIVLS_GUI, self).__init__()
         self.path = dirname(__file__) + sep
-
+        self._blocking_plugins = set()  # Track plugins that block closure for user visibility
         self.window = pyIVLS_mainWindow(self.path)
         self.pluginloader = pyIVLS_pluginloader(self.path)
         self.seqBuilder = pyIVLS_seqBuilder(self.path)
