@@ -31,8 +31,8 @@
      <property name="title">
       <string>Plugins</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout">
-      <item row="0" column="0">
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
        <widget class="QTableWidget" name="pluginList">
         <property name="sortingEnabled">
          <bool>true</bool>

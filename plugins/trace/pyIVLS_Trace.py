@@ -1,4 +1,3 @@
-#!/usr/bin/python3.8
 import pluggy
 import os
 import configparser
@@ -56,10 +55,8 @@ class pyIVLS_Trace_plugin:
         if args is None or args.get("function") == self.function:
             return {self.name: self.trace_control.MDIWidget}
 
-
     @hookimpl
     def get_plugin_settings(self, args=None):
         """Returns the current settings as (name, status, settings_dict)."""
-        print("pyIVLS_Trace_plugin.get_plugin_settings called")
         status, settings = self.trace_control.parse_settings_widget()
         return (self.metadata["name"], status, settings)

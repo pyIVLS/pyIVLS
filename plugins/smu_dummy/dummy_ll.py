@@ -157,14 +157,32 @@ class dummy_ll(QObject):
         """
         if channel == "smua" or channel == "smub":
             try:
+                # Get resistance reading.
+                res = self.safequery(f"print({channel}.measure.r())")
+                return res
+            except Exception as e:
+                print(f"Error measuring resistance: {e}")
+                return -1
+
+        else:
+            raise ValueError(f"Invalid channel {channel}")
+
+    def resistance_measurement_setup(self, channel) -> bool:
+        """Measure the resistance at the probe.
+
+        Returns:
+            bool: success
+        """
+        if channel == "smua" or channel == "smub":
+            try:
                 # Restore Series 2600B defaults.
                 self.safewrite(f"{channel}.reset()")
                 # Select current source function.
                 self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
-                # Set source range to 10 mA.
-                self.safewrite(f"{channel}.source.rangei = 10e-3")
-                # Set current source to 10 mA.
-                self.safewrite(f"{channel}.source.leveli = 10e-3")
+                # Set source range to 1 mA.
+                self.safewrite(f"{channel}.source.rangei = 10e-4")
+                # Set current source to 1 mA.
+                self.safewrite(f"{channel}.source.leveli = 10e-4")
                 # Set voltage limit to 1 V. FIXME: Value of 1 v is arbitrary.
                 self.safewrite(f"{channel}.source.limitv = 1")
                 # Enable 2-wire ohms. FIXME: Check this
@@ -173,15 +191,10 @@ class dummy_ll(QObject):
                 self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
                 # Turn on output.
                 self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
-                # Get resistance reading.
-                res = self.safequery(f"print({channel}.measure.r())")
-                return res
-            except Exception as e:
-                print(f"Error measuring resistance: {e}")
-                return -1
-            finally:
-                self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
-                self.safewrite(f"{channel}.source.leveli = 0")
+                return True
+            except Exception:
+                return False
+
         else:
             raise ValueError(f"Invalid channel {channel}")
 
@@ -520,13 +533,36 @@ class dummy_ll(QObject):
 
             return 0
 
+    #            except:
+    #                # if something fails, abort the measurement and turn off the source.
+    #                self.safewrite(f"{s['source']}.abort()")
+    #                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
+    #                if not s["single_ch"]:
+    #                      self.safewrite(f"{s['drain']}.abort()")
+    #                      self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
+    #
+    #                return 1
+    def set_digio(self, line_id: int, value: bool):
+        """Set a digital I/O line to a value.
 
-#            except:
-#                # if something fails, abort the measurement and turn off the source.
-#                self.safewrite(f"{s['source']}.abort()")
-#                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
-#                if not s["single_ch"]:
-#                      self.safewrite(f"{s['drain']}.abort()")
-#                      self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
-#
-#                return 1
+        Args:
+            line_id (int): digio id. see keithley 2600b reference manual p.4-41 for details.
+            value (bool): The value to set the line to (True for HIGH, False for LOW) low=0v, high=5v. See 2600b reference manual p.4-39 for details.
+        Returns:
+            bool: last value of the line before writing to it (True for HIGH, False for LOW).
+        """
+        # set the line to be user controlled.
+        self.safewrite(f"digio.trigger[{line_id}].mode = digio.TRIG_BYPASS")
+
+        # fetch return
+        last_value = self.safequery(f"print(digio.readbit({line_id}))")
+
+        # write to the line
+        self.safewrite(f"digio.writebit({line_id}, {int(value)})")
+        # get set value for validation
+        curr_value = self.safequery(f"print(digio.readbit({line_id}))")
+        curr_value = True if int(curr_value) == 1 else False
+        if curr_value != value:
+            raise ValueError(f"Failed to set digio line {line_id} to {value}. Current value is {curr_value}.")
+
+        return True if int(last_value) == 1 else False

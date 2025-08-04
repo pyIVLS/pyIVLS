@@ -87,17 +87,17 @@ def public(func):
     return func
 
 
-def get_public_methods(obj) -> List[str]:
+def get_public_methods(obj) -> Dict:
     """
-    Get a list of public methods in an object instance that are marked with the @public decorator.
+    Get a dict of public methods in an object instance that are marked with the @public decorator.
 
     Args:
         obj: Object instance to inspect
 
     Returns:
-        List of method names that are public
+        Dict of method names to their callable objects
     """
-    return [name for name in dir(obj) if callable(getattr(obj, name, None)) and getattr(getattr(obj, name, None), "_is_public", False)]
+    return {name: getattr(obj, name) for name in dir(obj) if callable(getattr(obj, name, None)) and getattr(getattr(obj, name, None), "_is_public", False)}
 
 
 class PyIVLSReturnCode(Enum):
@@ -928,27 +928,21 @@ class DependencyManager:
 
             # Extract settings from the dependency plugin
             try:
-                parse_function = self._function_dict[dependency_type][selected_plugin]["parse_settings_widget"]
-
-                # Handle both old tuple format and new PyIVLSReturn format
-                result = parse_function()
-                if isinstance(result, PyIVLSReturn):
-                    if not result.is_success:
-                        return PyIVLSReturn.dependency_error(result.data)
-                    settings = result.data
+                status, state = self._function_dict[dependency_type][selected_plugin]["parse_settings_widget"]()
+                if status:
+                    return PyIVLSReturn.dependency_error({"Error message": state})
                 else:
-                    # Legacy tuple format
-                    status, settings = result
-                    if status:
-                        return PyIVLSReturn.dependency_error(settings)
+                    settings = state
 
                 # Store settings with a standardized key
                 settings_key = f"{dependency_type}_settings"
                 dependency_settings[settings_key] = settings
 
             except KeyError as e:
+
                 return PyIVLSReturn.missing_dependency(f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}")
             except Exception as e:
+
                 return PyIVLSReturn.missing_dependency(f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}")
 
         return PyIVLSReturn.success(dependency_settings)
@@ -1003,7 +997,7 @@ class LoggingHelper(QObject):
             exc_type, exc_value, exc_tb = sys.exc_info()
             if exc_type is not None:
                 trace = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
-                log += f"\nTraceback (most recent call last):\n{trace}"
+                log += f"\n{trace}"
             else:
                 # Outside of exception block — include current stack
                 stack = "".join(traceback.format_stack()[:-1])  # remove the current function call

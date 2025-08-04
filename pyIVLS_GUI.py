@@ -1,5 +1,6 @@
 from os.path import dirname, sep
 import logging
+import re
 
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QObject, Qt, pyqtSlot, pyqtSignal
@@ -50,38 +51,32 @@ class pyIVLS_GUI(QObject):
         msg.exec()
 
     @pyqtSlot(str)
-    def addDataLog(
-        self,
-        message: str,
-    ):
+    def addDataLog(self, message: str):
         """
-        Logs a message to both stdout and a log file.
+        Logs a message to both stdout and a log file, using flags in the message to determine log level.
 
         Args:
             message (str): The message to log.
         """
-        removed_verbose_flag = message.lower().replace(": verbose :", ":")
-        removed_info_flag = removed_verbose_flag.lower().replace(": info :", ":")
-        removed_warn_flag = removed_info_flag.lower().replace(": warn :", ":")
-        removed_debug_flag = removed_warn_flag.lower().replace(": debug :", ":")
-        removed_error_flag = removed_debug_flag.lower().replace(": error :", ":")
-        if len(removed_verbose_flag) != len(message):
-            # Contains the verbose flag
-            logging.debug(removed_verbose_flag)
-        elif len(removed_debug_flag) != len(message):
-            # Contains the debug flag
-            logging.debug(removed_debug_flag)
-        elif len(removed_info_flag) != len(message):
-            # Contains the info flag
-            logging.info(removed_info_flag)
-        elif len(removed_warn_flag) != len(message):
-            # Contains the warn flag
-            logging.warning(removed_warn_flag)
-        elif len(removed_error_flag) != len(message):
-            # Contains the error flag
-            logging.error(removed_error_flag)
+        # Define mapping of flags to logging functions
+        flag_map = {
+            ": verbose :": logging.debug,
+            ": debug :": logging.debug,
+            ": info :": logging.info,
+            ": warn :": logging.warning,
+            ": error :": logging.error,
+        }
+
+        # Search for a flag in the message (case-insensitive)
+        match = re.search(r": (verbose|debug|info|warn|error) :", message, re.IGNORECASE)
+        if match:
+            flag = match.group(0).lower()
+            log_func = flag_map.get(flag, logging.info)
+            # Remove the flag from the message for cleaner output
+            clean_message = re.sub(re.escape(flag), ":", message, flags=re.IGNORECASE)
+            log_func(clean_message)
         else:
-            # base case for no flags
+            # Default to info if no flag is found
             logging.info(message)
 
     @pyqtSlot()

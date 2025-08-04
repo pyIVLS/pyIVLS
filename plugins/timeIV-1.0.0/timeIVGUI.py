@@ -432,7 +432,7 @@ class timeIVGUI(QObject):
         self._source_inject_changed(self.settingsWidget.comboBox_inject.currentIndex())
         self._drain_inject_changed(self.settingsWidget.comboBox_drainInject.currentIndex())
         self._smu_plugin_changed()
-        
+
     def _single_channel_changed(self, int):
         """Handles the visibility of the drain input fields based use single chennel box"""
         if self.settingsWidget.checkBox_singleChannel.isChecked():
@@ -639,7 +639,8 @@ class timeIVGUI(QObject):
         s["drain"] = self.settings["drainchannel"]
         s["type"] = "v" if self.settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
         s["single_ch"] = self.settings["singlechannel"]  # single channel mode: may be True or False
-
+        s["start"] = self.settings["sourcevalue"]  # start value for source in voltage mode or for drain in current mode (may not be used in single channel mode)
+        s["end"] = self.settings["sourcevalue"]  # end value for source in
         s["sourcenplc"] = self.settings["sourcenplc"]  # drain NPLC (may not be used in single channel mode)
         s["delay"] = True if self.settings["sourcedelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
         s["delayduration"] = self.settings["sourcedelay"]  # stabilization time duration if manual (may not be used in single channel mode)

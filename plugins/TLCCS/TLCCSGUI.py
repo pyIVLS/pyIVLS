@@ -315,14 +315,7 @@ class TLCCS_GUI(QObject):
             self.closeLock.emit(False)
             return [4, {"Error message": "TLCCSGUI: spectrometer is not in IDLE state when setting auto integration time"}]
 
-    def getAutoTime(
-        self,
-        external_action=None,
-        external_action_args=None,
-        external_cleanup=None,
-        external_cleanup_args=None,
-        pause_duration: float = 0.0
-    ) -> tuple[int, float | dict]:
+    def getAutoTime(self, external_action=None, external_action_args=None, external_cleanup=None, external_cleanup_args=None, pause_duration: float = 0.0) -> tuple[int, float | dict]:
         """
         Calculates the optimal integration time, allowing external actions and cleanup with arguments.
 

@@ -44,10 +44,10 @@ from threading import Lock
 import copy
 
 from mockspec import MockCCSDRV
-from plugin_components import PyIVLSReturn, LoggingHelper, public, get_public_methods, CloseLockSignalProvider
+from plugin_components import PyIVLSReturn, LoggingHelper, public, get_public_methods, CloseLockSignalProvider, FileManager
 
 
-class dummy_spectro_GUI(QObject):
+class dummy_spectro_GUI:
     """spectrometer plugin for pyIVLS"""
 
     #    filedelimeter = "\t"
@@ -63,11 +63,10 @@ class dummy_spectro_GUI(QObject):
 
     ########Functions
     def __init__(self):
-        super(QObject, self).__init__()
         # init components
-        self.logger = LoggingHelper(self.__class__.__name__)
+        self.logger = LoggingHelper(self)
         self.closelock = CloseLockSignalProvider()
-
+        self.fm = FileManager()
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
         ##IRtothink#### I do not like have filename hardly coded,
@@ -131,23 +130,14 @@ class dummy_spectro_GUI(QObject):
         Returns:
             _type_: _description_
         """
-        result = self.spectrometerGetScan()
-        # Handle both PyIVLSReturn and legacy tuple
-        if isinstance(result, tuple):
-            status, info = result
-        elif hasattr(result, "to_tuple"):
-            status, info = result.to_tuple()
-        else:
-            status, info = 1, {"Error message": "Unknown error"}
+        [status, info] = self.spectrometerGetScan()
         if status:
             self.scanRunning = False
             return [status, info]
-        # info should be a dict with 'spectrum' key after refactor
-        spectrum = info["spectrum"] if isinstance(info, dict) and "spectrum" in info else info
         if self.settings["previewCorrection"]:
-            preview_data = [m * n * 1000 for m, n in zip(spectrum, self.correction[:, 1])]
+            preview_data = [m * n * 1000 for m, n in zip(info, self.correction[:, 1])]
         else:
-            preview_data = spectrum
+            preview_data = info
         try:
             xmin, xmax = self.axes.get_xlim()
             ymin, ymax = self.axes.get_ylim()
@@ -158,11 +148,10 @@ class dummy_spectro_GUI(QObject):
             self.axes.set_xlim(xmin, xmax)
             self.axes.set_ylim(ymin, ymax)
             self.sc.draw()
-            self.lastspectrum = [spectrum, self.settings]
-            return [0, [self.correction[:, 0], spectrum]]
+            self.lastspectrum = [info, self.settings]
+            return [0, [self.correction[:, 0], info]]
         except Exception as e:
             self.logger.log_error(f"Error updating spectrum: {e}")
-            return [1, {"Error message": f"Error updating spectrum: {e}"}]
 
     ########Functions
     ########GUI Slots
@@ -227,22 +216,21 @@ class dummy_spectro_GUI(QObject):
         try:
             while self.preview_running:
                 if self.integrationTimeChanged:
-                    result = self.spectrometerSetIntegrationTime(self.settings["integrationTime"])
-                    status, info = result if isinstance(result, tuple) else result.to_tuple() if hasattr(result, "to_tuple") else (1, {"Error message": "Unknown error"})
+                    [status, info] = self.spectrometerSetIntegrationTime(self.settings["integrationTime"])
                     self.integrationTimeChanged = False
                     if self.settings["integrationTime"] * 1000 < self.default_timerInterval:
                         self.sleep_time = self.default_timerInterval / 1000
                     else:
                         self.sleep_time = self.settings["integrationTime"]
                     if status:
-                        self.logger.log_warn(f" : TLCCS plugin : {info}, status = {status}")
+                        self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                         self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
                         self.preview_running = False
                         return [status, info]
                 time.sleep(self.sleep_time)
-                status, info = self._update_spectrum()
+                [status, info] = self._update_spectrum()
                 if status:
-                    self.logger.log_warn(f" : TLCCS plugin : {info}, status = {status}")
+                    self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                     if not status == 1:
                         self.logger.info_popup(f"TLCCS plugin : {info}")
                     self.preview_running = False
@@ -255,16 +243,16 @@ class dummy_spectro_GUI(QObject):
 
     def _setIntTimeAction(self):
         if self.preview_running:  # this function is useful only in preview mode
-            status, info = self._parse_settings_integrationTime()
+            [status, info] = self._parse_settings_integrationTime()
             if status:
-                self.logger.log_warn(f" : TLCCS plugin : {info}, status = {status}")
+                self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                 self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
                 return [status, info]
             self.integrationTimeChanged = True
             return [0, "OK"]
 
     def _saveAction(self):
-        status, info = self._parseSaveData()
+        [status, info] = self._parseSaveData()
         if status:
             self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
             return [status, info]
@@ -278,34 +266,34 @@ class dummy_spectro_GUI(QObject):
 
     def _getTimeAction(self):
         preview_status = False
-        status, info = self._parse_settings_autoTime()
+        [status, info] = self._parse_settings_autoTime()
         if status:
-            self.logger.log_warn(f" : TLCCS plugin : {info}, status = {status}")
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
             self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
             return [status, info]
         if self.preview_running:
             preview_status = self.preview_running
             self._previewAction()
-        self.settingsWidget.saveButton.setEnabled(False)  # type: ignore
-        self.closelock.emit_close_lock(True)
+        self.settingsWidget.saveButton.setEnabled(False)
+        self.closeLock.emit(True)
         # check if get time may be used (spectrometer IDLE)
         statuses = self.drv.get_device_status()
         if "SCAN_IDLE" in statuses:
             status, autoTime = self.getAutoTime()
             if not status:
-                self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime * 1000)}")  # type: ignore
+                self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime * 1000)}")
             if preview_status:
                 self._previewAction()
             else:
-                self.settingsWidget.saveButton.setEnabled(True)  # type: ignore
-            self.closelock.emit_close_lock(False)
+                self.settingsWidget.saveButton.setEnabled(True)
+            self.closeLock.emit(False)
             return [0, "OK"]
         else:
-            self.closelock.emit_close_lock(False)
+            self.closeLock.emit(False)
             return [4, {"Error message": "TLCCSGUI: spectrometer is not in IDLE state when setting auto integration time"}]
 
     @public
-    def getAutoTime(self, external_action=None, external_action_args=None, external_cleanup=None, external_cleanup_args=None, pause_duration: float = 0.0) -> PyIVLSReturn:
+    def getAutoTime(self, external_action=None, external_action_args=None, external_cleanup=None, external_cleanup_args=None, pause_duration: float = 0.0) -> tuple[int, float | dict]:
         """
         Calculates the optimal integration time, allowing external actions and cleanup with arguments.
 
@@ -327,19 +315,21 @@ class dummy_spectro_GUI(QObject):
 
         if self.settings["integrationtimetype"] == "auto":
             if self.settings["useintegrationtimeguess"]:
+                # guess from current value
                 guessIntTime = self.settings["integrationTime"] * 1000  # ms
             else:
+                # guess from min and max
                 guessIntTime = (self.autoTime_min + self.autoTime_max) / 2 * 1000  # ms
             for iter in range(self.intTimeMaxIterations):
                 self.logger.log_debug(f"Iteration {iter + 1}: Current guess = {guessIntTime} ms.")
-                self.settings["integrationTime"] = guessIntTime / 1000.0
-                result = self.spectrometerSetIntegrationTime(guessIntTime / 1000.0)
-                status, info = result if isinstance(result, tuple) else result.to_tuple() if hasattr(result, "to_tuple") else (1, {"Error message": "Unknown error"})
+                self.settings["integrationTime"] = guessIntTime / 1000.0  # needed for keeping self.lastspectrum in order
+                [status, info] = self.spectrometerSetIntegrationTime(guessIntTime / 1000.0)  # s
                 if status:
                     self.logger.log_debug(f"getAutoTime: Failed to set integration time. {status}, {info}")
-                    return PyIVLSReturn.value_error(info.get("Error message", str(info)), plugin_name="dummy_spectro_GUI")
+                    return [status, info]
+                # external action if needed
                 if external_action:
-                    self.logger.log_debug("getAutoTime: Executing external action.")
+                    self.logger.log_debug(f"getAutoTime: Executing external action.")
                     try:
                         if external_action_args:
                             status, info = external_action(*external_action_args)
@@ -347,19 +337,15 @@ class dummy_spectro_GUI(QObject):
                             status, info = external_action()
                         if status:
                             self.logger.log_debug(f"getAutoTime: External action failed. {status}, {info}")
-                            return PyIVLSReturn.value_error(str(info), plugin_name="dummy_spectro_GUI")
+                            return status, info
                     except TypeError:
-                        self.logger.log_debug("getAutoTime: External action completed without standard return value")
-                result = self.spectrometerStartScan()
-                status, info = result if isinstance(result, tuple) else result.to_tuple() if hasattr(result, "to_tuple") else (1, {"Error message": "Unknown error"})
+                        self.logger.log_debug(f"getAutoTime: External action completed without standard return value")
+                [status, info] = self.spectrometerGetScan()
                 if status:
-                    self.logger.log_debug(f"getAutoTime: Failed to start spectrum. {status}, {info}")
-                    return PyIVLSReturn.value_error(info.get("Error message", str(info)), plugin_name="dummy_spectro_GUI")
-                status, info = self._update_spectrum()
-                self.logger.log_debug(f"getAutoTime: Retrieved spectrum with shape {getattr(info[1], 'shape', 'unknown')} and max value {max(info[1]) if hasattr(info[1], '__iter__') else 'unknown'}.")
-                if status:
-                    self.logger.log_debug(f"getAutoTime: Failed to update spectrum. {status}, {info}")
-                    return PyIVLSReturn.value_error(info.get("Error message", str(info)), plugin_name="dummy_spectro_GUI")
+                    self.logger.log_debug(f"getAutoTime: Failed to get scan. {status}, {info}")
+                    return [status, info]
+
+                # save the spectrum if needed
                 if self.settings["saveautoattmepts"]:
                     varDict = {}
                     varDict["integrationtime"] = guessIntTime / 1000.0
@@ -367,8 +353,9 @@ class dummy_spectro_GUI(QObject):
                     varDict["name"] = self.settings["samplename"]
                     varDict["comment"] = self.settings["comment"] + " Auto adjust of integration time."
                     self.createFile(varDict=varDict, filedelimeter=self.filedelimeter, address=self.settings["address"] + os.sep + self.settings["filename"] + f"_{int(guessIntTime)}ms.csv", data=info[1])
+                # external cleanup if needed
                 if external_cleanup:
-                    self.logger.log_debug("getAutoTime: Executing external cleanup.")
+                    self.logger.log_debug(f"getAutoTime: Executing external cleanup.")
                     try:
                         if external_cleanup_args:
                             status, info = external_cleanup(*external_cleanup_args)
@@ -377,34 +364,39 @@ class dummy_spectro_GUI(QObject):
                         if status:
                             self.logger.log_debug(f"getAutoTime: External cleanup failed. {status}, {info}")
                     except TypeError:
-                        self.logger.log_debug("getAutoTime: External cleanup completed without standard return value")
+                        self.logger.log_debug(f"getAutoTime: External cleanup completed without standard return value")
+                # pause if needed
                 if pause_duration > 0:
                     self.logger.log_debug(f"getAutoTime: Pausing for {pause_duration} seconds.")
                     time.sleep(pause_duration)
 
-                target = max(info[1]) if hasattr(info[1], "__iter__") else info[1]
+                target = max(info[1])  # target value to optimize
+                # if spectrum is in the range, found good integration time
                 if low_spectrum <= target <= high_spectrum:
                     self.logger.log_debug(f"Optimal integration time found: {guessIntTime / 1000.0} seconds.")
-                    return PyIVLSReturn.success({"integrationTime": guessIntTime / 1000.0})
+                    return [0, guessIntTime / 1000.0]  # return in seconds
+                # if spectrum is below the range, increase integration time
                 if target < low_spectrum:
                     self.logger.log_debug(f"Spectrum value {target} is below the range ({low_spectrum}), increasing integration time.")
                     if guessIntTime >= high:
                         self.logger.log_debug(f"Integration time is too high, returning: {guessIntTime / 1000.0} seconds.")
-                        return PyIVLSReturn.value_error("Integration time too high", plugin_name="dummy_spectro_GUI")
+                        return [1, {"Error message": "Integration time too high"}]
                     low = guessIntTime
+                # if spectrum is above the range, decrease integration time
                 else:
                     self.logger.log_debug(f"Spectrum value {target} is above the range ({high_spectrum}), decreasing integration time.")
                     if guessIntTime <= low:
                         self.logger.log_debug(f"Integration time is too low, returning: {guessIntTime / 1000.0} seconds.")
-                        return PyIVLSReturn.value_error("Integration time too low", plugin_name="dummy_spectro_GUI")
+                        return [1, {"Error message": "Integration time too low"}]
                     high = guessIntTime
+                # Compute new guess in milliseconds, rounded to nearest millisecond
                 guessIntTime = int(round((low + high) / 2))
 
             self.logger.log_debug(f"Auto integration time calculation completed: {guessIntTime / 1000.0} seconds.")
-            return PyIVLSReturn.success({"integrationTime": guessIntTime / 1000.0})
+            return [0, guessIntTime / 1000.0]  # return in seconds
         else:
             self.logger.log_debug("Integration time mode is not set to auto, cannot calculate auto integration time.")
-            return PyIVLSReturn.value_error("TLCCSGUI: integration time mode is not set to auto", plugin_name="dummy_spectro_GUI")
+            return [1, {"Error message": "TLCCSGUI: integration time mode is not set to auto"}]  # error if not auto mode
 
     ########Functions
     ###############GUI setting up
@@ -492,7 +484,6 @@ class dummy_spectro_GUI(QObject):
         Returns a nested dictionary of public methods for the plugin
         """
         met = get_public_methods(self)
-        print(met)
         return met
 
     def _getLogSignal(self):
@@ -504,7 +495,7 @@ class dummy_spectro_GUI(QObject):
     def _getCloseLockSignal(self):
         return self.closelock.closeLock
 
-    def _parse_settings_integrationTime(self) -> tuple[int, dict]:
+    def _parse_settings_integrationTime(self) -> "status":
         """
         Parses the integration time from the GUI line edit and stores it in the settings dictionary.
 
@@ -516,28 +507,28 @@ class dummy_spectro_GUI(QObject):
         try:
             self.settings["integrationTime"] = int(self.settingsWidget.lineEdit_Integ.text())
         except ValueError:
-            return (1, {"Error message": "Value error in TLCCS plugin: integration time field should be integer"})
+            return [1, {"Error message": "Value error in TLCCS plugin: integration time field should be integer"}]
         if self.settings["integrationTime"] > const.CCS_SERIES_MAX_INT_TIME * 1000:
-            return (1, {"Error message": f"Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"})
+            return [1, {"Error message": "Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"}]
         if self.settings["integrationTime"] < 1:
-            return (1, {"Error message": "Value error in TLCCS plugin: integration time should can not be smaller than 1 ms"})
+            return [1, {"Error message": "Value error in TLCCS plugin: integration time should can not be smaller than 1 ms"}]
         self.settings["integrationTime"] = self.settings["integrationTime"] / 1000
-        return (0, {"message": "OK"})
+        return [0, "OK"]
 
-    def _parse_settings_autoTime(self) -> tuple[int, dict]:
+    def _parse_settings_autoTime(self) -> "status":
         self.settings["integrationtimetype"] = self.settingsWidget.getIntegrationTime_combo.currentText()
         self.settings["saveautoattmepts"] = self.settingsWidget.saveAttempts_check.isChecked()
         self.settings["useintegrationtimeguess"] = self.settingsWidget.useIntegrationTimeGuess_check.isChecked()
         if self.settings["saveautoattmepts"]:
-            status, info = self._parseSaveData()
+            [status, info] = self._parseSaveData()
             if status:
-                return (status, info)
+                return [status, info]
         if self.settings["useintegrationtimeguess"]:
-            status, info = self._parse_settings_integrationTime()
+            [status, info] = self._parse_settings_integrationTime()
             if status:
-                return (status, info)
+                return [status, info]
 
-        return (0, {"message": "OK"})
+        return [0, "OK"]
 
     def _parse_spectrumCorrection(self):
         if self.settingsWidget.correctionCheck.isChecked():
@@ -545,24 +536,24 @@ class dummy_spectro_GUI(QObject):
         else:
             return False
 
-    def _parseSaveData(self) -> tuple[int, dict]:
+    def _parseSaveData(self) -> "status":
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            self.logger.log_warn(" : TLCCS plugin : address string should point to a valid directory")
-            return (1, {"Error message": "TLCCS plugin : address string should point to a valid directory"})
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : address string should point to a valid directory")
+            return [1, {"Error message": "TLCCS plugin : address string should point to a valid directory"}]
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
-            self.logger.log_warn(" : TLCCS plugin : filename is not valid")
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : filename is not valid")
             self.logger.info_popup("TLCCS plugin : filename is not valid")
-            return (1, {"Error message": "TLCCS plugin : filename is not valid"})
+            return [1, {"Error message": "TLCCS plugin : filename is not valid"}]
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
         self.settings["externalTrigger"] = self.settingsWidget.extTriggerCheck.isChecked()  # this is here since this is written into the header
 
-        return (0, {"message": "Ok"})
+        return [0, "Ok"]
 
-    def parse_settings_preview(self) -> tuple[int, dict]:
+    def parse_settings_preview(self) -> "status":
         """Parses the settings widget for the spectrometer. Extracts current values
 
         Returns:
@@ -570,17 +561,17 @@ class dummy_spectro_GUI(QObject):
             ~0 - error (add error code later on if needed)
         """
         self.settings = {}
-        status, info = self._parse_settings_autoTime()
+        [status, info] = self._parse_settings_autoTime()
         if status:
-            return (status, info)
+            return [status, info]
         if not self.settings["useintegrationtimeguess"]:
-            status, info = self._parse_settings_integrationTime()
+            [status, info] = self._parse_settings_integrationTime()
             if status:
-                return (status, info)
+                return [status, info]
         if not self.settings["saveautoattmepts"]:
-            status, info = self._parseSaveData()
+            [status, info] = self._parseSaveData()
             if status:
-                return (status, info)
+                return [status, info]
         if self.settingsWidget.extTriggerCheck.isChecked():
             self.settings["externalTrigger"] = True
         else:
@@ -591,9 +582,10 @@ class dummy_spectro_GUI(QObject):
         self.settings["autoValue_min"] = self.autoValue_min
         self.settings["autoValue_max"] = self.autoValue_max
         self.settings["intTimeMaxIterations"] = self.intTimeMaxIterations
-        return (0, self.settings)
+        return [0, self.settings]
 
-    def parse_settings_widget(self) -> PyIVLSReturn:
+    @public
+    def parse_settings_widget(self) -> tuple[int, dict]:
         """Parses the settings widget for the spectrometer. Extracts current values
 
         Returns:
@@ -601,17 +593,17 @@ class dummy_spectro_GUI(QObject):
             ~0 - error (add error code later on if needed)
         """
         self.settings = {}
-        status, info = self._parse_settings_autoTime()
+        [status, info] = self._parse_settings_autoTime()
         if status:
-            return PyIVLSReturn.value_error(info.get("Error message", str(info)), plugin_name="dummy_spectro_GUI")
+            return [status, info]
         if not self.settings["useintegrationtimeguess"]:
-            status, info = self._parse_settings_integrationTime()
+            [status, info] = self._parse_settings_integrationTime()
             if status:
-                return PyIVLSReturn.value_error(info.get("Error message", str(info)), plugin_name="dummy_spectro_GUI")
+                return [status, info]
         if not self.settings["saveautoattmepts"]:
-            status, info = self._parseSaveData()
+            [status, info] = self._parseSaveData()
             if status:
-                return PyIVLSReturn.value_error(info.get("Error message", str(info)), plugin_name="dummy_spectro_GUI")
+                return [status, info]
         if self.settingsWidget.extTriggerCheck.isChecked():
             self.settings["externalTrigger"] = True
         else:
@@ -620,13 +612,12 @@ class dummy_spectro_GUI(QObject):
         self.settings["usecorrection"] = self._parse_spectrumCorrection()
         # duplicate value for spectrum correction since i don't want to break anything now. This is used to save the value to the ini.
 
-        return PyIVLSReturn.success(self.settings)
+        return [0, self.settings]
 
     @public
-    def setSettings(self, settings) -> PyIVLSReturn:  #### settings from external call
+    def setSettings(self, settings):  #### settings from external call
         self.settings = {}
         self.settings = copy.deepcopy(settings)
-        return PyIVLSReturn.success()
 
     def get_current_gui_settings(self):
         """Reads the current settings from the settingswidget, returns a dict.
@@ -643,7 +634,7 @@ class dummy_spectro_GUI(QObject):
     ########Functions
     ########device functions
     @public
-    def spectrometerConnect(self, integrationTime=None) -> PyIVLSReturn:
+    def spectrometerConnect(self, integrationTime=None):
         self.logger.log_debug(f"Connecting to spectrometer with integration time: {integrationTime}")
         if integrationTime:
             self.settings["integrationTime"] = integrationTime
@@ -651,50 +642,49 @@ class dummy_spectro_GUI(QObject):
             status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationTime"])
             if not status:
                 self.logger.log_debug("Connection to spectrometer failed.")
-                self.logger.log_warn(f" : TLCCS plugin : can not connect to spectrometer")
+                self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : can not connect to spectrometer")
                 self.logger.info_popup("TLCCS plugin : can not connect to spectrometer")
-                return PyIVLSReturn.hardware_error("Can not connect to spectrometer")
+                return [4, {"Error message": "Can not connect to spectrometer"}]
             self.logger.log_debug("Spectrometer connected successfully.")
-            return PyIVLSReturn.success()
+            return [0, "OK"]
         except Exception as e:
             self.logger.log_debug(f"Exception during connection: {e}")
-            return PyIVLSReturn.hardware_error(f"Error connecting to spectrometer: {e}")
+            return [4, {"Error message": f"{e}"}]
 
     @public
-    def spectrometerDisconnect(self) -> PyIVLSReturn:
+    def spectrometerDisconnect(self):
         self.logger.log_debug("Disconnecting spectrometer.")
         try:
             self.drv.close()
             self.logger.log_debug("Spectrometer disconnected successfully.")
-            return PyIVLSReturn.success()
+            return [0, "OK"]
         except Exception as e:
             self.logger.log_debug(f"Exception during disconnection: {e}")
-            return PyIVLSReturn.hardware_error(f"Can not disconnect the spectrometer: {e}")
+            return [4, {"Error message": "Can not disconnect the spectrometer"}]
 
     @public
-    def spectrometerSetIntegrationTime(self, integrationTime) -> PyIVLSReturn:
+    def spectrometerSetIntegrationTime(self, integrationTime):
         try:
             self.drv.set_integration_time(integrationTime)
-            return PyIVLSReturn.success()
-        except ThreadStopped:
-            # FIXME: should this be handled differently?
-            return PyIVLSReturn.success()
-        except Exception as e:
-            return PyIVLSReturn.hardware_error(f"Error setting integration time: {e}", "mock spectro")
-
-    @public
-    def spectrometerGetIntegrationTime(self) -> PyIVLSReturn:
-        # return current integration time in seconds
-        try:
-            intTime = self.drv.get_integration_time()
-            return PyIVLSReturn.success({"integrationTime": intTime})
+            return [0, "OK"]
         except ThreadStopped:
             pass
         except Exception as e:
-            return PyIVLSReturn.hardware_error(f"Error getting integration time: {e}")
+            return [4, {"Error message": f"{e}"}]
 
     @public
-    def spectrometerStartScan(self) -> PyIVLSReturn:
+    def spectrometerGetIntegrationTime(self):
+        # return current integration time in seconds
+        try:
+            intTime = self.drv.get_integration_time()
+            return [0, intTime]
+        except ThreadStopped:
+            pass
+        except Exception as e:
+            return [4, {"Error message": f"{e}"}]
+
+    @public
+    def spectrometerStartScan(self):
         """Starts a spectro scan
 
         Returns:
@@ -704,23 +694,23 @@ class dummy_spectro_GUI(QObject):
         try:
             if self.scanRunning:
                 self.logger.log_debug("Scan is already running.")
-                return PyIVLSReturn.value_error("Scan is already running")
+                return [1, {"Error message": "Scan is already running"}]
             self.drv.start_scan()
             self.scanRunning = True
             self.logger.log_debug("Spectrometer scan started successfully.")
-            return PyIVLSReturn.success()
+            return [0, "OK"]
         except ThreadStopped:
-            return PyIVLSReturn.success()
+            return [0, "ThreadStopped"]
         except Exception as e:
             self.logger.log_debug(f"Exception during scan start: {e}")
-            return PyIVLSReturn.hardware_error("Can not start scan")
+            return [4, {"Error message": "Can not start scan"}]
 
     @public
-    def spectrometerGetSpectrum(self) -> PyIVLSReturn:
+    def spectrometerGetSpectrum(self):
         """Reads the spectrum from the spectrometer, waits for the scan to finish if necessary.
 
         Returns:
-            PyIVLSReturn: Standardized return object
+            _type_: _description_
         """
         self.logger.log_debug("Getting spectrum from spectrometer.")
         try:
@@ -732,19 +722,19 @@ class dummy_spectro_GUI(QObject):
                     break
             if not self.scanRunning:
                 self.logger.log_debug("Scan stopped before completion.")
-                return PyIVLSReturn.value_error("Scan stopped", plugin_name="dummy_spectro_GUI")
+                return [1, {"Error message": "Scan stopped"}]
             else:
                 self.logger.log_debug("Spectrum retrieved successfully.")
-                return PyIVLSReturn.success(self.drv.get_scan_data())
+                return [0, self.drv.get_scan_data()]
         except ThreadStopped:
-            return PyIVLSReturn.value_error("Thread stopped", plugin_name="dummy_spectro_GUI")
+            pass
         except Exception as e:
             self.logger.log_debug(f"Exception during spectrum retrieval: {e}")
             self.scanRunning = False
-            return PyIVLSReturn.hardware_error("Can not get spectrum", plugin_name="dummy_spectro_GUI")
+            return [4, {"Error message": "Can not get spectrum"}]
 
     @public
-    def spectrometerGetScan(self) -> PyIVLSReturn:
+    def spectrometerGetScan(self):
         """Atomically get a spectrum to prevent weird behavior when a scan is already running."""
         with self._scan_lock:
             try:
@@ -756,73 +746,19 @@ class dummy_spectro_GUI(QObject):
                 self.drv.start_scan()
                 data = self.drv.get_scan_data()
                 self.scanRunning = False
-                # Always return a dict for PyIVLSReturn.success
-                return PyIVLSReturn.success({"spectrum": data})
+                return [0, data]
             except ThreadStopped:
-                return PyIVLSReturn.value_error("ThreadStopped", plugin_name="dummy_spectro_GUI")
+                return [0, "ThreadStopped"]
             except Exception as e:
-                return PyIVLSReturn.hardware_error(f"Can not get scan: {e}", plugin_name="dummy_spectro_GUI")
+                return [4, {"Error message": f"Can not get scan: {e}"}]
 
     ########Functions
     ###############save data
 
+    @public
     def createFile(self, varDict, filedelimeter, address, data):
-        fileheader = self._spectrometerMakeHeader(varDict, separator=filedelimeter)
+        fileheader = self.fm.create_spectrometer_header(varDict, separator=filedelimeter)
         self.logger.log_debug(f"Creating file at {address} with data shape {data.shape}")
         self.logger.log_debug(f"Correction data has shape {self.correction.shape}")
         np.savetxt(address, list(zip(self.correction[:, 0], data)), fmt="%.9e", delimiter=filedelimeter, newline="\n", header=fileheader, footer="#[EndOfFile]", comments="#")
-
-    def _spectrometerMakeHeader(self, varDict={}, separator=";"):
-        ###following the structure of files generated by Thorlabs software
-        ### a part of values are just const, they may be replaces with real values
-        #
-        # structure of the varDict
-        #
-        # varDict['average'] - int:averaging
-        # varDict['integrationtime'] - float:integration time in seconds
-        # varDict['triggermode'] - external trigger = 1 / internal = 0
-        # varDict['name'] - str:sample name
-        # varDict['comment'] - str:comment
-        comment = "Thorlabs FTS operated by pyIVSL\n"
-        comment = f"{comment}#[SpectrumHeader]\n"
-        comment = f"{comment}Date{separator}{datetime.now().strftime('%Y%m%d')}\n"
-        comment = f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
-        comment = f"{comment}GMTTime{separator}{datetime.utcnow().strftime('%H%M%S%f')[:-4]}\n"
-        comment = f"{comment}XAxisUnit{separator}nm_air\n"
-        comment = f"{comment}YAxisUnit{separator}intensity\n"
-        if "average" in varDict:
-            comment = f"{comment}Average{separator}{varDict['average']}\n"
-        else:
-            comment = f"{comment}Average{separator}0\n"
-        comment = f"{comment}RollingAverage{separator}0\n"
-        comment = f"{comment}SpectrumSmooth{separator}0\n"
-        comment = f"{comment}SSmoothParam1{separator}0\n"
-        comment = f"{comment}SSmoothParam2{separator}0\n"
-        comment = f"{comment}SSmoothParam3{separator}0\n"
-        comment = f"{comment}SSmoothParam4{separator}0\n"
-        comment = f"{comment}IntegrationTime{separator}{varDict['integrationtime']}\n"
-        comment = f"{comment}TriggerMode{separator}{varDict['triggermode']}\n"
-        comment = f"{comment}InterferometerSerial{separator}M00903839\n"
-        comment = f"{comment}Source\n"
-        comment = f"{comment}AirMeasureOpt{separator}0\n"
-        comment = f"{comment}WnrMin{separator}0\n"
-        comment = f"{comment}WnrMax{separator}0\n"
-        comment = f"{comment}Length{separator}3648\n"
-        comment = f"{comment}Resolution{separator}0\n"
-        comment = f"{comment}ADC{separator}0\n"
-        comment = f"{comment}Instrument{separator}0\n"
-        comment = f"{comment}Model{separator}CCS175\n"
-        comment = f"{comment}Type{separator}emission\n"
-        comment = f"{comment}AirTemp{separator}0\n"
-        comment = f"{comment}AirPressure{separator}0\n"
-        comment = f"{comment}AirRelHum{separator}0\n"
-        if "name" in varDict:
-            comment = f"{comment}Name{separator}{varDict['name']}\n"
-        else:
-            comment = f"{comment}Name{separator}\n"
-        if "comment" in varDict:
-            comment = f'{comment}Comment{separator}"{varDict["comment"]}"\n'
-        else:
-            comment = f'{comment}Comment{separator} ""\n'
-        comment = f"{comment}#[Data]\n"
-        return comment
+        return PyIVLSReturn.success()

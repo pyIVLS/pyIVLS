@@ -32,7 +32,6 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         else:
             self.window: QtWidgets.QDialog = window_option
             self.table_widget: QtWidgets.QTableWidget = self.window.pluginList
-
             # Link buttons
             self.applyButton.clicked.connect(self.apply)
             self.uploadButton.clicked.connect(self.upload)
