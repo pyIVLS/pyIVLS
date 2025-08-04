@@ -16,7 +16,6 @@ from PyQt6.QtWidgets import QFileDialog, QMenu
 from PyQt6.QtCore import QModelIndex
 
 from components.threadStopped import thread_with_exception
-
 from pathvalidate import is_valid_filename
 import json
 
@@ -42,6 +41,7 @@ class pyIVLS_seqBuilder(QObject):
 
     info_message = pyqtSignal(str)
     _sigSeqEnd = pyqtSignal()
+    log_message = pyqtSignal(str)
 
     #### Slots for communication
     @pyqtSlot(dict, list)
@@ -247,17 +247,11 @@ class pyIVLS_seqBuilder(QObject):
         self.widget.stopButton.setEnabled(status)
 
     def _test_action(self):
-        """TODO: Add more checks if necessary. What should we really be checking, since instructions are checked before adding?"""
+        """Checks for self-referencing items and empty loops."""
 
         def has_self_as_child(item):
             """
             Recursively checks if the given item has itself as a child.
-
-            Args:
-                item (QStandardItem): The item to check.
-
-            Returns:
-                bool: True if the item has itself as a child, False otherwise.
             """
             for row in range(item.rowCount()):
                 child = item.child(row, 0)
@@ -265,9 +259,35 @@ class pyIVLS_seqBuilder(QObject):
                     return True
             return False
 
+        def loop_has_step_descendant(loop_item):
+            """
+            Recursively checks if a loop item has at least one descendant of class 'step'.
+            """
+            for row in range(loop_item.rowCount()):
+                child = loop_item.child(row, 0)
+                class_item = loop_item.child(row, 1)
+                if class_item and class_item.text() == "step":
+                    return True
+                if loop_has_step_descendant(child):
+                    return True
+            return False
+
         root_item = self.model.invisibleRootItem().child(0)
         if has_self_as_child(root_item):
-            self.info_message.emit("Error:  item cannot have itself as a child.")
+            self.info_message.emit("Error: item cannot have itself as a child.")
+            return
+
+        # Check for empty loops
+        def check_empty_loops(item):
+            for row in range(item.rowCount()):
+                child_func = item.child(row, 0)
+                child_class = item.child(row, 1)
+                if child_class and child_class.text() == "loop":
+                    if not loop_has_step_descendant(child_func):
+                        self.info_message.emit(f"Error: Loop '{child_func.text()}' does not contain any step instructions.")
+                check_empty_loops(child_func)
+
+        check_empty_loops(root_item)
 
     #### Sequence functions
 
@@ -341,6 +361,7 @@ class pyIVLS_seqBuilder(QObject):
 
     def _runParser(self):
         ###############Main logic of iteration: 0 - no iterations, 1 - only start point, 2 - start end end point, iterstep = (end-start)/(iternum -1).The same is used in sweepCommon for drainVoltage. !!!Adapt to logic of iteration, do not modify it!!!
+        self.log_message.emit("pyIVLS_seqBuilder: Running sequence parser")
         data = self.extract_data(self.model.invisibleRootItem().child(0))
         stackData = copy.deepcopy(data)  #### it is necessary to make sure that we did not modify original data
         looping = []  # this will keep track of the steps inside the loop, every element is a dict[{looping -the steps to repeat, loopFunction - looping Function, totalSteps - number of steps in loop, currentStep, totalIterations, currentIteration}]
@@ -351,7 +372,7 @@ class pyIVLS_seqBuilder(QObject):
                     if status:
                         print(f"Error: {iterText}")
                         self._sigSeqEnd.emit()  # Added
-                        self._setNotRunning() # Added
+                        self._setNotRunning()  # Added
                         break
                     looping[-1]["namePostfix"] = iterText
                     looping[-1]["currentIteration"] = looping[-1]["currentIteration"] + 1
@@ -384,6 +405,7 @@ class pyIVLS_seqBuilder(QObject):
                 iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
                 looping.append({"looping": stackItem["looping"], "loopFunction": nextStepFunction, "totalSteps": len(stackItem["looping"]), "currentStep": 0, "totalIterations": iter, "currentIteration": 0, "namePostfix": ""})
                 stackData = stackItem["looping"] + stackData
+        self.log_message.emit("pyIVLS_seqBuilder: Sequence parser finished")
         self._sigSeqEnd.emit()
 
     def _runAction(self):
@@ -393,10 +415,10 @@ class pyIVLS_seqBuilder(QObject):
         self.run_thread = thread_with_exception(self._runParser)
         self.run_thread.start()
         return [0, "OK"]
-    
+
     def _stopAction(self):
         """Stops the running sequence thread."""
-        if hasattr(self, 'run_thread') and self.run_thread.is_alive():
+        if hasattr(self, "run_thread") and self.run_thread.is_alive():
             try:
                 _ = self.run_thread.thread_stop()
                 # self.info_message.emit("Stop requested: " + result[1])
