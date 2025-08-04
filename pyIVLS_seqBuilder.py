@@ -72,7 +72,6 @@ class pyIVLS_seqBuilder(QObject):
                             "functions": functions[plugin],
                         }
                         break
-        self.widget.comboBox_function.addItem("loop end")
         self.widget.comboBox_function.currentIndexChanged.connect(self.update_classView)
         self.update_classView()
 

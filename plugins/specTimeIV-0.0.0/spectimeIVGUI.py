@@ -20,7 +20,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from threadStopped import thread_with_exception, ThreadStopped
 from enum import Enum
-from plugin_components import LoggingHelper, FileManager, GuiMapper, DependencyManager, SMUHelper
+from plugin_components import LoggingHelper, FileManager, GuiMapper, DependencyManager, SMUHelper, PyIVLSReturn
 
 import numpy as np
 import pandas as pd
@@ -61,7 +61,6 @@ class specTimeIVGUI:
                 # "A very necessary function",
             ],
             "spectrometer": [
-                "parse_settings_preview",
                 "setSettings",
                 "spectrometerConnect",
                 "spectrometerDisconnect",
@@ -210,37 +209,36 @@ class specTimeIVGUI:
         This function assumes that the settings have already been set using the `setSettings` function.
         """
         # Use dynamic mapper to set all GUI values with automatic conversion
-        status, error_msg = self.dynamic_mapper.set_values(self.settings, self.dynamic_field_mapping, self.dynamic_validation_rules)
+        result = self.dynamic_mapper.set_values(self.settings, self.dynamic_field_mapping, self.dynamic_validation_rules)
 
-        if status != 0:
-            self.logger.log_warn(f"Error setting GUI values: {error_msg}")
-            self.logger.info_popup(f"Error setting GUI values: {error_msg}")
+        if result.is_error:
+            self.logger.log_warn(f"Error setting GUI values: {result.error_message}")
+            self.logger.info_popup(f"Error setting GUI values: {result.error_message}")
 
         self._update_GUI_state()
 
-    def parse_settings_widget(self) -> tuple[int, dict[str, str | float | bool]]:
+    def parse_settings_widget(self) -> PyIVLSReturn:
         """Parses the settings widget for the templatePlugin. Extracts current values. Checks if values are allowed. Provides settings of template plugin to an external plugin
 
-        Returns [status, settings_dict]:
-            status: 0 - no error, ~0 - error
-            self.settings
+        Returns PyIVLSReturn:
+            Success with settings_dict or error with message
         """
         # Use dependency manager to handle all dependency validation and settings extraction
-        status, dependency_result = self.dependency_manager.validate_and_extract_dependency_settings(self.settings)
-        if status:
-            return (status, dependency_result)
+        dependency_result = self.dependency_manager.validate_and_extract_dependency_settings(self.settings)
+        if dependency_result.is_error:
+            return dependency_result
 
         # Extract dependency settings from the result
-        self.smu_settings = dependency_result.get("smu_settings", {})
-        self.spectrometer_settings = dependency_result.get("spectrometer_settings", {})
+        self.smu_settings = dependency_result.get_data_value("smu_settings", {})
+        self.spectrometer_settings = dependency_result.get_data_value("spectrometer_settings", {})
 
         # Use mapper component for value extraction and validation
-        status, all_values = self.dynamic_mapper.get_values(self.dynamic_field_mapping, self.dynamic_validation_rules)
-        if status:
-            return (status, all_values)
+        mapper_result = self.dynamic_mapper.get_values(self.dynamic_field_mapping, self.dynamic_validation_rules)
+        if mapper_result.is_error:
+            return mapper_result
 
         # Update settings with extracted values
-        self.settings.update(all_values)
+        self.settings.update(mapper_result.data)
 
         # Handle dual channel logic
         currentIndex = self.settingsWidget.comboBox_channel.currentIndex()
@@ -255,7 +253,7 @@ class specTimeIVGUI:
         retset = self.settings
         retset["smu_settings"] = self.smu_settings
         retset["spectrometer_settings"] = self.spectrometer_settings
-        return (0, retset)
+        return PyIVLSReturn.success(retset)
 
     ########Functions
     ###############GUI setting up
@@ -445,9 +443,8 @@ class specTimeIVGUI:
     def smuInit(self):
         """intializaes smu with data for the 1st sweep step
 
-        Return the same as for keithley_init [status, message]:
-                status: 0 - no error, ~0 - error
-                message
+        Return PyIVLSReturn:
+                Success or error with message
         """
         function_dict = self.dependency_manager.function_dict
         s = {}
@@ -478,10 +475,12 @@ class specTimeIVGUI:
             s["drainsense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
         else:
             s["drainsense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
-        if function_dict["smu"][self.settings["smu"]]["smu_init"](s):
-            return [2, {"Error message": "timeIV plugin: error in SMU plugin can not initialize"}]
 
-        return {0, "OK"}
+        smu_init_result = function_dict["smu"][self.settings["smu"]]["smu_init"](s)
+        if smu_init_result.is_error:
+            return PyIVLSReturn.dependency_error(smu_init_result.data)
+
+        return PyIVLSReturn.success({"message": "OK"})
 
     ########Functions
     ########create file header
@@ -499,28 +498,29 @@ class specTimeIVGUI:
         function_dict = self.dependency_manager.function_dict
         self.logger.log_debug("Running timeIV plugin action")
         self.set_running(True)
-        [status, message] = self.parse_settings_widget()
-        if status:
-            self.logger.log_warn("timeIV plugin: parse_settings_widget returned error: " + str(message))
-            self.logger.info_popup(f"{message['Error message']}")
+
+        parse_result = self.parse_settings_widget()
+        if parse_result.is_error:
+            self.logger.log_warn("timeIV plugin: parse_settings_widget returned error: " + parse_result.error_message)
+            self.logger.info_popup(parse_result.error_message)
             self.set_running(False)
-            return [status, message]
+            return parse_result
 
         function_dict["smu"][self.settings["smu"]]["set_running"](True)
-        [status, message] = function_dict["smu"][self.settings["smu"]]["smu_connect"]()
-        if status:
-            self.logger.log_warn("timeIV plugin: smu_connect returned error: " + str(message))
-            self.logger.info_popup(f"{message['Error message']}")
 
+        smu_connect_result = function_dict["smu"][self.settings["smu"]]["smu_connect"]()
+        if smu_connect_result.is_error:
+            self.logger.log_warn("timeIV plugin: smu_connect returned error: " + smu_connect_result.error_message)
+            self.logger.info_popup(smu_connect_result.error_message)
             self.set_running(False)
             function_dict["smu"][self.settings["smu"]]["set_running"](False)
-            return [status, message]
+            return smu_connect_result
 
         ##IRtodo#### check that the new file will not overwrite existing data -> implement dialog
         self.logger.log_debug("TimeIV run_thread created")
         self.run_thread = thread_with_exception(self._sequenceImplementation)
         self.run_thread.start()
-        return [0, "OK"]
+        return PyIVLSReturn.success({"message": "OK"})
 
     ########Functions
     ########sequence implementation
@@ -542,21 +542,24 @@ class specTimeIVGUI:
         function_dict = self.dependency_manager.function_dict
         self.logger.log_debug("Running sequence step with postfix: " + postfix)
         self.settings["filename"] = self.settings["filename"] + postfix
-        [status, message] = function_dict["smu"][self.settings["smu"]]["smu_connect"]()
-        if status:
-            return [status, message]
+
+        smu_connect_result = function_dict["smu"][self.settings["smu"]]["smu_connect"]()
+        if smu_connect_result.is_error:
+            return smu_connect_result
+
         self._sequenceImplementation()
         function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
-        return [0, "sweep finished"]
+        return PyIVLSReturn.success({"message": "sweep finished"})
 
     def _initialize_smu(self):
         """Initializes the SMU with the settings provided in self.settings."""
         function_dict = self.dependency_manager.function_dict
         smu_name = self.settings["smu"]
         self.logger.log_debug(f"Initializing SMU: {smu_name}")
-        [status, message] = self.smuInit()
-        if status:
-            raise timeIVexception(f"{message['Error message']}")
+
+        smu_init_result = self.smuInit()
+        if smu_init_result.is_error:
+            raise timeIVexception(smu_init_result.error_message)
 
         # turn off outputs, setup new source
         self.logger.log_debug("_timeIVimplementation: Turning off SMU output.")
@@ -585,7 +588,7 @@ class specTimeIVGUI:
             self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source channel.")
             function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
 
-        return [0, "SMU initialized successfully"]
+        return PyIVLSReturn.success({"message": "SMU initialized successfully"})
 
     def _initialize_spectrometer(self):
         """Initializes the spectrometer with the settings provided in self.spectrometer_settings."""
@@ -594,10 +597,11 @@ class specTimeIVGUI:
         self.logger.log_debug(f"Initializing spectrometer: {spectrometer_name}")
 
         function_dict["spectrometer"][spectrometer_name]["setSettings"](self.spectrometer_settings)
-        [status, message] = function_dict["spectrometer"][spectrometer_name]["spectrometerConnect"]()
-        if status:
-            self.logger.log_warn(f"Error connecting Spectrometer: {message}")
-            return [status, message]
+
+        connect_result = function_dict["spectrometer"][spectrometer_name]["spectrometerConnect"]()
+        if connect_result.is_error:
+            self.logger.log_warn(f"Error connecting Spectrometer: {connect_result.error_message}")
+            return connect_result
 
         # check what mode spectrometer is in for integration time
         auto_mode = self.spectrometer_settings["integrationtimetype"] == "auto"
@@ -606,13 +610,13 @@ class specTimeIVGUI:
         # Get and set constant integration time for the measurement
         integration_time_setting = self.spectrometer_settings["integrationTime"]
         self.logger.log_debug(f"Setting constant integration time: {integration_time_setting}")
-        status, message = function_dict["spectrometer"][spectrometer_name]["spectrometerSetIntegrationTime"](integration_time_setting)
 
-        if status:
-            self.logger.log_warn(f"Error setting integration time: {message}")
-            raise timeIVexception(f"Error setting integration time: {message}")
+        integration_result = function_dict["spectrometer"][spectrometer_name]["spectrometerSetIntegrationTime"](integration_time_setting)
+        if integration_result.is_error:
+            self.logger.log_warn(f"Error setting integration time: {integration_result.error_message}")
+            raise timeIVexception(f"Error setting integration time: {integration_result.error_message}")
 
-        return [0, "Spectrometer initialized successfully"]
+        return PyIVLSReturn.success({"message": "Spectrometer initialized successfully"})
 
     def _timeIVimplementation(self):
         function_dict = self.dependency_manager.function_dict
@@ -621,15 +625,16 @@ class specTimeIVGUI:
         spectrometer_name = self.settings["spectrometer"]
         smu_name = self.settings["smu"]
 
-        status, state = self._initialize_smu()
-        if status:
-            self.logger.log_warn(f"Error initializing SMU: {state}")
-            raise timeIVexception(f"Error initializing SMU: {state}")
+        smu_init_result = self._initialize_smu()
+        if smu_init_result.is_error:
+            self.logger.log_warn(f"Error initializing SMU: {smu_init_result.error_message}")
+            raise timeIVexception(f"Error initializing SMU: {smu_init_result.error_message}")
         # output channels are now both on.
-        status, state = self._initialize_spectrometer()
-        if status:
-            self.logger.log_warn(f"Error initializing Spectrometer: {state}")
-            raise timeIVexception(f"Error initializing Spectrometer: {state}")
+
+        spectrometer_init_result = self._initialize_spectrometer()
+        if spectrometer_init_result.is_error:
+            self.logger.log_warn(f"Error initializing Spectrometer: {spectrometer_init_result.error_message}")
+            raise timeIVexception(f"Error initializing Spectrometer: {spectrometer_init_result.error_message}")
         # spectrometer now connected with integration time set
 
         timeData = []
@@ -642,16 +647,47 @@ class specTimeIVGUI:
         while True:
             # fetch IV Data for source
             self.logger.log_debug("_timeIVimplementation: Fetching IV data for source channel.")
-            status, sourceIV = function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
-            if status:
-                raise timeIVexception(sourceIV["Error message"])
+
+            # Handle both PyIVLSReturn and legacy tuple formats for smu_getIV
+            source_iv_result = function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
+
+            # Check if result is PyIVLSReturn or legacy tuple
+            if hasattr(source_iv_result, "is_error"):
+                # It's a PyIVLSReturn object
+                if source_iv_result.is_error:
+                    raise timeIVexception(source_iv_result.error_message)
+                sourceIV = source_iv_result.get_data_value("iv_data", source_iv_result.data)
+            else:
+                # It's a legacy tuple [status, data]
+                if isinstance(source_iv_result, (list, tuple)) and len(source_iv_result) >= 2:
+                    status, data = source_iv_result[0], source_iv_result[1]
+                    if status != 0:
+                        raise timeIVexception(f"SMU getIV error (legacy format): status {status}")
+                    sourceIV = data
+                else:
+                    raise timeIVexception("Unexpected return format from smu_getIV")
 
             # fetch IV Data for drain if not in single channel mode
             if not self.settings["singlechannel"]:
                 self.logger.log_debug("_timeIVimplementation: Fetching IV data for drain channel.")
-                status, drainIV = function_dict["smu"][smu_name]["smu_getIV"](self.settings["drainchannel"])
-                if status:
-                    raise timeIVexception(drainIV["Error message"])
+
+                drain_iv_result = function_dict["smu"][smu_name]["smu_getIV"](self.settings["drainchannel"])
+
+                # Check if result is PyIVLSReturn or legacy tuple
+                if hasattr(drain_iv_result, "is_error"):
+                    # It's a PyIVLSReturn object
+                    if drain_iv_result.is_error:
+                        raise timeIVexception(drain_iv_result.error_message)
+                    drainIV = drain_iv_result.get_data_value("iv_data", drain_iv_result.data)
+                else:
+                    # It's a legacy tuple [status, data]
+                    if isinstance(drain_iv_result, (list, tuple)) and len(drain_iv_result) >= 2:
+                        status, data = drain_iv_result[0], drain_iv_result[1]
+                        if status != 0:
+                            raise timeIVexception(f"SMU getIV error (legacy format): status {status}")
+                        drainIV = data
+                    else:
+                        raise timeIVexception("Unexpected return format from smu_getIV")
 
             currentTime = time.time()
             toc = currentTime - startTic
@@ -705,10 +741,32 @@ class specTimeIVGUI:
 
             # Take spectrometer scan after each plot update
             self.logger.log_debug("_timeIVimplementation: Taking spectrometer scan.")
-            status, spectrum = function_dict["spectrometer"][spectrometer_name]["spectrometerGetScan"]()
-            if status:
-                self.logger.log_warn(f"Error getting spectrum: {spectrum}")
+
+            # Handle both PyIVLSReturn and legacy tuple formats for spectrometerGetScan
+            spectrum_result = function_dict["spectrometer"][spectrometer_name]["spectrometerGetScan"]()
+
+            # Check if result is PyIVLSReturn or legacy tuple
+            if hasattr(spectrum_result, "is_error"):
+                # It's a PyIVLSReturn object
+                if spectrum_result.is_error:
+                    self.logger.log_warn(f"Error getting spectrum: {spectrum_result.error_message}")
+                    spectrum = None
+                else:
+                    spectrum = spectrum_result.get_data_value("spectrum", spectrum_result.data)
             else:
+                # It's a legacy tuple [status, data]
+                if isinstance(spectrum_result, (list, tuple)) and len(spectrum_result) >= 2:
+                    status, data = spectrum_result[0], spectrum_result[1]
+                    if status != 0:
+                        self.logger.log_warn(f"Error getting spectrum (legacy format): status {status}")
+                        spectrum = None
+                    else:
+                        spectrum = data
+                else:
+                    self.logger.log_warn("Unexpected return format from spectrometerGetScan")
+                    spectrum = None
+
+            if spectrum is not None:
                 # Save spectrum data with timestamp and IV data
                 scan_counter += 1
                 spectrum_filename = f"{self.spectrometer_settings['filename']}_scan_{scan_counter:04d}_t_{toc:.2f}s.csv"
@@ -754,7 +812,7 @@ class specTimeIVGUI:
             time.sleep(self.settings["timestep"])
 
         self.logger.log_debug("_timeIVimplementation: Completed successfully.")
-        return [0, "OK"]
+        return PyIVLSReturn.success({"message": "OK"})
 
     def _sequenceImplementation(self):
         """
@@ -768,13 +826,16 @@ class specTimeIVGUI:
         try:
             self._timeIVimplementation()
         except timeIVexception as e:
-            self.logger.log_warn(f"timeIV plugin implementation stopped because of exception: {e}")
+            self.logger.log_error(f"timeIV plugin implementation stopped because of exception: {e}")
+            print("sajfiasjfas")
             exception = 1
         except ThreadStopped:
-            self.logger.log_warn("timeIV plugin implementation aborted")
+            self.logger.log_error("timeIV plugin implementation aborted")
+            print("sajfiasjfas")
             exception = 2
         except Exception as e:
-            self.logger.log_warn(f"timeIV plugin implementation stopped because of unexpected exception: {e}")
+            self.logger.log_error(f"timeIV plugin implementation stopped because of unexpected exception: {e}")
+            print("sajfiasjfas 3")
             exception = 3
         finally:
             try:
