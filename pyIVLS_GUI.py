@@ -40,7 +40,6 @@ class pyIVLS_GUI(QObject):
     ############################### Slots
     @pyqtSlot(str)
     def show_message(self, str):
-        logging.warning(str)
         msg = QtWidgets.QMessageBox()
         msg.setText(str)
         msg.setWindowTitle("Warning")

@@ -343,19 +343,19 @@ class affineMoveGUI(QObject):
         """
         mm, cam, pos = self._fetch_dep_plugins()
         if self.calibrations == {}:
-            self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED)
+            self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
         else:
-            self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED)
+            self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
 
         if pos.positioning_coords((0, 0)) == (-1, -1):
-            self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED)
+            self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
         else:
-            self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED)
+            self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
 
         if len(self.measurement_points) == 0:
-            self.points_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED)
+            self.points_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
         else:
-            self.points_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED)
+            self.points_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
 
     ########Functions
     ########plugins interraction
