@@ -43,7 +43,6 @@ when unpacking, the data could be anything and contain any keys. lots of room fo
 
 """
 
-import inspect
 import sys
 import traceback
 from datetime import datetime
