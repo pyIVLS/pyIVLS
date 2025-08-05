@@ -648,7 +648,7 @@ class GuiMapper(QObject):
         QCheckBox: Returns bool
         QComboBox: Returns current text as str
         QSpinBox: Returns int value
-        
+
         """
         if isinstance(widget_obj, QLineEdit):
             text = widget_obj.text().strip()
@@ -964,7 +964,7 @@ class DependencyManager:
 
 
 class LoggingHelper(QObject):
-    """Helper class for standard logging functionality.
+    """Helper class for standard logging functionality. pass "self" to the helper on plugin init
     Logging levels:
     DEBUG: Detailed information, typically only of interest to a developer trying to diagnose a problem.
     INFO: Confirmation that things are working as expected.

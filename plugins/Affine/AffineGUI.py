@@ -9,9 +9,10 @@ from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
 import csv
 from affineDialog import dialog
 from PyQt6.QtCore import pyqtSlot
+from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods
 
 
-class AffineGUI(QObject):
+class AffineGUI:
     """
     GUI implementation of the Affine plugin for pyIVLS.
 
@@ -31,29 +32,7 @@ class AffineGUI(QObject):
     otsoha
     """
 
-    log_message = pyqtSignal(str)
-    info_message = pyqtSignal(str)
-    closeLock = pyqtSignal(bool)
     COORD_DATA = Qt.ItemDataRole.UserRole + 1
-
-    @pyqtSlot(int, dict)
-    def emit_log(self, status: int, state: dict) -> None:
-        """
-        Emits a standardized log message for status dicts or error lists.
-        Args:
-            status (int): status code, 0 for success, non-zero for error.
-            state (dict): dictionary in the standard pyIVLS format
-
-        """
-        plugin_name = self.__class__.__name__
-        # only emit if error occurred
-        if status != 0:
-            msg = state.get("Error message", "Unknown error")
-            exception = state.get("Exception", "Not provided")
-
-            log = f"{plugin_name} : {status} : {msg} : Exception: {exception}"
-
-            self.log_message.emit(log)
 
     def __init__(self, settings=None):
         super().__init__()
@@ -66,6 +45,9 @@ class AffineGUI(QObject):
         self.affine = Affine(self.settings)
         self.dependency = ["camera"]
 
+        self.logger = LoggingHelper(self)
+        self.closelock = CloseLockSignalProvider()
+
         # init dependency functions
         self.functions = {}
 
@@ -75,7 +57,7 @@ class AffineGUI(QObject):
         self.expecting_img_click = False
         self.mask_points = []
         self.img_points = []
-        self.num_needed = 4  # Read from user?
+        self.num_needed = 4
         self.tp_arr = []
         self.dialog = None
 
@@ -100,7 +82,8 @@ class AffineGUI(QObject):
         default_camera = settings["cameracombobox"]
         # set the camera combobox to the default camera
         if default_camera:
-            settingsWidget.cameraComboBox.setCurrentText(default_camera)
+            cambox = settingsWidget.findChild(QtWidgets.QComboBox, "cameraComboBox")
+            cambox.setCurrentText(default_camera)
         # set the settings widget values
         self.settingsWidget.pointCount.setCurrentText(str(pointcount))
         self.settingsWidget.addPointsCheck.setChecked(addpointscheck)
@@ -156,6 +139,8 @@ class AffineGUI(QObject):
     def _load_widgets(self):
         """Load the widgets from the UI files."""
         # Load the settings based on the name of this file.
+        settingsWidget = None
+        MDIWidget = None
         self.path = os.path.dirname(__file__) + os.path.sep
         for _, _, files in os.walk(self.path):
             for file in files:
@@ -167,7 +152,8 @@ class AffineGUI(QObject):
                             MDIWidget = uic.loadUi(self.path + file)
                     except IndexError:
                         continue
-
+        assert settingsWidget is not None, "Settings widget not found in the plugin directory."
+        assert MDIWidget is not None, "MDI widget not found in the plugin directory."
         self._find_labels(settingsWidget, MDIWidget)
         settingsWidget, MDIWidget = self._connect_buttons(settingsWidget, MDIWidget)
         return settingsWidget, MDIWidget
@@ -188,6 +174,7 @@ class AffineGUI(QObject):
         self.pointCount = settingsWidget.findChild(QtWidgets.QComboBox, "pointCount")
         self.pointName = settingsWidget.findChild(QtWidgets.QLineEdit, "pointName")
         self.definedPoints = settingsWidget.findChild(QtWidgets.QListWidget, "definedPoints")
+        self.definedPoints.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
         self.cameraComboBox: QtWidgets.QComboBox = settingsWidget.cameraComboBox
 
     def _connect_buttons(self, settingsWidget, MDIWidget):
@@ -289,22 +276,16 @@ class AffineGUI(QObject):
                 self.update_list_widget(points, name, clear_list=False)
 
     def _list_item_clicked_action(self, item):
-        points = item.data(self.COORD_DATA)
-        if not points:
+        # Draw all points from all selected items
+        selected_items = self.definedPoints.selectedItems()
+        all_points = []
+        for sel_item in selected_items:
+            points = sel_item.data(self.COORD_DATA)
+            if points:
+                all_points.extend(points)
+        if not all_points:
             return
-        self.draw_points_mdi(points, Qt.GlobalColor.red, clear_scene=True)
-
-    def _manual_button_action(self):
-        """Unused. Moved to dialog"""
-        self.manual_mode = True
-        camera_name = self.cameraComboBox.currentText()
-        status, img = self.functions["camera"][camera_name]["camera_capture_image"]()
-        if status != 0:
-            self.log_message.emit(f"Affine: Error capturing image: {img}")
-            return
-        self._update_MDI(self.mdi_mask, img)
-
-        self.info_message.emit(f"Manual mode enabled. Click on the GDS and then on the image to define points. {self.num_needed} points needed for transformation.")
+        self.draw_points_mdi(all_points, Qt.GlobalColor.red, clear_scene=True)
 
     def _mask_button_action(self):
         """Interface for the gds mask loading button."""
@@ -322,22 +303,24 @@ class AffineGUI(QObject):
                 self._gui_change_mask_uploaded(mask_loaded=True)
                 self.last_mask_path = self.affine.mask_path
         except AffineError as e:
-            self.log_message.emit(e.message)
+            self.logger.log_error(e.message)
 
     def _open_dialog(self):
+        """Opens the matching dialog for aff transformation."""
+
         def _on_close():
             self._update_MDI(self.dialog.mask, self.dialog.img, save_internal=True)
             res = self.affine.result.get("matches", None)
             if res is not None and len(res) > 0:
-                self.log_message.emit(f"Affine: Transformation confirmed. {len(res)} matches found.")
+                self.logger.log_info(f"Affine: Transformation confirmed. {len(res)} matches found.")
             else:
-                self.log_message.emit("Affine: No transformation confirmed")
+                self.logger.log_info("Affine: No transformation confirmed")
 
             self.dialog = None
 
         img = self.functions["camera"][self.cameraComboBox.currentText()]["camera_capture_image"]()
         if img[0] != 0:
-            self.log_message.emit(f"Affine: Error capturing image: {img[1]}")
+            self.logger.log_error(f"Affine: Error capturing image: {img[1]}")
             return
         # Get defined points as a flat list of (x_mask, y_mask)
         pointslist = []
@@ -354,7 +337,7 @@ class AffineGUI(QObject):
             self.dialog.finished.connect(_on_close)
             self.dialog.show()
         else:
-            self.log_message.emit(f"Affine: Error parsing settings widget: {settings['error message']} {settings['exception']}")
+            self.logger.log_warn(f"Affine: Error parsing settings widget: {settings['error message']} {settings['exception']}")
 
     def _gds_label_clicked(self, event):
         def measurement_point_mode(x, y):
@@ -378,7 +361,7 @@ class AffineGUI(QObject):
 
                 except AffineError as e:
                     if e.error_code != 4:
-                        self.log_message.emit(e.message)
+                        self.logger.log_info(e.message)
 
         def manual_mode(x, y):
             # Draw the point on the mask
@@ -417,9 +400,9 @@ class AffineGUI(QObject):
                 try:
                     self.affine.manual_transform(self.mask_points, self.img_points, self.mdi_img, self.mdi_mask)
                     self._update_MDI(self.mdi_mask, self.mdi_img, save_internal=False)
-                    self.info_message.emit("Manual transformation successful.")
+                    self.logger.info_popup("Manual transformation successful.")
                 except AffineError as e:
-                    self.info_message.emit(e.message)
+                    self.logger.info_popup(e.message)
 
                 # reset the points
                 self.mask_points = []
@@ -542,13 +525,13 @@ class AffineGUI(QObject):
     # hook implementations
 
     def _getLogSignal(self):
-        return self.log_message
+        return self.logger.logger_signal
 
     def _getInfoSignal(self):
-        return self.info_message
+        return self.logger.info_popup_signal
 
     def _getCloseLockSignal(self):
-        return self.closeLock
+        return self.closelock.closeLock
 
     def _fetch_dependency_functions(self, function_dict):
         self.missing_functions = []
@@ -562,7 +545,6 @@ class AffineGUI(QObject):
                 self.functions[dep_category] = function_dict[dep_category]
 
         # self.functions["camera"] is a list of nested dictionaries, iterate through every camera
-        # FIXME: Currently the return is a dictrionary of dictionaries ONLY when multiple cameras are available.
 
         self.cameraComboBox.clear()
         cameras = self.functions.get("camera", {})
@@ -579,12 +561,12 @@ class AffineGUI(QObject):
         """
         Returns a nested dictionary of public methods for the plugin
         """
-        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method.startswith(f"{function.lower()}_")}
-        return methods
+        return get_public_methods(self)
 
     # public API
 
     # FIXME: non standard return type for plugin
+    @public
     def positioning_coords(self, coords: tuple[float, float]) -> tuple[float, float]:
         """Returns the transformed coordinates."""
         try:
@@ -593,6 +575,7 @@ class AffineGUI(QObject):
         except AffineError:
             return (-1, -1)
 
+    @public
     def positioning_measurement_points(self):
         """Returns the measurement points defined in the list widget."""
         points = []
@@ -604,6 +587,7 @@ class AffineGUI(QObject):
                 names.append(item.text())
         return points, names
 
+    @public
     def parse_settings_widget(self):
         """Parse settings widget, return dict"""
         try:
