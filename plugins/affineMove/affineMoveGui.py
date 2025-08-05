@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QWidget, QComboBox, QGraphicsScene, QGraphicsView
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import Qt
 
-from datetime import datetime
+from plugin_components import public, get_public_methods, LoggingHelper, CloseLockSignalProvider, ConnectionIndicatorStyle
 
 
 class ViewportClickCatcher(QObject):
@@ -45,20 +45,9 @@ class ViewportClickCatcher(QObject):
 
 
 class affineMoveGUI(QObject):
-    non_public_methods = []
-    public_methods = ["parse_settings_widget", "affine_move", "setSettings", "getIterations", "loopingIteration"]
-    green_style = "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-    red_style = "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-
-    ########Signals
-    # signals retained since this plugins needs to communicate during sutter calibration.
-    log_message = pyqtSignal(str)
-    info_message = pyqtSignal(str)
-
-    def emit_log(self, message: str):
-        plugin_name = self.__class__.__name__
-        log = f"{plugin_name} : {message}"
-        self.log_message.emit(log)
+    """Affine Move GUI.
+    TODO: Uses the object based dependency system, not the method based one.
+    """
 
     @property
     def dependency(self):
@@ -79,8 +68,8 @@ class affineMoveGUI(QObject):
         self._dependencies = [None, None]
         self.calibration_path = os.path.join(self.path, "calibration_data.npy")
 
-        self.settingsWidget = uic.loadUi(self.path + "affinemove_Settings.ui")
-        self.MDIWidget = uic.loadUi(self.path + "affinemove_MDI.ui")
+        self.settingsWidget = uic.loadUi(self.path + "affinemove_Settings.ui")  # type: ignore
+        self.MDIWidget = uic.loadUi(self.path + "affinemove_MDI.ui")  # type: ignore
         assert self.settingsWidget is not None, "AffineMove: settingsWidget is None"
         assert self.MDIWidget is not None, "AffineMove: MDIWidget is None"
 
@@ -106,6 +95,9 @@ class affineMoveGUI(QObject):
         self.mm_indicator = self.settingsWidget.mmIndicator
         self.sample_indicator = self.settingsWidget.sampleIndicator
         self.points_indicator = self.settingsWidget.pointsIndicator
+
+        self.logger = LoggingHelper(self)
+        self.closelock = CloseLockSignalProvider()
 
     ########Functions
     ########GUI Slots
@@ -154,18 +146,18 @@ class affineMoveGUI(QObject):
 
         status, state = mm.mm_open()
         if status:
-            self.emit_log(f"{state['Error message']} {state.get('Exception', '')}")
+            self.logger.log_info(f"{state['Error message']} {state.get('Exception', '')}")
             return
         status, ret = mm.mm_devices()
         if status:
-            self.emit_log(f"{state['Error message']} {state.get('Exception', '')}")
+            self.logger.log_info(f"{state['Error message']} {state.get('Exception', '')}")
             return
         dev_count, dev_statuses = ret
         # calibrate every available manipulator
         for i, status in enumerate(dev_statuses):
             if status == 1:
                 code, status = mm.mm_change_active_device(i + 1)
-                self.info_message.emit(f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)")
+                self.logger.info_popup(f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)")
                 # calibrate
                 status, state = mm.mm_calibrate()
                 # move to "home"
@@ -177,7 +169,7 @@ class affineMoveGUI(QObject):
                     status, state = mm.mm_move_relative(x_change=move[0], y_change=move[1])
                     point = self._wait_for_input()
                     if point is None:
-                        self.info_message.emit("Calibration cancelled by user.")
+                        self.logger.info_popup("Calibration cancelled by user.")
                         return
                     x, y, z = mm.mm_current_position()
                     mm_point = (x, y)
@@ -195,16 +187,19 @@ class affineMoveGUI(QObject):
         self.update_status()
 
     def _fetch_mask_functionality(self):
+        self.logger.log_debug("Fetching mask functionality from positioning plugin...")
         _, _, pos = self._fetch_dep_plugins()
         if pos is None:
+            self.logger.log_warn("Positioning plugin is None in _fetch_mask_functionality")
             return
         points, names = pos.positioning_measurement_points()
         if points is None or names is None:
-            self.info_message.emit("AffineMove: No measurement points available in positioning plugin")
+            self.logger.info_popup("AffineMove: No measurement points available in positioning plugin")
+            self.logger.log_error("No measurement points or names returned from positioning plugin")
             return
         self.measurement_points = points
         self.measurement_point_names = names
-
+        self.logger.log_info(f"Fetched {len(points)} measurement points from positioning plugin.")
         self.update_status()
 
     def _initialize_camera_preview(self):
@@ -222,7 +217,7 @@ class affineMoveGUI(QObject):
         for all manipulators instead of multiple files to choose from. TODO: implement a way to choose where to save and with what name (if really necessary)
         """
         if not self.calibrations:
-            self.emit_log("No calibration data to save.")
+            self.logger.log_info("No calibration data to save.")
             return
 
         # Define the file path
@@ -230,7 +225,7 @@ class affineMoveGUI(QObject):
 
         # Save the calibration data
         np.save(file_path, self.calibrations)
-        self.info_message.emit(f"Calibration data saved to {file_path}")
+        self.logger.info_popup(f"Calibration data saved to {file_path}")
 
     def _load_calibration(self) -> tuple[int, dict[str, str]]:
         """Load the calibration data from a file. This implemetation keeps a single calibration file
@@ -239,18 +234,18 @@ class affineMoveGUI(QObject):
         file_path = os.path.join(self.calibration_path)
 
         if not os.path.exists(file_path):
-            self.emit_log(f"No calibration data found at {file_path}")
+            self.logger.log_info(f"No calibration data found at {file_path}")
             return 1, {"Error message": f"No calibration data found at {file_path}"}
 
         # calibrate all manipulators
         mm, _, _ = self._fetch_dep_plugins()
         status, state = mm.mm_open()
         if status:
-            self.emit_log(f"{state['Error message']} {state.get('Exception', '')}")
+            self.logger.log_info(f"{state['Error message']} {state.get('Exception', '')}")
             return status, state
         status, ret = mm.mm_devices()
         if status:
-            self.emit_log(f"{state['Error message']} {state.get('Exception', '')}")
+            self.logger.log_info(f"{state['Error message']} {state.get('Exception', '')}")
             return status, state
         dev_count, dev_statuses = ret
         # calibrate every available manipulator
@@ -277,7 +272,7 @@ class affineMoveGUI(QObject):
             tuple: Transformed point in manipulator coordinates.
         """
         if mm_dev not in self.calibrations:
-            self.emit_log(f"No calibration data for manipulator {mm_dev}")
+            self.logger.log_info(f"No calibration data for manipulator {mm_dev}")
             return None
 
         calibration = self.calibrations[mm_dev]  # 2x3 matrix
@@ -330,8 +325,8 @@ class affineMoveGUI(QObject):
         Updates the graphics view with the camera image.
         This function is called by the camera plugin when a new image is captured.
         """
-
         if img is not None:
+            self.logger.log_debug("Updating graphics view with new camera image.")
             h, w, ch = img.shape
             bytes_per_line = ch * w
             qt_image = QImage(img.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
@@ -339,7 +334,7 @@ class affineMoveGUI(QObject):
             self.camera_graphic_scene.clear()
             self.camera_graphic_scene.addPixmap(pixmap)
         else:
-            self.emit_log("Camera image is None")
+            self.logger.log_warn("Camera image is None in update_graphics_view.")
 
     def update_status(self):
         """
@@ -348,19 +343,19 @@ class affineMoveGUI(QObject):
         """
         mm, cam, pos = self._fetch_dep_plugins()
         if self.calibrations == {}:
-            self.mm_indicator.setStyleSheet(self.red_style)
+            self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED)
         else:
-            self.mm_indicator.setStyleSheet(self.green_style)
+            self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED)
 
         if pos.positioning_coords((0, 0)) == (-1, -1):
-            self.sample_indicator.setStyleSheet(self.red_style)
+            self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED)
         else:
-            self.sample_indicator.setStyleSheet(self.green_style)
+            self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED)
 
         if len(self.measurement_points) == 0:
-            self.points_indicator.setStyleSheet(self.red_style)
+            self.points_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED)
         else:
-            self.points_indicator.setStyleSheet(self.green_style)
+            self.points_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED)
 
     ########Functions
     ########plugins interraction
@@ -370,15 +365,15 @@ class affineMoveGUI(QObject):
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
-        return methods
+        return get_public_methods(self)
 
     def _getLogSignal(self):
-        return self.log_message
+        return self.logger.logger_signal
 
     def _getInfoSignal(self):
-        return self.info_message
+        return self.logger.info_popup_signal
 
+    @public
     def parse_settings_widget(self) -> tuple[int, dict]:
         """
         Parses the settings widget and returns the settings as a dictionary.
@@ -395,7 +390,7 @@ class affineMoveGUI(QObject):
         return 0, settings
 
     ########Functions to be used externally
-
+    @public
     def affine_move(self):
         """
         This function is the main entry point for standalone testing. It moves to the next measurement point.
@@ -438,16 +433,17 @@ class affineMoveGUI(QObject):
                 x, y = mm_coords
                 status, state = mm.mm_move(x, y)
                 if status:
-                    self.emit_log(state.get("Error message", str(state)))
+                    self.logger.log_info(state.get("Error message", str(state)))
                     return [2, state.get("Error message", str(state))]
 
             self.iter += 1
             return [0, f"Moved to point {point_name} ({self.iter}/{len(self.measurement_points)})"]
 
         except Exception as e:
-            self.emit_log(f"Error in affine_move: {str(e)}")
+            self.logger.log_info(f"Error in affine_move: {str(e)}")
             return [2, f"Affine_move: {str(e)}"]
 
+    @public
     def setSettings(self, settings):
         """
         Sets the settings for the affineMove plugin. Called by the sequence builder.
@@ -456,8 +452,9 @@ class affineMoveGUI(QObject):
             settings (dict): A dictionary containing the settings for the affineMove plugin.
         """
         self.settings = settings
-        self.emit_log(f"AffineMove settings updated: {settings}")
+        self.logger.log_info(f"AffineMove settings updated: {settings}")
 
+    @public
     def getIterations(self) -> int:
         """Get the number of iterations for the affineMove plugin. This is the number of measurement points available.
 
@@ -466,6 +463,7 @@ class affineMoveGUI(QObject):
         """
         return len(self.measurement_points)
 
+    @public
     def loopingIteration(self, currentIteration):
         """
         Called by the sequence builder during loop execution. Moves to the measurement point
@@ -487,17 +485,17 @@ class affineMoveGUI(QObject):
             # open mm and check for errors
             status, state = mm.mm_open()
             if status:
-                self.emit_log(f"Error opening micromanipulator: {state.get('Error message', str(state))}")
+                self.logger.log_info(f"Error opening micromanipulator: {state.get('Error message', str(state))}")
                 return [1, f"_error_iter{currentIteration}"]
 
             # check if there are measurement points available
             if len(self.measurement_points) == 0:
-                self.emit_log("No measurement points available")
+                self.logger.log_info("No measurement points available")
                 return [3, f"_error_iter{currentIteration}"]
 
             # check if currentIteration is valid
             if currentIteration >= len(self.measurement_points):
-                self.emit_log(f"Invalid iteration {currentIteration}, only {len(self.measurement_points)} points available")
+                self.logger.log_info(f"Invalid iteration {currentIteration}, only {len(self.measurement_points)} points available")
                 return [3, f"_error_iter{currentIteration}"]
 
             points = self.measurement_points[currentIteration]
@@ -512,18 +510,18 @@ class affineMoveGUI(QObject):
                 # convert camera point to micromanipulator coordinates
                 mm_coords = self.convert_to_mm_coords((x, y), i + 1)
                 if mm_coords is None:
-                    self.emit_log(f"No calibration data for manipulator {i + 1}")
+                    self.logger.log_info(f"No calibration data for manipulator {i + 1}")
                     return [2, f"_error_iter{currentIteration}"]
 
                 x, y = mm_coords
                 status, state = mm.mm_move(x, y)
                 if status:
-                    self.emit_log(f"Error moving manipulator {i + 1}: {state.get('Error message', str(state))}")
+                    self.logger.log_info(f"Error moving manipulator {i + 1}: {state.get('Error message', str(state))}")
                     return [2, f"_error_iter{currentIteration}"]
 
-            self.emit_log(f"Moved to measurement point {point_name} (iteration {currentIteration})")
+            self.logger.log_info(f"Moved to measurement point {point_name} (iteration {currentIteration})")
             return [0, f"_{point_name}"]
 
         except Exception as e:
-            self.emit_log(f"Error in loopingIteration: {str(e)}")
+            self.logger.log_info(f"Error in loopingIteration: {str(e)}")
             return [2, f"_error_iter{currentIteration}"]

@@ -1,14 +1,13 @@
 import os
-from datetime import datetime
+
 
 from Affine_skimage import Affine, AffineError
 from PyQt6 import QtWidgets, uic
-from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QBrush, QImage, QPen, QPixmap
 from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
 import csv
 from affineDialog import dialog
-from PyQt6.QtCore import pyqtSlot
 from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods
 
 
@@ -147,9 +146,9 @@ class AffineGUI:
                 if file.endswith(".ui"):
                     try:
                         if file.split("_")[1].lower() == "settingswidget.ui":
-                            settingsWidget = uic.loadUi(self.path + file)
+                            settingsWidget = uic.loadUi(self.path + file) # type: ignore
                         elif file.split("_")[1].lower() == "mdiwidget.ui":
-                            MDIWidget = uic.loadUi(self.path + file)
+                            MDIWidget = uic.loadUi(self.path + file) # type: ignore
                     except IndexError:
                         continue
         assert settingsWidget is not None, "Settings widget not found in the plugin directory."
@@ -203,7 +202,6 @@ class AffineGUI:
         settingsWidget.showButton.clicked.connect(self._open_dialog)
         # connect the label click on gds to a function
         self.gds_label.mousePressEvent = lambda event: self._gds_label_clicked(event)
-        self.camera_label.mousePressEvent = lambda event: self._camera_label_clicked(event)
 
         return settingsWidget, MDIWidget
 
@@ -309,6 +307,7 @@ class AffineGUI:
         """Opens the matching dialog for aff transformation."""
 
         def _on_close():
+            assert self.dialog is not None, "Dialog is not initialized."
             self._update_MDI(self.dialog.mask, self.dialog.img, save_internal=True)
             res = self.affine.result.get("matches", None)
             if res is not None and len(res) > 0:
@@ -384,31 +383,6 @@ class AffineGUI:
             measurement_point_mode(x, y)
         elif not self.expecting_img_click:
             manual_mode(x, y)
-
-    def _camera_label_clicked(self, event):
-        """Handles camera label clicks."""
-        if self.expecting_img_click:
-            scene_pos = self.camera_label.mapToScene(event.pos())  # Convert view to scene coordinates
-            x = int(scene_pos.x())
-            y = int(scene_pos.y())
-
-            self.camera_scene.addEllipse(x - 3, y - 3, 6, 6, brush=QBrush(Qt.GlobalColor.blue))
-            self.img_points.append((x, y))
-            self.expecting_img_click = False
-
-            if len(self.img_points) == self.num_needed:
-                try:
-                    self.affine.manual_transform(self.mask_points, self.img_points, self.mdi_img, self.mdi_mask)
-                    self._update_MDI(self.mdi_mask, self.mdi_img, save_internal=False)
-                    self.logger.info_popup("Manual transformation successful.")
-                except AffineError as e:
-                    self.logger.info_popup(e.message)
-
-                # reset the points
-                self.mask_points = []
-                self.img_points = []
-                self.expecting_img_click = False
-                self.manual_mode = False
 
     def _update_MDI(self, mask=None, img=None, save_internal=True):
         """
