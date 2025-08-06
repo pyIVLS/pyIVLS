@@ -5,11 +5,12 @@ from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox
 from plugins.plugin_components import public
+import time
 
 
 class touchDetectGUI(QObject):
     non_public_methods = []
-    public_methods = ["move_to_contact", "parse_settings_widget", "sequenceStep", "setSettings"]
+    public_methods = ["move_to_contact", "parse_settings_widget", "sequenceStep", "setSettings", "_check_saved_positions", "clear_saved_positions"]
     green_style = "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
     red_style = "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
 
@@ -256,29 +257,147 @@ class touchDetectGUI(QObject):
         return self.settingsWidget
 
     def _monitor(self):
-        self._log_info("Starting resistance monitoring")
-        _, smu, con = self._fetch_dep_plugins()
-        status, state = con.deviceConnect()
-        status_smu, state_smu = smu.smu_connect()
-        if status != 0:
-            return (status, {"Error message": f"{state}"})
-        if status_smu != 0:
-            return (status_smu, {"Error message": f"{state_smu}"})
-        con.deviceHiCheck(True)
-        smu.smu_setup_resmes("smua")
-        while True:
-            status, r = smu.smu_resmes("smua")
+        """
+        Monitors resistance for all configured manipulators in sequence.
+        User manually moves manipulators until contact is detected, then z-position is saved.
+        """
+        self._log_info("Starting resistance monitoring for all manipulators")
+
+        try:
+            mm, smu, con = self._fetch_dep_plugins()
+
+            # Connect to devices
+            status, state = con.deviceConnect()
             if status != 0:
-                return (status, {"Error message": f"TouchDetect: {r}"})
-            r = float(r)
-            self._log_verbose(f"Current resistance: {r}")
-            print(r)
-            if r < 150:
-                break
+                self.emit_log(status, {"Error message": f"Contact detection connection failed: {state}"})
+                return (status, {"Error message": f"{state}"})
+
+            status_smu, state_smu = smu.smu_connect()
+            if status_smu != 0:
+                self.emit_log(status_smu, {"Error message": f"SMU connection failed: {state_smu}"})
+                return (status_smu, {"Error message": f"{state_smu}"})
+
+            status, state = mm.mm_open()
+            if status != 0:
+                self.emit_log(status, {"Error message": f"Micromanipulator connection failed: {state}"})
+                return (status, {"Error message": f"{state}"})
+
+            self._log_info("All devices connected successfully")
+
+            # Get configured manipulators
+            status, settings = self.parse_settings_widget()
+            if status != 0:
+                self.emit_log(status, settings)
+                return (status, settings)
+
+            # Process each configured manipulator
+            for i, (box, smu_box, con_box) in enumerate(self.manipulator_boxes):
+                manipulator_name = i + 1
+                smu_channel = smu_box.currentText()
+                con_channel = con_box.currentText()
+
+                # Skip if manipulator is not configured
+                if not smu_channel or not con_channel:
+                    self._log_verbose(f"Skipping manipulator {manipulator_name} - not configured")
+                    continue
+
+                threshold = float(settings.get("res_threshold", 150))
+
+                self._log_info(f"Starting monitoring for manipulator {manipulator_name} (SMU: {smu_channel}, Con: {con_channel}, Threshold: {threshold})")
+
+                # Set up contact detection channel
+                con.deviceLoCheck(False)
+                con.deviceHiCheck(False)
+                if con_channel == "Hi":
+                    con.deviceHiCheck(True)
+                elif con_channel == "Lo":
+                    con.deviceLoCheck(True)
+                else:
+                    error_msg = f"Invalid contact detection channel {con_channel} for manipulator {manipulator_name}"
+                    self._log_info(f"WARN: {error_msg}")
+                    continue
+
+                # Set up SMU for resistance measurement
+                status, state = smu.smu_setup_resmes(smu_channel)
+                if status != 0:
+                    self._log_info(f"WARN: Failed to setup SMU for manipulator {manipulator_name}: {state}")
+                    continue
+
+                # Set active manipulator
+                mm.mm_change_active_device(manipulator_name)
+
+                self._log_info(f"MANUAL CONTROL: Move manipulator {manipulator_name} manually until contact is detected")
+                self._log_info(f"Monitoring resistance on {smu_channel} with threshold {threshold}...")
+
+                # Monitor loop for this manipulator
+                contact_detected = False
+                while not contact_detected:
+                    try:
+                        status, r = smu.smu_resmes(smu_channel)
+                        if status != 0:
+                            self._log_info(f"WARN: Resistance measurement failed for manipulator {manipulator_name}: {r}")
+                            break
+
+                        r = float(r)
+                        self._log_verbose(f"Manipulator {manipulator_name} resistance: {r} Ω (threshold: {threshold} Ω)")
+
+                        if r < threshold:
+                            # Contact detected! Save the z-position
+                            _, _, z_position = mm.mm_current_position()
+                            self.functionality.last_z[manipulator_name] = z_position
+
+                            self._log_info(f"CONTACT DETECTED: Manipulator {manipulator_name} at z={z_position} saved as baseline position")
+                            contact_detected = True
+
+                        time.sleep(0.1)
+
+                    except KeyboardInterrupt:
+                        self._log_info(f"Monitoring interrupted by user for manipulator {manipulator_name}")
+                        break
+                    except Exception as e:
+                        self._log_info(f"WARN: Exception during monitoring for manipulator {manipulator_name}: {str(e)}")
+                        break
+
+                # Clean up for this manipulator
+                con.deviceLoCheck(False)
+                con.deviceHiCheck(False)
+                smu.smu_outputOFF()
+
+            self._log_info("Monitoring completed for all configured manipulators")
+            self._log_info(f"Saved positions: {self.functionality.last_z}")
+
+        except Exception as e:
+            error_msg = f"Exception during monitoring: {str(e)}"
+            self._log_info(f"WARN: {error_msg}")
+            return (2, {"Error message": error_msg, "Exception": str(e)})
+
+        finally:
+            # clean up
+            con.deviceLoCheck(False)
+            con.deviceHiCheck(False)
+            smu.smu_outputOFF()
+            con.deviceDisconnect()
+            self._log_verbose("Disconnected from all devices")
+
+        return (0, {"Error message": "Monitoring completed successfully"})
 
     def _test(self):
         self._log_info("Testing move to contact functionality")
+
+        # First check if we have saved positions for all configured manipulators
+        status, result = self._check_saved_positions()
+        if status != 0:
+            error_msg = f"Cannot test: {result.get('Error message', 'Unknown error')}"
+            self._log_info(f"TEST FAILED: {error_msg}")
+            self.emit_log(status, {"Error message": error_msg})
+            return
+
+        # Proceed with the test
         status, state = self.move_to_contact()
+        if status == 0:
+            self._log_info("Move to contact test completed successfully")
+        else:
+            self._log_info(f"Move to contact test failed: {state.get('Error message', 'Unknown error')}")
         self.emit_log(status, state)
 
     def parse_settings_widget(self) -> tuple[int, dict]:
@@ -377,10 +496,66 @@ class touchDetectGUI(QObject):
         return (status, state)
 
     @public
+    def clear_saved_positions(self) -> tuple[int, dict]:
+        """
+        Clears all saved z-positions. Useful for resetting the plugin state.
+
+        Returns:
+            tuple[int, dict]: (0, message) for success
+        """
+        old_positions = dict(self.functionality.last_z)
+        self.functionality.last_z.clear()
+        self._log_info(f"Cleared saved positions: {old_positions}")
+        return (0, {"message": "Saved positions cleared", "cleared_positions": old_positions})
+
+    def _check_saved_positions(self) -> tuple[int, dict]:
+        """
+        Checks if all configured manipulators have saved z-positions from previous monitoring.
+
+        Returns:
+            tuple[int, dict]: (status, result) - 0 for success with all positions saved,
+                             1 for error with missing positions
+        """
+        status, settings = self.parse_settings_widget()
+        if status != 0:
+            return (status, settings)
+
+        missing_positions = []
+        configured_manipulators = []
+
+        # Check each configured manipulator
+        for i, (box, smu_box, con_box) in enumerate(self.manipulator_boxes):
+            manipulator_name = i + 1
+            smu_channel = smu_box.currentText()
+            con_channel = con_box.currentText()
+
+            # Skip if manipulator is not configured
+            if not smu_channel or not con_channel:
+                continue
+
+            configured_manipulators.append(manipulator_name)
+
+            # Check if this manipulator has a saved position
+            if manipulator_name not in self.functionality.last_z:
+                missing_positions.append(manipulator_name)
+
+        if missing_positions:
+            error_msg = f"Missing saved positions for manipulators: {missing_positions}. Run manual monitoring first to establish baseline positions."
+            self._log_info(f"WARN: {error_msg}")
+            return (1, {"Error message": error_msg, "missing_positions": missing_positions, "configured_manipulators": configured_manipulators})
+
+        self._log_info(f"All configured manipulators ({configured_manipulators}) have saved positions: {self.functionality.last_z}")
+        return (0, {"configured_manipulators": configured_manipulators, "saved_positions": dict(self.functionality.last_z)})
+
+    @public
     def sequenceStep(self, postfix: str) -> tuple[int, dict]:
         """
         Performs the sequence step by moving all configured manipulators to contact.
         This function is called during sequence execution.
+
+        SAFETY: This function will fail if any configured manipulator doesn't have
+        a previously saved z-position from manual monitoring. This prevents the
+        slow automatic first-location algorithm from running during sequence execution.
 
         Args:
             postfix (str): Filename postfix from sequence builder for identification
@@ -390,6 +565,15 @@ class touchDetectGUI(QObject):
         """
         self._log_info(f"Starting touchDetect sequence step with postfix: {postfix}")
 
+        # SAFETY CHECK: Ensure all configured manipulators have saved positions
+        status, result = self._check_saved_positions()
+        if status != 0:
+            error_msg = f"TouchDetect sequence step failed: {result.get('Error message', 'Unknown error')}"
+            self._log_info(f"SAFETY: {error_msg}")
+            return (status, {"Error message": error_msg, "safety_check": "failed", "details": result})
+
+        self._log_info("SAFETY: All configured manipulators have saved positions, proceeding with move to contact")
+
         # Execute move to contact for all configured manipulators
         status, state = self.move_to_contact()
 
@@ -398,4 +582,4 @@ class touchDetectGUI(QObject):
             return (status, state)
 
         self._log_info("TouchDetect sequence step completed successfully")
-        return (0, {"message": "TouchDetect sequence step completed successfully"})
+        return (0, {"message": "TouchDetect sequence step completed successfully", "safety_check": "passed"})
