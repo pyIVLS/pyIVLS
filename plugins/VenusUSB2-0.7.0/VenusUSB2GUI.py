@@ -17,10 +17,6 @@ public API:
 - camera_close() -> None
 - camera_capture_image() -> image / None
 
-public API:
-- camera_open() -> "error"
-- camera_close() -> None
-- camera_capture_image() -> image / None
 
 version 0.6
 2025.05.12

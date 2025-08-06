@@ -15,6 +15,10 @@ This also helps in keeping the GUI implementation relatively clean.
     1. Reduce repetitive code, make it easier to maintain with a single point of change (not rewriting all plugins on all changes)
     2. Make it easier to implement new plugins, since the common functionality is already implemented
     3. Way way way easier to test the components than all plugins by themselves.
+-IDEA: if the plugin returns something, it should not also log. so no returns like this:
+    self.logger.log_info("Something happened")
+    return PyIVLSReturn.success({"what happened": "something"})
+since this would lead to double logging.
 
 This file includes:
 - ConnectionIndicatorStyle: Enum for connection indicator styles

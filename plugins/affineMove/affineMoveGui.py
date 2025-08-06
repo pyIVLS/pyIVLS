@@ -207,10 +207,14 @@ class affineMoveGUI(QObject):
         Initializes the camera preview by starting the and updating the graphics view.
         This function is called when the camera plugin is selected.
         """
+        self.logger.log_debug("Initializing camera preview")
         _, cam, _ = self._fetch_dep_plugins()
         thread = cam.camera_thread
+        # connect signal to update the graphics view
         thread.new_frame.connect(self.update_graphics_view)
+        # starts the thread
         cam._previewAction()
+        self.logger.log_info("Camera preview started")
 
     def _save_calibration(self):
         """Write the current calibration data to a file. This implemetation keeps a single calibration file
@@ -326,7 +330,6 @@ class affineMoveGUI(QObject):
         This function is called by the camera plugin when a new image is captured.
         """
         if img is not None:
-            self.logger.log_debug("Updating graphics view with new camera image.")
             h, w, ch = img.shape
             bytes_per_line = ch * w
             qt_image = QImage(img.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
