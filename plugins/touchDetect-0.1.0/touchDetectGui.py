@@ -1,15 +1,15 @@
 import os
+import copy
 from touchDetect import touchDetect
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox
-
-from datetime import datetime
+from plugins.plugin_components import public
 
 
 class touchDetectGUI(QObject):
     non_public_methods = []
-    public_methods = ["move_to_contact", "parse_settings_widget"]
+    public_methods = ["move_to_contact", "parse_settings_widget", "sequenceStep", "setSettings"]
     green_style = "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
     red_style = "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
 
@@ -67,11 +67,7 @@ class touchDetectGUI(QObject):
         self.path = os.path.dirname(__file__) + os.path.sep
         # depenenies are in format plugin: object, metadata: dict.
         self._dependencies = [None, None]
-        self.functionality = touchDetect(
-            log_verbose=self._log_verbose,
-            log_info=self._log_info,
-            log_warn=lambda msg: self._log_info(f"WARN : {msg}")  
-        )
+        self.functionality = touchDetect(log_verbose=self._log_verbose, log_info=self._log_info, log_warn=lambda msg: self._log_info(f"WARN : {msg}"))
 
         self.settingsWidget = uic.loadUi(self.path + "touchDetect_Settings.ui")
 
@@ -276,7 +272,7 @@ class touchDetectGUI(QObject):
                 return (status, {"Error message": f"TouchDetect: {r}"})
             r = float(r)
             self._log_verbose(f"Current resistance: {r}")
-            print(r) 
+            print(r)
             if r < 150:
                 break
 
@@ -327,10 +323,26 @@ class touchDetectGUI(QObject):
 
         return (0, settings)
 
+    @public
+    def setSettings(self, settings: dict) -> tuple[int, dict]:
+        """
+        Sets the plugin settings from the sequence builder.
+
+        Args:
+            settings (dict): Settings dictionary with plugin configuration
+
+        Returns:
+            tuple[int, dict]: (status, settings) - status 0 for success, settings dict
+        """
+        self._log_verbose("Setting settings for touchDetect plugin: " + str(settings))
+        # Deep copy to avoid modifying original data
+        self.settings = copy.deepcopy(settings) if settings else {}
+        return (0, self.settings)
+
     ########Functions to be used externally
     def move_to_contact(self):
         self._log_info("Starting move to contact operation")
-        
+
         def create_dict():
             # check settings
             self._log_verbose("Parsing settings for move to contact")
@@ -363,3 +375,27 @@ class touchDetectGUI(QObject):
             return (status, state)
         self._log_info("Move to contact operation completed successfully")
         return (status, state)
+
+    @public
+    def sequenceStep(self, postfix: str) -> tuple[int, dict]:
+        """
+        Performs the sequence step by moving all configured manipulators to contact.
+        This function is called during sequence execution.
+
+        Args:
+            postfix (str): Filename postfix from sequence builder for identification
+
+        Returns:
+            tuple[int, dict]: (status, state) - 0 for success, error dict for failure
+        """
+        self._log_info(f"Starting touchDetect sequence step with postfix: {postfix}")
+
+        # Execute move to contact for all configured manipulators
+        status, state = self.move_to_contact()
+
+        if status != 0:
+            self._log_info(f"TouchDetect sequence step failed: {state}")
+            return (status, state)
+
+        self._log_info("TouchDetect sequence step completed successfully")
+        return (0, {"message": "TouchDetect sequence step completed successfully"})
