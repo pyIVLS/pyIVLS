@@ -99,22 +99,40 @@ class AffineGUI:
         s["equalizemask"] = settings["equalizemask"]
         s["cannymask"] = settings["cannymask"]
         s["otsumask"] = settings["otsumask"]
+        s["manualthresholdmask"] = settings.get("manualthresholdmask", "False")
+        s["thresholdmask"] = settings.get("thresholdmask", "128")
+        s["morphologymask"] = settings.get("morphologymask", "False")
+        s["morphologytypemask"] = settings.get("morphologytypemask", "erosion")
+        s["morphologystrengthmask"] = settings.get("morphologystrengthmask", "3")
         s["blurimage"] = settings["blurimage"]
         s["invertimage"] = settings["invertimage"]
         s["equalizeimage"] = settings["equalizeimage"]
         s["cannyimage"] = settings["cannyimage"]
         s["otsuimage"] = settings["otsuimage"]
+        s["manualthresholdimage"] = settings.get("manualthresholdimage", "False")
+        s["thresholdimage"] = settings.get("thresholdimage", "128")
+        s["morphologyimage"] = settings.get("morphologyimage", "False")
+        s["morphologytypeimage"] = settings.get("morphologytypeimage", "erosion")
+        s["morphologystrengthimage"] = settings.get("morphologystrengthimage", "3")
         # convert to boolean from string literals "True" and "False"
         s["blurmask"] = True if s["blurmask"] == "True" else False
         s["invertmask"] = True if s["invertmask"] == "True" else False
         s["equalizemask"] = True if s["equalizemask"] == "True" else False
         s["cannymask"] = True if s["cannymask"] == "True" else False
         s["otsumask"] = True if s["otsumask"] == "True" else False
+        s["manualthresholdmask"] = True if s["manualthresholdmask"] == "True" else False
+        s["thresholdmask"] = int(s["thresholdmask"])
+        s["morphologymask"] = True if s["morphologymask"] == "True" else False
+        s["morphologystrengthmask"] = int(s["morphologystrengthmask"])
         s["blurimage"] = True if s["blurimage"] == "True" else False
         s["invertimage"] = True if s["invertimage"] == "True" else False
         s["equalizeimage"] = True if s["equalizeimage"] == "True" else False
         s["cannyimage"] = True if s["cannyimage"] == "True" else False
         s["otsuimage"] = True if s["otsuimage"] == "True" else False
+        s["manualthresholdimage"] = True if s["manualthresholdimage"] == "True" else False
+        s["thresholdimage"] = int(s["thresholdimage"])
+        s["morphologyimage"] = True if s["morphologyimage"] == "True" else False
+        s["morphologystrengthimage"] = int(s["morphologystrengthimage"])
         s["ratiotest"] = ratiotest
         s["residualthreshold"] = residualthreshold
         s["crosscheck"] = crosscheck
@@ -583,6 +601,10 @@ class AffineGUI:
 
             assert settings["sigmaimage"] >= 0, "sigmaImage must be non-negative"
             assert settings["sigmamask"] >= 0, "sigmaMask must be non-negative"
+            assert 0 <= settings["thresholdimage"] <= 255, "thresholdImage must be between 0 and 255"
+            assert 0 <= settings["thresholdmask"] <= 255, "thresholdMask must be between 0 and 255"
+            assert 1 <= settings["morphologystrengthimage"] <= 15, "morphologyStrengthImage must be between 1 and 15"
+            assert 1 <= settings["morphologystrengthmask"] <= 15, "morphologyStrengthMask must be between 1 and 15"
         except AttributeError as e:
             return 2, {
                 "Error message": "settings widget not initialized",

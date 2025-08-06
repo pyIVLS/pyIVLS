@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
     QGraphicsScene,
     QGraphicsPixmapItem,
     QLineEdit,
+    QSpinBox,
 )
 from PyQt6.QtGui import QImage, QPixmap, QBrush, QColor
 from affineMatchDialog import Ui_Dialog
@@ -26,6 +27,8 @@ class dialog(QDialog):
     sigma_list = [1.0, 2.0, 3.0, 4.0, 5.0]
     ratio_list = [0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]
     residual_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30]
+    # morphological operation types
+    morphology_types = ["erosion", "dilation", "opening", "closing"]
     log_message = pyqtSignal(int, dict)
     info_message = pyqtSignal(str)
 
@@ -48,6 +51,8 @@ class dialog(QDialog):
                 child.stateChanged.connect(self._preprocessing_settings_changed)
             elif isinstance(child, QComboBox):
                 child.currentTextChanged.connect(self._preprocessing_settings_changed)
+            elif isinstance(child, QSpinBox):
+                child.valueChanged.connect(self._preprocessing_settings_changed)
             elif isinstance(child, QLineEdit):
                 child.textChanged.connect(self._preprocessing_settings_changed)
         # Connect backend combobox to settings change handler
@@ -80,6 +85,11 @@ class dialog(QDialog):
         for residual in self.residual_list:
             self.ui.residualCombo.addItem(str(residual))
 
+        # Fill morphology type comboboxes
+        for morph_type in self.morphology_types:
+            self.ui.morphologyTypeMask.addItem(morph_type)
+            self.ui.morphologyTypeImage.addItem(morph_type)
+
         # Fill backend combobox
         backends = ["SIFT", "ORB"]
         for backend in backends:
@@ -96,11 +106,39 @@ class dialog(QDialog):
         self.ui.cannyImage.setChecked(settings["cannyimage"])
         self.ui.otsuMask.setChecked(settings["otsumask"])
         self.ui.otsuImage.setChecked(settings["otsuimage"])
+        self.ui.manualThresholdMask.setChecked(settings.get("manualthresholdmask", False))
+        self.ui.manualThresholdImage.setChecked(settings.get("manualthresholdimage", False))
+        self.ui.morphologyMask.setChecked(settings.get("morphologymask", False))
+        self.ui.morphologyImage.setChecked(settings.get("morphologyimage", False))
         self.ui.sigmaImage.setCurrentText(str(settings["sigmaimage"]))
         self.ui.sigmaMask.setCurrentText(str(settings["sigmamask"]))
+        self.ui.thresholdImage.setValue(settings.get("thresholdimage", 128))
+        self.ui.thresholdMask.setValue(settings.get("thresholdmask", 128))
+        self.ui.morphologyTypeMask.setCurrentText(settings.get("morphologytypemask", "erosion"))
+        self.ui.morphologyTypeImage.setCurrentText(settings.get("morphologytypeimage", "erosion"))
+        self.ui.morphologyStrengthMask.setValue(settings.get("morphologystrengthmask", 3))
+        self.ui.morphologyStrengthImage.setValue(settings.get("morphologystrengthimage", 3))
         self.ui.crossCheck.setChecked(settings["crosscheck"])
         self.ui.ratioCombo.setCurrentText(str(settings["ratiotest"]))
         self.ui.residualCombo.setCurrentText(str(settings["residualthreshold"]))
+        
+        # Set up conditional enabling connections
+        self.ui.manualThresholdMask.stateChanged.connect(self._update_threshold_mask_state)
+        self.ui.manualThresholdImage.stateChanged.connect(self._update_threshold_image_state)
+        self.ui.morphologyMask.stateChanged.connect(self._update_morphology_mask_state)
+        self.ui.morphologyImage.stateChanged.connect(self._update_morphology_image_state)
+        self.ui.blurMask.stateChanged.connect(self._update_sigma_mask_state)
+        self.ui.cannyMask.stateChanged.connect(self._update_sigma_mask_state)
+        self.ui.blurImage.stateChanged.connect(self._update_sigma_image_state)
+        self.ui.cannyImage.stateChanged.connect(self._update_sigma_image_state)
+        
+        # Update initial states
+        self._update_threshold_mask_state()
+        self._update_threshold_image_state()
+        self._update_morphology_mask_state()
+        self._update_morphology_image_state()
+        self._update_sigma_mask_state()
+        self._update_sigma_image_state()
 
         # Set backend if provided in settings, otherwise default to SIFT
         backend = settings.get("backend", "SIFT")
@@ -124,6 +162,10 @@ class dialog(QDialog):
         cannyImage = self.ui.cannyImage.isChecked()
         otsuMask = self.ui.otsuMask.isChecked()
         otsuImage = self.ui.otsuImage.isChecked()
+        manualThresholdMask = self.ui.manualThresholdMask.isChecked()
+        manualThresholdImage = self.ui.manualThresholdImage.isChecked()
+        morphologyMask = self.ui.morphologyMask.isChecked()
+        morphologyImage = self.ui.morphologyImage.isChecked()
         crossCheck = self.ui.crossCheck.isChecked()
         try:
             sigmaImage = float(self.ui.sigmaImage.currentText())
@@ -133,6 +175,14 @@ class dialog(QDialog):
             sigmaMask = float(self.ui.sigmaMask.currentText())
         except ValueError:
             sigmaMask = 1.0
+        # Get threshold values directly from spinboxes (no need for try-catch since they enforce valid integers)
+        thresholdImage = self.ui.thresholdImage.value()
+        thresholdMask = self.ui.thresholdMask.value()
+        # Get morphology settings
+        morphologyTypeMask = self.ui.morphologyTypeMask.currentText()
+        morphologyTypeImage = self.ui.morphologyTypeImage.currentText()
+        morphologyStrengthMask = self.ui.morphologyStrengthMask.value()
+        morphologyStrengthImage = self.ui.morphologyStrengthImage.value()
         try:
             settings["ratiotest"] = float(self.ui.ratioCombo.currentText())
         except ValueError:
@@ -150,11 +200,21 @@ class dialog(QDialog):
         settings["equalizemask"] = equalizeMask
         settings["cannymask"] = cannyMask
         settings["otsumask"] = otsuMask
+        settings["manualthresholdmask"] = manualThresholdMask
+        settings["thresholdmask"] = thresholdMask
+        settings["morphologymask"] = morphologyMask
+        settings["morphologytypemask"] = morphologyTypeMask
+        settings["morphologystrengthmask"] = morphologyStrengthMask
         settings["blurimage"] = blurImage
         settings["invertimage"] = invertImage
         settings["equalizeimage"] = equalizeImage
         settings["cannyimage"] = cannyImage
         settings["otsuimage"] = otsuImage
+        settings["manualthresholdimage"] = manualThresholdImage
+        settings["thresholdimage"] = thresholdImage
+        settings["morphologyimage"] = morphologyImage
+        settings["morphologytypeimage"] = morphologyTypeImage
+        settings["morphologystrengthimage"] = morphologyStrengthImage
         settings["sigmaimage"] = sigmaImage
         settings["sigmamask"] = sigmaMask
         settings["crosscheck"] = crossCheck
@@ -162,6 +222,34 @@ class dialog(QDialog):
         img = self.affine.preprocessor.preprocess_img(self.img)
         mask = self.affine.preprocessor.preprocess_mask(self.mask)
         self.update_images(img, mask)
+
+    def _update_threshold_mask_state(self):
+        """Enable/disable threshold mask spinbox based on checkbox state."""
+        self.ui.thresholdMask.setEnabled(self.ui.manualThresholdMask.isChecked())
+
+    def _update_threshold_image_state(self):
+        """Enable/disable threshold image spinbox based on checkbox state."""
+        self.ui.thresholdImage.setEnabled(self.ui.manualThresholdImage.isChecked())
+
+    def _update_morphology_mask_state(self):
+        """Enable/disable morphology mask controls based on checkbox state."""
+        enabled = self.ui.morphologyMask.isChecked()
+        self.ui.morphologyTypeMask.setEnabled(enabled)
+        self.ui.morphologyStrengthMask.setEnabled(enabled)
+
+    def _update_morphology_image_state(self):
+        """Enable/disable morphology image controls based on checkbox state."""
+        enabled = self.ui.morphologyImage.isChecked()
+        self.ui.morphologyTypeImage.setEnabled(enabled)
+        self.ui.morphologyStrengthImage.setEnabled(enabled)
+
+    def _update_sigma_mask_state(self):
+        """Enable/disable sigma mask combobox based on blur or edge detect checkbox state."""
+        self.ui.sigmaMask.setEnabled(self.ui.blurMask.isChecked() or self.ui.cannyMask.isChecked())
+
+    def _update_sigma_image_state(self):
+        """Enable/disable sigma image combobox based on blur or edge detect checkbox state."""
+        self.ui.sigmaImage.setEnabled(self.ui.blurImage.isChecked() or self.ui.cannyImage.isChecked())
 
     @staticmethod
     def to_pixmap(image):
@@ -259,13 +347,29 @@ class dialog(QDialog):
         ax.imshow(out_img)
         # Draw matches
         if draw_matches:
+            # Get indices of matched keypoints
+            matched_indices_1 = set()
+            matched_indices_2 = set()
+            
             for m in matches:
                 idx1, idx2 = m
+                matched_indices_1.add(idx1)
+                matched_indices_2.add(idx2)
                 y1, x1 = kp1[idx1]
                 y2, x2 = kp2[idx2]
                 ax.plot([x1, x2 + w1], [y1, y2], "r-", linewidth=0.5)
                 ax.plot(x1, y1, "bo", markersize=2)
                 ax.plot(x2 + w1, y2, "go", markersize=2)
+            
+            # Draw unmatched keypoints in mask (left side)
+            for idx, (y, x) in enumerate(kp1):
+                if idx not in matched_indices_1:
+                    ax.plot(x, y, "co", markersize=1.5, alpha=0.7)  # cyan circles for unmatched mask keypoints
+            
+            # Draw unmatched keypoints in image (right side)  
+            for idx, (y, x) in enumerate(kp2):
+                if idx not in matched_indices_2:
+                    ax.plot(x + w1, y, "mo", markersize=1.5, alpha=0.7)  # magenta circles for unmatched image keypoints
         # Draw defined points
         if show_points and pointslist is not None:
             for pt in pointslist:
@@ -327,9 +431,15 @@ class dialog(QDialog):
             img = self.img
             self.affine.try_match(img)
             result = self.affine.result
+            
+            # Print keypoint statistics
+            kp1_count = len(result["kp1"])
+            kp2_count = len(result["kp2"])
+            matches_count = len(result["matches"])
+            print(f"Keypoints found - Mask: {kp1_count}, Image: {kp2_count}")
+            print(f"Matching successful, found {matches_count} matches out of {min(kp1_count, kp2_count)} possible")
+            
             self.draw_result(result, self.pointslist)
-            # TODO: This should not print but GRRRRRRRR
-            print(f"Matching successful, found points: {len(result['matches'])}")
         except Exception as e:
             self.log_message.emit(
                 1,
