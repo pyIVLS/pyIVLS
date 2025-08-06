@@ -47,6 +47,7 @@ class ViewportClickCatcher(QObject):
 class affineMoveGUI(QObject):
     """Affine Move GUI.
     TODO: Uses the object based dependency system, not the method based one.
+    TODO: Does not use the standard settings format. The movement points are fetched from the positioning plugin and stored in a list.
     """
 
     @property
@@ -72,7 +73,15 @@ class affineMoveGUI(QObject):
         self.MDIWidget = uic.loadUi(self.path + "affinemove_MDI.ui")  # type: ignore
         assert self.settingsWidget is not None, "AffineMove: settingsWidget is None"
         assert self.MDIWidget is not None, "AffineMove: MDIWidget is None"
-
+        
+        # connect buttons to functions
+        self.settingsWidget.findSutter.clicked.connect(self._find_sutter_functionality)
+        self.settingsWidget.fetchMaskButton.clicked.connect(self._fetch_mask_functionality)
+        self.settingsWidget.debugButton.clicked.connect(self.affine_move)
+        self.settingsWidget.previewButton.clicked.connect(self._initialize_camera_preview)
+        self.settingsWidget.saveCalibrationButton.clicked.connect(self._save_calibration)
+        self.settingsWidget.loadCalibrationButton.clicked.connect(self._load_calibration)
+        
         # Initialize the combo boxes for dependencies
         self.camera_box: QComboBox = self.settingsWidget.cameraBox
         self.micromanipulator_box: QComboBox = self.settingsWidget.micromanipulatorBox
@@ -160,8 +169,12 @@ class affineMoveGUI(QObject):
                 self.logger.info_popup(f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)")
                 # calibrate
                 status, state = mm.mm_calibrate()
+                self.logger.log_debug(f"Calibration status manipulator {i + 1}: {state.get('Error message', 'Success')}")
+                """                
                 # move to "home"
                 status, state = mm.mm_move(12500, 12500)
+                self.logger.log_debug(f"Moved manipulator {i + 1} to home position: {state.get('Error message', 'Success')}")
+                """
 
                 points = []
                 moves = [(0, 0), (3000, 0), (0, 3000)]
@@ -172,6 +185,7 @@ class affineMoveGUI(QObject):
                         self.logger.info_popup("Calibration cancelled by user.")
                         return
                     x, y, z = mm.mm_current_position()
+                    self.logger.log_debug(f"Clicked point: {point}, current position: ({x}, {y}, {z})")
                     mm_point = (x, y)
                     points.append((mm_point, point))
 
@@ -180,10 +194,12 @@ class affineMoveGUI(QObject):
                 view_points = np.array([pt[1] for pt in points], dtype=np.float32)
                 affine_transform = cv2.getAffineTransform(view_points, mm_points)
                 self.calibrations[i + 1] = affine_transform
-
+                
+                """
                 # back to home
                 mm.mm_move(12500, 12500)
-
+                """
+                
         self.update_status()
 
     def _fetch_mask_functionality(self):
@@ -296,13 +312,7 @@ class affineMoveGUI(QObject):
         """
         Sets up the GUI for the plugin. This function is called by hook to initialize the GUI."""
 
-        # connect buttons to functions
-        self.settingsWidget.findSutter.clicked.connect(self._find_sutter_functionality)
-        self.settingsWidget.fetchMaskButton.clicked.connect(self._fetch_mask_functionality)
-        self.settingsWidget.debugButton.clicked.connect(self.affine_move)
-        self.settingsWidget.previewButton.clicked.connect(self._initialize_camera_preview)
-        self.settingsWidget.saveCalibrationButton.clicked.connect(self._save_calibration)
-        self.settingsWidget.loadCalibrationButton.clicked.connect(self._load_calibration)
+
 
         return self.settingsWidget, self.MDIWidget
 
