@@ -4,7 +4,7 @@ class touchDetect:
         self.recklessness = 10
         self.slow_zone_margin = 50  # Distance around last position to use slow movement
         self.slow_stride_factor = 0.2  # Factor to reduce stride when close to last position
-        self.approach_margin = 100  # Margin before last known position to start measurements (microns)
+        self.approach_margin = 200  # Margin before last known position to start measurements (microns)
         
         # Store logging functions from GUI if provided
         self._log_verbose_func = log_verbose
@@ -61,7 +61,7 @@ class touchDetect:
                     self._log_warn(f"Failed to open micromanipulator: {state}")
                     return (status, {"Error message": f"{state}"})
 
-                # change device and check if the manipulator has a previous z value
+                # change device
                 mm.mm_change_active_device(manipulator_name)
                 
                 # Get starting position for distance tracking
