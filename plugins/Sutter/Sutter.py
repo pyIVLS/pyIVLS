@@ -93,10 +93,6 @@ class Mpc325:
         self._stop_requested = threading.Event()
         self.end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
 
-    # Close the connection when python garbage collection gets around to it. This seems to be implemented by pySERIAL already.
-    def __del__(self):
-        if self.is_connected():
-            self.ser.close()
 
     def update_internal_state(self, quick_move: bool = None, speed: int = None, source: str = None):
         """Update the internal state of the micromanipulator.
@@ -180,7 +176,7 @@ class Mpc325:
         self.ser.reset_output_buffer()
         self.ser.flush()
         # NOTE: added some more waittime to try out.
-        time.sleep(0.002 * 3)  # Hardcoded wait time (2 ms) between commands from the manual.
+        time.sleep(0.002 * 5)  # Hardcoded wait time (2 ms) between commands from the manual.
 
     def get_connected_devices_status(self):
         """Get the status of connected micromanipulators

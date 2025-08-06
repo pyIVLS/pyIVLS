@@ -199,7 +199,7 @@ class affineMoveGUI(QObject):
                 # back to home
                 mm.mm_move(12500, 12500)
                 """
-                
+
         self.update_status()
 
     def _fetch_mask_functionality(self):
@@ -270,8 +270,12 @@ class affineMoveGUI(QObject):
         dev_count, dev_statuses = ret
         # calibrate every available manipulator
         for i, status in enumerate(dev_statuses):
+            self.logger.log_info(f"Loading calibration for manipulator {i + 1}, status: {status}")
             if status == 1:
                 code, status = mm.mm_change_active_device(i + 1)
+                self.logger.log_info(f"{code} - Changing active device to {i + 1} {status}")
+                if code != 0:
+                    return 1, {"Error message": f"Error changing active device to {i + 1}: {status.get('Error message', 'Unknown error')}"}
                 status, state = mm.mm_calibrate()
 
         # Load the calibration data

@@ -5,6 +5,7 @@ import queue
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 from Sutter import Mpc325
+from plugin_components import LoggingHelper
 
 """
 From readme:
@@ -107,6 +108,7 @@ class SutterGUI(QObject):
         self.plugin_name = name
         self.plugin_function = function
         # self._move_worker = SutterMoveWorker(self.hal, self.log_message)
+        self.logger = LoggingHelper(self)
 
     def setup(self, settings):
         """
@@ -226,8 +228,7 @@ class SutterGUI(QObject):
                 self.hal.open(self.source_input.text())
 
         except Exception as e:
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            self.log_message.emit(f"{timestamp}: Sutter error: {str(e)}")
+            self.logger.info_popup(f"Sutter connection error: {str(e)}")
 
         finally:
             if self.hal.is_connected():
@@ -236,20 +237,16 @@ class SutterGUI(QObject):
 
             else:
                 self._gui_change_device_connected(False)
-                timestamp = datetime.now().strftime("%H:%M:%S")
 
     def _status_button(self):
-        print("status button pressed WIP")
         pos = self.hal.get_current_position()
-        print(f"Current position: {pos}")
         self.hal.move(pos[0] + 4000, pos[1], pos[2])
 
     def _stop_button(self):
-        print("stop button pressed WIP")
+        self.logger.info_popup("Stop button pressed WIP")
         # self._move_worker.stop()
 
     def _calibrate_button(self):
-        print("calibrate button pressed WIP")
         self.hal.calibrate()
 
     ## hook functionality
@@ -265,11 +262,11 @@ class SutterGUI(QObject):
 
     def _get_log_signal(self):
         """Returns the log signal."""
-        return self.log_message
+        return self.logger.logger_signal
 
     def _get_info_signal(self):
         """Returns the info signal."""
-        return self.info_message
+        return self.logger.info_popup_signal
 
     def _get_close_lock_signal(self):
         """Returns the close lock signal."""
@@ -304,7 +301,8 @@ class SutterGUI(QObject):
 
         """
         try:
-            self.devnum_combo.setCurrentIndex(dev_num - 1)
+            # commented out since this will be called from a separate thread 
+            #self.devnum_combo.setCurrentIndex(dev_num - 1)
             if self.hal.change_active_device(dev_num):
                 return [0, {"Error message": "Sutter device changed to " + str(dev_num)}]
             return [4, {"Error message": "Sutter device change error"}]
@@ -342,6 +340,7 @@ class SutterGUI(QObject):
     def mm_calibrate(self, all=False):
         if not all:
             try:
+                self.hal.quick_move_to(0, 0, 0)
                 self.hal.calibrate()
                 return [0, {"Error message": "Sutter calibrated"}]
             except Exception as e:
