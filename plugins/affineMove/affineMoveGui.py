@@ -179,7 +179,14 @@ class affineMoveGUI(QObject):
                 points = []
                 moves = [(0, 0), (3000, 0), (0, 3000)]
                 for move in moves:
+                    status,state = mm.mm_move_relative(z_change=-100) # slightly up to avoid collisions
+                    if status:
+                        self.logger.log_info(f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}")
+                        return
                     status, state = mm.mm_move_relative(x_change=move[0], y_change=move[1])
+                    if status:
+                        self.logger.log_info(f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}")
+                        return
                     point = self._wait_for_input()
                     if point is None:
                         self.logger.info_popup("Calibration cancelled by user.")

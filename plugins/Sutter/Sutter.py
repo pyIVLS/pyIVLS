@@ -53,9 +53,9 @@ class Mpc325:
     """ 
     15: 1300,
     14: 1218.75,
-    
     """
     _MOVE_SPEEDS: Final = {
+
         13: 1137.5,
         12: 1056.25,
         11: 975,
@@ -80,7 +80,9 @@ class Mpc325:
     _MINIMUM_MS: Final = 0
     _MAXIMUM_M: Final = 25000
     _MAXIMUM_S: Final = 400000  # Manual says 266667, this is the actual maximum. UPDATE 23.5.2025: This has been updated in the manual as well.
-    _TIMEOUT: Final = 5  # seconds.
+    _TIMEOUT: Final = 120  # seconds, to allow for long moves. 
+    # WARNING: TOO SHORT TIMEOUT WILL LEAD TO COMPLETION INDICATORS BEING LEFT IN THE BUFFER. This results in the move functions returning a completed move
+    # even though the move has not been completed yet. This leads to further commands being sent before the move is completed, which leads to missed commands.
 
     def __init__(self):
         # vars for a single instance
@@ -144,7 +146,7 @@ class Mpc325:
         """
         return self.ser.is_open
 
-    def _validate_and_unpack(self, format_str, output):
+    def _validate_and_unpack(self, format_str, output, name=None):
         """Takes in a struct of bytes, validates end marker and unpacks the data.
         Handles possible errors for the whole code.
 
@@ -166,17 +168,19 @@ class Mpc325:
         output_waiting = self.ser.out_waiting
         if input_waiting > 0:
             print(f"WARNING: Input buffer was not empty. {input_waiting} bytes were waiting to be read.")
+            print(f"Timeout is {self.ser.timeout} seconds, which seems to be too short for the move to complete")
             stuff = self.ser.read(input_waiting)
             print(stuff)
         if output_waiting > 0:
             print(f"WARNING: Output buffer was not empty. {output_waiting} bytes were waiting to be read.")
+            print(f"Timeout is {self.ser.timeout} seconds, which seems to be too short for the move to complete")
             stuff = self.ser.read(output_waiting)
             print(stuff)
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         self.ser.flush()
         # NOTE: added some more waittime to try out.
-        time.sleep(0.002 * 5)  # Hardcoded wait time (2 ms) between commands from the manual.
+        time.sleep(0.002)  # Hardcoded wait time (2 ms) between commands from the manual.
 
     def get_connected_devices_status(self):
         """Get the status of connected micromanipulators
@@ -189,7 +193,7 @@ class Mpc325:
             self._flush()
             self.ser.write(bytes([85]))  # Send command to the device (ASCII: U)
             output = self.ser.read_until(expected=self.end_marker_bytes)
-            unpacked_data = self._validate_and_unpack("6B", output)
+            unpacked_data = self._validate_and_unpack("6B", output, name="get_connected_devices_status")
             num_devices = unpacked_data[0]  # Number of devices connected
             device_statuses = unpacked_data[1:5]  # Status of each device (0 or 1)
             return (num_devices, device_statuses)
@@ -204,7 +208,7 @@ class Mpc325:
             self._flush()
             self.ser.write(bytes([75]))  # Send command to the device (ASCII: K)
             output = self.ser.read_until(expected=self.end_marker_bytes)
-            unpacked = self._validate_and_unpack("4B", output)
+            unpacked = self._validate_and_unpack("4B", output, name="get_active_device")
             return unpacked[0]
 
     def change_active_device(self, dev_num: int):
@@ -222,9 +226,10 @@ class Mpc325:
                 raise ValueError(f"Device number {dev_num} is out of range. Must be between 1 and 4.")
             command = struct.pack("<2B", 73, dev_num)
             self.ser.write(command)  # Send command to the device (ASCII: I )
-
-            output = self.ser.read_until(expected=self.end_marker_bytes)
-
+            output = self.ser.read(2) # response should be 2 bytes, 1st is the currently active device, 2nd is the completion indicator
+            unpacked = self._validate_and_unpack("2B", output, name="change_active_device")
+            if unpacked[0] != dev_num:
+                return False  
             return True
 
     def get_current_position(self):
@@ -237,7 +242,7 @@ class Mpc325:
             self._flush()
             self.ser.write(bytes([67]))  # Send command (ASCII: C)
             output = self.ser.read(14)
-            unpacked = self._validate_and_unpack("=BIIIB", output)
+            unpacked = self._validate_and_unpack("=BIIIB", output, name="get_current_position")
             return (self._s2m(unpacked[1]), self._s2m(unpacked[2]), self._s2m(unpacked[3]))
 
     def calibrate(self):
@@ -249,6 +254,8 @@ class Mpc325:
                 self._flush()
                 self.ser.write(bytes([78]))  # Send command (ASCII: N)
                 output = self.ser.read_until(expected=self.end_marker_bytes)
+                assert output[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {output[-1]}"
+                
 
     def stop(self):
         """Stop the current movement"""
@@ -256,7 +263,7 @@ class Mpc325:
             self._flush()
             self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>)
             output = self.ser.read_until(expected=self.end_marker_bytes)
-            self._validate_and_unpack("B", output)
+            assert output[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {output[-1]}"
 
     def move(self, x=None, y=None, z=None):
         """Move to a position. If quick_move is set to True, the movement will be at full speed.
@@ -307,7 +314,8 @@ class Mpc325:
 
             end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
 
-            self.ser.read_until(expected=end_marker_bytes)  # Read until the end marker (ASCII: CR)
+            byt = self.ser.read_until(expected=end_marker_bytes)  # Read until the end marker (ASCII: CR)
+            assert byt[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {byt[-1]}"
 
     def slow_move_to(self, x: np.float64, y: np.float64, z: np.float64, speed=None):
         """Slower move in straight lines. Speed is set as a class variable. (Or given as an argument)
@@ -341,7 +349,8 @@ class Mpc325:
 
             end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
 
-            self.ser.read_until(expected=end_marker_bytes)  # Read until the end marker (ASCII: CR)
+            byt = self.ser.read_until(expected=end_marker_bytes)  # Read until the end marker (ASCII: CR)
+            assert byt[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {byt[-1]}"
 
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
     def _handrail_micron(self, microns) -> np.uint32:

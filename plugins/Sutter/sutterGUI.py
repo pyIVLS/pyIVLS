@@ -139,7 +139,7 @@ class SutterGUI(QObject):
 
         # set default values, try to read from settings.
         quickmove = settings.get("quickmove", False)
-        self.quickmove_input.setChecked(bool(quickmove))
+        self.quickmove_input.setChecked(quickmove == "true" or quickmove is True)
         source = settings.get("address", "")
         self.source_input.setText(source)
         speed = int(settings.get("speed_idx", 0))
@@ -340,7 +340,6 @@ class SutterGUI(QObject):
     def mm_calibrate(self, all=False):
         if not all:
             try:
-                self.hal.quick_move_to(0, 0, 0)
                 self.hal.calibrate()
                 return [0, {"Error message": "Sutter calibrated"}]
             except Exception as e:
