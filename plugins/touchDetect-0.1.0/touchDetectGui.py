@@ -4,7 +4,7 @@ from touchDetect import touchDetect
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox
-from plugins.plugin_components import public
+from plugins.plugin_components import public, connection
 from components.worker_thread import WorkerThread
 import time
 
@@ -256,10 +256,10 @@ class touchDetectGUI(QObject):
         self.threshold.setText(threshold)
         self.stride.setText(stride)
         self.sample_width.setText(sample_width)
-        
+
         # Set initial button text
         self.settingsWidget.pushButton_2.setText("Start Monitoring")
-        
+
         self.settingsWidget.initButton.clicked.connect(self.update_status)
         self.settingsWidget.pushButton.clicked.connect(self._test)
         self.settingsWidget.pushButton_2.clicked.connect(self._monitor_threaded)
@@ -269,7 +269,7 @@ class touchDetectGUI(QObject):
         """
         Worker function that runs the monitoring in a separate thread.
         This function contains the actual monitoring logic.
-        
+
         Args:
             worker_thread: The WorkerThread instance for communication and stop checking
         """
@@ -350,7 +350,7 @@ class touchDetectGUI(QObject):
 
                         r = float(r)
                         # Emit resistance update less frequently to avoid overwhelming the GUI
-                        if hasattr(self, '_last_resistance_log'):
+                        if hasattr(self, "_last_resistance_log"):
                             if abs(r - self._last_resistance_log) > threshold * 0.1:  # Only log if significant change
                                 worker_thread.progress.emit(f"Manipulator {manipulator_name} resistance: {r:.1f} Ω (threshold: {threshold} Ω)")
                                 self._last_resistance_log = r
@@ -398,7 +398,7 @@ class touchDetectGUI(QObject):
                 smu.smu_outputOFF()
                 con.deviceDisconnect()
                 worker_thread.progress.emit("Disconnected from all devices")
-            except:
+            except Exception:
                 pass  # Ignore cleanup errors
 
     def _monitor_threaded(self):
@@ -410,22 +410,22 @@ class touchDetectGUI(QObject):
             # Start monitoring
             self._log_info("Starting threaded resistance monitoring for all manipulators")
             self.is_monitoring = True
-            
+
             # Update button text to show stop option
             self.settingsWidget.pushButton_2.setText("Stop Monitoring")
-            
+
             # Create and start the worker thread
             self.monitoring_thread = WorkerThread(self._monitor_worker)
-            
+
             # Connect thread signals
             self.monitoring_thread.progress.connect(self._on_monitoring_progress)
             self.monitoring_thread.error.connect(self._on_monitoring_error)
             self.monitoring_thread.finished.connect(self._on_monitoring_finished)
             self.monitoring_thread.result.connect(self._on_monitoring_result)
-            
+
             # Start the thread
             self.monitoring_thread.start()
-            
+
         else:
             # Stop monitoring
             self._log_info("Stopping monitoring thread")
@@ -433,155 +433,27 @@ class touchDetectGUI(QObject):
                 self.monitoring_thread.stop()
                 # Don't wait here as it would block the GUI
                 # The finished signal will handle cleanup
-            
+
     def _on_monitoring_progress(self, message):
         """Handle progress updates from the monitoring thread."""
         self._log_info(message)
-        
+
     def _on_monitoring_error(self, error_message):
         """Handle error messages from the monitoring thread."""
         self._log_info(f"WARN : {error_message}")
-        
+
     def _on_monitoring_result(self, result):
         """Handle the final result from the monitoring thread."""
         status, state = result
         if status != 0:
             self.emit_log(status, state)
-            
+
     def _on_monitoring_finished(self):
         """Handle monitoring thread completion."""
         self.is_monitoring = False
         self.monitoring_thread = None
         self.settingsWidget.pushButton_2.setText("Start Monitoring")
         self._log_info("Monitoring thread finished")
-
-    def _monitor(self):
-        """
-        Legacy synchronous monitoring method - kept for compatibility.
-        Use _monitor_threaded() for better GUI responsiveness.
-        
-        Monitors resistance for all configured manipulators in sequence.
-        User manually moves manipulators until contact is detected, then z-position is saved.
-        """
-        self._log_info("Starting resistance monitoring for all manipulators")
-
-        try:
-            mm, smu, con = self._fetch_dep_plugins()
-
-            # Connect to devices
-            status, state = con.deviceConnect()
-            if status != 0:
-                self.emit_log(status, {"Error message": f"Contact detection connection failed: {state}"})
-                return (status, {"Error message": f"{state}"})
-
-            status_smu, state_smu = smu.smu_connect()
-            if status_smu != 0:
-                self.emit_log(status_smu, {"Error message": f"SMU connection failed: {state_smu}"})
-                return (status_smu, {"Error message": f"{state_smu}"})
-
-            status, state = mm.mm_open()
-            if status != 0:
-                self.emit_log(status, {"Error message": f"Micromanipulator connection failed: {state}"})
-                return (status, {"Error message": f"{state}"})
-
-            self._log_info("All devices connected successfully")
-
-            # Get configured manipulators
-            status, settings = self.parse_settings_widget()
-            if status != 0:
-                self.emit_log(status, settings)
-                return (status, settings)
-
-            # Process each configured manipulator
-            for i, (box, smu_box, con_box) in enumerate(self.manipulator_boxes):
-                manipulator_name = i + 1
-                smu_channel = smu_box.currentText()
-                con_channel = con_box.currentText()
-
-                # Skip if manipulator is not configured
-                if not smu_channel or not con_channel:
-                    self._log_verbose(f"Skipping manipulator {manipulator_name} - not configured")
-                    continue
-
-                threshold = float(settings.get("res_threshold", 150))
-
-                self._log_info(f"Starting monitoring for manipulator {manipulator_name} (SMU: {smu_channel}, Con: {con_channel}, Threshold: {threshold})")
-
-                # Set up contact detection channel
-                con.deviceLoCheck(False)
-                con.deviceHiCheck(False)
-                if con_channel == "Hi":
-                    con.deviceHiCheck(True)
-                elif con_channel == "Lo":
-                    con.deviceLoCheck(True)
-                else:
-                    error_msg = f"Invalid contact detection channel {con_channel} for manipulator {manipulator_name}"
-                    self._log_info(f"WARN : {error_msg}")
-                    continue
-
-                # Set up SMU for resistance measurement
-                status, state = smu.smu_setup_resmes(smu_channel)
-                if status != 0:
-                    self._log_info(f"WARN : Failed to setup SMU for manipulator {manipulator_name}: {state}")
-                    continue
-
-                # Set active manipulator
-                mm.mm_change_active_device(manipulator_name)
-
-                self._log_info(f"MANUAL CONTROL: Move manipulator {manipulator_name} manually until contact is detected")
-                self._log_info(f"Monitoring resistance on {smu_channel} with threshold {threshold}...")
-
-                # Monitor loop for this manipulator
-                contact_detected = False
-                while not contact_detected:
-                    try:
-                        status, r = smu.smu_resmes(smu_channel)
-                        if status != 0:
-                            self._log_info(f"WARN : Resistance measurement failed for manipulator {manipulator_name}: {r}")
-                            break
-
-                        r = float(r)
-                        self._log_verbose(f"Manipulator {manipulator_name} resistance: {r} Ω (threshold: {threshold} Ω)")
-
-                        if r < threshold:
-                            # Contact detected! Save the z-position
-                            _, _, z_position = mm.mm_current_position()
-                            self.functionality.last_z[manipulator_name] = z_position
-
-                            self._log_info(f"CONTACT DETECTED: Manipulator {manipulator_name} at z={z_position} saved as baseline position")
-                            contact_detected = True
-
-                        time.sleep(0.1)
-
-                    except KeyboardInterrupt:
-                        self._log_info(f"Monitoring interrupted by user for manipulator {manipulator_name}")
-                        break
-                    except Exception as e:
-                        self._log_info(f"WARN : Exception during monitoring for manipulator {manipulator_name}: {str(e)}")
-                        break
-
-                # Clean up for this manipulator
-                con.deviceLoCheck(False)
-                con.deviceHiCheck(False)
-                smu.smu_outputOFF()
-
-            self._log_info("Monitoring completed for all configured manipulators")
-            self._log_info(f"Saved positions: {self.functionality.last_z}")
-
-        except Exception as e:
-            error_msg = f"Exception during monitoring: {str(e)}"
-            self._log_info(f"WARN : {error_msg}")
-            return (2, {"Error message": error_msg, "Exception": str(e)})
-
-        finally:
-            # clean up
-            con.deviceLoCheck(False)
-            con.deviceHiCheck(False)
-            smu.smu_outputOFF()
-            con.deviceDisconnect()
-            self._log_verbose("Disconnected from all devices")
-
-        return (0, {"Error message": "Monitoring completed successfully"})
 
     def _test(self):
         self._log_info("Testing move to contact functionality")
@@ -664,6 +536,14 @@ class touchDetectGUI(QObject):
     def move_to_contact(self):
         self._log_info("Starting move to contact operation")
 
+        # SAFETY CHECK: Ensure all configured manipulators have saved positions
+        status, result = self._check_saved_positions()
+        if status != 0:
+            error_msg = f"Cannot move to contact: {result.get('Error message', 'Unknown error')}"
+            self._log_info(f"SAFETY: {error_msg}")
+            self.emit_log(status, {"Error message": error_msg})
+            return (status, {"Error message": error_msg, "safety_check": "failed"})
+
         def create_dict():
             # check settings
             self._log_verbose("Parsing settings for move to contact")
@@ -687,7 +567,7 @@ class touchDetectGUI(QObject):
                 return []
 
         mm, smu, con = self._fetch_dep_plugins()
-        manipulator_info = create_dict()
+        manipulator_info = create_dict() # will be empty if invalid
 
         status, state = self.functionality.move_to_contact(mm, con, smu, manipulator_info)
 
@@ -784,5 +664,3 @@ class touchDetectGUI(QObject):
 
         self._log_info("TouchDetect sequence step completed successfully")
         return (0, {"message": "TouchDetect sequence step completed successfully", "safety_check": "passed"})
-
-
