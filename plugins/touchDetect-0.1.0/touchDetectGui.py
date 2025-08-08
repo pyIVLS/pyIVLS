@@ -4,16 +4,17 @@ from touchDetect import touchDetect
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox
-from plugins.plugin_components import public, connection
+from plugins.plugin_components import public, ConnectionIndicatorStyle
 from components.worker_thread import WorkerThread
 import time
 
 
 class touchDetectGUI(QObject):
+    
     non_public_methods = []
     public_methods = ["move_to_contact", "parse_settings_widget", "sequenceStep", "setSettings", "_check_saved_positions", "clear_saved_positions"]
-    green_style = "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-    red_style = "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
+    green_style = ConnectionIndicatorStyle.GREEN_CONNECTED.value
+    red_style = ConnectionIndicatorStyle.RED_DISCONNECTED.value
 
     ########Signals
     # signals retained since this plugins needs to send errors to main window.
@@ -69,7 +70,7 @@ class touchDetectGUI(QObject):
         self.path = os.path.dirname(__file__) + os.path.sep
         # depenenies are in format plugin: object, metadata: dict.
         self._dependencies = [None, None]
-        self.functionality = touchDetect(log_verbose=self._log_verbose, log_info=self._log_info, log_warn=lambda msg: self._log_info(f"WARN : {msg}"))
+        self.functionality = touchDetect(log=self._log_verbose)
 
         self.settingsWidget = uic.loadUi(self.path + "touchDetect_Settings.ui")
 
@@ -225,34 +226,35 @@ class touchDetectGUI(QObject):
         methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
         return methods
 
+    def _parse_ini(self, settings: dict):
+        temp = [{}, {}, {}, {}]
+        for key, value in settings.items():
+            try:
+                # split at "_"
+                number, func = key.split("_")
+                number = int(number)
+                if func == "smu":
+                    temp[number - 1]["channel_smu"] = value
+                elif func == "con":
+                    temp[number - 1]["channel_con"] = value
+            except ValueError:
+                # this is here to make sure that only _1, _2, etc. are parsed for manipulator settings
+                continue
+        stride = settings.get("stride", "")
+        threshold = settings.get("res_threshold", "")
+        sample_width = settings.get("sample_width", "")
+        return temp, threshold, stride, sample_width
+    
     def setup(self, settings) -> QWidget:
         """
         Sets up the GUI for the plugin. This function is called by hook to initialize the GUI.
         """
 
-        def parse_ini(settings: dict):
-            temp = [{}, {}, {}, {}]
-            for key, value in settings.items():
-                try:
-                    # split at "_"
-                    number, func = key.split("_")
-                    number = int(number)
-                    if func == "smu":
-                        temp[number - 1]["channel_smu"] = value
-                    elif func == "con":
-                        temp[number - 1]["channel_con"] = value
-                except ValueError:
-                    # this is here to make sure that only _1, _2, etc. are parsed for manipulator settings
-                    continue
-            stride = settings.get("stride", "")
-            threshold = settings.get("res_threshold", "")
-            sample_width = settings.get("sample_width", "")
-            return temp, threshold, stride, sample_width
 
         for box, _, _ in self.manipulator_boxes:
             box.setVisible(False)
         # save the settings dict to be used later
-        self.settings, threshold, stride, sample_width = parse_ini(settings)
+        self.settings, threshold, stride, sample_width = self._parse_ini(settings)
         self.threshold.setText(threshold)
         self.stride.setText(stride)
         self.sample_width.setText(sample_width)
@@ -527,9 +529,33 @@ class touchDetectGUI(QObject):
         Returns:
             tuple[int, dict]: (status, settings) - status 0 for success, settings dict
         """
+        
+        """
+        The settings dictionary is expected to have the following structure:
+        [{}, {}, {}, {}]
+        where each dictionary corresponds to a manipulator and contains:
+        - "channel_smu": SMU channel name (string)
+        - "channel_con": Contact detection channel name (string)
+        - "res_threshold": Resistance threshold (float)
+        - "stride": Stride for monitoring (int)
+        - "sample_width": Sample width for monitoring (float)   
+
+        Parse settings widget returns the settings in the format of:
+        {
+            "1_smu": "SMU1",
+            "1_con": "Hi",
+            "2_smu": "SMU2",
+            "2_con": "Lo",
+            "res_threshold": 150.0,
+            "stride": 10,
+            "sample_width": 0.1
+        }
+        """
         self._log_verbose("Setting settings for touchDetect plugin: " + str(settings))
         # Deep copy to avoid modifying original data
-        self.settings = copy.deepcopy(settings) if settings else [{}, {}, {}, {}]
+        settings_to_parse = copy.deepcopy(settings)
+        # Parse settings into the expected format
+        self.settings, threshold, stride, sample_width = self._parse_ini(settings_to_parse)
         return (0, self.settings)
 
     ########Functions to be used externally
@@ -653,7 +679,6 @@ class touchDetectGUI(QObject):
             error_msg = f"TouchDetect sequence step failed: {result.get('Error message', 'Unknown error')}"
             return (status, {"Error message": error_msg, "safety_check": "failed", "details": result})
 
-        self._log_info("All configured manipulators have saved positions, proceeding with move to contact")
 
         # Execute move to contact for all configured manipulators
         status, state = self.move_to_contact()

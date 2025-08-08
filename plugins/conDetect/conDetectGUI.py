@@ -182,7 +182,8 @@ class conDetectGUI(QObject):
             self.logger.log_warn("Source address is empty in deviceConnect.")
             return (1, {"Error message": "Source address is empty"})
         try:
-            self.functionality.connect(self.settings["source"])
+            success = self.functionality.connect(self.settings["source"])
+            assert success, "Failed to connect to the device"
             self.functionality.setDefault()
             self.connected = True
             self._GUIchange_deviceConnected(self.connected)
@@ -217,7 +218,6 @@ class conDetectGUI(QObject):
                 self.settingsWidget.hiConnectionIndicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
             else:
                 self.settingsWidget.hiConnectionIndicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
-            self.logger.log_info(f"Hi connection indicator set to {'green' if status else 'red'}.")
             return (0, "OK")
         except Exception as e:
             self.logger.log_warn(f"Exception in deviceHiCheck: {e}")
@@ -232,7 +232,6 @@ class conDetectGUI(QObject):
                 self.settingsWidget.loConnectionIndicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
             else:
                 self.settingsWidget.loConnectionIndicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
-            self.logger.log_info(f"Lo connection indicator set to {'green' if status else 'red'}.")
             return (0, "OK")
         except Exception as e:
             self.logger.log_warn(f"Exception in deviceLoCheck: {e}")

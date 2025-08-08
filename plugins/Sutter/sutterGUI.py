@@ -109,6 +109,7 @@ class SutterGUI(QObject):
         self.plugin_function = function
         # self._move_worker = SutterMoveWorker(self.hal, self.log_message)
         self.logger = LoggingHelper(self)
+        self.settings = {}
 
     def setup(self, settings):
         """
@@ -139,11 +140,11 @@ class SutterGUI(QObject):
 
         # set default values, try to read from settings.
         quickmove = settings.get("quickmove", False)
-        self.quickmove_input.setChecked(quickmove == "true" or quickmove is True)
+        self.quickmove_input.setChecked(quickmove == "True" or quickmove is True)
         source = settings.get("address", "")
         self.source_input.setText(source)
-        speed = int(settings.get("speed_idx", 0))
-        self.speed_input.setCurrentIndex(speed)
+        speed = (settings["speed_text"])
+        self.speed_input.setCurrentText(speed)
 
         # read the default settings from the GUI
         self.parse_settings_widget()
@@ -161,7 +162,7 @@ class SutterGUI(QObject):
             speed_text = self.speed_input.currentText()
             speed = int(speed_text.split(":")[0])
             source = self.source_input.text()
-            settings = {"quickmove": quick_move, "speed": speed, "address": source}
+            settings = {"quickmove": quick_move, "speed": speed, "address": source, "speed_text": speed_text}
             self.hal.update_internal_state(quick_move, speed, source)
 
             return [0, settings]
@@ -240,7 +241,31 @@ class SutterGUI(QObject):
 
     def _status_button(self):
         pos = self.hal.get_current_position()
-        self.hal.move(pos[0] + 4000, pos[1], pos[2])
+        status, state = self.mm_move(x = pos[0] + 1000)
+        print(f"status: {status}, state: {state} for positive x move")
+        status, state = self.mm_move(x = pos[0] - 1000)
+        print(f"status: {status}, state: {state} for negative x move")
+        status, state = self.mm_move(y = pos[1] + 1000)
+        print(f"status: {status}, state: {state} for positive y move")
+        status, state = self.mm_move(y = pos[1] - 1000)
+        print(f"status: {status}, state: {state} for negative y move")
+        status, state = self.mm_move(z = pos[2] + 1000)
+        print(f"status: {status}, state: {state} for positive z move")
+        status, state = self.mm_move(z = pos[2] - 1000)
+        print(f"status: {status}, state: {state} for negative z move")
+        status, state = self.mm_move_relative(x_change = 1000, y_change = 1000, z_change = 1000)
+        print(f"status: {status}, state: {state} for positive relative move")
+        status, state = self.mm_move_relative(x_change = -1000, y_change = -1000, z_change = -1000)
+        print(f"status: {status}, state: {state} for negative relative move")
+        status, state = self.mm_zmove(z_change = 1000, absolute = True)
+        print(f"status: {status}, state: {state} for absolute z move down")
+        status, state = self.mm_zmove(z_change = 0, absolute = True)
+        print(f"status: {status}, state: {state} for absolute z move up")
+        status, state = self.mm_zmove(z_change = 1000, absolute = False)
+        print(f"status: {status}, state: {state} for relative z move down")
+        status, state = self.mm_up_max()
+        print(f"status: {status}, state: {state} for move to max z")
+
 
     def _stop_button(self):
         self.logger.info_popup("Stop button pressed WIP")
@@ -283,7 +308,7 @@ class SutterGUI(QObject):
             return [0, {"Error message": "Sutter already connected"}]
         try:
             self.hal.open(self.source_input.text())
-
+            self.parse_settings_widget()
             self._gui_change_device_connected(True)
             return [0, {"Error message": "Sutter connected"}]
 
@@ -340,7 +365,7 @@ class SutterGUI(QObject):
     def mm_calibrate(self, all=False):
         if not all:
             try:
-                self.hal.calibrate()
+                ret = self.hal.calibrate()
                 return [0, {"Error message": "Sutter calibrated"}]
             except Exception as e:
                 return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
@@ -384,6 +409,7 @@ class SutterGUI(QObject):
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
     def mm_up_max(self):
+        """DEPRECATED"""
         """Moves to z = 0"""
         try:
             x, y, z = self.hal.get_current_position()

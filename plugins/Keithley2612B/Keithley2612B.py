@@ -152,7 +152,7 @@ class Keithley2612B:
             try:
                 # Get resistance reading.
                 res = self.safequery(f"print({channel}.measure.r())")
-                return res
+                return float(res)
             except Exception as e:
                 print(f"Error measuring resistance: {e}")
                 return -1

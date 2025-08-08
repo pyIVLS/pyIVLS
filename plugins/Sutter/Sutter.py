@@ -255,6 +255,7 @@ class Mpc325:
                 self.ser.write(bytes([78]))  # Send command (ASCII: N)
                 output = self.ser.read_until(expected=self.end_marker_bytes)
                 assert output[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {output[-1]}"
+                return True
                 
 
     def stop(self):
@@ -274,9 +275,7 @@ class Mpc325:
             z (np.float64): z in microns
         """
         curr_pos = self.get_current_position()
-        # If the position is the same, do nothing.
-        if (curr_pos[0] == x) and (curr_pos[1] == y) and (curr_pos[2] == z):
-            return
+
         # If any of the coordinates are None, use the current position.
         if x is None:
             x = curr_pos[0]
@@ -284,6 +283,11 @@ class Mpc325:
             y = curr_pos[1]
         if z is None:
             z = curr_pos[2]
+
+        # If the position after handrails is the same, do nothing.
+        if (curr_pos[0] == self._handrail_micron(x)) and (curr_pos[1] == self._handrail_micron(y)) and (curr_pos[2] == self._handrail_micron(z)):
+            print(f"Already at position {curr_pos}. Not moving.")
+            return
 
         if self.quick_move:
             self.quick_move_to(x, y, z)
@@ -331,24 +335,21 @@ class Mpc325:
             if speed is None:
                 speed = self.speed
             self._flush()
-            # Enforce speed limitss
+            # Enforce speed limits
             speed = max(0, min(speed, 15))
-
             # Pack first part of command
             command1 = struct.pack("<2B", 83, speed)
             # check bounds for coordinates and convert to microsteps. Makes really *really* sure that the values are good.
             x_s = self._handrail_step(self._m2s(self._handrail_micron(x)))
             y_s = self._handrail_step(self._m2s(self._handrail_micron(y)))
             z_s = self._handrail_step(self._m2s(self._handrail_micron(z)))
-
+            print(f"Moving to {self._handrail_micron(x)}, {self._handrail_micron(y)}, {self._handrail_micron(z)} with speed {speed} ({self._MOVE_SPEEDS[speed]} microns/s)")
             command2 = struct.pack("<3I", x_s, y_s, z_s)  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
-
             self.ser.write(command1)
             time.sleep(0.03)  # wait period specified in the manual (30 ms)
             self.ser.write(command2)
 
             end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
-
             byt = self.ser.read_until(expected=end_marker_bytes)  # Read until the end marker (ASCII: CR)
             assert byt[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {byt[-1]}"
 
