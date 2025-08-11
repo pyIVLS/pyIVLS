@@ -80,7 +80,7 @@ class Keithley2612BGUI:
 
     def _initGUI(
         self,
-        plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
+        plugin_info,
     ):
         if plugin_info["sourcehighc"] == "True":
             self.settingsWidget.checkBox_sourceHighC.setChecked(True)
@@ -242,7 +242,7 @@ class Keithley2612BGUI:
         """
         try:
             return [0, self.smu.getIV(channel)]
-        except:
+        except Exception as _:
             return [4, {"Error message": "Failed to get IV data"}]
 
     def smu_setOutput(self, channel, outputType, value):
@@ -254,7 +254,7 @@ class Keithley2612BGUI:
         try:
             self.smu.setOutput(channel, outputType, value)
             return [0, "OK"]
-        except:
+        except Exception as _:
             return [4, {"Error message": "Failed to set smu output"}]
 
     def smu_setup_resmes(self, channel):

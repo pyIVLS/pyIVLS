@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 import queue
 
 from PyQt6 import QtWidgets, uic
@@ -143,7 +142,7 @@ class SutterGUI(QObject):
         self.quickmove_input.setChecked(quickmove == "True" or quickmove is True)
         source = settings.get("address", "")
         self.source_input.setText(source)
-        speed = (settings["speed_text"])
+        speed = settings["speed_text"]
         self.speed_input.setCurrentText(speed)
 
         # read the default settings from the GUI
@@ -241,31 +240,30 @@ class SutterGUI(QObject):
 
     def _status_button(self):
         pos = self.hal.get_current_position()
-        status, state = self.mm_move(x = pos[0] + 1000)
+        status, state = self.mm_move(x=pos[0] + 1000)
         print(f"status: {status}, state: {state} for positive x move")
-        status, state = self.mm_move(x = pos[0] - 1000)
+        status, state = self.mm_move(x=pos[0] - 1000)
         print(f"status: {status}, state: {state} for negative x move")
-        status, state = self.mm_move(y = pos[1] + 1000)
+        status, state = self.mm_move(y=pos[1] + 1000)
         print(f"status: {status}, state: {state} for positive y move")
-        status, state = self.mm_move(y = pos[1] - 1000)
+        status, state = self.mm_move(y=pos[1] - 1000)
         print(f"status: {status}, state: {state} for negative y move")
-        status, state = self.mm_move(z = pos[2] + 1000)
+        status, state = self.mm_move(z=pos[2] + 1000)
         print(f"status: {status}, state: {state} for positive z move")
-        status, state = self.mm_move(z = pos[2] - 1000)
+        status, state = self.mm_move(z=pos[2] - 1000)
         print(f"status: {status}, state: {state} for negative z move")
-        status, state = self.mm_move_relative(x_change = 1000, y_change = 1000, z_change = 1000)
+        status, state = self.mm_move_relative(x_change=1000, y_change=1000, z_change=1000)
         print(f"status: {status}, state: {state} for positive relative move")
-        status, state = self.mm_move_relative(x_change = -1000, y_change = -1000, z_change = -1000)
+        status, state = self.mm_move_relative(x_change=-1000, y_change=-1000, z_change=-1000)
         print(f"status: {status}, state: {state} for negative relative move")
-        status, state = self.mm_zmove(z_change = 1000, absolute = True)
+        status, state = self.mm_zmove(z_change=1000, absolute=True)
         print(f"status: {status}, state: {state} for absolute z move down")
-        status, state = self.mm_zmove(z_change = 0, absolute = True)
+        status, state = self.mm_zmove(z_change=0, absolute=True)
         print(f"status: {status}, state: {state} for absolute z move up")
-        status, state = self.mm_zmove(z_change = 1000, absolute = False)
+        status, state = self.mm_zmove(z_change=1000, absolute=False)
         print(f"status: {status}, state: {state} for relative z move down")
         status, state = self.mm_up_max()
         print(f"status: {status}, state: {state} for move to max z")
-
 
     def _stop_button(self):
         self.logger.info_popup("Stop button pressed WIP")
@@ -326,8 +324,8 @@ class SutterGUI(QObject):
 
         """
         try:
-            # commented out since this will be called from a separate thread 
-            #self.devnum_combo.setCurrentIndex(dev_num - 1)
+            # commented out since this will be called from a separate thread
+            # self.devnum_combo.setCurrentIndex(dev_num - 1)
             if self.hal.change_active_device(dev_num):
                 return [0, {"Error message": "Sutter device changed to " + str(dev_num)}]
             return [4, {"Error message": "Sutter device change error"}]
@@ -365,7 +363,7 @@ class SutterGUI(QObject):
     def mm_calibrate(self, all=False):
         if not all:
             try:
-                ret = self.hal.calibrate()
+                _ = self.hal.calibrate()
                 return [0, {"Error message": "Sutter calibrated"}]
             except Exception as e:
                 return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
@@ -390,7 +388,7 @@ class SutterGUI(QObject):
         """
         try:
             (x, y, z) = self.hal.get_current_position()
-            
+
             if absolute:
                 # For absolute positioning, z_change is the target z position
                 target_z = z_change

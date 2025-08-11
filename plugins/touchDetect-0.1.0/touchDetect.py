@@ -8,11 +8,10 @@ import time
 class touchDetect:
     def __init__(self, log=None):
         self.last_z = {}
-        self.slow_zone_margin = 50  # Distance around last position to use slow movement
-        self.slow_stride_factor = 0.2  # Factor to reduce stride when close to last position
         self.approach_margin = 200  # Margin before last known position to start measurements (microns)
         self.monitoring_duration = 1  # seconds to monitor stability after initial contact
         self.monitoring_stability_attempts = 5  # Number of attempts to achieve stable contact
+        self.MAX_CORRECTION_ATTEMPTS = 10  # Maximum attempts to correct non-contacting manipulators
 
         # Store logging functions from GUI if provided
         self.log = log
@@ -119,7 +118,7 @@ class touchDetect:
 
         Implements iterative contact verification:
         1. Move all manipulators to initial contact
-        2. Check which manipulators are still in contact  
+        2. Check which manipulators are still in contact
         3. Move non-contacting manipulators further toward sample
         4. Monitor all contacts for stability before confirming success
 
@@ -148,11 +147,11 @@ class touchDetect:
             self.log("Devices connected successfully")
 
             contact_results = {}  # Store results for each manipulator
-            max_correction_attempts = 5  # Maximum attempts to correct non-contacting manipulators
+            max_correction_attempts = self.MAX_CORRECTION_ATTEMPTS  # Maximum attempts to correct non-contacting manipulators
 
             # PHASE 1: Move all manipulators to initial contact
             self.log("PHASE 1: Moving all manipulators to initial contact")
-            
+
             for idx, info in enumerate(manipulator_info):
                 manipulator_name = idx + 1
                 smu_channel, condet_channel, threshold, stride, sample_width = info
@@ -161,9 +160,10 @@ class touchDetect:
                 if smu_channel == "" or condet_channel == "":
                     self.log(f"Skipping manipulator {manipulator_name} - no configuration")
                     continue
-                    
+
                 self.log(f"Processing manipulator {manipulator_name} with threshold {threshold}, stride {stride}, max distance {sample_width}")
 
+                # move to stable contact by moving until contact is detected, and then monitoring stability
                 status, result = self._move_to_stable_contact(mm, smu, con, manipulator_name, smu_channel, condet_channel, threshold, stride, sample_width)
                 assert status == 0, f"Failed to achieve initial contact for manipulator {manipulator_name}: {result}"
 
@@ -172,45 +172,45 @@ class touchDetect:
 
             # PHASE 2: Iterative contact verification and correction
             self.log("PHASE 2: Starting iterative contact verification")
-            
+
             correction_attempt = 0
             while correction_attempt < max_correction_attempts:
                 correction_attempt += 1
                 self.log(f"Contact verification attempt {correction_attempt}/{max_correction_attempts}")
-                
+
                 # Check which manipulators are currently contacting
                 contact_status = self._check_all_contacting(smu, con, manipulator_info)
-                
+
                 # Identify non-contacting manipulators that should be contacting
                 non_contacting_manipulators = []
                 for idx, (is_contacting, info) in enumerate(zip(contact_status, manipulator_info)):
                     manipulator_name = idx + 1
                     smu_channel, condet_channel, threshold, stride, sample_width = info
-                    
+
                     # Only consider configured manipulators that should be contacting
                     if smu_channel != "" and condet_channel != "" and not is_contacting:
                         non_contacting_manipulators.append((manipulator_name, info))
-                        
+
                 if not non_contacting_manipulators:
                     self.log("All configured manipulators are contacting - proceeding to stability monitoring")
                     break
-                    
+
                 self.log(f"Found {len(non_contacting_manipulators)} non-contacting manipulators: {[m[0] for m in non_contacting_manipulators]}")
-                
+
                 # Move non-contacting manipulators further toward sample
                 for manipulator_name, info in non_contacting_manipulators:
                     smu_channel, condet_channel, threshold, stride, sample_width = info
                     self.log(f"Correcting contact for manipulator {manipulator_name}")
-                    
-                    correction_max_distance = stride * 4  # Limited correction distance
-                    
+
+                    correction_max_distance = stride * 8  # Limited correction distance
+
                     status, result = self._move_to_stable_contact(mm, smu, con, manipulator_name, smu_channel, condet_channel, threshold, stride, correction_max_distance)
                     if status == 0:
                         contact_results[manipulator_name] = result
                         self.log(f"Manipulator {manipulator_name} contact corrected at z={result['z_position']}")
                     else:
                         self.log(f"Failed to correct contact for manipulator {manipulator_name}: {result}")
-                        
+
             # Final check - if we still have non-contacting manipulators after max attempts, throw error.
             final_contact_status = self._check_all_contacting(smu, con, manipulator_info)
             non_contacting_final = []
@@ -219,23 +219,23 @@ class touchDetect:
                 smu_channel, condet_channel, _, _, _ = info
                 if smu_channel != "" and condet_channel != "" and not is_contacting:
                     non_contacting_final.append(manipulator_name)
-                    
+
             if non_contacting_final:
                 error_msg = f"Failed to achieve contact for manipulators {non_contacting_final} after {max_correction_attempts} correction attempts"
                 return (3, {"Error message": error_msg, "non_contacting": non_contacting_final})
 
             # PHASE 3: Monitor all contacts for stability
             self.log("PHASE 3: Monitoring all contacts for stability")
-            
+
             for idx, info in enumerate(manipulator_info):
                 manipulator_name = idx + 1
                 smu_channel, condet_channel, threshold, stride, sample_width = info
-                
+
                 if smu_channel == "" or condet_channel == "":
                     continue
-                    
+
                 self.log(f"Monitoring stability for manipulator {manipulator_name}")
-                
+
                 # Set up for stability monitoring
                 con.deviceLoCheck(False)
                 con.deviceHiCheck(False)
@@ -243,18 +243,18 @@ class touchDetect:
                     con.deviceHiCheck(True)
                 elif condet_channel == "Lo":
                     con.deviceLoCheck(True)
-                    
+
                 mm_status, mm_state = mm.mm_change_active_device(manipulator_name)
                 smu_status, smu_state = smu.smu_setup_resmes(smu_channel)
                 assert mm_status == 0, f"Failed to change active device for manipulator {manipulator_name}: {mm_state}"
                 assert smu_status == 0, f"Failed to setup SMU for manipulator {manipulator_name}: {smu_state}"
-                
+
                 # Monitor stability
                 stable_contact = self._monitor_contact_stability(smu, smu_channel, threshold, duration_seconds=self.monitoring_duration)
                 if not stable_contact:
                     error_msg = f"Manipulator {manipulator_name} failed stability monitoring"
                     return (4, {"Error message": error_msg, "unstable_manipulator": manipulator_name})
-                    
+
                 self.log(f"Manipulator {manipulator_name} passed stability monitoring")
 
             self.log("Move to contact operation completed successfully - all contacts verified and stable")
@@ -304,12 +304,11 @@ class touchDetect:
         return True
 
     def _calculate_adaptive_stride(self, base_stride: int, latest_resistance: float) -> int:
-        """Calculate adaptive stride 
-        """
+        """Calculate adaptive stride"""
         adaptive_stride = base_stride  # Default to base stride
         if latest_resistance < 20:
             adaptive_stride = max(1, base_stride // 4)  # must be close to contact, move slowly
-        time.sleep(0.1)  # Small delay to slow everything down
+        time.sleep(0.05)  # Small delay to slow everything down
         return adaptive_stride
 
     def _contacting(self, smu: object, channel: str, threshold: float):
@@ -335,29 +334,28 @@ class touchDetect:
             return True, r
         return False, r
 
-
     def _check_all_contacting(self, smu: object, con: object, manipulator_info) -> list[bool]:
         """Check contact status for all manipulators and return a list of booleans.
-        
+
         Args:
             smu: SMU object
-            con: contact detection object  
+            con: contact detection object
             manipulator_info: list of manipulator configurations
-            
+
         Returns:
             list[bool]: List of contact status for each manipulator (True if contacting, False if not)
         """
         contact_status = []
-        
+
         for idx, info in enumerate(manipulator_info):
             manipulator_name = idx + 1
             smu_channel, condet_channel, threshold, stride, sample_width = info
-            
+
             if smu_channel == "" or condet_channel == "":
                 # Skip this manipulator - treat as not configured (not contacting)
                 contact_status.append(False)
                 continue
-                
+
             try:
                 # setup contact detection channel
                 con.deviceLoCheck(False)
@@ -376,11 +374,11 @@ class touchDetect:
                 else:
                     self.log(f"Manipulator {manipulator_name} is contacting")
                     contact_status.append(True)
-                    
+
             except Exception as e:
                 self.log(f"Error checking contact for manipulator {manipulator_name}: {str(e)}")
                 contact_status.append(False)
-                
+
         return contact_status
 
     def _move_until_contact(self, mm: object, smu: object, manipulator_name: int, smu_channel: str, threshold: float, stride: int, effective_max_distance: float) -> tuple[int, dict]:
