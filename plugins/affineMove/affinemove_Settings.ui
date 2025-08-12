@@ -255,6 +255,77 @@ min-width: 20px;</string>
          </layout>
         </widget>
        </item>
+       <item>
+        <widget class="QGroupBox" name="boundingBoxGroupBox">
+         <property name="title">
+          <string>Manipulator Bounding Boxes</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_4">
+            <item>
+             <widget class="QLabel" name="manipulatorLabel">
+              <property name="text">
+               <string>Manipulator:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="manipulatorComboBox">
+              <property name="toolTip">
+               <string>Select which manipulator to set bounding box for</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QGridLayout" name="gridLayout_6">
+            <item row="0" column="0">
+             <widget class="QPushButton" name="setBoundingBoxButton">
+              <property name="text">
+               <string>Set Bounding Box</string>
+              </property>
+              <property name="toolTip">
+               <string>Click 4 points on the camera view to define a bounding box</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QPushButton" name="clearBoundingBoxButton">
+              <property name="text">
+               <string>Clear Bounding Box</string>
+              </property>
+              <property name="toolTip">
+               <string>Remove the bounding box for the selected manipulator</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QPushButton" name="refreshPositionsButton">
+              <property name="text">
+               <string>Refresh Positions</string>
+              </property>
+              <property name="toolTip">
+               <string>Update cached manipulator positions from hardware</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="showBoundingBoxesCheckBox">
+            <property name="text">
+             <string>Show bounding boxes on camera view</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
       </layout>
      </widget>
     </widget>
