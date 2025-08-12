@@ -443,3 +443,26 @@ class SutterGUI(QObject):
             return [0, (dev_count, dev_statuses)]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+
+    def mm_get_positions(self):
+        """Returns the current positions of all manipulators.
+
+        Returns:
+            tuple: (status, positions_dict)
+            dict: {device_number: (x, y, z)}
+        """
+        try:
+            connected_devices = self.hal.get_connected_devices_status()[1]
+            for i, status in enumerate(connected_devices):
+                if status == 1:
+                    success = self.hal.change_active_device(i + 1)
+                    if not success:
+                        return 4, {"Error message": f"Failed to change to device {i + 1}"}
+                    else:
+                        pos = self.hal.get_current_position()
+                        if pos is None:
+                            return 4, {"Error message": f"Failed to get position for device {i + 1}"}
+                        return 0, {i + 1: pos}
+
+        except Exception as e:
+            return 4, {"Error message": "Sutter HW error", "Exception": str(e)}
