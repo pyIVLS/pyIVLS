@@ -288,7 +288,7 @@ class Mpc325:
         if (curr_pos[0] == self._handrail_micron(x)) and (curr_pos[1] == self._handrail_micron(y)) and (curr_pos[2] == self._handrail_micron(z)):
             print(f"Already at position {curr_pos}. Not moving.")
             return
-
+        print(f"I think I should move to {self._handrail_micron(x)}, {self._handrail_micron(y)}, {self._handrail_micron(z)} and using the speed {self.speed} ({self._MOVE_SPEEDS[self.speed]} microns/s). I'm in quickmove: {self.quick_move}")
         if self.quick_move:
             self.quick_move_to(x, y, z)
         else:

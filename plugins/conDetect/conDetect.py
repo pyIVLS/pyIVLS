@@ -16,11 +16,12 @@ class conDetect:
         ### see https://eblot.github.io/pyftdi/urlscheme.html
         # for ftdi          self.device = Ftdi().create_from_url("ftdi://%d:%d:%s/1"% (VID, PID, serial))
         with self.lock:
-            self.device.port = source
-            self.device.open()
-            self.device.reset_input_buffer()
-            self.device.reset_output_buffer()
-            return self.device.is_open 
+            if not self.device.is_open:
+                self.device.port = source
+                self.device.open()
+                self.device.reset_input_buffer()
+                self.device.reset_output_buffer()
+            return self.device.is_open
 
     def disconnect(self):
         # for ftdi         self.device.purge_buffers()

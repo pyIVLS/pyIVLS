@@ -184,6 +184,8 @@ class Keithley2612B:
                 self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
                 # Turn on output.
                 self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
+                self.safewrite(f"display.{channel}.measure.func = display.MEASURE_OHMS")
+
                 return True
             except Exception:
                 return False

@@ -315,7 +315,7 @@ class touchDetectGUI(QObject):
                 if not smu_channel or not con_channel:
                     continue
 
-                threshold = float(settings.get("res_threshold", 150))
+                threshold = float(settings["res_threshold"])
                 worker_thread.progress.emit(f"Starting monitoring for manipulator {manipulator_name} (SMU: {smu_channel}, Con: {con_channel}, Threshold: {threshold})")
 
                 # Set up contact detection channel
@@ -398,7 +398,7 @@ class touchDetectGUI(QObject):
                 con.deviceLoCheck(False)
                 con.deviceHiCheck(False)
                 smu.smu_outputOFF()
-                con.deviceDisconnect()
+                smu.smu_disconnect()
                 worker_thread.progress.emit("Disconnected from all devices")
             except Exception:
                 pass  # Ignore cleanup errors
