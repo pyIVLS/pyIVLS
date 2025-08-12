@@ -418,14 +418,23 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
-    def mm_current_position(self):
+    def mm_current_position(self, manipulator_name=None):
         """Returns the current position of the micromanipulator.
 
         Returns:
             tuple: (x, y, z) position in microns
         """
         try:
-            return self.hal.get_current_position()
+            if manipulator_name is not None:
+                old_device = self.hal.get_active_device()
+                success = self.hal.change_active_device(manipulator_name)
+                if not success:
+                    return [4, {"Error message": f"Failed to change to device {manipulator_name}"}]
+                pos = self.hal.get_current_position()
+                self.hal.change_active_device(old_device)  # Restore previous device
+            else:
+                pos = self.hal.get_current_position()
+            return pos
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
@@ -466,3 +475,23 @@ class SutterGUI(QObject):
 
         except Exception as e:
             return 4, {"Error message": "Sutter HW error", "Exception": str(e)}
+        
+    def mm_slow_move(self, x=None, y=None, z=None):
+        """Micromanipulator move.
+
+        Args:
+            *args: x, y, z
+        """
+        try:
+            if x is None and y is None and z is None:
+                return [1, {"Error message": "Sutter slow move requires at least one coordinate"}]
+            if x is None:
+                x = self.hal.get_current_position()[0]
+            if y is None:
+                y = self.hal.get_current_position()[1]
+            if z is None:
+                z = self.hal.get_current_position()[2]
+            self.hal.slow_move_to(x, y, z, 7)
+            return [0, {"Error message": "Sutter moved"}]
+        except Exception as e:
+            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
