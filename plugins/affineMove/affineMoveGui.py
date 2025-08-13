@@ -491,9 +491,7 @@ class affineMoveGUI(QObject):
                 relative_coords = [(min_x - tip_x, min_y - tip_y), (max_x - tip_x, max_y - tip_y)]
                 self.logger.log_info(f"Storing relative coordinates: {relative_coords}")
             else:
-                # Store as absolute coordinates (fallback)
-                relative_coords = [(min_x, min_y), (max_x, max_y)]
-                self.logger.log_warn(f"Could not determine tip position, storing absolute coordinates: {relative_coords}")
+                raise ValueError("Current manipulator position not available, cannot set relative bounding box")
 
             # Set the bounding box
             status, message = self.set_manipulator_bounding_box(manipulator_idx, relative_coords)
@@ -621,18 +619,7 @@ class affineMoveGUI(QObject):
             # Load bounding boxes into CollisionDetector
             loaded_count = 0
             for manipulator_idx, coords in loaded_boxes.items():
-                # Check if coords is in old format (4 corners) or new format (2 coords)
-                if len(coords) == 4:
-                    # Convert from old 4-corner format to new 2-coordinate format
-                    self.logger.log_info(f"Converting bounding box for manipulator {manipulator_idx} from old format")
-                    # Extract min/max coordinates from the 4 corners
-                    x_coords = [corner[0] for corner in coords]
-                    y_coords = [corner[1] for corner in coords]
-                    min_x, max_x = min(x_coords), max(x_coords)
-                    min_y, max_y = min(y_coords), max(y_coords)
-                    converted_coords = [(min_x, min_y), (max_x, max_y)]
-                elif len(coords) == 2:
-                    # Already in new format
+                if len(coords) == 2:
                     converted_coords = coords
                 else:
                     self.logger.log_warn(f"Invalid bounding box format for manipulator {manipulator_idx}: {len(coords)} coordinates")
@@ -641,6 +628,20 @@ class affineMoveGUI(QObject):
                 # Store in CollisionDetector
                 if self.collision_detector.set_manipulator_bounding_box(manipulator_idx, converted_coords):
                     loaded_count += 1
+
+                # try to update the probe position if available
+                try:
+                    mm, _, _ = self._fetch_dep_plugins()
+                    code, status = mm.mm_change_active_device(manipulator_idx)
+                    if code == 0:
+                        mm_pos = mm.mm_current_position()
+                        if mm_pos and len(mm_pos) >= 2:
+                            self.update_manipulator_position(manipulator_idx, mm_pos)
+                            self.collision_detector.update_manipulator_tip_position(
+                                manipulator_idx, mm_pos[0], mm_pos[1]
+                            )
+                except Exception as e:
+                    self.logger.log_info(f"Could not update cached tip position for manipulator {manipulator_idx}: {e}")
 
             self.logger.log_info(f"Loaded {loaded_count} bounding box(es) from {file_path}")
         except Exception as e:
@@ -847,18 +848,11 @@ class affineMoveGUI(QObject):
             code, status = mm.mm_change_active_device(manipulator_idx)
             if code != 0:
                 return code, {"Error message": f"Failed to change to manipulator {manipulator_idx}"}
-            
-            # Perform the move
             if z is not None:
-                status, state = mm.mm_move(x, y, z)
+                mm.mm_move(z=z) # move z first to prevent scratches 
+            # Perform the move
             else:
-                # Get current position to preserve Z
-                current_pos = mm.mm_current_position()
-                if current_pos and len(current_pos) >= 3:
-                    status, state = mm.mm_move(x, y, current_pos[2])
-                else:
-                    status, state = mm.mm_move(x, y)
-            
+                status, state = mm.mm_move(x=x, y=y)
             if status == 0:  # Success
                 # Update cached position
                 final_pos = mm.mm_current_position()
@@ -1196,329 +1190,155 @@ class affineMoveGUI(QObject):
                 self.logger.log_info(f"Invalid iteration {currentIteration}, only {len(self.measurement_points)} points available")
                 return [3, f"_error_iter{currentIteration}"]
 
-            points = self.measurement_points[currentIteration]
+            points = self.measurement_points[currentIteration] # these are stored as mask coordinates
             point_name = self.measurement_point_names[currentIteration]
-
-            # Validate collision detection setup
-            is_valid, validation_message = self.validate_collision_detection_setup()
-            if not is_valid:
-                self.logger.log_warn(f"Collision detection validation failed: {validation_message}")
-                # Continue without collision detection
-                status = self._execute_direct_movement(mm, pos, points)
-                if status != 0:
-                    return [status, f"_error_iter{currentIteration}"]
-                self.logger.log_info(f"Moved to measurement point {point_name} (iteration {currentIteration}) without collision detection")
-                return [0, f"_{point_name}"]
-
-            # Log collision detection status
-            collision_status = self.get_collision_detection_status()
-            if collision_status['enabled']:
-                self.logger.log_info(f"Using collision detection for iteration {currentIteration}: {collision_status['message']}")
-            else:
-                self.logger.log_debug(f"Collision detection disabled: {collision_status['message']}")
-                # Execute direct movement
-                status = self._execute_direct_movement(mm, pos, points)
-                if status != 0:
-                    return [status, f"_error_iter{currentIteration}"]
-                self.logger.log_info(f"Moved to measurement point {point_name} (iteration {currentIteration})")
-                return [0, f"_{point_name}"]
-
-            # Check for trajectory collisions using the new collision detection system
-            collision_result = self._check_trajectory_collisions_for_iteration(mm, pos, points)
             
-            if collision_result['has_collisions']:
-                # Handle collision detection results
-                self.logger.log_warn(f"Trajectory collision detected in iteration {currentIteration}")
+            self.logger.log_info(f"Processing iteration {currentIteration}: {point_name}")
+            
+            # Convert mask coordinates to camera coordinates 
+            camera_target_points = []
+            for device_idx, mask_point in enumerate(points, 1):
+                # Convert mask coordinates to camera coordinates
+                camera_coords = pos.positioning_coords(mask_point)
+                if camera_coords == (-1, -1):
+                    self.logger.log_warn(f"Failed to convert mask coordinates {mask_point} for manipulator {device_idx}")
+                    continue
+                camera_target_points.append((device_idx, camera_coords))
+            
+            if not camera_target_points:
+                self.logger.log_warn("No valid target points after coordinate conversion")
+                return [3, f"_error_iter{currentIteration}"]
+            
+            # Get current positions of all manipulators in camera coordinates
+            current_positions = {}
+            moves_dict = {}
+            
+            for manip_idx, target_camera_coords in camera_target_points:
+                try:
+                    current_mm_pos = mm.mm_current_position(manip_idx)
+                    if status != 0 or current_mm_pos is None:
+                        self.logger.log_warn(f"Failed to get current position for manipulator {manip_idx}")
+                        continue
+                    # Cache the fresh position
+                    self.update_manipulator_position(manip_idx, current_mm_pos)
+                except Exception as e:
+                    self.logger.log_warn(f"Exception getting position for manipulator {manip_idx}: {e}")
+                    continue
                 
-                for detail in collision_result['collision_details']:
-                    self.logger.log_info(f"  Manipulator {detail['moving_manipulator']} would collide with {detail['stationary_manipulator']} at steps {detail['collision_steps']}")
+                # Convert current MM position to camera coordinates
+                current_camera_coords = self.convert_mm_to_camera_coords(current_mm_pos[:2], manip_idx)
+                if current_camera_coords is None:
+                    self.logger.log_warn(f"Failed to convert current position to camera coordinates for manipulator {manip_idx}")
+                    continue
                 
-                if collision_result['safe_order']:
-                    # Execute movement in safe order
-                    self.logger.log_info(f"Executing safe movement order: {collision_result['safe_order']}")
-                    status = self._execute_safe_movement_order(mm, pos, points, collision_result['safe_order'])
-                    if status != 0:
-                        self.logger.log_info(f"Safe movement failed in iteration {currentIteration}")
-                        return [status, f"_error_iter{currentIteration}"]
+                # Store for collision detection
+                current_positions[manip_idx] = current_camera_coords
+                moves_dict[manip_idx] = (current_camera_coords, target_camera_coords)
+                
+                self.logger.log_info(f"Manipulator {manip_idx}: Current camera ({current_camera_coords[0]:.1f}, {current_camera_coords[1]:.1f}) -> Target ({target_camera_coords[0]:.1f}, {target_camera_coords[1]:.1f})")
+            
+            if not moves_dict:
+                self.logger.log_warn("No valid moves to execute after position validation")
+                return [3, f"_error_iter{currentIteration}"]
+            
+            # Use collision detection to determine safe movement sequence
+            try:
+                safe_sequence = self.collision_detector.generate_safe_movement_sequence(moves_dict)
+                
+                if not safe_sequence:
+                    self.logger.log_warn("No safe movement sequence found - potential collision risk")
+                    return [1, f"_error_iter{currentIteration}_no_safe_sequence"]
+                
+                self.logger.log_info(f"Safe movement sequence: {safe_sequence}")
+                
+                # Execute the moves in the safe sequence
+                status, message = self.execute_move_list(safe_sequence, moves_dict)
+                
+                if status == 0:
+                    self.logger.log_info(f"Successfully completed iteration {currentIteration}: {point_name}")
+                    return [0, f"_iter{currentIteration}_{point_name}"]
                 else:
-                    # No safe order possible - circular dependency
-                    self.logger.log_warn(f"No safe movement order found for iteration {currentIteration} - circular collision dependency")
-                    return [2, f"_collision_iter{currentIteration}"]
-            else:
-                # No collisions detected, move all manipulators directly
-                self.logger.log_info(f"No trajectory collisions detected for iteration {currentIteration}, moving all manipulators")
-                status = self._execute_direct_movement(mm, pos, points)
-                if status != 0:
-                    return [status, f"_error_iter{currentIteration}"]
+                    self.logger.log_warn(f"Movement execution failed: {message}")
+                    return [1, f"_error_iter{currentIteration}"]
+                    
+            except Exception as e:
+                self.logger.log_warn(f"Collision detection error: {str(e)}")
+                # Fallback: try to execute without collision detection
+                self.logger.log_info("Attempting movement without collision detection as fallback")
+                fallback_sequence = list(moves_dict.keys())
+                status, message = self.execute_move_list(fallback_sequence, moves_dict)
+                
+                if status == 0:
+                    self.logger.log_info(f"Fallback execution successful for iteration {currentIteration}")
+                    return [0, f"_iter{currentIteration}_{point_name}_fallback"]
+                else:
+                    return [1, f"_error_iter{currentIteration}_fallback_failed"]
 
-            self.logger.log_info(f"Successfully moved to measurement point {point_name} (iteration {currentIteration})")
-            return [0, f"_{point_name}"]
 
         except Exception as e:
             self.logger.log_info(f"Error in loopingIteration: {str(e)}")
             return [2, f"_error_iter{currentIteration}"]
 
-    def _check_trajectory_collisions_for_iteration(self, mm, pos, points):
+    def execute_move_list(self, move_list: list[int], moves_dict: dict[int, tuple[tuple[float, float], tuple[float, float]]]) -> tuple[int, str]:
         """
-        Check for trajectory collisions when moving to measurement points.
+        Execute a list of manipulator movements in the specified order.
         
         Args:
-            mm: Micromanipulator plugin
-            pos: Positioning plugin  
-            points: List of measurement points for current iteration
+            move_list: List of manipulator indices in execution order (from collision detector)
+            moves_dict: Dict mapping manipulator_idx to ((current_x, current_y), (target_x, target_y)) in camera coordinates
             
         Returns:
-            Dict with collision analysis results from collision detection system
+            tuple: (status, message) where status is 0 for success, 1+ for errors
         """
         try:
-            # Get current positions of all manipulators in camera coordinates
-            current_positions = {}
+            mm, _, _ = self._fetch_dep_plugins()
+            if mm is None:
+                return 1, "Micromanipulator plugin not available"
             
-            # Refresh positions for all manipulators that have bounding boxes
-            for manipulator_idx in self.collision_detector.get_manipulator_indices():
-                # Get current position from hardware
-                status, state = mm.mm_change_active_device(manipulator_idx)
-                if status == 0:
-                    pos_data = mm.mm_current_position()
-                    if pos_data[0] == 0:  # Success
-                        mm_pos = (pos_data[1]['X position'], pos_data[1]['Y position'])
-                        # Convert to camera coordinates
-                        cam_pos = self.convert_mm_to_camera_coords(mm_pos, manipulator_idx)
-                        if cam_pos:
-                            current_positions[manipulator_idx] = cam_pos
-                            # Update cached position
-                            self.update_manipulator_position(manipulator_idx, cam_pos)
+            successful_moves = 0
+            total_moves = len(move_list)
             
-            # Get target positions in camera coordinates
-            target_positions = {}
-            for i, point in enumerate(points):
-                manipulator_idx = i + 1
-                if manipulator_idx in self.collision_detector.get_manipulator_indices():
-                    # Convert measurement point to camera coordinates
-                    x, y = pos.positioning_coords(point)
-                    target_positions[manipulator_idx] = (x, y)
+            self.logger.log_info(f"Executing {total_moves} manipulator moves in sequence: {move_list}")
             
-            # Only check collisions if we have both current and target positions
-            if not current_positions or not target_positions:
-                self.logger.log_debug("Insufficient position data for collision detection")
-                return {
-                    'has_collisions': False,
-                    'collision_details': [],
-                    'safe_order': list(range(1, len(points) + 1)),
-                    'trajectory_data': {}
-                }
-            
-            # Use collision detector to check trajectories
-            result = self.collision_detector.check_trajectory_collisions(
-                current_positions=current_positions,
-                target_positions=target_positions,
-                trajectory_steps=20,
-                debug=False
-            )
-            
-            return result
-            
-        except Exception as e:
-            self.logger.log_warn(f"Error in trajectory collision check: {e}")
-            return {
-                'has_collisions': False,
-                'collision_details': [],
-                'safe_order': list(range(1, len(points) + 1)),
-                'trajectory_data': {},
-                'error': str(e)
-            }
-
-    def _execute_safe_movement_order(self, mm, pos, points, safe_order):
-        """
-        Execute movements in the specified safe order.
-        
-        Args:
-            mm: Micromanipulator plugin
-            pos: Positioning plugin
-            points: List of measurement points
-            safe_order: List of manipulator indices in safe movement order
-            
-        Returns:
-            int: Status code (0 = success, non-zero = error)
-        """
-        try:
-            self.logger.log_info(f"Executing safe movement order: {safe_order}")
-            
-            for manipulator_idx in safe_order:
-                # Check if this manipulator has a measurement point
-                point_idx = manipulator_idx - 1
-                if point_idx >= len(points):
-                    continue
-                    
-                point = points[point_idx]
-                
-                # Convert point to camera coordinates, then to MM coordinates
-                x, y = pos.positioning_coords(point)
-                mm_coords = self.convert_to_mm_coords((x, y), manipulator_idx)
-                if mm_coords is None:
-                    self.logger.log_warn(f"No calibration data for manipulator {manipulator_idx}")
+            for manip_idx in move_list:
+                if manip_idx not in moves_dict:
+                    self.logger.log_warn(f"Manipulator {manip_idx} not found in moves dictionary, skipping")
                     continue
                 
-                # Execute the move
-                status = self._execute_single_manipulator_move(mm, manipulator_idx, mm_coords)
-                if status != 0:
-                    self.logger.log_warn(f"Failed to move manipulator {manipulator_idx}")
-                    return status
-                    
-                self.logger.log_debug(f"Successfully moved manipulator {manipulator_idx}")
-            
-            return 0
-            
-        except Exception as e:
-            self.logger.log_warn(f"Error in safe movement execution: {e}")
-            return 2
-
-    def _execute_direct_movement(self, mm, pos, points):
-        """
-        Execute direct movement to all measurement points (no collision avoidance needed).
-        
-        Args:
-            mm: Micromanipulator plugin
-            pos: Positioning plugin
-            points: List of measurement points
-            
-        Returns:
-            int: Status code (0 = success, non-zero = error)
-        """
-        try:
-            self.logger.log_debug("Executing direct movement to all measurement points")
-            
-            for i, point in enumerate(points):
-                manipulator_idx = i + 1
+                (current_cam_x, current_cam_y), (target_cam_x, target_cam_y) = moves_dict[manip_idx]
                 
-                # Convert point to camera coordinates, then to MM coordinates
-                x, y = pos.positioning_coords(point)
-                mm_coords = self.convert_to_mm_coords((x, y), manipulator_idx)
-                if mm_coords is None:
-                    self.logger.log_warn(f"No calibration data for manipulator {manipulator_idx}")
+                # Convert target camera coordinates to MM coordinates
+                target_mm_coords = self.convert_to_mm_coords((target_cam_x, target_cam_y), manip_idx)
+                if target_mm_coords is None:
+                    self.logger.log_warn(f"Failed to convert coordinates for manipulator {manip_idx}, skipping")
                     continue
                 
-                # Execute the move
-                status = self._execute_single_manipulator_move(mm, manipulator_idx, mm_coords)
-                if status != 0:
-                    self.logger.log_warn(f"Failed to move manipulator {manipulator_idx}")
-                    return status
-                    
-                self.logger.log_debug(f"Successfully moved manipulator {manipulator_idx}")
-            
-            return 0
-            
-        except Exception as e:
-            self.logger.log_warn(f"Error in direct movement execution: {e}")
-            return 2
-
-    def _execute_single_manipulator_move(self, mm, manipulator_idx, mm_coords):
-        """
-        Execute a single manipulator move and update the bounding box position.
-        
-        Args:
-            mm: Micromanipulator plugin
-            manipulator_idx: Manipulator index (1-based)
-            mm_coords: Target coordinates in MM coordinate system
-            
-        Returns:
-            int: Status code (0 = success, non-zero = error)
-        """
-        try:
-            # Change to the target manipulator
-            status, state = mm.mm_change_active_device(manipulator_idx)
-            if status != 0:
-                self.logger.log_warn(f"Failed to change to manipulator {manipulator_idx}: {state}")
-                return status
-            
-            # Execute the move
-            x, y = mm_coords
-            status, state = mm.mm_move(x=x, y=y)
-
-            if status == 0:
-                # Update bounding box position in camera coordinates
-                cam_coords = self.convert_mm_to_camera_coords(mm_coords, manipulator_idx)
-                if cam_coords and manipulator_idx in self.collision_detector.get_manipulator_indices():
-                    self.collision_detector.update_manipulator_tip_position(manipulator_idx, cam_coords[0], cam_coords[1])
-                    # Update cached position
-                    self.update_manipulator_position(manipulator_idx, cam_coords)
+                target_mm_x, target_mm_y = target_mm_coords
                 
-                self.logger.log_debug(f"Moved manipulator {manipulator_idx} to {mm_coords}")
-                return 0
+                self.logger.log_info(f"Moving manipulator {manip_idx}: Camera ({target_cam_x:.1f}, {target_cam_y:.1f}) -> MM ({target_mm_x:.3f}, {target_mm_y:.3f})")
+                
+                # Execute the move using the wrapper that updates bounding box
+                status, state = self.move_manipulator_and_update_bounding_box(manip_idx, target_mm_x, target_mm_y, z=0)
+                
+                if status == 0:  # Success
+                    successful_moves += 1
+                    self.logger.log_info(f"Successfully moved manipulator {manip_idx}")
+                    
+                    # Update collision detector with new position
+                    if manip_idx in self.collision_detector.bounding_boxes:
+                        self.collision_detector.bounding_boxes[manip_idx].move_bbox(target_cam_x, target_cam_y)
+                else:
+                    error_msg = state.get('Error message', str(state)) if isinstance(state, dict) else str(state)
+                    self.logger.log_warn(f"Failed to move manipulator {manip_idx}: {error_msg}")
+                    return 1, f"Movement failed for manipulator {manip_idx}: {error_msg}"
+            
+            if successful_moves == total_moves:
+                self.logger.log_info(f"All {total_moves} manipulator movements completed successfully")
+                return 0, f"Successfully completed {successful_moves}/{total_moves} moves"
             else:
-                self.logger.log_warn(f"Move failed for manipulator {manipulator_idx}: {state}")
-                return status
+                return 1, f"Only {successful_moves}/{total_moves} moves completed successfully"
                 
         except Exception as e:
-            self.logger.log_warn(f"Error moving manipulator {manipulator_idx}: {e}")
-            return 2
-
-    def validate_collision_detection_setup(self) -> tuple[bool, str]:
-        """
-        Validate that collision detection is properly set up for the current measurement points.
-        
-        Returns:
-            tuple: (is_valid, message)
-        """
-        try:
-            if not self.measurement_points:
-                return False, "No measurement points available"
-            
-            # Check if we have any bounding boxes defined
-            manipulator_indices = self.collision_detector.get_manipulator_indices()
-            if not manipulator_indices:
-                return True, "No bounding boxes defined - collision detection disabled"
-            
-            # Check if we have calibration data for manipulators with bounding boxes
-            missing_calibrations = []
-            for manip_idx in manipulator_indices:
-                if manip_idx not in self.calibrations:
-                    missing_calibrations.append(manip_idx)
-            
-            if missing_calibrations:
-                return False, f"Missing calibration data for manipulators with bounding boxes: {missing_calibrations}"
-            
-            # Check if number of measurement points matches number of manipulators
-            max_points = len(self.measurement_points[0]) if self.measurement_points else 0
-            if max_points == 0:
-                return False, "No manipulator points in measurement data"
-            
-            self.logger.log_info(f"Collision detection setup valid: {len(manipulator_indices)} manipulators with bounding boxes, {max_points} manipulator positions per iteration")
-            return True, f"Collision detection ready for {len(manipulator_indices)} manipulators"
-            
-        except Exception as e:
-            return False, f"Error validating collision detection setup: {e}"
-
-    def get_collision_detection_status(self) -> dict:
-        """
-        Get detailed status information about collision detection setup.
-        
-        Returns:
-            dict: Status information
-        """
-        status = {
-            'enabled': False,
-            'manipulator_count': 0,
-            'bounding_boxes': [],
-            'calibrations_available': [],
-            'message': ''
-        }
-        
-        try:
-            manipulator_indices = self.collision_detector.get_manipulator_indices()
-            status['manipulator_count'] = len(manipulator_indices)
-            status['bounding_boxes'] = manipulator_indices.copy()
-            
-            # Check calibrations
-            status['calibrations_available'] = [idx for idx in manipulator_indices if idx in self.calibrations]
-            
-            if manipulator_indices:
-                status['enabled'] = True
-                status['message'] = f"Collision detection active for manipulators {manipulator_indices}"
-            else:
-                status['message'] = "No bounding boxes defined - collision detection disabled"
-                
-        except Exception as e:
-            status['message'] = f"Error getting collision detection status: {e}"
-        
-        return status
+            error_msg = f"Exception during move execution: {str(e)}"
+            self.logger.log_warn(error_msg)
+            return 2, error_msg

@@ -1,13 +1,12 @@
 import itertools
-import time
-from typing import List, Tuple, Dict, Optional, Any
+from typing import List, Tuple, Dict, Optional
 
 
 class AABB:
     """Axis-aligned bounding box (AABB) for collision detection. Works in 2D space"""
 
     def __init__(self, tip_x: float, tip_y: float, relative_corners: List[Tuple[float, float]]):
-        """Initialize the AABB with tip position and absolute corner coordinates in camera coordinates"""
+        """Initialize the AABB with tip position and relative corner coordinates"""
         self.tip_x = tip_x
         self.tip_y = tip_y
         self.relative_corners = relative_corners
@@ -19,13 +18,13 @@ class AABB:
 
     def get_absolute_corners(self) -> List[Tuple[float, float]]:
         """Get the absolute corners of the AABB based on current tip position"""
-        # Convert relative corners to absolute coordinates
         absolute_corners = []
         for rel_x, rel_y in self.relative_corners:
             abs_x = self.tip_x + rel_x
             abs_y = self.tip_y + rel_y
             absolute_corners.append((abs_x, abs_y))
         return absolute_corners
+
     def colliding_with(self, other: "AABB") -> bool:
         """Check if this AABB intersects with another AABB using absolute coordinates"""
         # Get absolute corners for both bounding boxes
@@ -47,33 +46,19 @@ class AABB:
         return not (self_max_x < other_min_x or self_min_x > other_max_x or 
                    self_max_y < other_min_y or self_min_y > other_max_y)
 
-    def get_corners(self) -> List[Tuple[float, float]]:
-        """Get the four corners of the AABB"""
-        return self.relative_corners
-
     def __str__(self) -> str:
-        return f"AABB({self.tip_x:.1f}, {self.tip_y:.1f}, {self.relative_corners[1][0]:.1f}, {self.relative_corners[1][1]:.1f})"
-
-
-class MovementPlanner:
-    """Handles finding safe movement sequences to avoid collisions"""
+        return f"AABB({self.tip_x:.1f}, {self.tip_y:.1f})"
 
 
 class CollisionDetector:
-    """Handles collision detection between micromanipulators using bounding boxes"""
+    """collision detector for single manipulator movements using bounding boxes"""
 
     def __init__(self):
         self.bounding_boxes: Dict[int, AABB] = {}
 
-    def set_bounding_box(self, manipulator_idx: int, tip_x: float, tip_y: float, relative_corners: List[Tuple[float, float]]):
-        """Set the bounding box for a manipulator"""
-        bounding_box = AABB(tip_x, tip_y, relative_corners)
-        self.bounding_boxes[manipulator_idx] = bounding_box
-
     def set_manipulator_bounding_box(self, manipulator_idx: int, relative_coords: List[Tuple[float, float]]) -> bool:
         """Set the bounding box for a manipulator using relative coordinates"""
         try:
-            # Use tip position as (0, 0) for now, since we're working with relative coordinates
             bounding_box = AABB(0.0, 0.0, relative_coords)
             self.bounding_boxes[manipulator_idx] = bounding_box
             return True
@@ -106,266 +91,134 @@ class CollisionDetector:
         """Get all bounding boxes"""
         return self.bounding_boxes.copy()
 
-    def check_trajectory_collisions(self, current_positions: Dict[int, Tuple[float, float]], 
-                                  target_positions: Dict[int, Tuple[float, float]], 
-                                  trajectory_steps: int = 20, debug: bool = False) -> Dict[str, Any]:
+    def check_move_collision(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]], 
+                           trajectory_steps: int = 20) -> bool:
         """
-        Check for collisions along movement trajectories.
+        Check if a single manipulator movement would cause collisions.
         
         Args:
-            current_positions: Dictionary mapping manipulator_idx to current (x, y) tip positions
-            target_positions: Dictionary mapping manipulator_idx to target (x, y) tip positions  
-            trajectory_steps: Number of steps to check along each trajectory
-            debug: Print debug information
+            moves: Dict mapping manipulator_idx to ((current_x, current_y), (target_x, target_y))
+            trajectory_steps: Number of steps to check along the trajectory
             
         Returns:
-            Dictionary with collision analysis results:
-            {
-                'has_collisions': bool,
-                'collision_details': List[Dict],
-                'safe_order': List[int] or None,
-                'trajectory_data': Dict
-            }
+            bool: True if collision detected, False if safe to move
         """
-        if debug:
-            print(f"Checking trajectories for {len(current_positions)} manipulators")
-            print(f"Current: {current_positions}")
-            print(f"Target: {target_positions}")
-            
-        result = {
-            'has_collisions': False,
-            'collision_details': [],
-            'safe_order': None,
-            'trajectory_data': {}
-        }
+        if len(moves) != 1:
+            raise ValueError("Only single manipulator movements are supported")
         
-        try:
-            # Update all bounding box positions to current positions
-            for manipulator_idx, (x, y) in current_positions.items():
-                if manipulator_idx in self.bounding_boxes:
-                    self.update_manipulator_tip_position(manipulator_idx, x, y)
-            
-            # Generate trajectories for each manipulator
-            trajectories = self._generate_trajectories(current_positions, target_positions, trajectory_steps)
-            result['trajectory_data'] = trajectories
-            
-            if debug:
-                for manip, traj in trajectories.items():
-                    print(f"Manipulator {manip}: {len(traj)} trajectory points")
-            
-            # Check for collisions assuming one manipulator moves at a time
-            collision_matrix = self._check_sequential_movement_collisions(trajectories)
-            
-            # Analyze collision results
-            result['has_collisions'] = any(
-                any(collision_steps for collision_steps in stationary_collisions.values()) 
-                for stationary_collisions in collision_matrix.values()
-            )
-            
-            if debug and result['has_collisions']:
-                print("Collisions found in matrix:")
-                for moving, stationary_dict in collision_matrix.items():
-                    for stationary, steps in stationary_dict.items():
-                        if steps:
-                            print(f"  Manipulator {moving} collides with {stationary} at steps: {steps}")
-            
-            result['collision_details'] = self._analyze_collision_matrix(collision_matrix, trajectories)
-            
-            # Try to find a safe movement order
-            if result['has_collisions']:
-                result['safe_order'] = self._find_safe_movement_order(collision_matrix, list(current_positions.keys()))
-            else:
-                # No collisions, any order is safe
-                result['safe_order'] = list(current_positions.keys())
-                
-        except Exception as e:
-            result['error'] = str(e)
-            if debug:
-                print(f"Error in trajectory collision check: {e}")
-            
-        return result
-
-    def _generate_trajectories(self, current_positions: Dict[int, Tuple[float, float]], 
-                             target_positions: Dict[int, Tuple[float, float]], 
-                             steps: int) -> Dict[int, List[Tuple[float, float]]]:
-        """Generate linear trajectories for each manipulator"""
-        trajectories = {}
+        moving_idx, ((current_x, current_y), (target_x, target_y)) = next(iter(moves.items()))
         
-        for manipulator_idx in current_positions:
-            if manipulator_idx not in target_positions:
-                continue
-                
-            current_x, current_y = current_positions[manipulator_idx]
-            target_x, target_y = target_positions[manipulator_idx]
-            
-            # Check if manipulator actually moves
-            distance = ((target_x - current_x)**2 + (target_y - current_y)**2)**0.5
-            if distance < 0.01:  # Essentially no movement
-                # Create a single-point trajectory (stays in place)
-                trajectories[manipulator_idx] = [(current_x, current_y)]
-                continue
-            
-            # Generate linear interpolation points
-            trajectory = []
-            for i in range(steps + 1):
-                t = i / steps  # Parameter from 0 to 1
-                x = current_x + t * (target_x - current_x)
-                y = current_y + t * (target_y - current_y)
-                trajectory.append((x, y))
-                
-            trajectories[manipulator_idx] = trajectory
-            
-        return trajectories
-
-    def _check_sequential_movement_collisions(self, trajectories: Dict[int, List[Tuple[float, float]]]) -> Dict[int, Dict[int, List[int]]]:
-        """
-        Check collisions assuming manipulators move one at a time.
+        # Check if we have a bounding box for the moving manipulator
+        if moving_idx not in self.bounding_boxes:
+            return False  # No bounding box means no collision possible
         
-        Returns:
-            collision_matrix[moving_manipulator][stationary_manipulator] = [collision_step_indices]
-        """
-        collision_matrix = {}
-        manipulator_indices = list(trajectories.keys())
+        moving_bbox = self.bounding_boxes[moving_idx]
         
-        for moving_idx in manipulator_indices:
-            collision_matrix[moving_idx] = {}
+        # Generate trajectory for the moving manipulator
+        trajectory = self._generate_linear_trajectory(
+            (current_x, current_y), (target_x, target_y), trajectory_steps
+        )
+        
+        # Check collision with all other manipulators at each step
+        for step_pos in trajectory:
+            # Move the moving manipulator's bounding box to this trajectory step
+            orig_x, orig_y = moving_bbox.tip_x, moving_bbox.tip_y
+            moving_bbox.move_bbox(step_pos[0], step_pos[1])
             
-            for stationary_idx in manipulator_indices:
-                if moving_idx == stationary_idx:
-                    collision_matrix[moving_idx][stationary_idx] = []
+            # Check collision with all other manipulators at their current positions
+            for other_idx, other_bbox in self.bounding_boxes.items():
+                if other_idx == moving_idx:
                     continue
                     
-                # Check collision at each step of the moving manipulator's trajectory
-                collision_steps = []
-                
-                try:
-                    if (moving_idx in self.bounding_boxes and 
-                        stationary_idx in self.bounding_boxes and
-                        moving_idx in trajectories and
-                        stationary_idx in trajectories):
-                        
-                        # Stationary manipulator stays at its current position (first point of trajectory)
-                        stationary_pos = trajectories[stationary_idx][0]
-                        
-                        # Get bounding boxes
-                        moving_bbox = self.bounding_boxes[moving_idx]
-                        stationary_bbox = self.bounding_boxes[stationary_idx]
-                        
-                        # Set stationary bbox to its current position
-                        stationary_bbox.move_bbox(stationary_pos[0], stationary_pos[1])
-                        
-                        # Check collision at each step of the trajectory
-                        for step_idx, (x, y) in enumerate(trajectories[moving_idx]):
-                            # Temporarily move the moving bbox to this trajectory point
-                            original_tip_x, original_tip_y = moving_bbox.tip_x, moving_bbox.tip_y
-                            moving_bbox.move_bbox(x, y)
-                            
-                            # Check for collision
-                            if moving_bbox.colliding_with(stationary_bbox):
-                                collision_steps.append(step_idx)
-                                
-                            # Restore original position
-                            moving_bbox.move_bbox(original_tip_x, original_tip_y)
-                except Exception as e:
-                    print(f"Error in collision check between {moving_idx} and {stationary_idx}: {e}")
-                    import traceback
-                    traceback.print_exc()
-                
-                collision_matrix[moving_idx][stationary_idx] = collision_steps
-                
-        return collision_matrix
-
-    def _analyze_collision_matrix(self, collision_matrix: Dict[int, Dict[int, List[int]]], 
-                                trajectories: Dict[int, List[Tuple[float, float]]]) -> List[Dict]:
-        """Analyze collision matrix and generate detailed collision information"""
-        collision_details = []
+                if moving_bbox.colliding_with(other_bbox):
+                    # Restore original position and return collision detected
+                    moving_bbox.move_bbox(orig_x, orig_y)
+                    return True
+            
+            # Restore original position for next iteration
+            moving_bbox.move_bbox(orig_x, orig_y)
         
-        for moving_idx, stationary_collisions in collision_matrix.items():
-            for stationary_idx, collision_steps in stationary_collisions.items():
-                if collision_steps:
-                    detail = {
-                        'moving_manipulator': moving_idx,
-                        'stationary_manipulator': stationary_idx,
-                        'collision_steps': collision_steps,
-                        'collision_positions': []
-                    }
-                    
-                    # Add position information for collision points
-                    if moving_idx in trajectories:
-                        for step in collision_steps:
-                            if step < len(trajectories[moving_idx]):
-                                detail['collision_positions'].append(trajectories[moving_idx][step])
-                    
-                    collision_details.append(detail)
-                    
-        return collision_details
+        return False  # No collision detected
 
-    def _find_safe_movement_order(self, collision_matrix: Dict[int, Dict[int, List[int]]], 
-                                manipulator_indices: List[int]) -> Optional[List[int]]:
+    def generate_safe_movement_sequence(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> List[int]:
         """
-        Try to find a safe order to move manipulators to avoid collisions.
-        This is a simplified approach - more sophisticated algorithms could be implemented.
+        Generate a safe movement sequence to avoid collisions.
+        
+        Args:
+            moves: Dict mapping manipulator_idx to ((current_x, current_y), (target_x, target_y))
+            
+        Returns:
+            List of manipulator indices in safe execution order. Empty list if no safe sequence exists.
         """
-        # Create a dependency graph: if A collides with B when A moves, then A depends on B moving first
-        dependencies = {}
+        if not moves:
+            return []
+        
+        # Update all manipulator positions to their current positions
+        for manip_idx, ((current_x, current_y), _) in moves.items():
+            if manip_idx in self.bounding_boxes:
+                self.bounding_boxes[manip_idx].move_bbox(current_x, current_y)
+        
+        # Try all permutations to find a safe sequence
+        manipulator_indices = list(moves.keys())
+        
+        for permutation in itertools.permutations(manipulator_indices):
+            if self._test_movement_sequence(moves, list(permutation)):
+                return list(permutation)
+        
+        return []  # No safe sequence found
+
+    def _test_movement_sequence(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]], 
+                              sequence: List[int]) -> bool:
+        """Test if a movement sequence is collision-free"""
+        # Store original positions
+        original_positions = {}
+        for manip_idx in self.bounding_boxes:
+            bbox = self.bounding_boxes[manip_idx]
+            original_positions[manip_idx] = (bbox.tip_x, bbox.tip_y)
         
         try:
-            for moving_idx in manipulator_indices:
-                dependencies[moving_idx] = set()
+            # Test each move in sequence
+            for manip_idx in sequence:
+                if manip_idx not in moves:
+                    continue
+                    
+                (current_x, current_y), (target_x, target_y) = moves[manip_idx]
                 
-                for stationary_idx in manipulator_indices:
-                    if (moving_idx in collision_matrix and 
-                        stationary_idx in collision_matrix[moving_idx] and
-                        collision_matrix[moving_idx][stationary_idx]):
-                        # moving_idx collides with stationary_idx when moving_idx moves
-                        # So stationary_idx should move first
-                        dependencies[moving_idx].add(stationary_idx)
-        except Exception as e:
-            print(f"Error building dependencies: {e}")
-            print(f"collision_matrix type: {type(collision_matrix)}")
-            print(f"collision_matrix keys: {list(collision_matrix.keys()) if hasattr(collision_matrix, 'keys') else 'No keys method'}")
-            raise e
-        
-        # Try to perform topological sort to find a valid order
-        try:
-            safe_order = self._topological_sort(dependencies)
-            return safe_order
-        except Exception:
-            # If topological sort fails (circular dependencies), return None
-            return None
+                # Test if this single move causes collision
+                single_move = {manip_idx: ((current_x, current_y), (target_x, target_y))}
+                if self.check_move_collision(single_move):
+                    return False
+                
+                # Update position for next iteration
+                if manip_idx in self.bounding_boxes:
+                    self.bounding_boxes[manip_idx].move_bbox(target_x, target_y)
+            
+            return True
+            
+        finally:
+            # Restore original positions
+            for manip_idx, (orig_x, orig_y) in original_positions.items():
+                if manip_idx in self.bounding_boxes:
+                    self.bounding_boxes[manip_idx].move_bbox(orig_x, orig_y)
 
-    def _topological_sort(self, dependencies: Dict[int, set]) -> List[int]:
-        """Perform topological sort on dependency graph"""
-        # Kahn's algorithm for topological sorting
-        in_degree = {node: 0 for node in dependencies}
+    def _generate_linear_trajectory(self, start: Tuple[float, float], end: Tuple[float, float], 
+                                  steps: int) -> List[Tuple[float, float]]:
+        """Generate linear trajectory between two points"""
+        start_x, start_y = start
+        end_x, end_y = end
         
-        # Calculate in-degrees
-        for node in dependencies:
-            for dep in dependencies[node]:
-                if dep in in_degree:
-                    in_degree[dep] += 1
+        # Check if there's actual movement
+        distance = ((end_x - start_x)**2 + (end_y - start_y)**2)**0.5
+        if distance < 0.01:  # Essentially no movement
+            return [start]
         
-        # Find nodes with no incoming edges
-        queue = [node for node, degree in in_degree.items() if degree == 0]
-        result = []
-        
-        while queue:
-            node = queue.pop(0)
-            result.append(node)
+        # Generate linear interpolation points
+        trajectory = []
+        for i in range(steps + 1):
+            t = i / steps  # Parameter from 0 to 1
+            x = start_x + t * (end_x - start_x)
+            y = start_y + t * (end_y - start_y)
+            trajectory.append((x, y))
             
-            # Remove this node and update in-degrees
-            try:
-                for dependent in dependencies[node]:
-                    if dependent in in_degree:
-                        in_degree[dependent] -= 1
-                        if in_degree[dependent] == 0:
-                            queue.append(dependent)
-            except TypeError as e:
-                print(f"Error iterating dependencies[{node}]: {dependencies[node]}, type: {type(dependencies[node])}")
-                raise e
-        
-        # Check if all nodes were processed (no cycles)
-        if len(result) != len(dependencies):
-            raise ValueError("Circular dependency detected")
-            
-        return result
+        return trajectory
+
