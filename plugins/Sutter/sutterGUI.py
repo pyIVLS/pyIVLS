@@ -490,68 +490,7 @@ class SutterGUI(QObject):
             self.logger.log_warn(f"Error getting number of manipulators: {e}")
             return 4  # Default to 4 manipulators if error
 
-    def mm_safe_move_to_position(self, manipulator_idx: int, target_x: float, target_y: float, target_z: float | None = None) -> tuple[int, dict]:
-        """
-        Safely move a manipulator to a target position using 80% quick move + 20% slow move.
-        Also updates position tracking for bounding box systems.
-        
-        Args:
-            manipulator_idx: Manipulator device number (1-based)
-            target_x: Target X coordinate in microns
-            target_y: Target Y coordinate in microns  
-            target_z: Target Z coordinate in microns (optional, keeps current Z if None)
-            
-        Returns:
-            tuple: (status, message) where status 0 = success
-        """
-        try:
-            # Change to the specified manipulator
-            status, state = self.mm_change_active_device(manipulator_idx)
-            if status != 0:
-                return status, state
-            
-            # Get current position
-            current_pos = self.hal.get_current_position()
-            if current_pos is None:
-                return 4, {"Error message": f"Failed to get current position for manipulator {manipulator_idx}"}
-            
-            current_x, current_y, current_z = current_pos
-            
-            # Use current Z if target_z not specified
-            if target_z is None:
-                target_z = current_z
-            
-            # Calculate 80% of the distance for quick move
-            dx = target_x - current_x
-            dy = target_y - current_y
-            dz = target_z - current_z
-            
-            # 80% quick move position
-            quick_x = current_x + (0.8 * dx)
-            quick_y = current_y + (0.8 * dy)
-            quick_z = current_z + (0.8 * dz)
-            
-            # First: 80% quick move
-            status, state = self.mm_move(x=quick_x, y=quick_y, z=quick_z)
-            if status != 0:
-                return status, {"Error message": f"Quick move failed for manipulator {manipulator_idx}: {state.get('Error message', 'Unknown error')}"}
-            
-            # Second: 20% slow move to final position
-            status, state = self.mm_slow_move(x=target_x, y=target_y, z=target_z)
-            if status != 0:
-                return status, {"Error message": f"Slow move failed for manipulator {manipulator_idx}: {state.get('Error message', 'Unknown error')}"}
-            
-            # Verify final position
-            final_pos = self.hal.get_current_position()
-            if final_pos is None:
-                return 4, {"Error message": f"Failed to verify final position for manipulator {manipulator_idx}"}
-            
-            self.logger.log_info(f"Manipulator {manipulator_idx} moved to ({final_pos[0]:.1f}, {final_pos[1]:.1f}, {final_pos[2]:.1f})")
-            
-            return 0, {"Error message": f"Manipulator {manipulator_idx} successfully moved to target position", "final_position": final_pos}
-            
-        except Exception as e:
-            return 4, {"Error message": f"Safe move error for manipulator {manipulator_idx}", "Exception": str(e)}
+    
         
     def mm_slow_move(self, x=None, y=None, z=None):
         """Micromanipulator move.
