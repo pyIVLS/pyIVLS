@@ -1,14 +1,17 @@
 import os
+import itertools
 import numpy as np
 import cv2
 
-from PyQt6.QtCore import pyqtSignal, QObject, QEventLoop, QEvent
+from PyQt6.QtCore import QObject, QEventLoop, QEvent
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGraphicsScene, QGraphicsView
-from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QFont
+from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem
 from PyQt6.QtCore import Qt
 
 from plugin_components import public, get_public_methods, LoggingHelper, CloseLockSignalProvider, ConnectionIndicatorStyle
+from collisionDetection import CollisionDetector, AABB
 
 
 class ViewportClickCatcher(QObject):
@@ -69,24 +72,37 @@ class affineMoveGUI(QObject):
         self._dependencies = [None, None]
         self.calibration_path = os.path.join(self.path, "calibration_data.npy")
 
+        self.logger = LoggingHelper(self)
+        self.closelock = CloseLockSignalProvider()
+
         self.settingsWidget = uic.loadUi(self.path + "affinemove_Settings.ui")  # type: ignore
         self.MDIWidget = uic.loadUi(self.path + "affinemove_MDI.ui")  # type: ignore
         assert self.settingsWidget is not None, "AffineMove: settingsWidget is None"
         assert self.MDIWidget is not None, "AffineMove: MDIWidget is None"
-        
+
         # connect buttons to functions
         self.settingsWidget.findSutter.clicked.connect(self._find_sutter_functionality)
         self.settingsWidget.fetchMaskButton.clicked.connect(self._fetch_mask_functionality)
-        self.settingsWidget.debugButton.clicked.connect(self.affine_move)
         self.settingsWidget.previewButton.clicked.connect(self._initialize_camera_preview)
         self.settingsWidget.saveCalibrationButton.clicked.connect(self._save_calibration)
         self.settingsWidget.loadCalibrationButton.clicked.connect(self._load_calibration)
-        
+
+        # bounding box UI connections
+        self.settingsWidget.setBoundingBoxButton.clicked.connect(self._on_set_bounding_box_clicked)
+        self.settingsWidget.clearBoundingBoxButton.clicked.connect(self._on_clear_bounding_box_clicked)
+        self.settingsWidget.showBoundingBoxesCheckBox.toggled.connect(self._on_show_bounding_boxes_toggled)
+        self.settingsWidget.refreshPositionsButton.clicked.connect(self._on_refresh_positions_clicked)
+
         # Initialize the combo boxes for dependencies
         self.camera_box: QComboBox = self.settingsWidget.cameraBox
         self.micromanipulator_box: QComboBox = self.settingsWidget.micromanipulatorBox
         self.positioning_box: QComboBox = self.settingsWidget.positioningBox
+        self.manipulator_combo_box: QComboBox = self.settingsWidget.manipulatorComboBox
+        self.show_bounding_boxes_checkbox = self.settingsWidget.showBoundingBoxesCheckBox
         self.camera_graphic_view: QGraphicsView = self.MDIWidget.cameraview
+
+        # Initialize manipulator combo box with default options
+        self._populate_manipulator_combo_box()
         self.camera_graphic_scene: QGraphicsScene = QGraphicsScene()
         self.camera_graphic_view.setScene(self.camera_graphic_scene)
 
@@ -97,6 +113,19 @@ class affineMoveGUI(QObject):
         self.calibrations = {}  # manipulator 1, manipulator 2, ... calibration points
         self.settings = {}  # settings dictionary for sequence builder
 
+        # Initialize collision detection system
+        self.collision_detector = CollisionDetector()
+        self.bounding_boxes_path = os.path.join(self.path, "bounding_boxes_data.npy")
+
+        # Initialize position caching system
+        self.cached_manipulator_positions = {}
+
+        # Initialize camera image bounds for preventing view expansion
+        self.camera_image_bounds = (0, 0, 800, 600)  # Default bounds
+
+        # Load bounding boxes from file on startup
+        self._load_bounding_boxes_from_file()
+
         # find status labels and indicators
         self.mm_status = self.settingsWidget.mmStatus
         self.sample_status = self.settingsWidget.sampleStatus
@@ -104,9 +133,6 @@ class affineMoveGUI(QObject):
         self.mm_indicator = self.settingsWidget.mmIndicator
         self.sample_indicator = self.settingsWidget.sampleIndicator
         self.points_indicator = self.settingsWidget.pointsIndicator
-
-        self.logger = LoggingHelper(self)
-        self.closelock = CloseLockSignalProvider()
 
     ########Functions
     ########GUI Slots
@@ -179,7 +205,7 @@ class affineMoveGUI(QObject):
                 points = []
                 moves = [(0, 0), (3000, 0), (0, 3000)]
                 for move in moves:
-                    status,state = mm.mm_move_relative(z_change=-100) # slightly up to avoid collisions
+                    status, state = mm.mm_move_relative(z_change=-100)  # slightly up to avoid collisions
                     if status:
                         self.logger.log_info(f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}")
                         return
@@ -187,6 +213,15 @@ class affineMoveGUI(QObject):
                     if status:
                         self.logger.log_info(f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}")
                         return
+
+                    # Update cached position after move
+                    try:
+                        current_pos = mm.mm_current_position()
+                        if current_pos and len(current_pos) >= 3:
+                            self.update_manipulator_position(i + 1, current_pos)
+                    except Exception as e:
+                        self.logger.log_debug(f"Could not update cached position during calibration: {e}")
+
                     point = self._wait_for_input()
                     if point is None:
                         self.logger.info_popup("Calibration cancelled by user.")
@@ -201,7 +236,7 @@ class affineMoveGUI(QObject):
                 view_points = np.array([pt[1] for pt in points], dtype=np.float32)
                 affine_transform = cv2.getAffineTransform(view_points, mm_points)
                 self.calibrations[i + 1] = affine_transform
-                
+
                 """
                 # back to home
                 mm.mm_move(12500, 12500)
@@ -238,6 +273,62 @@ class affineMoveGUI(QObject):
         # starts the thread
         cam._previewAction()
         self.logger.log_info("Camera preview started")
+
+    def _on_set_bounding_box_clicked(self):
+        """Handle the Set Bounding Box button click"""
+        # Get currently selected manipulator
+        current_text = self.manipulator_combo_box.currentText()
+        if not current_text:
+            self.logger.info_popup("Please select a manipulator first")
+            return
+
+        # Extract manipulator number from text like "Manipulator 1", "Manipulator 2", etc.
+        try:
+            manipulator_id = int(current_text.split()[-1])
+        except (ValueError, IndexError):
+            self.logger.info_popup("Invalid manipulator selection")
+            return
+
+        self.setup_manipulator_bounding_box(manipulator_id)
+
+    def _on_clear_bounding_box_clicked(self):
+        """Handle the Clear Bounding Box button click"""
+        # Get currently selected manipulator
+        current_text = self.manipulator_combo_box.currentText()
+        if not current_text:
+            self.logger.info_popup("Please select a manipulator first")
+            return
+
+        # Extract manipulator number from text
+        try:
+            manipulator_id = int(current_text.split()[-1])
+        except (ValueError, IndexError):
+            self.logger.info_popup("Invalid manipulator selection")
+            return
+
+        self.clear_manipulator_bounding_box(manipulator_id)
+
+    def _on_show_bounding_boxes_toggled(self, checked: bool):
+        """Handle the Show Bounding Boxes checkbox toggle"""
+        # Force a redraw of the overlay to show/hide bounding boxes
+        if hasattr(self, "camera_graphic_view") and self.camera_graphic_view:
+            self._add_visual_overlays()
+
+    def _populate_manipulator_combo_box(self):
+        """Populate the manipulator combo box with available manipulators"""
+        self.manipulator_combo_box.clear()
+
+        # Add default options (these can be updated when manipulators are detected)
+        for i in range(1, 5):  # Support up to 4 manipulators
+            self.manipulator_combo_box.addItem(f"Manipulator {i}")
+
+    def _on_refresh_positions_clicked(self):
+        """Handle the Refresh Positions button click"""
+        success_count = self.refresh_all_manipulator_positions()
+        if success_count > 0:
+            self._add_visual_overlays()  # Redraw overlays with updated positions
+        else:
+            self.logger.info_popup("No manipulator positions updated")
 
     def _save_calibration(self):
         """Write the current calibration data to a file. This implemetation keeps a single calibration file
@@ -316,14 +407,252 @@ class affineMoveGUI(QObject):
 
         return tuple(mm_point)
 
+    def convert_mm_to_camera_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
+        """
+        Converts a point from micromanipulator coordinates to camera coordinates
+        using the previously computed affine transformation.
+
+        Args:
+            point (tuple): (x, y) point in micromanipulator coordinates.
+            mm_dev (int): Manipulator device index.
+
+        Returns:
+            tuple: Transformed point in camera coordinates.
+        """
+        if mm_dev not in self.calibrations:
+            self.logger.log_info(f"No calibration data for manipulator {mm_dev}")
+            return None
+
+        calibration = self.calibrations[mm_dev]  # 2x3 matrix
+        # Invert the affine transformation matrix
+        inverse_calibration = cv2.invertAffineTransform(calibration)
+        # Ensure point is shape (1, 2) — cv2.transform expects shape (N, 2) for 2x3 matrices
+        point_np = np.array([point], dtype=np.float32)  # shape (1, 2)
+
+        # Apply affine transformation
+        camera_point = cv2.transform(point_np[None, :, :], inverse_calibration)[0][0]  # (1,1,2) -> (2,)
+
+        return tuple(camera_point)
+
+    def setup_manipulator_bounding_box(self, manipulator_idx: int) -> tuple[int, str]:
+        """
+        Interactive setup of manipulator bounding box by clicking two opposite corners on camera view.
+        Creates an axis-aligned bounding box defined by two relative coordinates.
+
+        Args:
+            manipulator_idx: Manipulator index (1-based)
+
+        Returns:
+            tuple: (status, message)
+        """
+        try:
+            self.logger.info_popup(f"Click 2 opposite corners to define axis-aligned bounding box for manipulator {manipulator_idx}. Press ESC to cancel.")
+
+            corners = []
+            for i in range(2):
+                self.logger.log_info(f"Waiting for corner {i + 1}/2...")
+                click_pos = self._wait_for_input()
+                if click_pos is None:
+                    return 1, "Bounding box setup cancelled"
+                corners.append(click_pos)
+                self.logger.log_info(f"Corner {i + 1}: ({click_pos[0]:.1f}, {click_pos[1]:.1f})")
+
+            # Convert two corner points to axis-aligned bounding box coordinates
+            x1, y1 = corners[0]
+            x2, y2 = corners[1]
+
+            # Create axis-aligned bounding box using min/max coordinates
+            min_x, max_x = min(x1, x2), max(x1, x2)
+            min_y, max_y = min(y1, y2), max(y1, y2)
+
+            # Get current manipulator position in camera coordinates to compute relative coordinates
+            current_tip_pos = None
+            try:
+                mm, _, _ = self._fetch_dep_plugins()
+                
+                # Switch to the manipulator and get its position
+                code, status = mm.mm_change_active_device(manipulator_idx)
+                if code == 0:
+                    mm_pos = mm.mm_current_position()
+                    if mm_pos and len(mm_pos) >= 2 and manipulator_idx in self.calibrations:
+                        # Convert MM coordinates to camera coordinates
+                        current_tip_pos = self.convert_mm_to_camera_coords((mm_pos[0], mm_pos[1]), manipulator_idx)
+                        if current_tip_pos:
+                            self.logger.log_info(f"Current tip position for manipulator {manipulator_idx}: {current_tip_pos}")
+                            # Update cached position
+                            self.update_manipulator_position(manipulator_idx, mm_pos)
+            except Exception as e:
+                self.logger.log_debug(f"Could not get current manipulator position: {e}")
+
+            # If we have the tip position, store relative coordinates, otherwise store absolute
+            if current_tip_pos:
+                # Calculate relative coordinates from tip position
+                tip_x, tip_y = current_tip_pos
+                relative_coords = [(min_x - tip_x, min_y - tip_y), (max_x - tip_x, max_y - tip_y)]
+                self.logger.log_info(f"Storing relative coordinates: {relative_coords}")
+            else:
+                raise ValueError("Current manipulator position not available, cannot set relative bounding box")
+
+            # Set the bounding box
+            status, message = self.set_manipulator_bounding_box(manipulator_idx, relative_coords)
+            
+            # If we have tip position, update the collision detector with it
+            if current_tip_pos and status == 0:
+                self.collision_detector.update_manipulator_tip_position(
+                    manipulator_idx, current_tip_pos[0], current_tip_pos[1]
+                )
+            
+            if status == 0:
+                self._add_visual_overlays()  # Refresh visual overlays
+                self.logger.info_popup(f"Axis-aligned bounding box set for manipulator {manipulator_idx}")
+
+            return status, message
+
+        except Exception as e:
+            return 1, f"Error setting up bounding box: {e}"
+
+    def set_manipulator_bounding_box(self, manipulator_idx: int, relative_coords: list[tuple[float, float]]) -> tuple[int, str]:
+        """
+        Set a manipulator's bounding box using two relative coordinates.
+
+        Args:
+            manipulator_idx: Manipulator index (1-based)
+            relative_coords: List of two tuples representing (min_x, min_y) and (max_x, max_y)
+
+        Returns:
+            tuple: (status, message)
+        """
+        try:
+            if len(relative_coords) != 2:
+                return 1, "Bounding box must be defined by exactly 2 coordinates"
+
+            # Validate coordinates are axis-aligned
+            (min_x, min_y), (max_x, max_y) = relative_coords
+            if min_x >= max_x or min_y >= max_y:
+                return 1, "Invalid bounding box coordinates: min values must be less than max values"
+
+            # Store in CollisionDetector (source of truth)
+            success = self.collision_detector.set_manipulator_bounding_box(manipulator_idx, relative_coords)
+
+            if success:
+                # Save to file
+                self._save_bounding_boxes_to_file()
+                return 0, f"Bounding box set for manipulator {manipulator_idx}"
+            else:
+                return 1, f"Failed to set bounding box for manipulator {manipulator_idx}"
+
+        except Exception as e:
+            return 1, f"Error setting bounding box: {e}"
+
+    def clear_manipulator_bounding_box(self, manipulator_idx: int) -> tuple[int, str]:
+        """
+        Clear the bounding box for a manipulator.
+
+        Args:
+            manipulator_idx: Manipulator index (1-based)
+
+        Returns:
+            tuple: (status, message)
+        """
+        # Clear from CollisionDetector (source of truth)
+        success = self.collision_detector.clear_manipulator_bounding_box(manipulator_idx)
+
+        if success:
+            self._save_bounding_boxes_to_file()  # Save updated bounding boxes to file
+            self._add_visual_overlays()  # Refresh visual overlays
+            return 0, f"Bounding box cleared for manipulator {manipulator_idx}"
+        else:
+            return 1, f"No bounding box found for manipulator {manipulator_idx}"
+
+    def clear_all_bounding_boxes(self) -> tuple[int, str]:
+        """
+        Clear all manipulator bounding boxes.
+
+        Returns:
+            tuple: (status, message)
+        """
+        # Get count before clearing
+        indices = self.collision_detector.get_manipulator_indices()
+        count = len(indices)
+
+        # Clear all from CollisionDetector
+        for manipulator_idx in indices:
+            self.collision_detector.clear_manipulator_bounding_box(manipulator_idx)
+
+        # Save to file
+        self._save_bounding_boxes_to_file()
+        self._add_visual_overlays()  # Refresh visual overlays
+        return 0, f"Cleared {count} bounding box(es)"
+
+    def _save_bounding_boxes_to_file(self):
+        """Save the current bounding box data to a file."""
+        try:
+            # Get current bounding boxes from CollisionDetector (source of truth)
+            current_boxes = self.collision_detector.get_all_bounding_boxes()
+
+            if not current_boxes:
+                self.logger.log_debug("No bounding boxes to save")
+                return
+
+            # Convert AABB objects to serializable format
+            serializable_boxes = {}
+            for manipulator_idx, aabb in current_boxes.items():
+                serializable_boxes[manipulator_idx] = aabb.get_corners()
+
+            # Save to file
+            np.save(self.bounding_boxes_path, serializable_boxes, allow_pickle=True)
+            self.logger.log_info(f"Saved {len(current_boxes)} bounding box(es) to {self.bounding_boxes_path}")
+        except Exception as e:
+            self.logger.log_warn(f"Failed to save bounding box data: {e}")
+
+    def _load_bounding_boxes_from_file(self):
+        """Load bounding box data from file on startup and sync with CollisionDetector."""
+        file_path = self.bounding_boxes_path
+
+        if not os.path.exists(file_path):
+            self.logger.log_debug(f"No bounding box data found at {file_path}")
+            return
+
+        try:
+            loaded_boxes = np.load(file_path, allow_pickle=True).item()
+
+            # Load bounding boxes into CollisionDetector
+            loaded_count = 0
+            for manipulator_idx, coords in loaded_boxes.items():
+                if len(coords) == 2:
+                    converted_coords = coords
+                else:
+                    self.logger.log_warn(f"Invalid bounding box format for manipulator {manipulator_idx}: {len(coords)} coordinates")
+                    continue
+
+                # Store in CollisionDetector
+                if self.collision_detector.set_manipulator_bounding_box(manipulator_idx, converted_coords):
+                    loaded_count += 1
+
+                # try to update the probe position if available
+                try:
+                    mm, _, _ = self._fetch_dep_plugins()
+                    code, status = mm.mm_change_active_device(manipulator_idx)
+                    if code == 0:
+                        mm_pos = mm.mm_current_position()
+                        if mm_pos and len(mm_pos) >= 2:
+                            self.update_manipulator_position(manipulator_idx, mm_pos)
+                            self.collision_detector.update_manipulator_tip_position(
+                                manipulator_idx, mm_pos[0], mm_pos[1]
+                            )
+                except Exception as e:
+                    self.logger.log_info(f"Could not update cached tip position for manipulator {manipulator_idx}: {e}")
+
+            self.logger.log_info(f"Loaded {loaded_count} bounding box(es) from {file_path}")
+        except Exception as e:
+            self.logger.log_warn(f"Failed to load bounding box data: {e}")
+
     ########Functions
     ###############GUI setting up
 
     def setup(self, settings) -> tuple[QWidget, QWidget]:
         """
         Sets up the GUI for the plugin. This function is called by hook to initialize the GUI."""
-
-
 
         return self.settingsWidget, self.MDIWidget
 
@@ -345,9 +674,13 @@ class affineMoveGUI(QObject):
         self.camera_box.setCurrentIndex(0)
         self.positioning_box.setCurrentIndex(0)
 
+        # Note: We don't automatically refresh manipulator positions here
+        # Positions should only be queried when the user explicitly requests it
+        self.logger.log_debug("Dependencies updated - use 'Refresh Positions' button to update manipulator positions")
+
     def update_graphics_view(self, img):
         """
-        Updates the graphics view with the camera image.
+        Updates the graphics view with the camera image and visual overlays.
         This function is called by the camera plugin when a new image is captured.
         """
         if img is not None:
@@ -357,8 +690,394 @@ class affineMoveGUI(QObject):
             pixmap = QPixmap.fromImage(qt_image)
             self.camera_graphic_scene.clear()
             self.camera_graphic_scene.addPixmap(pixmap)
+
+            # Store the camera image bounds to prevent view expansion
+            self.camera_image_bounds = (0, 0, w, h)
+
+            # Add visual overlays
+            self._add_visual_overlays()
+            
+            # Ensure the scene rect doesn't expand beyond the image
+            self.camera_graphic_scene.setSceneRect(0, 0, w, h)
         else:
             self.logger.log_warn("Camera image is None in update_graphics_view.")
+
+    def _add_visual_overlays(self):
+        """
+        Adds visual overlays to the camera view showing manipulator positions,
+        target coordinates, and movement trajectories.
+        """
+        try:
+            mm, cam, pos = self._fetch_dep_plugins()
+            if mm is None:
+                return
+
+            # Get current manipulator positions in camera coordinates
+            manipulator_positions = self._get_manipulator_positions_in_camera(mm)
+
+            # Get target coordinates if measurement points are available
+            target_coords = self._get_target_coords_in_camera()
+
+            # Draw manipulator position dots
+            for i, (mm_idx, cam_pos) in enumerate(manipulator_positions.items()):
+                if cam_pos is not None:
+                    self._draw_manipulator_dot(cam_pos, mm_idx)
+
+            # Draw target coordinate dots and trajectory lines
+            if target_coords and len(self.measurement_points) > 0:
+                current_targets = target_coords.get(self.iter, {}) if hasattr(self, "iter") else {}
+                for mm_idx, target_pos in current_targets.items():
+                    if target_pos is not None:
+                        # Draw target dot
+                        self._draw_target_dot(target_pos, mm_idx)
+
+                        # Draw trajectory line if we have both current and target positions
+                        if mm_idx in manipulator_positions and manipulator_positions[mm_idx] is not None:
+                            self._draw_trajectory_line(manipulator_positions[mm_idx], target_pos, mm_idx)
+
+
+            # Draw manipulator bounding boxes
+            self._draw_manipulator_bounding_boxes()
+
+        except Exception as e:
+            self.logger.log_warn(f"Error adding visual overlays: {e}")
+
+    def _get_manipulator_positions_in_camera(self, mm):
+        """
+        Get current positions of all manipulators in camera coordinates using cached positions.
+
+        Args:
+            mm: Micromanipulator plugin instance (kept for compatibility but not used for position queries)
+
+        Returns:
+            dict: Dictionary mapping manipulator index to camera coordinates (x, y) or None
+        """
+        positions = {}
+        try:
+            # Use cached positions instead of querying hardware
+            for manipulator_idx in self.cached_manipulator_positions.keys():
+                try:
+                    cached_pos = self.get_cached_manipulator_position(manipulator_idx)
+                    if cached_pos and len(cached_pos) >= 2:
+                        # Convert to camera coordinates
+                        cam_pos = self.convert_mm_to_camera_coords((cached_pos[0], cached_pos[1]), manipulator_idx)
+                        positions[manipulator_idx] = cam_pos
+                    else:
+                        positions[manipulator_idx] = None
+                except Exception as e:
+                    self.logger.log_debug(f"Could not convert cached position for manipulator {manipulator_idx}: {e}")
+                    positions[manipulator_idx] = None
+
+        except Exception as e:
+            self.logger.log_warn(f"Error getting cached manipulator positions: {e}")
+
+        return positions
+
+    def update_manipulator_position(self, manipulator_idx: int, position: tuple) -> None:
+        """Update cached position for a manipulator"""
+        self.cached_manipulator_positions[manipulator_idx] = position
+
+    def get_cached_manipulator_position(self, manipulator_idx: int) -> tuple | None:
+        """Get cached position for a manipulator"""
+        return self.cached_manipulator_positions.get(manipulator_idx)
+
+    def refresh_all_manipulator_positions(self) -> int:
+        """
+        Refresh cached positions for all manipulators by querying hardware.
+        This should only be called when the user explicitly requests it via the refresh button.
+        Returns count of successfully updated positions.
+        """
+        success_count = 0
+        try:
+            mm, _, _ = self._fetch_dep_plugins()
+            
+            self.logger.log_info("Querying manipulator positions from hardware...")
+            
+            # Try to get positions for manipulators 1-4 (typical range)
+            for manipulator_idx in range(1, 5):
+                try:
+                    # Change to this manipulator
+                    code, status = mm.mm_change_active_device(manipulator_idx)
+                    if code == 0:  # Success
+                        # Get current position from hardware
+                        position = mm.mm_current_position()
+                        if position and len(position) >= 3:
+                            self.update_manipulator_position(manipulator_idx, position)
+                            
+                            # Update bounding box tip position if calibration exists
+                            if manipulator_idx in self.calibrations:
+                                try:
+                                    # Convert MM coordinates to camera coordinates
+                                    cam_pos = self.convert_mm_to_camera_coords((position[0], position[1]), manipulator_idx)
+                                    if cam_pos:
+                                        # Update collision detector with new tip position
+                                        self.collision_detector.update_manipulator_tip_position(
+                                            manipulator_idx, cam_pos[0], cam_pos[1]
+                                        )
+                                        self.logger.log_debug(f"Updated bounding box tip for manipulator {manipulator_idx}: {cam_pos}")
+                                except Exception as e:
+                                    self.logger.log_debug(f"Could not update bounding box tip for manipulator {manipulator_idx}: {e}")
+                            
+                            success_count += 1
+                            self.logger.log_debug(f"Updated position for manipulator {manipulator_idx}: {position}")
+                except Exception as e:
+                    self.logger.log_debug(f"Could not refresh position for manipulator {manipulator_idx}: {e}")
+                    
+        except Exception as e:
+            self.logger.log_warn(f"Error refreshing manipulator positions: {e}")
+            
+        self.logger.log_info(f"Successfully updated {success_count} manipulator position(s)")
+        return success_count
+
+    def move_manipulator_and_update_bounding_box(self, manipulator_idx: int, x: float, y: float, z: float | None = None) -> tuple[int, dict]:
+        """
+        Wrapper for moving a manipulator that also updates the bounding box tip position.
+        
+        Args:
+            manipulator_idx: Manipulator index (1-based)
+            x, y: Target coordinates in MM coordinates
+            z: Optional Z coordinate, if None uses current Z
+            
+        Returns:
+            tuple: (status, state_dict) from the movement operation
+        """
+        try:
+            mm, _, _ = self._fetch_dep_plugins()
+            
+            # Change to the target manipulator
+            code, status = mm.mm_change_active_device(manipulator_idx)
+            if code != 0:
+                return code, {"Error message": f"Failed to change to manipulator {manipulator_idx}"}
+            if z is not None:
+                mm.mm_move(z=z) # move z first to prevent scratches 
+            # Perform the move
+            else:
+                status, state = mm.mm_move(x=x, y=y)
+            if status == 0:  # Success
+                # Update cached position
+                final_pos = mm.mm_current_position()
+                if final_pos and len(final_pos) >= 3:
+                    self.update_manipulator_position(manipulator_idx, final_pos)
+                    
+                    # Update bounding box tip position if calibration exists
+                    if manipulator_idx in self.calibrations:
+                        try:
+                            # Convert MM coordinates to camera coordinates
+                            cam_pos = self.convert_mm_to_camera_coords((final_pos[0], final_pos[1]), manipulator_idx)
+                            if cam_pos:
+                                # Update collision detector with new tip position
+                                self.collision_detector.update_manipulator_tip_position(
+                                    manipulator_idx, cam_pos[0], cam_pos[1]
+                                )
+                                self.logger.log_debug(f"Updated bounding box tip for manipulator {manipulator_idx} to camera coords: {cam_pos}")
+                        except Exception as e:
+                            self.logger.log_debug(f"Could not update bounding box tip after move: {e}")
+                
+                self.logger.log_debug(f"Successfully moved manipulator {manipulator_idx} to ({x}, {y})")
+            
+            return status, state
+            
+        except Exception as e:
+            return 1, {"Error message": f"Exception during move: {str(e)}"}
+
+    def _get_target_coords_in_camera(self):
+        """
+        Get target coordinates for all measurement points in camera coordinates.
+
+        Returns:
+            dict: Dictionary mapping measurement point index to {manipulator_index: camera_coordinates}
+        """
+        target_coords = {}
+
+        if not self.measurement_points:
+            return target_coords
+
+        try:
+            # Get positioning plugin to convert mask coordinates to camera coordinates
+            _, _, pos = self._fetch_dep_plugins()
+            if pos is None:
+                self.logger.log_warn("No positioning plugin available for coordinate conversion")
+                return target_coords
+
+            for point_idx, point_set in enumerate(self.measurement_points):
+                target_coords[point_idx] = {}
+
+                for device_idx, point in enumerate(point_set, 1):  # device_idx starts from 1
+                    if point and len(point) >= 2:
+                        # Convert from mask coordinates to camera coordinates using positioning plugin
+                        try:
+                            camera_x, camera_y = pos.positioning_coords(point)
+                            target_coords[point_idx][device_idx] = (float(camera_x), float(camera_y))
+                        except Exception as e:
+                            self.logger.log_debug(f"Error converting mask coordinates {point} to camera coordinates: {e}")
+                            target_coords[point_idx][device_idx] = None
+                    else:
+                        target_coords[point_idx][device_idx] = None
+
+        except Exception as e:
+            self.logger.log_warn(f"Error getting target coordinates: {e}")
+
+        return target_coords
+
+    def _draw_manipulator_dot(self, cam_pos, mm_idx):
+        """Draw a dot representing current manipulator position."""
+        if cam_pos is None:
+            return
+
+        x, y = cam_pos
+        dot_size = 10
+
+        # Different colors for different manipulators
+        colors = [QColor(255, 0, 0), QColor(0, 255, 0), QColor(0, 0, 255), QColor(255, 255, 0)]
+        color = colors[(mm_idx - 1) % len(colors)]
+
+        pen = QPen(color, 2)
+        brush = QBrush(color)
+
+        ellipse = QGraphicsEllipseItem(x - dot_size / 2, y - dot_size / 2, dot_size, dot_size)
+        ellipse.setPen(pen)
+        ellipse.setBrush(brush)
+        self.camera_graphic_scene.addItem(ellipse)
+
+    def _draw_target_dot(self, target_pos, mm_idx):
+        """Draw a dot representing target position."""
+        if target_pos is None:
+            return
+
+        x, y = target_pos
+        dot_size = 8
+
+        # Same colors as manipulator dots but with hollow center
+        colors = [QColor(255, 0, 0), QColor(0, 255, 0), QColor(0, 0, 255), QColor(255, 255, 0)]
+        color = colors[(mm_idx - 1) % len(colors)]
+
+        pen = QPen(color, 2)
+        brush = QBrush(Qt.BrushStyle.NoBrush)  # Hollow
+
+        ellipse = QGraphicsEllipseItem(x - dot_size / 2, y - dot_size / 2, dot_size, dot_size)
+        ellipse.setPen(pen)
+        ellipse.setBrush(brush)
+        self.camera_graphic_scene.addItem(ellipse)
+
+    def _draw_trajectory_line(self, current_pos, target_pos, mm_idx):
+        """Draw a faint line between current and target positions."""
+        if current_pos is None or target_pos is None:
+            return
+
+        x1, y1 = current_pos
+        x2, y2 = target_pos
+
+        # Same colors as manipulator dots but more transparent
+        colors = [QColor(255, 0, 0, 80), QColor(0, 255, 0, 80), QColor(0, 0, 255, 80), QColor(255, 255, 0, 80)]
+        color = colors[(mm_idx - 1) % len(colors)]
+
+        pen = QPen(color, 1, Qt.PenStyle.DashLine)
+
+        line = QGraphicsLineItem(x1, y1, x2, y2)
+        line.setPen(pen)
+        self.camera_graphic_scene.addItem(line)
+
+    def _draw_manipulator_bounding_boxes(self):
+        """
+        Draw bounding boxes for all manipulators that have them defined.
+        Uses CollisionDetector to get current bounding boxes.
+        """
+        # Check if bounding boxes should be shown
+        if not self.show_bounding_boxes_checkbox.isChecked():
+            return
+
+        # Get all manipulators with bounding boxes from CollisionDetector
+        for manipulator_idx in self.collision_detector.get_manipulator_indices():
+            # Get bounding box from collision detector
+            bbox = self.collision_detector.get_bounding_box(manipulator_idx)
+            if bbox:
+                # Use absolute coordinates based on current tip position
+                absolute_coords = bbox.get_absolute_corners()
+                self._draw_bounding_box(absolute_coords, manipulator_idx, is_absolute=True)
+            else:
+                self.logger.log_debug(f"No bounding box found for manipulator {manipulator_idx}")
+
+    def _draw_bounding_box(self, coords: list[tuple[float, float]], manipulator_idx: int, is_absolute: bool = False):
+        """
+        Draw a single axis-aligned bounding box on the camera view.
+
+        Args:
+            coords: List of 2 coordinates [(min_x, min_y), (max_x, max_y)] in camera coordinates
+            manipulator_idx: Manipulator index for color coding
+            is_absolute: If True, coords are absolute camera coordinates; if False, relative to tip
+        """
+        if len(coords) != 2:
+            self.logger.log_warn(f"Invalid bounding box coordinates for manipulator {manipulator_idx}: expected 2 coords, got {len(coords)}")
+            return
+
+        (min_x, min_y), (max_x, max_y) = coords
+
+        # Validate coordinates
+        if min_x >= max_x or min_y >= max_y:
+            self.logger.log_warn(f"Invalid bounding box for manipulator {manipulator_idx}: min >= max")
+            return
+
+        # Get camera view bounds to ensure we don't draw outside the pixmap
+        if hasattr(self, 'camera_image_bounds'):
+            scene_bounds = self.camera_image_bounds
+        else:
+            # Fallback: try to get bounds from the scene's pixmap item
+            scene_rect = self.camera_graphic_scene.itemsBoundingRect()
+            if not scene_rect.isEmpty():
+                scene_bounds = (scene_rect.x(), scene_rect.y(), 
+                              scene_rect.x() + scene_rect.width(), 
+                              scene_rect.y() + scene_rect.height())
+            else:
+                # Default camera resolution as fallback
+                scene_bounds = (0, 0, 800, 600)
+
+        # Clip bounding box to scene bounds to prevent view expansion
+        min_x = max(min_x, scene_bounds[0])
+        min_y = max(min_y, scene_bounds[1])
+        max_x = min(max_x, scene_bounds[2])
+        max_y = min(max_y, scene_bounds[3])
+
+        # Check if bounding box is still valid after clipping
+        if min_x >= max_x or min_y >= max_y:
+            return
+
+        # Choose color based on manipulator index
+        colors = [
+            QColor(255, 0, 0),  # Red for manipulator 1
+            QColor(0, 255, 0),  # Green for manipulator 2
+            QColor(0, 0, 255),  # Blue for manipulator 3
+            QColor(255, 255, 0),  # Yellow for manipulator 4
+        ]
+        color = colors[(manipulator_idx - 1) % len(colors)]
+
+        # Create pen for drawing
+        pen = QPen(color, 2, Qt.PenStyle.SolidLine)
+
+        # Calculate all four corners of the axis-aligned rectangle
+        corners = [
+            (min_x, min_y),  # Top-left
+            (max_x, min_y),  # Top-right
+            (max_x, max_y),  # Bottom-right
+            (min_x, max_y),  # Bottom-left
+        ]
+
+        # Draw the bounding box as connected lines
+        for i in range(4):
+            start_point = corners[i]
+            end_point = corners[(i + 1) % 4]
+
+            line = QGraphicsLineItem(start_point[0], start_point[1], end_point[0], end_point[1])
+            line.setPen(pen)
+            self.camera_graphic_scene.addItem(line)
+
+        # Add a label for the manipulator (only if within bounds)
+        text_pos = (min_x, min_y - 20)  # Use position above top-left corner
+        if (text_pos[0] >= scene_bounds[0] and text_pos[0] <= scene_bounds[2] and
+            text_pos[1] >= scene_bounds[1] and text_pos[1] <= scene_bounds[3]):
+            text_item = self.camera_graphic_scene.addText(f"M{manipulator_idx}", QFont("Arial", 10))
+            if text_item:
+                text_item.setPos(text_pos[0], text_pos[1])
+                text_item.setDefaultTextColor(color)
 
     def update_status(self):
         """
@@ -397,6 +1116,9 @@ class affineMoveGUI(QObject):
     def _getInfoSignal(self):
         return self.logger.info_popup_signal
 
+
+
+    ########Functions to be used externally
     @public
     def parse_settings_widget(self) -> tuple[int, dict]:
         """
@@ -412,61 +1134,7 @@ class affineMoveGUI(QObject):
         if not all(settings.values()):
             return 1, {"Error message": "AffineMove : Some dependencies are not set."}
         return 0, settings
-
-    ########Functions to be used externally
-    @public
-    def affine_move(self):
-        """
-        This function is the main entry point for standalone testing. It moves to the next measurement point.
-        For sequence builder operation, use loopingIteration() instead.
-        """
-        try:
-            mm, _, pos = self._fetch_dep_plugins()
-
-            # check if plugins are available
-            if mm is None or pos is None:
-                return [3, "AffineMove: micromanipulator or positioning plugin is None"]
-
-            # open mm and check for errors
-            status, state = mm.mm_open()
-            if status:
-                return [1, state.get("Error message", str(state))]
-
-            # check if there are measurement points available
-            if len(self.measurement_points) == 0:
-                return [3, "No measurement points available"]
-
-            # reset the iteration if it exceeds the number of measurement points
-            if self.iter >= len(self.measurement_points):
-                self.iter = 0
-
-            points = self.measurement_points[self.iter]
-            point_name = self.measurement_point_names[self.iter]
-
-            # Move to the measurement point
-            for i, point in enumerate(points):
-                mm.mm_change_active_device(i + 1)  # manipulators indexed from 0
-                mm.mm_up_max()
-                # convert the point to camera coordinates
-                x, y = pos.positioning_coords(point)
-                # convert camera point to micromanipulator coordinates
-                mm_coords = self.convert_to_mm_coords((x, y), i + 1)
-                if mm_coords is None:
-                    return [2, f"No calibration data for manipulator {i + 1}"]
-
-                x, y = mm_coords
-                status, state = mm.mm_move(x, y)
-                if status:
-                    self.logger.log_info(state.get("Error message", str(state)))
-                    return [2, state.get("Error message", str(state))]
-
-            self.iter += 1
-            return [0, f"Moved to point {point_name} ({self.iter}/{len(self.measurement_points)})"]
-
-        except Exception as e:
-            self.logger.log_info(f"Error in affine_move: {str(e)}")
-            return [2, f"Affine_move: {str(e)}"]
-
+    
     @public
     def setSettings(self, settings):
         """
@@ -491,7 +1159,7 @@ class affineMoveGUI(QObject):
     def loopingIteration(self, currentIteration):
         """
         Called by the sequence builder during loop execution. Moves to the measurement point
-        corresponding to the current iteration.
+        corresponding to the current iteration with collision detection.
 
         Args:
             currentIteration (int): The current iteration index (0-based)
@@ -522,30 +1190,155 @@ class affineMoveGUI(QObject):
                 self.logger.log_info(f"Invalid iteration {currentIteration}, only {len(self.measurement_points)} points available")
                 return [3, f"_error_iter{currentIteration}"]
 
-            points = self.measurement_points[currentIteration]
+            points = self.measurement_points[currentIteration] # these are stored as mask coordinates
             point_name = self.measurement_point_names[currentIteration]
+            
+            self.logger.log_info(f"Processing iteration {currentIteration}: {point_name}")
+            
+            # Convert mask coordinates to camera coordinates 
+            camera_target_points = []
+            for device_idx, mask_point in enumerate(points, 1):
+                # Convert mask coordinates to camera coordinates
+                camera_coords = pos.positioning_coords(mask_point)
+                if camera_coords == (-1, -1):
+                    self.logger.log_warn(f"Failed to convert mask coordinates {mask_point} for manipulator {device_idx}")
+                    continue
+                camera_target_points.append((device_idx, camera_coords))
+            
+            if not camera_target_points:
+                self.logger.log_warn("No valid target points after coordinate conversion")
+                return [3, f"_error_iter{currentIteration}"]
+            
+            # Get current positions of all manipulators in camera coordinates
+            current_positions = {}
+            moves_dict = {}
+            
+            for manip_idx, target_camera_coords in camera_target_points:
+                try:
+                    current_mm_pos = mm.mm_current_position(manip_idx)
+                    if status != 0 or current_mm_pos is None:
+                        self.logger.log_warn(f"Failed to get current position for manipulator {manip_idx}")
+                        continue
+                    # Cache the fresh position
+                    self.update_manipulator_position(manip_idx, current_mm_pos)
+                except Exception as e:
+                    self.logger.log_warn(f"Exception getting position for manipulator {manip_idx}: {e}")
+                    continue
+                
+                # Convert current MM position to camera coordinates
+                current_camera_coords = self.convert_mm_to_camera_coords(current_mm_pos[:2], manip_idx)
+                if current_camera_coords is None:
+                    self.logger.log_warn(f"Failed to convert current position to camera coordinates for manipulator {manip_idx}")
+                    continue
+                
+                # Store for collision detection
+                current_positions[manip_idx] = current_camera_coords
+                moves_dict[manip_idx] = (current_camera_coords, target_camera_coords)
+                
+                self.logger.log_info(f"Manipulator {manip_idx}: Current camera ({current_camera_coords[0]:.1f}, {current_camera_coords[1]:.1f}) -> Target ({target_camera_coords[0]:.1f}, {target_camera_coords[1]:.1f})")
+            
+            if not moves_dict:
+                self.logger.log_warn("No valid moves to execute after position validation")
+                return [3, f"_error_iter{currentIteration}"]
+            
+            # Use collision detection to determine safe movement sequence
+            try:
+                safe_sequence = self.collision_detector.generate_safe_movement_sequence(moves_dict)
+                
+                if not safe_sequence:
+                    self.logger.log_warn("No safe movement sequence found - potential collision risk")
+                    return [1, f"_error_iter{currentIteration}_no_safe_sequence"]
+                
+                self.logger.log_info(f"Safe movement sequence: {safe_sequence}")
+                
+                # Execute the moves in the safe sequence
+                status, message = self.execute_move_list(safe_sequence, moves_dict)
+                
+                if status == 0:
+                    self.logger.log_info(f"Successfully completed iteration {currentIteration}: {point_name}")
+                    return [0, f"_iter{currentIteration}_{point_name}"]
+                else:
+                    self.logger.log_warn(f"Movement execution failed: {message}")
+                    return [1, f"_error_iter{currentIteration}"]
+                    
+            except Exception as e:
+                self.logger.log_warn(f"Collision detection error: {str(e)}")
+                # Fallback: try to execute without collision detection
+                self.logger.log_info("Attempting movement without collision detection as fallback")
+                fallback_sequence = list(moves_dict.keys())
+                status, message = self.execute_move_list(fallback_sequence, moves_dict)
+                
+                if status == 0:
+                    self.logger.log_info(f"Fallback execution successful for iteration {currentIteration}")
+                    return [0, f"_iter{currentIteration}_{point_name}_fallback"]
+                else:
+                    return [1, f"_error_iter{currentIteration}_fallback_failed"]
 
-            # Move to the measurement point
-            for i, point in enumerate(points):
-                mm.mm_change_active_device(i + 1)  # manipulators indexed from 0
-                mm.mm_up_max()
-                # convert the point to camera coordinates
-                x, y = pos.positioning_coords(point)
-                # convert camera point to micromanipulator coordinates
-                mm_coords = self.convert_to_mm_coords((x, y), i + 1)
-                if mm_coords is None:
-                    self.logger.log_info(f"No calibration data for manipulator {i + 1}")
-                    return [2, f"_error_iter{currentIteration}"]
-
-                x, y = mm_coords
-                status, state = mm.mm_move(x, y)
-                if status:
-                    self.logger.log_info(f"Error moving manipulator {i + 1}: {state.get('Error message', str(state))}")
-                    return [2, f"_error_iter{currentIteration}"]
-
-            self.logger.log_info(f"Moved to measurement point {point_name} (iteration {currentIteration})")
-            return [0, f"_{point_name}"]
 
         except Exception as e:
             self.logger.log_info(f"Error in loopingIteration: {str(e)}")
             return [2, f"_error_iter{currentIteration}"]
+
+    def execute_move_list(self, move_list: list[int], moves_dict: dict[int, tuple[tuple[float, float], tuple[float, float]]]) -> tuple[int, str]:
+        """
+        Execute a list of manipulator movements in the specified order.
+        
+        Args:
+            move_list: List of manipulator indices in execution order (from collision detector)
+            moves_dict: Dict mapping manipulator_idx to ((current_x, current_y), (target_x, target_y)) in camera coordinates
+            
+        Returns:
+            tuple: (status, message) where status is 0 for success, 1+ for errors
+        """
+        try:
+            mm, _, _ = self._fetch_dep_plugins()
+            if mm is None:
+                return 1, "Micromanipulator plugin not available"
+            
+            successful_moves = 0
+            total_moves = len(move_list)
+            
+            self.logger.log_info(f"Executing {total_moves} manipulator moves in sequence: {move_list}")
+            
+            for manip_idx in move_list:
+                if manip_idx not in moves_dict:
+                    self.logger.log_warn(f"Manipulator {manip_idx} not found in moves dictionary, skipping")
+                    continue
+                
+                (current_cam_x, current_cam_y), (target_cam_x, target_cam_y) = moves_dict[manip_idx]
+                
+                # Convert target camera coordinates to MM coordinates
+                target_mm_coords = self.convert_to_mm_coords((target_cam_x, target_cam_y), manip_idx)
+                if target_mm_coords is None:
+                    self.logger.log_warn(f"Failed to convert coordinates for manipulator {manip_idx}, skipping")
+                    continue
+                
+                target_mm_x, target_mm_y = target_mm_coords
+                
+                self.logger.log_info(f"Moving manipulator {manip_idx}: Camera ({target_cam_x:.1f}, {target_cam_y:.1f}) -> MM ({target_mm_x:.3f}, {target_mm_y:.3f})")
+                
+                # Execute the move using the wrapper that updates bounding box
+                status, state = self.move_manipulator_and_update_bounding_box(manip_idx, target_mm_x, target_mm_y, z=0)
+                
+                if status == 0:  # Success
+                    successful_moves += 1
+                    self.logger.log_info(f"Successfully moved manipulator {manip_idx}")
+                    
+                    # Update collision detector with new position
+                    if manip_idx in self.collision_detector.bounding_boxes:
+                        self.collision_detector.bounding_boxes[manip_idx].move_bbox(target_cam_x, target_cam_y)
+                else:
+                    error_msg = state.get('Error message', str(state)) if isinstance(state, dict) else str(state)
+                    self.logger.log_warn(f"Failed to move manipulator {manip_idx}: {error_msg}")
+                    return 1, f"Movement failed for manipulator {manip_idx}: {error_msg}"
+            
+            if successful_moves == total_moves:
+                self.logger.log_info(f"All {total_moves} manipulator movements completed successfully")
+                return 0, f"Successfully completed {successful_moves}/{total_moves} moves"
+            else:
+                return 1, f"Only {successful_moves}/{total_moves} moves completed successfully"
+                
+        except Exception as e:
+            error_msg = f"Exception during move execution: {str(e)}"
+            self.logger.log_warn(error_msg)
+            return 2, error_msg

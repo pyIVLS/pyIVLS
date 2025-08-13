@@ -418,14 +418,23 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
-    def mm_current_position(self):
+    def mm_current_position(self, manipulator_name=None):
         """Returns the current position of the micromanipulator.
 
         Returns:
             tuple: (x, y, z) position in microns
         """
         try:
-            return self.hal.get_current_position()
+            if manipulator_name is not None:
+                old_device = self.hal.get_active_device()
+                success = self.hal.change_active_device(manipulator_name)
+                if not success:
+                    return [4, {"Error message": f"Failed to change to device {manipulator_name}"}]
+                pos = self.hal.get_current_position()
+                self.hal.change_active_device(old_device)  # Restore previous device
+            else:
+                pos = self.hal.get_current_position()
+            return pos
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
@@ -441,5 +450,64 @@ class SutterGUI(QObject):
                 return [code, status]  # Return error if opening failed
             dev_count, dev_statuses = self.hal.get_connected_devices_status()
             return [0, (dev_count, dev_statuses)]
+        except Exception as e:
+            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+
+    def mm_get_positions(self):
+        """Returns the current positions of all manipulators.
+
+        Returns:
+            tuple: (status, positions_dict)
+            dict: {device_number: (x, y, z)}
+        """
+        try:
+            connected_devices = self.hal.get_connected_devices_status()[1]
+            for i, status in enumerate(connected_devices):
+                if status == 1:
+                    success = self.hal.change_active_device(i + 1)
+                    if not success:
+                        return 4, {"Error message": f"Failed to change to device {i + 1}"}
+                    else:
+                        pos = self.hal.get_current_position()
+                        if pos is None:
+                            return 4, {"Error message": f"Failed to get position for device {i + 1}"}
+                        return 0, {i + 1: pos}
+
+        except Exception as e:
+            return 4, {"Error message": "Sutter HW error", "Exception": str(e)}
+
+    def mm_get_num_manipulators(self):
+        """
+        Get the total number of manipulators available.
+        
+        Returns:
+            int: Number of manipulators
+        """
+        try:
+            dev_count, _ = self.hal.get_connected_devices_status()
+            return dev_count
+        except Exception as e:
+            self.logger.log_warn(f"Error getting number of manipulators: {e}")
+            return 4  # Default to 4 manipulators if error
+
+    
+        
+    def mm_slow_move(self, x=None, y=None, z=None):
+        """Micromanipulator move.
+
+        Args:
+            *args: x, y, z
+        """
+        try:
+            if x is None and y is None and z is None:
+                return [1, {"Error message": "Sutter slow move requires at least one coordinate"}]
+            if x is None:
+                x = self.hal.get_current_position()[0]
+            if y is None:
+                y = self.hal.get_current_position()[1]
+            if z is None:
+                z = self.hal.get_current_position()[2]
+            self.hal.slow_move_to(x, y, z, 7)
+            return [0, {"Error message": "Sutter moved"}]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]

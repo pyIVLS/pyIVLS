@@ -55,7 +55,6 @@ class Mpc325:
     14: 1218.75,
     """
     _MOVE_SPEEDS: Final = {
-
         13: 1137.5,
         12: 1056.25,
         11: 975,
@@ -80,7 +79,7 @@ class Mpc325:
     _MINIMUM_MS: Final = 0
     _MAXIMUM_M: Final = 25000
     _MAXIMUM_S: Final = 400000  # Manual says 266667, this is the actual maximum. UPDATE 23.5.2025: This has been updated in the manual as well.
-    _TIMEOUT: Final = 120  # seconds, to allow for long moves. 
+    _TIMEOUT: Final = 120  # seconds, to allow for long moves.
     # WARNING: TOO SHORT TIMEOUT WILL LEAD TO COMPLETION INDICATORS BEING LEFT IN THE BUFFER. This results in the move functions returning a completed move
     # even though the move has not been completed yet. This leads to further commands being sent before the move is completed, which leads to missed commands.
 
@@ -94,7 +93,6 @@ class Mpc325:
         self._comm_lock = threading.Lock()
         self._stop_requested = threading.Event()
         self.end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
-
 
     def update_internal_state(self, quick_move: bool = None, speed: int = None, source: str = None):
         """Update the internal state of the micromanipulator.
@@ -155,7 +153,7 @@ class Mpc325:
             output (): bytes recieved from serial port
 
         Returns:
-           Tuple : unpacked data based on format, without the end marker. If end marker is invalid, returns [-1, -1, -1, -1, -1, -1].
+           Tuple : unpacked data based on format, without the end marker. If end marker is invalid, throws assertion error.
         """
         unpacked_data = struct.unpack(format_str, output)
         # Check last byte for simple validation.
@@ -226,10 +224,10 @@ class Mpc325:
                 raise ValueError(f"Device number {dev_num} is out of range. Must be between 1 and 4.")
             command = struct.pack("<2B", 73, dev_num)
             self.ser.write(command)  # Send command to the device (ASCII: I )
-            output = self.ser.read(2) # response should be 2 bytes, 1st is the currently active device, 2nd is the completion indicator
+            output = self.ser.read(2)  # response should be 2 bytes, 1st is the currently active device, 2nd is the completion indicator
             unpacked = self._validate_and_unpack("2B", output, name="change_active_device")
             if unpacked[0] != dev_num:
-                return False  
+                return False
             return True
 
     def get_current_position(self):
@@ -256,7 +254,6 @@ class Mpc325:
                 output = self.ser.read_until(expected=self.end_marker_bytes)
                 assert output[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {output[-1]}"
                 return True
-                
 
     def stop(self):
         """Stop the current movement"""
