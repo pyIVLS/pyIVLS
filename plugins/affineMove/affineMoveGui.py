@@ -723,18 +723,11 @@ class affineMoveGUI(QObject):
                 if cam_pos is not None:
                     self._draw_manipulator_dot(cam_pos, mm_idx)
 
-            # Draw target coordinate dots and trajectory lines
-            if target_coords and len(self.measurement_points) > 0:
-                current_targets = target_coords.get(self.iter, {}) if hasattr(self, "iter") else {}
-                for mm_idx, target_pos in current_targets.items():
-                    if target_pos is not None:
-                        # Draw target dot
-                        self._draw_target_dot(target_pos, mm_idx)
-
-                        # Draw trajectory line if we have both current and target positions
-                        if mm_idx in manipulator_positions and manipulator_positions[mm_idx] is not None:
-                            self._draw_trajectory_line(manipulator_positions[mm_idx], target_pos, mm_idx)
-
+            # Draw all target coordinates 
+            for mm_idx, target_pos in target_coords.items():
+                if target_pos is not None:
+                    # Draw target dot
+                    self._draw_target_dot(target_pos, mm_idx)
 
             # Draw manipulator bounding boxes
             self._draw_manipulator_bounding_boxes()
