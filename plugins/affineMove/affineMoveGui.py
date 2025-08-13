@@ -1244,7 +1244,7 @@ class affineMoveGUI(QObject):
                 self.logger.log_info(f"Safe movement sequence: {safe_sequence}")
                 
                 # Execute the moves in the safe sequence
-                status, message = self.execute_move_list(safe_sequence, moves_dict)
+                status, message = self.execute_move_list(safe_sequence)
                 
                 if status == 0:
                     self.logger.log_info(f"Successfully completed iteration {currentIteration}: {point_name}")
@@ -1257,8 +1257,9 @@ class affineMoveGUI(QObject):
                 self.logger.log_warn(f"Collision detection error: {str(e)}")
                 # Fallback: try to execute without collision detection
                 self.logger.log_info("Attempting movement without collision detection as fallback")
-                fallback_sequence = list(moves_dict.keys())
-                status, message = self.execute_move_list(fallback_sequence, moves_dict)
+                # Convert moves_dict to the new format for fallback
+                fallback_sequence = [(manip_idx, target_pos) for manip_idx, (_, target_pos) in moves_dict.items()]
+                status, message = self.execute_move_list(fallback_sequence)
                 
                 if status == 0:
                     self.logger.log_info(f"Fallback execution successful for iteration {currentIteration}")
@@ -1271,13 +1272,13 @@ class affineMoveGUI(QObject):
             self.logger.log_info(f"Error in loopingIteration: {str(e)}")
             return [2, f"_error_iter{currentIteration}"]
 
-    def execute_move_list(self, move_list: list[int], moves_dict: dict[int, tuple[tuple[float, float], tuple[float, float]]]) -> tuple[int, str]:
+    def execute_move_list(self, move_sequence: list[tuple[int, tuple[float, float]]]) -> tuple[int, str]:
         """
         Execute a list of manipulator movements in the specified order.
         
         Args:
-            move_list: List of manipulator indices in execution order (from collision detector)
-            moves_dict: Dict mapping manipulator_idx to ((current_x, current_y), (target_x, target_y)) in camera coordinates
+            move_sequence: List of (manipulator_idx, target_position) tuples from collision detector.
+                          target_position is (x, y) in camera coordinates.
             
         Returns:
             tuple: (status, message) where status is 0 for success, 1+ for errors
@@ -1288,17 +1289,11 @@ class affineMoveGUI(QObject):
                 return 1, "Micromanipulator plugin not available"
             
             successful_moves = 0
-            total_moves = len(move_list)
+            total_moves = len(move_sequence)
             
-            self.logger.log_info(f"Executing {total_moves} manipulator moves in sequence: {move_list}")
+            self.logger.log_info(f"Executing {total_moves} manipulator moves in sequence")
             
-            for manip_idx in move_list:
-                if manip_idx not in moves_dict:
-                    self.logger.log_warn(f"Manipulator {manip_idx} not found in moves dictionary, skipping")
-                    continue
-                
-                (current_cam_x, current_cam_y), (target_cam_x, target_cam_y) = moves_dict[manip_idx]
-                
+            for manip_idx, (target_cam_x, target_cam_y) in move_sequence:
                 # Convert target camera coordinates to MM coordinates
                 target_mm_coords = self.convert_to_mm_coords((target_cam_x, target_cam_y), manip_idx)
                 if target_mm_coords is None:
