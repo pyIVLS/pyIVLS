@@ -851,8 +851,7 @@ class affineMoveGUI(QObject):
             if z is not None:
                 mm.mm_move(z=z) # move z first to prevent scratches 
             # Perform the move
-            else:
-                status, state = mm.mm_move(x=x, y=y)
+            status, state = mm.mm_move(x=x, y=y)
             if status == 0:  # Success
                 # Update cached position
                 final_pos = mm.mm_current_position()
