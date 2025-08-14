@@ -24,6 +24,10 @@ class AABB:
             abs_y = self.tip_y + rel_y
             absolute_corners.append((abs_x, abs_y))
         return absolute_corners
+    
+    def get_corners(self) -> List[Tuple[float, float]]:
+        """Get the relative corners of the AABB"""
+        return self.relative_corners
 
     def colliding_with(self, other: "AABB") -> bool:
         """Check if this AABB intersects with another AABB using absolute coordinates"""
@@ -52,9 +56,11 @@ class AABB:
 
 class CollisionDetector:
     """collision detector for single manipulator movements using bounding boxes.
-    tries to find a valid movement sequence. HOX: cannot resolve moves where multiple manipulators are on the same axis and want to cross through each other.
-    This might be handled by injecting a moves into the segmented queue?
-    e.g. manipulators on x axis that want to change places: inject a y move +100 and -100 to the other manipulator so the pathfinder can move it out of the way"""
+    Basic workflow:
+    - Try to find a valid movement sequence for manipulators using just diagonal moves directly to their target positions.
+    - If that fails, break moves into X and Y components and try all permutations of these
+    - If that still fails, try to inject avoidance moves to get manipulators out of each other's way.
+    """
 
     def __init__(self):
         self.bounding_boxes: Dict[int, AABB] = {}
@@ -172,7 +178,14 @@ class CollisionDetector:
 
         # If no safe sequence found with full moves, try breaking moves into X and Y components
         print("No safe sequence found with full moves, trying segmented moves...")
-        return self._generate_segmented_movement_sequence(moves)
+        segmented_result = self._generate_segmented_movement_sequence(moves)
+        
+        if segmented_result:
+            return segmented_result
+            
+        # If segmented moves also fail, try with avoidance moves
+        print("Segmented moves failed, trying with avoidance moves...")
+        return self._generate_avoidance_movement_sequence(moves)
 
     def _test_movement_sequence(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]], sequence: List[int]) -> bool:
         """Test if a movement sequence is collision-free"""
@@ -248,22 +261,52 @@ class CollisionDetector:
             print("No segmented moves created (no movement detected)")
             return []
 
-        # Try all permutations of segmented moves
+        # Also try alternative segmentation (Y then X instead of X then Y)
+        alt_segmented_moves = self._create_alternative_segmented_moves(moves)
+        print(f"Created {len(alt_segmented_moves)} alternative segmented moves")
+        
+        # Try standard segmentation first
+        if segmented_moves:
+            result = self._try_segmentation_permutations(segmented_moves, "standard")
+            if result:
+                return result
+        
+        # Try alternative segmentation
+        if alt_segmented_moves:
+            result = self._try_segmentation_permutations(alt_segmented_moves, "alternative")
+            if result:
+                return result
+        
+        # Try combined segmentation (mix both approaches)
+        combined_moves = {**segmented_moves, **alt_segmented_moves}
+        if combined_moves:
+            result = self._try_segmentation_permutations(combined_moves, "combined")
+            if result:
+                return result
+
+        print(f"No safe segmented sequence found")
+        return []  # No safe sequence found even with segmentation
+
+    def _try_segmentation_permutations(self, segmented_moves: Dict, approach_name: str) -> List[Tuple[int, Tuple[float, float]]]:
+        """Try all permutations of a given segmentation approach"""
+        if not segmented_moves:
+            return []
+            
         move_keys = list(segmented_moves.keys())
         total_permutations = 1
         for i in range(1, len(move_keys) + 1):
             total_permutations *= i
 
-        print(f"Testing {total_permutations} permutations of segmented moves...")
+        print(f"Testing {total_permutations} permutations of {approach_name} segmented moves...")
 
         permutation_count = 0
         for permutation in itertools.permutations(move_keys):
             permutation_count += 1
             if permutation_count % 100 == 0:
-                print(f"  Tested {permutation_count} permutations...")
+                print(f"  Tested {permutation_count} {approach_name} permutations...")
 
             if self._test_segmented_movement_sequence(segmented_moves, list(permutation)):
-                print(f"Found successful segmented permutation after {permutation_count} attempts:")
+                print(f"Found successful {approach_name} segmented permutation after {permutation_count} attempts:")
                 print(f"  Sequence: {permutation}")
 
                 # Convert segmented moves to (manipulator_idx, target_position) format
@@ -275,12 +318,12 @@ class CollisionDetector:
                 return sequence
 
             # Limit testing to prevent infinite loops
-            if permutation_count > 5000:
-                print(f"Stopped testing after {permutation_count} permutations")
+            if permutation_count > 2000:  # Reduced limit for each approach
+                print(f"Stopped {approach_name} testing after {permutation_count} permutations")
                 break
 
-        print(f"No safe segmented sequence found after testing {permutation_count} permutations")
-        return []  # No safe sequence found even with segmentation
+        print(f"No safe {approach_name} sequence found after testing {permutation_count} permutations")
+        return []
 
     def _create_segmented_moves(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> Dict[Tuple[int, str], Tuple[Tuple[float, float], Tuple[float, float]]]:
         """
@@ -295,14 +338,57 @@ class CollisionDetector:
         segmented_moves = {}
 
         for manip_idx, ((current_x, current_y), (target_x, target_y)) in moves.items():
+            print(f"Processing manipulator {manip_idx}: ({current_x}, {current_y}) -> ({target_x}, {target_y})")
+            
             # Only create segments if there's actual movement in that dimension
             if abs(target_x - current_x) > 0.01:  # X movement
-                segmented_moves[(manip_idx, "x")] = ((current_x, current_y), (target_x, current_y))
+                x_move = ((current_x, current_y), (target_x, current_y))
+                segmented_moves[(manip_idx, "x")] = x_move
+                print(f"  X segment: {x_move}")
 
             if abs(target_y - current_y) > 0.01:  # Y movement
                 # For Y movement, start from the X-moved position if X movement exists
-                start_x = target_x if abs(target_x - current_x) > 0.01 else current_x
-                segmented_moves[(manip_idx, "y")] = ((start_x, current_y), (target_x, target_y))
+                start_x = target_x if (manip_idx, "x") in segmented_moves else current_x
+                y_move = ((start_x, current_y), (target_x, target_y))
+                segmented_moves[(manip_idx, "y")] = y_move
+                print(f"  Y segment: {y_move}")
+                
+            if abs(target_x - current_x) <= 0.01 and abs(target_y - current_y) <= 0.01:
+                print(f"  No movement detected for manipulator {manip_idx}")
+
+        return segmented_moves
+
+    def _create_alternative_segmented_moves(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> Dict[Tuple[int, str], Tuple[Tuple[float, float], Tuple[float, float]]]:
+        """
+        Break down moves into Y and X components (alternative to X then Y).
+        This creates different move ordering that can help in certain collision scenarios.
+
+        Args:
+            moves: Original moves dict
+
+        Returns:
+            Dict mapping (manipulator_idx, move_type) to move coordinates with 'alt_' prefix
+        """
+        segmented_moves = {}
+
+        for manip_idx, ((current_x, current_y), (target_x, target_y)) in moves.items():
+            print(f"Alt processing manipulator {manip_idx}: ({current_x}, {current_y}) -> ({target_x}, {target_y})")
+            
+            # Only create segments if there's actual movement in that dimension
+            if abs(target_y - current_y) > 0.01:  # Y movement first
+                y_move = ((current_x, current_y), (current_x, target_y))
+                segmented_moves[(manip_idx, "alt_y")] = y_move
+                print(f"  Alt Y segment: {y_move}")
+
+            if abs(target_x - current_x) > 0.01:  # X movement second
+                # For X movement, start from the Y-moved position if Y movement exists
+                start_y = target_y if (manip_idx, "alt_y") in segmented_moves else current_y
+                x_move = ((current_x, start_y), (target_x, target_y))
+                segmented_moves[(manip_idx, "alt_x")] = x_move
+                print(f"  Alt X segment: {x_move}")
+                
+            if abs(target_x - current_x) <= 0.01 and abs(target_y - current_y) <= 0.01:
+                print(f"  No movement detected for manipulator {manip_idx}")
 
         return segmented_moves
 
@@ -349,6 +435,177 @@ class CollisionDetector:
 
             return True
 
+        finally:
+            # Restore original positions
+            for manip_idx, (orig_x, orig_y) in original_positions.items():
+                if manip_idx in self.bounding_boxes:
+                    self.bounding_boxes[manip_idx].move_bbox(orig_x, orig_y)
+
+    def _generate_avoidance_movement_sequence(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> List[Tuple[int, Tuple[float, float]]]:
+        """
+        Generate a movement sequence with avoidance moves to handle complex collision scenarios.
+        This method tries to inject intermediate moves that get manipulators out of each other's way.
+        
+        Args:
+            moves: Original moves dict
+            
+        Returns:
+            List of moves that include avoidance maneuvers, or empty list if no solution found
+        """
+        print("Attempting avoidance-based movement sequence...")
+        
+        # For each manipulator that's blocking others, try moving it out of the way
+        for blocking_manip in moves.keys():
+            for blocked_manip in moves.keys():
+                if blocking_manip == blocked_manip:
+                    continue
+                    
+                # Check if blocking_manip is in the path of blocked_manip
+                if self._is_manipulator_blocking_path(blocking_manip, blocked_manip, moves):
+                    print(f"Manipulator {blocking_manip} is blocking path of manipulator {blocked_manip}")
+                    
+                    # Try to find an avoidance sequence
+                    avoidance_sequence = self._create_avoidance_sequence(blocking_manip, blocked_manip, moves)
+                    if avoidance_sequence:
+                        print(f"Found avoidance sequence: {len(avoidance_sequence)} moves")
+                        return avoidance_sequence
+        
+        print("No avoidance sequence found")
+        return []
+    
+    def _is_manipulator_blocking_path(self, blocking_manip: int, blocked_manip: int, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> bool:
+        """
+        Check if one manipulator is blocking the path of another.
+        
+        Args:
+            blocking_manip: Index of potentially blocking manipulator
+            blocked_manip: Index of potentially blocked manipulator
+            moves: Move dictionary
+            
+        Returns:
+            bool: True if blocking_manip is in the path of blocked_manip
+        """
+        if blocking_manip not in self.bounding_boxes or blocked_manip not in moves:
+            return False
+            
+        # Test if the blocked manipulator can move with the blocking manipulator in its current position
+        blocked_move = {blocked_manip: moves[blocked_manip]}
+        return self.check_move_collision(blocked_move)
+    
+    def _create_avoidance_sequence(self, blocking_manip: int, blocked_manip: int, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> List[Tuple[int, Tuple[float, float]]]:
+        """
+        Create a movement sequence where the blocking manipulator moves out of the way first.
+        
+        Args:
+            blocking_manip: Index of blocking manipulator
+            blocked_manip: Index of blocked manipulator  
+            moves: Original moves dict
+            
+        Returns:
+            List of moves including avoidance maneuvers
+        """
+        if blocking_manip not in self.bounding_boxes:
+            return []
+            
+        # Get current positions
+        (blocking_current, blocking_target) = moves[blocking_manip]
+        (blocked_current, blocked_target) = moves[blocked_manip]
+        
+        # Calculate avoidance moves - try moving blocking manipulator away from blocked path
+        avoidance_moves = self._calculate_avoidance_moves(blocking_manip, blocked_manip, moves)
+        
+        for avoidance_pos in avoidance_moves:
+            try:
+                # Test sequence: blocking moves to avoidance position, blocked moves to target, blocking moves to final target
+                test_sequence = [
+                    (blocking_manip, avoidance_pos),  # Move blocking manip out of way
+                    (blocked_manip, blocked_target),  # Move blocked manip to target
+                    (blocking_manip, blocking_target) # Move blocking manip to final target
+                ]
+                
+                if self._test_complete_sequence(test_sequence, moves):
+                    print(f"Found working avoidance sequence via position {avoidance_pos}")
+                    return test_sequence
+                    
+            except Exception as e:
+                print(f"Error testing avoidance sequence: {e}")
+                continue
+        
+        return []
+    
+    def _calculate_avoidance_moves(self, blocking_manip: int, blocked_manip: int, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> List[Tuple[float, float]]:
+        """
+        Calculate potential avoidance positions for the blocking manipulator.
+        
+        Returns:
+            List of potential avoidance positions
+        """
+        (blocking_current, blocking_target) = moves[blocking_manip]
+        (blocked_current, blocked_target) = moves[blocked_manip]
+        
+        avoidance_positions = []
+        
+        # Try moving perpendicular to the blocked manipulator's path
+        blocked_dx = blocked_target[0] - blocked_current[0]
+        blocked_dy = blocked_target[1] - blocked_current[1]
+        
+        # Perpendicular directions
+        if abs(blocked_dx) > 0.01:  # Horizontal movement
+            # Try moving blocking manipulator up or down
+            for offset in [200, -200]:  # Try different offsets
+                avoidance_pos = (blocking_current[0], blocking_current[1] + offset)
+                avoidance_positions.append(avoidance_pos)
+                
+        if abs(blocked_dy) > 0.01:  # Vertical movement  
+            # Try moving blocking manipulator left or right
+            for offset in [200, -200]:
+                avoidance_pos = (blocking_current[0] + offset, blocking_current[1])
+                avoidance_positions.append(avoidance_pos)
+        # returns a list of moves that get the blocking manipulator out of the way        
+        return avoidance_positions
+    
+    def _test_complete_sequence(self, sequence: List[Tuple[int, Tuple[float, float]]], original_moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> bool:
+        """
+        Test if a complete movement sequence (including avoidance moves) is collision-free.
+        
+        Args:
+            sequence: Complete sequence of moves to test
+            original_moves: Original move dictionary for current position lookup
+            
+        Returns:
+            bool: True if sequence is collision-free
+        """
+        # Store original positions
+        original_positions = {}
+        for manip_idx in self.bounding_boxes:
+            bbox = self.bounding_boxes[manip_idx]
+            original_positions[manip_idx] = (bbox.tip_x, bbox.tip_y)
+        
+        try:
+            # Set initial positions from original_moves
+            for manip_idx, ((current_x, current_y), _) in original_moves.items():
+                if manip_idx in self.bounding_boxes:
+                    self.bounding_boxes[manip_idx].move_bbox(current_x, current_y)
+            
+            # Test each move in the sequence
+            for manip_idx, (target_x, target_y) in sequence:
+                if manip_idx not in self.bounding_boxes:
+                    continue
+                    
+                # Get current position of this manipulator
+                current_bbox = self.bounding_boxes[manip_idx]
+                current_pos = (current_bbox.tip_x, current_bbox.tip_y)
+                
+                # Test this single move
+                single_move = {manip_idx: (current_pos, (target_x, target_y))}
+                if self.check_move_collision(single_move):
+                    return False
+                
+                # Update position for next iteration
+                self.bounding_boxes[manip_idx].move_bbox(target_x, target_y)
+            
+            return True
+            
         finally:
             # Restore original positions
             for manip_idx, (orig_x, orig_y) in original_positions.items():

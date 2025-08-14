@@ -363,10 +363,17 @@ class SutterGUI(QObject):
     def mm_calibrate(self, all=False):
         if not all:
             try:
+                # move first in the z axis to the minimum position
+                self.hal.move(z=self.hal._MINIMUM_MS)
+
+
+                # finally calibrate the device
                 _ = self.hal.calibrate()
                 return [0, {"Error message": "Sutter calibrated"}]
             except Exception as e:
                 return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+        if all:
+            raise NotImplementedError("Sutter calibration for all devices is not implemented yet.")
 
     def mm_stop(self):
         """Micromanipulator stop."""

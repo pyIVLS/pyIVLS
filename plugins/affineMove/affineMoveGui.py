@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 import cv2
 
-from PyQt6.QtCore import QObject, QEventLoop, QEvent
+from PyQt6.QtCore import QObject, QEventLoop, QEvent, pyqtSignal, QMetaObject, Q_ARG
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGraphicsScene, QGraphicsView
 from PyQt6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QFont
@@ -52,6 +52,11 @@ class affineMoveGUI(QObject):
     TODO: Uses the object based dependency system, not the method based one.
     TODO: Does not use the standard settings format. The movement points are fetched from the positioning plugin and stored in a list.
     """
+    
+    # Signals for thread-safe communication
+    update_planned_moves_signal = pyqtSignal(list)  # List of (manipulator_idx, current_pos, target_pos)
+    clear_planned_moves_signal = pyqtSignal()
+    sequence_completed_signal = pyqtSignal()
 
     @property
     def dependency(self):
@@ -123,6 +128,16 @@ class affineMoveGUI(QObject):
         # Initialize camera image bounds for preventing view expansion
         self.camera_image_bounds = (0, 0, 800, 600)  # Default bounds
 
+        # Initialize planned moves tracking
+        self.current_sequence = []  # Full sequence of planned moves
+        self.sequence_iter = 0  # Current position in sequence
+        self.planned_moves_cache = []  # Cache for next moves to display
+
+        # Connect signals for thread-safe communication
+        self.update_planned_moves_signal.connect(self._update_planned_moves_slot)
+        self.clear_planned_moves_signal.connect(self._clear_planned_moves_slot)
+        self.sequence_completed_signal.connect(self._sequence_completed_slot)
+
         # Load bounding boxes from file on startup
         self._load_bounding_boxes_from_file()
 
@@ -136,6 +151,26 @@ class affineMoveGUI(QObject):
 
     ########Functions
     ########GUI Slots
+    def _update_planned_moves_slot(self, planned_moves):
+        """
+        Thread-safe slot to update planned moves visualization.
+        Args:
+            planned_moves: List of (manipulator_idx, current_pos, target_pos) tuples
+        """
+        self.planned_moves_cache = planned_moves
+        self._add_visual_overlays()  # Redraw overlays with new planned moves
+        
+    def _clear_planned_moves_slot(self):
+        """Thread-safe slot to clear planned moves visualization."""
+        self.planned_moves_cache = []
+        self._add_visual_overlays()  # Redraw overlays without planned moves
+        
+    def _sequence_completed_slot(self):
+        """Thread-safe slot called when movement sequence is completed."""
+        self.current_sequence = []
+        self.sequence_iter = 0
+        self.planned_moves_cache = []
+        self._add_visual_overlays()  # Redraw overlays
 
     ########Functions
     ################################### internal
@@ -718,16 +753,22 @@ class affineMoveGUI(QObject):
             # Get target coordinates if measurement points are available
             target_coords = self._get_target_coords_in_camera()
 
-            # Draw manipulator position dots
+            # Draw current manipulator position dots
             for i, (mm_idx, cam_pos) in enumerate(manipulator_positions.items()):
                 if cam_pos is not None:
                     self._draw_manipulator_dot(cam_pos, mm_idx)
 
-            # Draw all target coordinates 
-            for mm_idx, target_pos in target_coords.items():
-                if target_pos is not None:
-                    # Draw target dot
-                    self._draw_target_dot(target_pos, mm_idx)
+            # Draw planned moves from cached data (thread-safe)
+            self._draw_planned_moves()
+
+            # Draw all target coordinates (for reference)
+            target_coords = self._get_target_coords_in_camera()
+            for point_idx, manipulator_targets in target_coords.items():
+                for mm_idx, target_pos in manipulator_targets.items():
+                    if target_pos is not None:
+                        # Draw small target reference dot (dimmed)
+                        self._draw_target_reference_dot(target_pos, mm_idx)
+                        
 
             # Draw manipulator bounding boxes
             self._draw_manipulator_bounding_boxes()
@@ -900,6 +941,7 @@ class affineMoveGUI(QObject):
                         try:
                             camera_x, camera_y = pos.positioning_coords(point)
                             target_coords[point_idx][device_idx] = (float(camera_x), float(camera_y))
+                            self.logger.log_debug(f"Point {point_idx}, Device {device_idx}: mask {point} -> camera ({camera_x}, {camera_y})")
                         except Exception as e:
                             self.logger.log_debug(f"Error converting mask coordinates {point} to camera coordinates: {e}")
                             target_coords[point_idx][device_idx] = None
@@ -931,25 +973,98 @@ class affineMoveGUI(QObject):
         ellipse.setBrush(brush)
         self.camera_graphic_scene.addItem(ellipse)
 
-    def _draw_target_dot(self, target_pos, mm_idx):
-        """Draw a dot representing target position."""
+
+    def _draw_target_reference_dot(self, target_pos, mm_idx):
+        """Draw a dimmed dot representing target position for reference."""
         if target_pos is None:
             return
 
         x, y = target_pos
-        dot_size = 8
+        dot_size = 10  
 
-        # Same colors as manipulator dots but with hollow center
-        colors = [QColor(255, 0, 0), QColor(0, 255, 0), QColor(0, 0, 255), QColor(255, 255, 0)]
+        # Same colors as manipulator dots but dimmed
+        colors = [QColor(255, 0, 0, 100), QColor(0, 255, 0, 100), QColor(0, 0, 255, 100), QColor(255, 255, 0, 100)]
         color = colors[(mm_idx - 1) % len(colors)]
 
-        pen = QPen(color, 2)
-        brush = QBrush(Qt.BrushStyle.NoBrush)  # Hollow
+        pen = QPen(color, 1)
+        # brush = QBrush(Qt.BrushStyle.NoBrush)  # Hollow
+        brush = QBrush(color)
+        
+        ellipse = QGraphicsEllipseItem(x - dot_size / 2, y - dot_size / 2, dot_size, dot_size)
+        ellipse.setPen(pen)
+        ellipse.setBrush(brush)
+        self.camera_graphic_scene.addItem(ellipse)
+
+    def _draw_planned_moves(self):
+        """Draw trajectory lines and labels for the next planned moves only."""
+        for move_data in self.planned_moves_cache:
+            manip_idx, current_pos, target_pos = move_data
+            
+            # Draw bright trajectory line for planned move
+            self._draw_planned_trajectory_line(current_pos, target_pos, manip_idx)
+            
+            # Draw target dot for this specific planned move
+            self._draw_planned_target_dot(target_pos, manip_idx)
+            
+            # Draw move labels
+            self._draw_planned_move_labels(current_pos, target_pos, manip_idx)
+
+    def _draw_planned_trajectory_line(self, current_pos, target_pos, mm_idx):
+        """Draw a bright line for planned movement."""
+        if current_pos is None or target_pos is None:
+            return
+
+        x1, y1 = current_pos
+        x2, y2 = target_pos
+
+        # Bright colors for planned moves
+        colors = [QColor(255, 100, 100), QColor(100, 255, 100), QColor(100, 100, 255), QColor(255, 255, 100)]
+        color = colors[(mm_idx - 1) % len(colors)]
+
+        pen = QPen(color, 3, Qt.PenStyle.SolidLine)  # Thicker, solid line
+
+        line = QGraphicsLineItem(x1, y1, x2, y2)
+        line.setPen(pen)
+        self.camera_graphic_scene.addItem(line)
+
+    def _draw_planned_target_dot(self, target_pos, mm_idx):
+        """Draw a bright target dot for planned move."""
+        if target_pos is None:
+            return
+
+        x, y = target_pos
+        dot_size = 10
+
+        # Bright colors for planned moves
+        colors = [QColor(255, 100, 100), QColor(100, 255, 100), QColor(100, 100, 255), QColor(255, 255, 100)]
+        color = colors[(mm_idx - 1) % len(colors)]
+
+        pen = QPen(color, 3)
+        brush = QBrush(color)
 
         ellipse = QGraphicsEllipseItem(x - dot_size / 2, y - dot_size / 2, dot_size, dot_size)
         ellipse.setPen(pen)
         ellipse.setBrush(brush)
         self.camera_graphic_scene.addItem(ellipse)
+
+    def _draw_planned_move_labels(self, current_pos, target_pos, mm_idx):
+        """Draw labels for planned moves."""
+        if current_pos is None or target_pos is None:
+            return
+
+        # Bright colors for planned moves
+        colors = [QColor(255, 100, 100), QColor(100, 255, 100), QColor(100, 100, 255), QColor(255, 255, 100)]
+        color = colors[(mm_idx - 1) % len(colors)]
+
+        # Draw "NEXT" label near the trajectory
+        mid_x = (current_pos[0] + target_pos[0]) / 2
+        mid_y = (current_pos[1] + target_pos[1]) / 2
+        
+        next_text = f"NEXT M{mm_idx}"
+        next_item = self.camera_graphic_scene.addText(next_text, QFont("Arial", 10, QFont.Weight.Bold))
+        if next_item:
+            next_item.setPos(mid_x + 10, mid_y - 20)
+            next_item.setDefaultTextColor(color)
 
     def _draw_trajectory_line(self, current_pos, target_pos, mm_idx):
         """Draw a faint line between current and target positions."""
@@ -968,6 +1083,29 @@ class affineMoveGUI(QObject):
         line = QGraphicsLineItem(x1, y1, x2, y2)
         line.setPen(pen)
         self.camera_graphic_scene.addItem(line)
+
+    def _draw_position_labels(self, current_pos, target_pos, mm_idx):
+        """Draw text labels showing current and target coordinates for debugging."""
+        if current_pos is None or target_pos is None:
+            return
+
+        # Choose color based on manipulator index
+        colors = [QColor(255, 0, 0), QColor(0, 255, 0), QColor(0, 0, 255), QColor(255, 255, 0)]
+        color = colors[(mm_idx - 1) % len(colors)]
+
+        # Draw current position label
+        current_text = f"M{mm_idx}:C({current_pos[0]:.0f},{current_pos[1]:.0f})"
+        current_item = self.camera_graphic_scene.addText(current_text, QFont("Arial", 8))
+        if current_item:
+            current_item.setPos(current_pos[0] + 5, current_pos[1] - 15)
+            current_item.setDefaultTextColor(color)
+
+        # Draw target position label
+        target_text = f"T({target_pos[0]:.0f},{target_pos[1]:.0f})"
+        target_item = self.camera_graphic_scene.addText(target_text, QFont("Arial", 8))
+        if target_item:
+            target_item.setPos(target_pos[0] + 5, target_pos[1] + 5)
+            target_item.setDefaultTextColor(color)
 
     def _draw_manipulator_bounding_boxes(self):
         """
@@ -1235,13 +1373,30 @@ class affineMoveGUI(QObject):
             
             # Use collision detection to determine safe movement sequence
             try:
+                self.logger.log_info("Starting collision detection analysis...")
+                self.logger.log_info(f"Moves to analyze: {[(k, f'({v[0][0]:.1f},{v[0][1]:.1f}) -> ({v[1][0]:.1f},{v[1][1]:.1f})') for k, v in moves_dict.items()]}")
+                
+                # Log bounding box information
+                bbox_info = []
+                for manip_idx in moves_dict.keys():
+                    bbox = self.collision_detector.get_bounding_box(manip_idx)
+                    if bbox:
+                        corners = bbox.get_absolute_corners()
+                        bbox_info.append(f"M{manip_idx}: tip=({bbox.tip_x:.1f},{bbox.tip_y:.1f}), bbox={corners}")
+                    else:
+                        bbox_info.append(f"M{manip_idx}: no bounding box")
+                self.logger.log_info(f"Bounding boxes: {bbox_info}")
+                
                 safe_sequence = self.collision_detector.generate_safe_movement_sequence(moves_dict)
                 
                 if not safe_sequence:
                     self.logger.log_warn("No safe movement sequence found - potential collision risk")
                     return [1, f"_error_iter{currentIteration}_no_safe_sequence"]
                 
-                self.logger.log_info(f"Safe movement sequence: {safe_sequence}")
+                self.logger.log_info(f"Safe movement sequence found with {len(safe_sequence)} moves: {safe_sequence}")
+                
+                # Preview the planned sequence before execution
+                self._preview_planned_sequence(safe_sequence)
                 
                 # Execute the moves in the safe sequence
                 status, message = self.execute_move_list(safe_sequence)
@@ -1288,12 +1443,19 @@ class affineMoveGUI(QObject):
             if mm is None:
                 return 1, "Micromanipulator plugin not available"
             
+            # Store the full sequence and reset iterator
+            self.current_sequence = move_sequence.copy()
+            self.sequence_iter = 0
+            
             successful_moves = 0
             total_moves = len(move_sequence)
             
             self.logger.log_info(f"Executing {total_moves} manipulator moves in sequence")
             
-            for manip_idx, (target_cam_x, target_cam_y) in move_sequence:
+            for move_idx, (manip_idx, (target_cam_x, target_cam_y)) in enumerate(move_sequence):
+                # Update planned moves visualization for the NEXT move
+                self._update_planned_moves_visualization(move_idx)
+                
                 # Convert target camera coordinates to MM coordinates
                 target_mm_coords = self.convert_to_mm_coords((target_cam_x, target_cam_y), manip_idx)
                 if target_mm_coords is None:
@@ -1309,6 +1471,7 @@ class affineMoveGUI(QObject):
                 
                 if status == 0:  # Success
                     successful_moves += 1
+                    self.sequence_iter += 1
                     self.logger.log_info(f"Successfully moved manipulator {manip_idx}")
                     
                     # Update collision detector with new position
@@ -1318,6 +1481,9 @@ class affineMoveGUI(QObject):
                     error_msg = state.get('Error message', str(state)) if isinstance(state, dict) else str(state)
                     self.logger.log_warn(f"Failed to move manipulator {manip_idx}: {error_msg}")
                     return 1, f"Movement failed for manipulator {manip_idx}: {error_msg}"
+            
+            # Signal that sequence is completed
+            self.sequence_completed_signal.emit()
             
             if successful_moves == total_moves:
                 self.logger.log_info(f"All {total_moves} manipulator movements completed successfully")
@@ -1329,3 +1495,63 @@ class affineMoveGUI(QObject):
             error_msg = f"Exception during move execution: {str(e)}"
             self.logger.log_warn(error_msg)
             return 2, error_msg
+
+    def _update_planned_moves_visualization(self, current_move_idx: int):
+        """
+        Update the visualization to show only the next planned move.
+        Thread-safe: emits signal to update UI from main thread.
+        
+        Args:
+            current_move_idx: Index of the move currently being executed
+        """
+        if current_move_idx >= len(self.current_sequence):
+            # No more moves, clear visualization
+            self.clear_planned_moves_signal.emit()
+            return
+            
+        # Get the current move being executed
+        manip_idx, (target_cam_x, target_cam_y) = self.current_sequence[current_move_idx]
+        
+        # Get current position in camera coordinates
+        try:
+            cached_pos = self.get_cached_manipulator_position(manip_idx)
+            if cached_pos and len(cached_pos) >= 2:
+                current_cam_pos = self.convert_mm_to_camera_coords((cached_pos[0], cached_pos[1]), manip_idx)
+                if current_cam_pos:
+                    # Create planned move data: (manipulator_idx, current_pos, target_pos)
+                    planned_moves = [(manip_idx, current_cam_pos, (target_cam_x, target_cam_y))]
+                    
+                    # Emit signal to update visualization from main thread
+                    self.update_planned_moves_signal.emit(planned_moves)
+                    return
+        except Exception as e:
+            self.logger.log_debug(f"Could not get current position for planned move visualization: {e}")
+        
+        # If we couldn't get current position, clear visualization
+        self.clear_planned_moves_signal.emit()
+
+    def _preview_planned_sequence(self, move_sequence: list[tuple[int, tuple[float, float]]]):
+        """
+        Preview the entire planned sequence by showing trajectory lines for all moves.
+        This gives a visual overview before execution starts.
+        
+        Args:
+            move_sequence: List of (manipulator_idx, target_position) tuples
+        """
+        preview_moves = []
+        
+        for manip_idx, (target_cam_x, target_cam_y) in move_sequence:
+            try:
+                # Get current position in camera coordinates
+                cached_pos = self.get_cached_manipulator_position(manip_idx)
+                if cached_pos and len(cached_pos) >= 2:
+                    current_cam_pos = self.convert_mm_to_camera_coords((cached_pos[0], cached_pos[1]), manip_idx)
+                    if current_cam_pos:
+                        preview_moves.append((manip_idx, current_cam_pos, (target_cam_x, target_cam_y)))
+            except Exception as e:
+                self.logger.log_debug(f"Could not get position for preview of manipulator {manip_idx}: {e}")
+        
+        if preview_moves:
+            # Emit signal to show preview
+            self.update_planned_moves_signal.emit(preview_moves)
+            self.logger.log_info(f"Previewing planned sequence with {len(preview_moves)} moves")
