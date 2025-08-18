@@ -87,6 +87,8 @@ class Keithley2612BGUI:
         if plugin_info["drainhighc"] == "True":
             self.settingsWidget.checkBox_drainHighC.setChecked(True)
         self.settingsWidget.lineEditAddress.setText(plugin_info["address"])
+        self.settingsWidget.lineEditETH.setText(plugin_info["eth_address"])
+        self.settingsWidget.backendCombobox.setCurrentText(plugin_info["backend"])
 
     ########Functions
     ########plugins interraction
@@ -129,6 +131,8 @@ class Keithley2612BGUI:
 
     def _parse_settings_address(self):
         self.settings["address"] = self.settingsWidget.lineEditAddress.text()
+        self.settings["eth_address"] = self.settingsWidget.lineEditETH.text()
+        self.settings["backend"] = self.settingsWidget.backendCombobox.currentText()
 
     ###############GUI enable/disable
     def set_running(self, status):
@@ -151,7 +155,7 @@ class Keithley2612BGUI:
         """
         self._parse_settings_address()
         try:
-            self.smu.keithley_connect(self.settings["address"])
+            self.smu.keithley_connect(self.settings["address"], self.settings["eth_address"], self.settings["backend"])
             return [0, self.smu.keithley_IDN()]
         except Exception as e:
             return [

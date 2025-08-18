@@ -1,4 +1,5 @@
 from threading import Lock
+import pyvisa
 import usbtmc
 import numpy as np
 
@@ -49,8 +50,6 @@ import numpy as np
 # For implementing both connections simultaneously some abstractions for module specific commands should be implemented e.g query in pyvisa and ask in usbtmc
 # At the moment all the pyvisa methods are commented
 
-# import pyvisa
-
 
 class Keithley2612B:
     ####################################  threads
@@ -67,7 +66,7 @@ class Keithley2612B:
         self.k = None
 
         # Initialize pyvisa resource manager
-        # self.rm = pyvisa.ResourceManager("@py")
+        self.rm = pyvisa.ResourceManager("@py")
 
         # Initialize constants
         ##IRtothink#### debug_mode may be replaced with something like logging
@@ -78,9 +77,14 @@ class Keithley2612B:
     ## Communication functions
     def safewrite(self, command):
         try:
-            if self.k is None:
-                raise ValueError("Keithley 2612B is not connected. Please connect first.")
-            self.k.write(command)
+            if self.backend == "usb":
+                if self.k is None:
+                    raise ValueError("Keithley 2612B is not connected. Please connect first.")
+                self.k.write(command)
+            elif self.backend == "eth":
+                if self.ke is None:
+                    raise ValueError("Keithley 2612B is not connected. Please connect first.")
+                self.ke.write(command)
             ##IRtothink#### debug_mode may be replaced with something like logging
             # if self.debug_mode:
             #    error_code = self.k.query("print(errorqueue.next())")
@@ -97,10 +101,16 @@ class Keithley2612B:
 
     def safequery(self, command):
         try:
-            if self.k is None:
-                raise ValueError("Keithley 2612B is not connected. Please connect first.")
-            self.k.write(command)
-            return self.k.read()
+            if self.backend == "usb":
+                if self.k is None:
+                    raise ValueError("Keithley 2612B is not connected. Please connect first.")
+                self.k.write(command)
+                return self.k.read()
+            elif self.backend == "eth":
+                if self.ke is None:
+                    raise ValueError("Keithley 2612B is not connected. Please connect first.")
+                self.ke.write(command)
+                return self.ke.read()
         except Exception as e:
             ##IRtodo#### mov to the log
             print(f"Exception querying command: {command}\nException: {e}")
@@ -116,7 +126,7 @@ class Keithley2612B:
     def keithley_IDN(self):
         return "keith"
 
-    def keithley_connect(self, address):  # -> status:
+    def keithley_connect(self, address, eth_address, backend):  # -> status:
         """Connect to the Keithley 2612B.
 
         Returns [status, message]:
@@ -124,16 +134,23 @@ class Keithley2612B:
             message contains devices response to IDN query if devices is connected, or an error message otherwise
         """
         self.address = address
+        self.eth_address = eth_address
+        self.backend = backend
+
         if self.k is None:
-            # connect the device
-            #### connect with pyvisa resource manager
-            # self.k = self.rm.open_resource(self.address)
-            # self.k.read_termination = "\n"
-            # self.k.write_termination = "\n"
+            if self.backend == "usb":
+                #### connect with usbtmc
+                self.k = usbtmc.Instrument(self.address)
+            elif self.backend == "eth":
+                #### connect with pyvisa resource manager
+                self.ke = self.rm.open_resource(self.eth_address)
+                self.ke.read_termination = "\n"
+                self.ke.write_termination = "\n"
+            else:
+                raise ValueError(f"Unknown backend: {self.backend}")
+
             ##IRtodo#### move to log
             # print(self.k.query("*IDN?"))
-            #### connect with usbtmc
-            self.k = usbtmc.Instrument(self.address)
 
     def keithley_disconnect(self):
         ##IRtodo#### move to log
@@ -532,9 +549,9 @@ class Keithley2612B:
         Returns:
             bool: last value of the line before writing to it (True for HIGH, False for LOW).
         """
-        # set the line to be user controlled. 
+        # set the line to be user controlled.
         self.safewrite(f"digio.trigger[{line_id}].mode = digio.TRIG_BYPASS")
-        
+
         # fetch return
         last_value = self.safequery(f"print(digio.readbit({line_id}))")
 
@@ -545,5 +562,5 @@ class Keithley2612B:
         curr_value = True if int(curr_value) == 1 else False
         if curr_value != value:
             raise ValueError(f"Failed to set digio line {line_id} to {value}. Current value is {curr_value}.")
-        
+
         return True if int(last_value) == 1 else False
