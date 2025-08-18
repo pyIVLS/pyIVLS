@@ -185,8 +185,8 @@ class touchDetectGUI(QObject):
                     smu_box.addItems(self.channel_names)
                     con_box.addItems(["Hi", "Lo"])
                     # add options none and spectrometer
-                    con_box.addItems(["None", "Spectrometer"])
-                    smu_box.addItems(["None", "Spectrometer"])
+                    con_box.addItems(["none", "spectrometer"])
+                    smu_box.addItems(["none", "spectrometer"])
 
                     settings = self.settings[i]
                     if "channel_smu" in settings:
@@ -194,7 +194,7 @@ class touchDetectGUI(QObject):
                     if "channel_con" in settings:
                         con_box.setCurrentText(settings["channel_con"])
                     if "res_threshold" in settings:
-                        res_spin.setValue(settings["res_threshold"])
+                        res_spin.setValue(int(settings["res_threshold"]))
         else:
             self.emit_log(status, state)
         con_status, con_state = con.deviceConnect()
@@ -315,7 +315,7 @@ class touchDetectGUI(QObject):
                 return (status, settings)
 
             # Process each configured manipulator
-            for i, (box, smu_box, con_box) in enumerate(self.manipulator_boxes):
+            for i, (box, smu_box, con_box, res_box) in enumerate(self.manipulator_boxes):
                 if worker_thread.is_stop_requested():
                     break
 
@@ -327,7 +327,7 @@ class touchDetectGUI(QObject):
                 if not smu_channel or not con_channel:
                     continue
 
-                threshold = float(settings["res_threshold"])
+                threshold = float(res_box.value())
                 worker_thread.progress.emit(f"Starting monitoring for manipulator {manipulator_name} (SMU: {smu_channel}, Con: {con_channel}, Threshold: {threshold})")
 
                 # Set up contact detection channel
@@ -420,28 +420,6 @@ class touchDetectGUI(QObject):
         Starts or stops the monitoring process in a separate thread.
         This keeps the GUI responsive during monitoring.
         """
-
-        def _on_monitoring_progress(self, message):
-            """Handle progress updates from the monitoring thread."""
-            self._log_info(message)
-
-        def _on_monitoring_error(self, error_message):
-            """Handle error messages from the monitoring thread."""
-            self._log_info(f"WARN : {error_message}")
-
-        def _on_monitoring_result(self, result):
-            """Handle the final result from the monitoring thread."""
-            status, state = result
-            if status != 0:
-                self.emit_log(status, state)
-
-        def _on_monitoring_finished(self):
-            """Handle monitoring thread completion."""
-            self.is_monitoring = False
-            self.monitoring_thread = None
-            self.settingsWidget.pushButton_2.setText("Start Monitoring")
-            self._log_info("Monitoring thread finished")
-
         if not self.is_monitoring:
             # Start monitoring
             self._log_info("Starting threaded resistance monitoring for all manipulators")
@@ -454,10 +432,10 @@ class touchDetectGUI(QObject):
             self.monitoring_thread = WorkerThread(self._monitor_worker)
 
             # Connect thread signals
-            self.monitoring_thread.progress.connect(_on_monitoring_progress)
-            self.monitoring_thread.error.connect(_on_monitoring_error)
-            self.monitoring_thread.finished.connect(_on_monitoring_finished)
-            self.monitoring_thread.result.connect(_on_monitoring_result)
+            self.monitoring_thread.progress.connect(self._on_monitoring_progress)
+            self.monitoring_thread.error.connect(self._on_monitoring_error)
+            self.monitoring_thread.finished.connect(self._on_monitoring_finished)
+            self.monitoring_thread.result.connect(self._on_monitoring_result)
 
             # Start the thread
             self.monitoring_thread.start()
@@ -469,7 +447,26 @@ class touchDetectGUI(QObject):
                 self.monitoring_thread.stop()
                 # Don't wait here as it would block the GUI
                 # The finished signal will handle cleanup
+    def _on_monitoring_progress(self, message):
+        """Handle progress updates from the monitoring thread."""
+        self._log_info(message)
 
+    def _on_monitoring_error(self, error_message):
+        """Handle error messages from the monitoring thread."""
+        self._log_info(f"WARN : {error_message}")
+
+    def _on_monitoring_result(self, result):
+        """Handle the final result from the monitoring thread."""
+        status, state = result
+        if status != 0:
+            self.emit_log(status, state)
+
+    def _on_monitoring_finished(self):
+        """Handle monitoring thread completion."""
+        self.is_monitoring = False
+        self.monitoring_thread = None
+        self.settingsWidget.pushButton_2.setText("Start Monitoring")
+        self._log_info("Monitoring thread finished")
     def _test(self):
         self._log_info("Testing move to contact functionality")
 
@@ -525,7 +522,7 @@ class touchDetectGUI(QObject):
         except ValueError:
             return (1, {"Error message": "TouchDetect: Sample width must be a number."})
         settings["sample_width"] = sample_width
-
+        self._log_verbose(str(settings))
         return (0, settings)
 
     @public
@@ -643,7 +640,7 @@ class touchDetectGUI(QObject):
         configured_manipulators = []
 
         # Check each configured manipulator
-        for i, (box, smu_box, con_box) in enumerate(self.manipulator_boxes):
+        for i, (box, smu_box, con_box, res_box) in enumerate(self.manipulator_boxes):
             manipulator_name = i + 1
             smu_channel = smu_box.currentText()
             con_channel = con_box.currentText()
@@ -651,7 +648,9 @@ class touchDetectGUI(QObject):
             # Skip if manipulator is not configured
             if not smu_channel or not con_channel:
                 continue
-
+            if smu_channel == "none" or con_channel == "none":
+                continue
+ 
             configured_manipulators.append(manipulator_name)
 
             # Check if this manipulator has a saved position

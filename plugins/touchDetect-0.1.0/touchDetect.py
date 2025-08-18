@@ -56,9 +56,9 @@ class touchDetect:
             for idx, info in enumerate(manipulator_info):
                 manipulator_name = idx + 1
                 smu_channel, condet_channel, threshold, stride, sample_width = info
-
+                self.log(f"{smu_channel}, {condet_channel} for {manipulator_name}")
                 # skip iteration for manipulator if nothing is set
-                if smu_channel == "" or condet_channel == "":
+                if smu_channel == "none" or condet_channel == "none" or smu_channel is None or condet_channel is None or smu_channel == "" or condet_channel == "" :
                     self.log(f"Skipping manipulator {manipulator_name} - no configuration")
                     continue
 
@@ -233,13 +233,13 @@ class touchDetect:
         for idx, info in enumerate(manipulator_info):
             manipulator_name = idx + 1
             smu_channel, condet_channel, threshold, stride, sample_width = info
-            if smu_channel == "" or condet_channel == "":
+            if smu_channel == "none" or condet_channel == "none" or smu_channel is None or condet_channel is None or smu_channel == "" or condet_channel == "" :
                 self.log(f"Skipping manipulator {manipulator_name} - no configuration")
                 contact_status.append(False)
                 continue
             status, state = self._manipulator_measurement_setup(mm, smu, con, condet_channel, manipulator_name, smu_channel)
             assert status == 0, f"Failed to set up measurement for manipulator {manipulator_name}: {state}"
-            if smu_channel == "":
+            if smu_channel == "none" or condet_channel == "none" or smu_channel is None or condet_channel is None or smu_channel == "" or condet_channel == "" :
                 # Skip unconfigured manipulator - (not contacting)
                 contact_status.append(False)
                 continue
