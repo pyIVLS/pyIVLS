@@ -3,14 +3,13 @@ import copy
 from touchDetect import touchDetect
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6 import uic
-from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox
-from plugins.plugin_components import public, ConnectionIndicatorStyle
+from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox, QSpinBox
+from plugins.plugin_components import public, ConnectionIndicatorStyle, GuiMapper
 from components.worker_thread import WorkerThread
 import time
 
 
 class touchDetectGUI(QObject):
-    
     non_public_methods = []
     public_methods = ["move_to_contact", "parse_settings_widget", "sequenceStep", "setSettings", "_check_saved_positions", "clear_saved_positions"]
     green_style = ConnectionIndicatorStyle.GREEN_CONNECTED.value
@@ -100,8 +99,18 @@ class touchDetectGUI(QObject):
         man4_smu_box: QComboBox = man4.findChild(QComboBox, "mansmu_4")
         man4_con_box: QComboBox = man4.findChild(QComboBox, "mancon_4")
 
-        self.manipulator_boxes = [[man1, man1_smu_box, man1_con_box], [man2, man2_smu_box, man2_con_box], [man3, man3_smu_box, man3_con_box], [man4, man4_smu_box, man4_con_box]]
+        # find spinboxes
+        man1_res: QSpinBox = man1.findChild(QSpinBox, "manres_1")
+        man2_res: QSpinBox = man2.findChild(QSpinBox, "manres_2")
+        man3_res: QSpinBox = man3.findChild(QSpinBox, "manres_3")
+        man4_res: QSpinBox = man4.findChild(QSpinBox, "manres_4")
 
+        self.manipulator_boxes = [[man1, man1_smu_box, man1_con_box, man1_res], [man2, man2_smu_box, man2_con_box, man2_res], [man3, man3_smu_box, man3_con_box, man3_res], [man4, man4_smu_box, man4_con_box, man4_res]]
+        for box, smu_box, con_box, res_spin in self.manipulator_boxes:
+            assert box is not None, f"Manipulator box {box} is None"
+            assert smu_box is not None, f"SMU box {box.title()} is None"
+            assert con_box is not None, f"Con box {box.title()} is None"
+            assert res_spin is not None, f"Res spin {box.title()} is None"
         self.settings = [{}, {}, {}, {}]
 
         # Thread management for monitoring
@@ -109,9 +118,8 @@ class touchDetectGUI(QObject):
         self.is_monitoring = False
 
         # find threshold line edit
-        self.threshold = self.settingsWidget.reshold
         self.stride = self.settingsWidget.stride
-        self.sample_width = self.settingsWidget.sampleWidth  # New field for max distance
+        self.sample_width = self.settingsWidget.sampleWidth
 
     ########Functions
     ########GUI Slots
@@ -170,18 +178,23 @@ class touchDetectGUI(QObject):
             self._log_info(f"Micromanipulator devices detected: {state}")
             for i, status in enumerate(state):
                 if status:
-                    box, smu_box, con_box = self.manipulator_boxes[i]
+                    box, smu_box, con_box, res_spin = self.manipulator_boxes[i]
                     box.setVisible(True)
                     smu_box.clear()
                     con_box.clear()
                     smu_box.addItems(self.channel_names)
                     con_box.addItems(["Hi", "Lo"])
+                    # add options none and spectrometer
+                    con_box.addItems(["None", "Spectrometer"])
+                    smu_box.addItems(["None", "Spectrometer"])
 
                     settings = self.settings[i]
                     if "channel_smu" in settings:
                         smu_box.setCurrentText(settings["channel_smu"])
                     if "channel_con" in settings:
                         con_box.setCurrentText(settings["channel_con"])
+                    if "res_threshold" in settings:
+                        res_spin.setValue(settings["res_threshold"])
         else:
             self.emit_log(status, state)
         con_status, con_state = con.deviceConnect()
@@ -237,25 +250,24 @@ class touchDetectGUI(QObject):
                     temp[number - 1]["channel_smu"] = value
                 elif func == "con":
                     temp[number - 1]["channel_con"] = value
+                elif func == "res":
+                    temp[number - 1]["res_threshold"] = value
             except ValueError:
                 # this is here to make sure that only _1, _2, etc. are parsed for manipulator settings
                 continue
         stride = settings.get("stride", "")
-        threshold = settings.get("res_threshold", "")
         sample_width = settings.get("sample_width", "")
-        return temp, threshold, stride, sample_width
-    
+        return temp, stride, sample_width
+
     def setup(self, settings) -> QWidget:
         """
         Sets up the GUI for the plugin. This function is called by hook to initialize the GUI.
         """
 
-
-        for box, _, _ in self.manipulator_boxes:
+        for box, _, _, _ in self.manipulator_boxes:
             box.setVisible(False)
         # save the settings dict to be used later
-        self.settings, threshold, stride, sample_width = self._parse_ini(settings)
-        self.threshold.setText(threshold)
+        self.settings, stride, sample_width = self._parse_ini(settings)
         self.stride.setText(stride)
         self.sample_width.setText(sample_width)
 
@@ -408,6 +420,28 @@ class touchDetectGUI(QObject):
         Starts or stops the monitoring process in a separate thread.
         This keeps the GUI responsive during monitoring.
         """
+
+        def _on_monitoring_progress(self, message):
+            """Handle progress updates from the monitoring thread."""
+            self._log_info(message)
+
+        def _on_monitoring_error(self, error_message):
+            """Handle error messages from the monitoring thread."""
+            self._log_info(f"WARN : {error_message}")
+
+        def _on_monitoring_result(self, result):
+            """Handle the final result from the monitoring thread."""
+            status, state = result
+            if status != 0:
+                self.emit_log(status, state)
+
+        def _on_monitoring_finished(self):
+            """Handle monitoring thread completion."""
+            self.is_monitoring = False
+            self.monitoring_thread = None
+            self.settingsWidget.pushButton_2.setText("Start Monitoring")
+            self._log_info("Monitoring thread finished")
+
         if not self.is_monitoring:
             # Start monitoring
             self._log_info("Starting threaded resistance monitoring for all manipulators")
@@ -420,10 +454,10 @@ class touchDetectGUI(QObject):
             self.monitoring_thread = WorkerThread(self._monitor_worker)
 
             # Connect thread signals
-            self.monitoring_thread.progress.connect(self._on_monitoring_progress)
-            self.monitoring_thread.error.connect(self._on_monitoring_error)
-            self.monitoring_thread.finished.connect(self._on_monitoring_finished)
-            self.monitoring_thread.result.connect(self._on_monitoring_result)
+            self.monitoring_thread.progress.connect(_on_monitoring_progress)
+            self.monitoring_thread.error.connect(_on_monitoring_error)
+            self.monitoring_thread.finished.connect(_on_monitoring_finished)
+            self.monitoring_thread.result.connect(_on_monitoring_result)
 
             # Start the thread
             self.monitoring_thread.start()
@@ -435,27 +469,6 @@ class touchDetectGUI(QObject):
                 self.monitoring_thread.stop()
                 # Don't wait here as it would block the GUI
                 # The finished signal will handle cleanup
-
-    def _on_monitoring_progress(self, message):
-        """Handle progress updates from the monitoring thread."""
-        self._log_info(message)
-
-    def _on_monitoring_error(self, error_message):
-        """Handle error messages from the monitoring thread."""
-        self._log_info(f"WARN : {error_message}")
-
-    def _on_monitoring_result(self, result):
-        """Handle the final result from the monitoring thread."""
-        status, state = result
-        if status != 0:
-            self.emit_log(status, state)
-
-    def _on_monitoring_finished(self):
-        """Handle monitoring thread completion."""
-        self.is_monitoring = False
-        self.monitoring_thread = None
-        self.settingsWidget.pushButton_2.setText("Start Monitoring")
-        self._log_info("Monitoring thread finished")
 
     def _test(self):
         self._log_info("Testing move to contact functionality")
@@ -482,25 +495,22 @@ class touchDetectGUI(QObject):
         """
         settings = {}
         # Collect manipulator settings
-        for i, (box, smu_box, con_box) in enumerate(self.manipulator_boxes):
+        for i, (box, smu_box, con_box, res_box) in enumerate(self.manipulator_boxes):
             smu_channel = smu_box.currentText()
             con_channel = con_box.currentText()
+            res_value = res_box.value()
             # Only add if either is non-empty
             if smu_channel or con_channel:
                 settings[f"{i + 1}_smu"] = smu_channel
                 settings[f"{i + 1}_con"] = con_channel
+                settings[f"{i + 1}_res"] = res_value
 
         # Check that the same con channel does not appear twice (excluding empty)
         con_channels = [settings[f"{i + 1}_con"] for i in range(4) if f"{i + 1}_con" in settings and settings[f"{i + 1}_con"]]
         if len(con_channels) != len(set(con_channels)):
             return (1, {"Error message": "Contact detection channels must be unique across manipulators."})
 
-        # Check that the threshold is a float
-        try:
-            threshold = float(self.threshold.text())
-        except ValueError:
-            return (1, {"Error message": "TouchDetect: Threshold must be a number."})
-        settings["res_threshold"] = threshold
+
 
         # Check that the stride is an integer
         try:
@@ -529,7 +539,7 @@ class touchDetectGUI(QObject):
         Returns:
             tuple[int, dict]: (status, settings) - status 0 for success, settings dict
         """
-        
+
         """
         The settings dictionary is expected to have the following structure:
         [{}, {}, {}, {}]
@@ -580,9 +590,10 @@ class touchDetectGUI(QObject):
                 for i in range(len(self.manipulator_boxes)):
                     smu_key = f"{i + 1}_smu"
                     con_key = f"{i + 1}_con"
+                    res_key = f"{i + 1}_res"
                     smu_val = settings.get(smu_key, "")
                     con_val = settings.get(con_key, "")
-                    threshold = float(settings["res_threshold"])
+                    threshold = settings.get(res_key, "")
                     stride = int(settings["stride"])
                     sample_width = float(settings["sample_width"])
                     temp.append((smu_val, con_val, threshold, stride, sample_width))
@@ -593,7 +604,7 @@ class touchDetectGUI(QObject):
                 return []
 
         mm, smu, con = self._fetch_dep_plugins()
-        manipulator_info = create_dict() # will be empty if invalid
+        manipulator_info = create_dict()  # will be empty if invalid
 
         status, state = self.functionality.move_to_contact(mm, con, smu, manipulator_info)
 
@@ -678,7 +689,6 @@ class touchDetectGUI(QObject):
         if status != 0:
             error_msg = f"TouchDetect sequence step failed: {result.get('Error message', 'Unknown error')}"
             return (status, {"Error message": error_msg, "safety_check": "failed", "details": result})
-
 
         # Execute move to contact for all configured manipulators
         status, state = self.move_to_contact()
