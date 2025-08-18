@@ -1,4 +1,5 @@
 from threading import Lock
+from typing import Optional
 import pyvisa
 import usbtmc
 import numpy as np
@@ -75,16 +76,17 @@ class Keithley2612B:
         self.lock = Lock()
 
     ## Communication functions
-    def safewrite(self, command):
+    def safewrite(self, command:str) -> None:
         try:
             if self.backend == "usb":
                 if self.k is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 self.k.write(command)
-            elif self.backend == "eth":
+            elif self.backend == "Ethernet":
                 if self.ke is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 self.ke.write(command)
+
             ##IRtothink#### debug_mode may be replaced with something like logging
             # if self.debug_mode:
             #    error_code = self.k.query("print(errorqueue.next())")
@@ -99,18 +101,19 @@ class Keithley2612B:
         #    if self.debug_mode:
         #        self.k.write("errorqueue.clear()")
 
-    def safequery(self, command):
+    def safequery(self, command:str) -> Optional[str]:
         try:
             if self.backend == "usb":
                 if self.k is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 self.k.write(command)
-                return self.k.read()
-            elif self.backend == "eth":
+                ret: str = self.k.read()
+                return ret
+            elif self.backend == "Ethernet":
                 if self.ke is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
-                self.ke.write(command)
-                return self.ke.read()
+                ret = self.ke.query(command)
+                return ret
         except Exception as e:
             ##IRtodo#### mov to the log
             print(f"Exception querying command: {command}\nException: {e}")
@@ -126,7 +129,7 @@ class Keithley2612B:
     def keithley_IDN(self):
         return "keith"
 
-    def keithley_connect(self, address, eth_address, backend):  # -> status:
+    def keithley_connect(self, address, eth_address, backend, port):  # -> status:
         """Connect to the Keithley 2612B.
 
         Returns [status, message]:
@@ -135,15 +138,17 @@ class Keithley2612B:
         """
         self.address = address
         self.eth_address = eth_address
+        self.port = port
         self.backend = backend
 
         if self.k is None:
             if self.backend == "usb":
                 #### connect with usbtmc
                 self.k = usbtmc.Instrument(self.address)
-            elif self.backend == "eth":
+            elif self.backend == "Ethernet":
                 #### connect with pyvisa resource manager
-                self.ke = self.rm.open_resource(self.eth_address)
+                visa_rsc_str = f"TCPIP::{self.eth_address}::{self.port}::SOCKET"
+                self.ke: pyvisa.resources.TCPIPSocket = self.rm.open_resource(visa_rsc_str, resource_pyclass=pyvisa.resources.TCPIPSocket)
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
             else:

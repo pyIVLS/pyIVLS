@@ -89,6 +89,7 @@ class Keithley2612BGUI:
         self.settingsWidget.lineEditAddress.setText(plugin_info["address"])
         self.settingsWidget.lineEditETH.setText(plugin_info["eth_address"])
         self.settingsWidget.backendCombobox.setCurrentText(plugin_info["backend"])
+        self.settingsWidget.lineEditPort.setText(plugin_info["port"])
 
     ########Functions
     ########plugins interraction
@@ -133,6 +134,7 @@ class Keithley2612BGUI:
         self.settings["address"] = self.settingsWidget.lineEditAddress.text()
         self.settings["eth_address"] = self.settingsWidget.lineEditETH.text()
         self.settings["backend"] = self.settingsWidget.backendCombobox.currentText()
+        self.settings["port"] = self.settingsWidget.lineEditPort.text()
 
     ###############GUI enable/disable
     def set_running(self, status):
@@ -155,7 +157,7 @@ class Keithley2612BGUI:
         """
         self._parse_settings_address()
         try:
-            self.smu.keithley_connect(self.settings["address"], self.settings["eth_address"], self.settings["backend"])
+            self.smu.keithley_connect(self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"])
             return [0, self.smu.keithley_IDN()]
         except Exception as e:
             return [
