@@ -11,6 +11,5 @@ widgets_list
 .*
 pyIVLS.log
 *.log
-*.dat
 *.csv
 pyIVLS.ini
