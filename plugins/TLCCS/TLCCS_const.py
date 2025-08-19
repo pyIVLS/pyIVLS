@@ -16,11 +16,11 @@ CCS_SERIES_CAL_DATA_SET_FACTORY = 0
 CCS_SERIES_CAL_DATA_SET_USER = 1
 
 # Status flags
-CCS_SERIES_STATUS_SCAN_IDLE = 0x0002  # waiting for new scan. second rightmost bit.
-CCS_SERIES_STATUS_SCAN_TRIGGERED = 0x0004  # scan in progress. third rightmost bit.
-CCS_SERIES_STATUS_SCAN_START_TRANS = 0x0008  # scan starting. fourth rightmost bit.
-CCS_SERIES_STATUS_SCAN_TRANSFER = 0x0010  # scan done, waiting for data transfer. fifth rightmost bit.
-CCS_SERIES_STATUS_WAIT_FOR_EXT_TRIG = 0x0080  # same as idle, but ext trigger is armed. eighth rightmost bit.
+CCS_SERIES_STATUS_SCAN_IDLE = 0x0002  # waiting for new scan. second rightmost bit. Seems to show up when asking for single scans
+CCS_SERIES_STATUS_SCAN_TRIGGERED = 0x0004  # scan in progress. third rightmost bit. Seems to only show up in continuous scan mode
+CCS_SERIES_STATUS_SCAN_START_TRANS = 0x0008  # scan starting. fourth rightmost bit. Have not seen this in practice
+CCS_SERIES_STATUS_SCAN_TRANSFER = 0x0010  # scan done, waiting for data transfer. fifth rightmost bit. Have not seen this in practice
+CCS_SERIES_STATUS_WAIT_FOR_EXT_TRIG = 0x0080  # same as idle, but ext trigger is armed. eighth rightmost bit. Shows up when primed for external trigger
 
 # Amplification correction factors
 CCS_SERIES_AMP_CORR_FACT_MIN = 0.001
