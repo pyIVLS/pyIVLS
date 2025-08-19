@@ -763,6 +763,7 @@ class TLCCS_GUI(QObject):
                     _ = self.drv.get_scan_data()
                 # No scan running, start a new scan
                 self.drv.start_scan()
+                # no additional waittime here, since start_scan already times a wait for the integ time
                 data = self.drv.get_scan_data()
                 self.scanRunning = False
                 return [0, data]

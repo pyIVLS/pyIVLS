@@ -130,12 +130,13 @@ class CCSDRV:
         self.integration_time = intg_time
         return True
 
-    def get_device_status(self, debug=False):
+    def get_device_status(self, debug=True):
         """Gets device status and parses the status bytes
 
         Returns:
             array: A list of set status bits in a readable form.
         """
+        # TODO: CHECK THAT THE STATUSES ARE ACTUALLY CORRECT, SINCE I CANT REALLY KNOW IF THEY WERE CORRECTLY PARSED
 
         status = np.int32(0xFFFF)
         readTo = usb.util.create_buffer(2)  # 16 bits to get status.
@@ -180,10 +181,12 @@ class CCSDRV:
     def start_scan_continuous(self):
         """Starts continuous scanning. Any function except get_scan_data() and get_device_status() will stop the scan."""
         self.io.control_out(const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_INTERN_CONTINUOUS)
+        time.sleep(self.integration_time * 1.2)  # Wait for scan to complete
 
     def start_scan_ext_trigger(self):
         """Starts a single scan with external trigger"""
         self.io.control_out(const.CCS_SERIES_WCMD_MODUS, None, wValue=const.MODUS_EXTERN_SINGLE_SHOT)
+        time.sleep(self.integration_time * 1.2)  # Wait for scan to complete
 
     def get_scan_data(self) -> np.ndarray:
         """Get processed scan data from the device buffer.
