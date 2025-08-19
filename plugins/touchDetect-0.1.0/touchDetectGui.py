@@ -562,7 +562,7 @@ class touchDetectGUI(QObject):
         # Deep copy to avoid modifying original data
         settings_to_parse = copy.deepcopy(settings)
         # Parse settings into the expected format
-        self.settings, threshold, stride, sample_width = self._parse_ini(settings_to_parse)
+        self.settings, stride, sample_width = self._parse_ini(settings_to_parse)
         return (0, self.settings)
 
     ########Functions to be used externally

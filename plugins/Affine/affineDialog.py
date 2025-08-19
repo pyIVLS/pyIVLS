@@ -14,8 +14,12 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
-from PyQt6.QtCore import pyqtSignal, Qt
-
+from PyQt6.QtCore import pyqtSignal, Qt, pyqtSlot
+from PyQt6 import QtWidgets
+from plugin_components import LoggingHelper
+from typing import Optional
+import time
+from components.worker_thread import WorkerThread
 
 class dialog(QDialog):
     """
@@ -29,10 +33,10 @@ class dialog(QDialog):
     residual_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30]
     # morphological operation types
     morphology_types = ["erosion", "dilation", "opening", "closing"]
-    log_message = pyqtSignal(int, dict)
-    info_message = pyqtSignal(str)
 
-    def __init__(self, affine, img, mask, settings, pointslist=None):
+    info_msg = pyqtSignal(str)
+
+    def __init__(self, affine, img, mask, settings, pointslist=None, logger:Optional[LoggingHelper]=None):
         """
         Initialize the dialog.
         Args:
@@ -45,6 +49,7 @@ class dialog(QDialog):
         super().__init__(None, Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint)
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
+        self.info_msg.connect(self.show_message)
         # Connect UI elements to settings change handler
         for child in self.ui.groupBox.children():
             if isinstance(child, QCheckBox):
@@ -55,10 +60,13 @@ class dialog(QDialog):
                 child.valueChanged.connect(self._preprocessing_settings_changed)
             elif isinstance(child, QLineEdit):
                 child.textChanged.connect(self._preprocessing_settings_changed)
+        
+        
         # Connect backend combobox to settings change handler
         for child in self.ui.groupBox_2.children():
             if isinstance(child, QComboBox):
                 child.currentTextChanged.connect(self._preprocessing_settings_changed)
+
         self.affine = affine
         self.pointslist = pointslist
         self.img = img
@@ -70,6 +78,10 @@ class dialog(QDialog):
         self.num_needed = 4
         self.img_scene = QGraphicsScene()
         self.mask_scene = QGraphicsScene()
+
+        self.logger = logger 
+        self.worker_thread = None  # Initialize worker thread reference 
+
         # Connect mouse events for manual mode
         self.ui.imgView.mousePressEvent = self._img_view_clicked
         self.ui.maskView.mousePressEvent = self._mask_view_clicked
@@ -146,6 +158,7 @@ class dialog(QDialog):
         if self.affine.A is not None:
             result = self.affine.result
             self.draw_result(result, self.pointslist)
+            self.info_message(f"Showing saved result")
 
     def _preprocessing_settings_changed(self):
         """
@@ -315,13 +328,24 @@ class dialog(QDialog):
             mask_pixmap = self.to_pixmap(mask)
             if mask_pixmap is not None and mask_scene is not None:
                 mask_scene.addItem(QGraphicsPixmapItem(mask_pixmap))
+            
+    def minimize_preprocess_images(self):
+        """Minimize the preprocess
+        """
+
+    def info_message(self, msg: str) -> None:
+            self.info_msg.emit(msg)
+
+    @pyqtSlot(str)
+    def show_message(self, str):
+        timestamp = time.strftime("%H:%M:%S", time.localtime())
+        self.ui.matchResultLabel.setText(f"{timestamp}: {str}")
 
     def draw_result(
         self,
         result,
         pointslist=None,
         show_points=True,
-        info_message=None,
         draw_matches=True,
     ):
         """
@@ -330,7 +354,6 @@ class dialog(QDialog):
             result (dict): Result dictionary from Affine.
             pointslist (list, optional): List of points to highlight.
             show_points (bool): Whether to show points.
-            info_message (str, optional): Message to emit.
             draw_matches (bool): Whether to draw matches.
         """
         kp1 = result["kp1"]
@@ -419,34 +442,77 @@ class dialog(QDialog):
         pixmap = QPixmap.fromImage(qimg)
         scene.addItem(QGraphicsPixmapItem(pixmap))
         plt.close(fig)
-        if info_message:
-            self.info_message.emit(info_message)
+
 
     def _on_match_button_clicked(self):
         """
         Handle match button click event. Runs automatic matching and displays the result.
         """
-        try:
-            self._preprocessing_settings_changed()
+        def _run_matching(worker_thread):
+            """
+            Perform the actual matching work. This runs in a separate thread.
+            """
+
+                
             img = self.img
             self.affine.try_match(img)
             result = self.affine.result
             
+            # Emit progress with result data
+            worker_thread.progress.emit({
+                'result': result,
+                'pointslist': self.pointslist
+            })
+            
+            return result
+
+        def _on_matching_progress(data):
+            """Handle progress updates from the worker thread."""
+            result = data['result']
+            pointslist = data['pointslist']
+
             # Print keypoint statistics
             kp1_count = len(result["kp1"])
             kp2_count = len(result["kp2"])
             matches_count = len(result["matches"])
-            print(f"Keypoints found - Mask: {kp1_count}, Image: {kp2_count}")
-            print(f"Matching successful, found {matches_count} matches out of {min(kp1_count, kp2_count)} possible")
+            message = f"Keypoints found - Mask: {kp1_count}, Image: {kp2_count}\n"
+            message += f"Matching successful, found {matches_count} matches out of {min(kp1_count, kp2_count)} possible"
+            self.info_message(message)
+            self.draw_result(result, pointslist)
+
+        def _on_matching_finished():
+            """Handle completion of the matching process."""
+            self.ui.matchButton.setEnabled(True)
+            self.ui.manualButton.setEnabled(True)
+
+        def _on_matching_error(error_message):
+            """Handle errors from the matching process."""
+            self.info_message(f"Exception during matching: {error_message}")
+            # Re-enable the match button if it was disabled
+            self.ui.matchButton.setEnabled(True)
+            self.ui.manualButton.setEnabled(True)
+
+        try:
+            self.info_message("Starting automatic matching...")
+            self._preprocessing_settings_changed()
             
-            self.draw_result(result, self.pointslist)
+            # Disable the match button to prevent multiple simultaneous operations
+            self.ui.matchButton.setEnabled(False)
+            self.ui.manualButton.setEnabled(False)
+            
+            # Create and configure the worker thread
+            self.worker_thread = WorkerThread(task=_run_matching)
+            self.worker_thread.progress.connect(_on_matching_progress)
+            self.worker_thread.finished.connect(_on_matching_finished)
+            self.worker_thread.error.connect(_on_matching_error)
+            
+            # Start the worker thread
+            self.worker_thread.start()
+
         except Exception as e:
-            self.log_message.emit(
-                1,
-                {"Error message": "matching failed: ", "exception": str(e)},
-            )
-            self.info_message.emit("Matching failed. Check the log for details.")
-            return
+            self.info_message(f"Failed to start matching: {e}")
+            # Re-enable the match button in case of setup failure
+            self.ui.matchButton.setEnabled(True)
 
     def _on_manual_button_clicked(self):
         """
@@ -457,7 +523,7 @@ class dialog(QDialog):
         self.mask_points = []
         self.img_points = []
         self._draw_manual_points()
-        self.info_message.emit(f"Manual mode enabled. Click {self.num_needed} points on the mask (left), then {self.num_needed} on the image (right). Colors indicate matching order.")
+        self.info_message(f"Manual mode enabled. Click {self.num_needed} points on the mask (left), then {self.num_needed} on the image (right). Colors indicate matching order.")
 
     def _draw_manual_points(self):
         """
@@ -518,7 +584,7 @@ class dialog(QDialog):
             if len(self.mask_points) == self.num_needed:
                 self.expecting_img_click = True
         else:
-            self.info_message.emit("All mask points selected. Now select points on the image.")
+            self.info_message("All mask points selected. Now select points on the image.")
 
     def _img_view_clicked(self, event):
         """
@@ -547,14 +613,25 @@ class dialog(QDialog):
                     self.draw_result(
                         self.affine.result,
                         self.mask_points,
-                        info_message="Manual transformation successful.",
                         draw_matches=False,
                     )
                 except Exception as e:
-                    self.info_message.emit(f"Manual transformation failed: {e}")
+                    self.info_message(f"Manual transformation failed: {e}")
                 self.manual_mode = False
                 self.mask_points = []
                 self.img_points = []
                 self._draw_manual_points()
         else:
-            self.info_message.emit("All image points selected. If you want to retry, re-enter manual mode.")
+            self.info_message("All image points selected. If you want to retry, re-enter manual mode.")
+
+    def closeEvent(self, event):
+        """
+        Handle dialog close event to properly clean up the worker thread.
+        """
+        if self.worker_thread is not None and self.worker_thread.isRunning():
+            self.worker_thread.stop()
+            self.worker_thread.wait(3000)  # Wait up to 3 seconds for thread to finish
+            if self.worker_thread.isRunning():
+                self.worker_thread.terminate()  # Force terminate if still running
+        
+        super().closeEvent(event)

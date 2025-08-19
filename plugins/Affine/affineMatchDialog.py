@@ -194,6 +194,12 @@ class Ui_Dialog(object):
 
         self.gridLayout.addWidget(self.groupBox_2, 1, 0, 1, 2)
 
+        # add a label displaying the match result
+        self.matchResultLabel = QLabel(self.groupBox_2)
+        self.matchResultLabel.setObjectName("matchResultLabel")
+        self.gridLayout_4.addWidget(self.matchResultLabel, 4, 0, 1, 2)
+        self.matchResultLabel.setText("Not matched yet")
+
         self.groupBox_4 = QGroupBox(Dialog)
         self.groupBox_4.setObjectName("groupBox_4")
         self.verticalLayout = QVBoxLayout(self.groupBox_4)
