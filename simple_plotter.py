@@ -40,7 +40,7 @@ def read_iv_data_from_file(filepath):
     return np.array(current), np.array(voltage)
 
 # Data file path - can be overridden by command line argument
-datapath = "plugins/sweep-1.0.0/406-CTLM-FLAT_iter2_c.dat"
+datapath = "/home/ivls/pyIVLS_0.1.0/pyIVLS/406-CTLM-FLAT.dat"
 
 # Check if a file path was provided as command line argument
 if len(sys.argv) > 1:

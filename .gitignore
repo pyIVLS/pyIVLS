@@ -9,4 +9,5 @@ pyIVLS.ini.old
 pyIVLS.log
 *.log
 *.csv
+*.dat
 pyIVLS.ini
