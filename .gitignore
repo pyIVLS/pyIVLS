@@ -1,6 +1,7 @@
 __pycache__/
 .venv/
 .vscode/
+.pytest_cache/
 /plugins/coordConverter/masks/*
 /plugins/coordConverter/testImages/*
 *.m
@@ -8,7 +9,6 @@ __pycache__/
 pyIVLS.ini.old
 widgets_list
 .ruff_cache
-.*
 pyIVLS.log
 *.log
 *.csv
