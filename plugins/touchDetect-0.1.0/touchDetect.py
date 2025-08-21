@@ -30,6 +30,40 @@ class ManipulatorInfo:
         else:
             self.function: str = "normal"
 
+    def with_new_settings(self, **kwargs) -> "ManipulatorInfo":
+        """
+        Creates a new ManipulatorInfo instance with updated settings.
+        This ensures __post_init__ is called to recalculate derived fields.
+
+        Args:
+            **kwargs: Fields to update (e.g., threshold=100, stride=5)
+
+        Returns:
+            ManipulatorInfo: New instance with updated settings
+        """
+        # Get current values as a dict
+        current_values = self.to_dict()
+
+        # Update with provided kwargs
+        current_values.update(kwargs)
+        return ManipulatorInfo(**current_values)
+
+    def to_dict(self) -> dict:
+        """Converts the ManipulatorInfo instance to a dictionary."""
+        return {"mm_number": self.mm_number, "smu_channel": self.smu_channel, "condet_channel": self.condet_channel, "threshold": self.threshold, "stride": self.stride, "sample_width": self.sample_width, "function": self.function, "last_z": self.last_z, "spectrometer_height": self.spectrometer_height}
+
+    def to_named_dict(self) -> dict:
+        """Returns a dictionary with named keys for each field. Useful for saving to ini for instance."""
+        return {
+            f"{self.mm_number}_smu": self.smu_channel,
+            f"{self.mm_number}_con": self.condet_channel,
+            f"{self.mm_number}_res": self.threshold,
+            f"{self.mm_number}_last_z": self.last_z,
+            "stride": self.stride,
+            "sample_width": self.sample_width,
+            "spectrometer_height": self.spectrometer_height,
+        }
+
     def validate(self) -> list[str]:
         """Returns a list of validation errors, if any."""
         errors = []
@@ -48,6 +82,10 @@ class ManipulatorInfo:
     def is_configured(self) -> bool:
         """Returns True if the manipulator is configured, False otherwise."""
         return self.function != "unconfigured"
+
+    def needs_z_pos(self) -> bool:
+        """Returns True if the manipulator needs a Z position to be set, False otherwise."""
+        return self.function == "normal" and self.last_z is None
 
 
 class touchDetect:
@@ -269,7 +307,6 @@ class touchDetect:
 
             for info in manipulator_info:
                 self._log(f"Processing manipulator {info.mm_number} with threshold {info.threshold}, stride {info.stride}, max distance {info.sample_width}")
-
                 status, result = self._setup_and_move_to_contact(mm, smu, con, info)
                 assert status == 0, f"Failed to move manipulator {info.mm_number} to contact: {result}"
 
@@ -306,6 +343,7 @@ class touchDetect:
                     else:
                         self._log(f"Failed to correct contact for manipulator {info.mm_number}: {result}")
 
+            # ADD LOGIC TO MOVE THE SPECTEROMETER DOWN
             self._log("Move to contact operation completed successfully - all contacts verified and stable")
             return (0, {"Error message": "OK"})
 
