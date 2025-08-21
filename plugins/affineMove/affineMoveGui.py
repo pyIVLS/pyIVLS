@@ -1410,17 +1410,7 @@ class affineMoveGUI(QObject):
                     
             except Exception as e:
                 self.logger.log_warn(f"Collision detection error: {str(e)}")
-                # Fallback: try to execute without collision detection
-                self.logger.log_info("Attempting movement without collision detection as fallback")
-                # Convert moves_dict to the new format for fallback
-                fallback_sequence = [(manip_idx, target_pos) for manip_idx, (_, target_pos) in moves_dict.items()]
-                status, message = self.execute_move_list(fallback_sequence)
-                
-                if status == 0:
-                    self.logger.log_info(f"Fallback execution successful for iteration {currentIteration}")
-                    return [0, f"_iter{currentIteration}_{point_name}_fallback"]
-                else:
-                    return [1, f"_error_iter{currentIteration}_fallback_failed"]
+                return [1, f"_error_iter{currentIteration}"]
 
 
         except Exception as e:

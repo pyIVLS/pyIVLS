@@ -1,6 +1,6 @@
 import os
 import copy
-from touchDetect import touchDetect
+from touchDetect import touchDetect, ManipulatorInfo
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox, QSpinBox
@@ -8,7 +8,7 @@ from plugins.plugin_components import public, ConnectionIndicatorStyle, GuiMappe
 from components.worker_thread import WorkerThread
 import time
 
-
+# TODO: UPDATE TO WORK WITH MANIPULATOR_INFO
 class touchDetectGUI(QObject):
     non_public_methods = []
     public_methods = ["move_to_contact", "parse_settings_widget", "sequenceStep", "setSettings", "_check_saved_positions", "clear_saved_positions"]
@@ -176,10 +176,13 @@ class touchDetectGUI(QObject):
         if status == 0:
             self.mm_indicator.setStyleSheet(self.green_style)
             self._log_info(f"Micromanipulator devices detected: {state}")
-            for i, status in enumerate(state):
+            num_dev, active_list = state
+            for i, status in enumerate(active_list):
                 if status:
                     box, smu_box, con_box, res_spin = self.manipulator_boxes[i]
+                    self._log_info(f"Micromanipulator {i + 1} is active. Box: {box}, SMU Box: {smu_box}, Con Box: {con_box}, Res Spin: {res_spin}")
                     box.setVisible(True)
+                    self._log_info(f"Set {box} visible for manipulator {i + 1}")
                     smu_box.clear()
                     con_box.clear()
                     smu_box.addItems(self.channel_names)
@@ -324,7 +327,7 @@ class touchDetectGUI(QObject):
                 con_channel = con_box.currentText()
 
                 # Skip if manipulator is not configured
-                if not smu_channel or not con_channel:
+                if not smu_channel or not con_channel or:
                     continue
 
                 threshold = float(res_box.value())

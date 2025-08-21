@@ -148,7 +148,6 @@ class TLCCS_GUI(QObject):
 
     def _update_spectrum(self):
         """Updates the spectrum in the preview window.
-        FIXME: this throws errors if the preview is stopped at the wrong point during the scan. Does not matter since they are handled
 
         Returns:
             _type_: _description_
@@ -174,7 +173,7 @@ class TLCCS_GUI(QObject):
             self.lastspectrum = [info, self.settings]
             return [0, [self.correction[:, 0], info]]
         except Exception as e:
-            self._log_verbose(f"Error occurred while updating spectrum: {e}")
+            self.log_message.emit(f"Error occurred while updating spectrum: {e}")
             return [3, self.lastspectrum]
 
     ########Functions
@@ -211,6 +210,7 @@ class TLCCS_GUI(QObject):
             self._GUIchange_deviceConnected(False)  # see comment in _GUIchange_deviceConnected
 
     def _previewAction(self):
+        # FIXME: The integration time seems to be Doubled. For example, with integ at 5 s, the logs show an update happening only every 10 s
         self._log_verbose("Preview button clicked.")
         if self.preview_running:
             self._log_verbose("Stopping preview. Waiting for scan to finish if in progress.")
@@ -243,6 +243,7 @@ class TLCCS_GUI(QObject):
                 if self.integrationTimeChanged:
                     [status, info] = self.spectrometerSetIntegrationTime(self.settings["integrationTime"])
                     self.integrationTimeChanged = False
+                    # FIXME: sleep_time currently unused for debugging
                     if self.settings["integrationTime"] * 1000 < self.default_timerInterval:
                         self.sleep_time = self.default_timerInterval / 1000
                     else:
@@ -252,7 +253,7 @@ class TLCCS_GUI(QObject):
                         self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
                         self.preview_running = False
                         return [status, info]
-                time.sleep(self.sleep_time)
+                #time.sleep(self.sleep_time)
                 [status, info] = self._update_spectrum()
                 if status:
                     self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
@@ -760,30 +761,22 @@ class TLCCS_GUI(QObject):
 
     def spectrometerGetScan(self):
         """Atomically get a spectrum to prevent weird behavior when a scan is already running."""
-        with self._scan_lock:
-            try:
-                self._log_verbose("combined start / fetch to get spectrum")
-                statuses = self.drv.get_device_status()
-                self._log_verbose(f"Device status when just starting: {statuses}")
-                # this seems to be a redundant check
-                if "SCAN_IDLE" not in statuses:
-                    # Scan is running, read the stale data
-                    self._log_verbose("Scan is running, reading stale data.")
-                    _ = self.drv.get_scan_data()
-                # No scan running, start a new scan
-                self._log_verbose("No scan running, starting new scan.")
-                self.drv.start_scan()
-                self._log_verbose(f"Device status: {self.drv.get_device_status()} directly after scan start")
-                # no additional waittime here, since start_scan already times a wait for the integ time
-                data = self.drv.get_scan_data()
-                self._log_verbose(f"Device status immediately after calling get_scan_data: {self.drv.get_device_status()}")
-                self._log_verbose(f"Scan data shape: {data.shape}, max value: {max(data)}")
-                self.scanRunning = False
-                return [0, data]
-            except ThreadStopped:
-                return [0, "ThreadStopped"]
-            except Exception as e:
-                return [4, {"Error message": f"Can not get scan: {e}"}]
+        # with self._scan_lock:
+        try:
+            self._log_verbose("combined start / fetch to get spectrum")
+            # No scan running, start a new scan
+            self._log_verbose("Starting new scan.")
+            self.drv.start_scan()
+            self._log_verbose(f"Device status: {self.drv.get_device_status()} directly after scan start")
+            data = self.drv.get_scan_data()
+            self._log_verbose(f"Device status immediately after calling get_scan_data: {self.drv.get_device_status()}")
+            self._log_verbose(f"Scan data shape: {data.shape}, max value: {max(data)}")
+            self.scanRunning = False
+            return [0, data]
+        except ThreadStopped:
+            return [0, "ThreadStopped"]
+        except Exception as e:
+            return [4, {"Error message": f"Can not get scan: {e}"}]
 
     ########Functions
     ###############save data
