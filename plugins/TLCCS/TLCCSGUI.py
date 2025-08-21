@@ -372,7 +372,7 @@ class TLCCS_GUI(QObject):
                     self._log_verbose(f"getAutoTime: Failed to update spectrum. {status}, {info}")
                     return [status, info]
                 # save the spectrum if needed
-                if self.settings["saveautoattmepts"]:
+                if self.settings["saveattempts_check"]:
                     varDict = {}
                     varDict["integrationtime"] = guessIntTime / 1000.0
                     varDict["triggermode"] = 1 if self.settings["externalTrigger"] else 0
@@ -441,7 +441,7 @@ class TLCCS_GUI(QObject):
             self.settingsWidget.getIntegrationTime_combo.setCurrentIndex(currentIndex)
         if plugin_info["useintegrationtimeguess"]:
             self.settingsWidget.useIntegrationTimeGuess_check.setChecked(True)
-        if plugin_info["saveattempts_check"]:
+        if plugin_info["saveattempts_check"] == "True" or plugin_info["saveattempts_check"] is True:
             self.settingsWidget.saveAttempts_check.setChecked(True)
         self._GUIchange_deviceConnected(False)
         self.settingsWidget.saveButton.setEnabled(False)
@@ -627,7 +627,7 @@ class TLCCS_GUI(QObject):
             [status, info] = self._parse_settings_integrationTime()
             if status:
                 return [status, info]
-        if not self.settings["saveautoattmepts"]:
+        if not self.settings["saveattempts_check"]:
             [status, info] = self._parseSaveData()
             if status:
                 return [status, info]

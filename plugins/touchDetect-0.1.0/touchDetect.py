@@ -3,9 +3,9 @@
 # detects 20 ohms -> slow down, don't move too far from there
 #
 import time
-import enum
 from dataclasses import dataclass
 from typing import Optional
+
 
 @dataclass
 class ManipulatorInfo:
@@ -13,27 +13,25 @@ class ManipulatorInfo:
     smu_channel: str
     condet_channel: str
     threshold: int
-    stride: int  
+    stride: int
     sample_width: float
     function: str
     last_z: Optional[int] = None
     spectrometer_height: Optional[int] = None
 
     def __post_init__(self):
-        """Generates new field (self.function) after __init__ is called
-        """
+        """Generates new field (self.function) after __init__ is called"""
         if self.smu_channel == "spectrometer" or self.condet_channel == "spectrometer":
             self.function: str = "spectrometer"
         elif self.smu_channel == "none" or self.condet_channel == "none":
             self.function: str = "unconfigured"
         elif self.smu_channel == "" or self.condet_channel == "":
             self.function: str = "unconfigured"
-        else: 
+        else:
             self.function: str = "normal"
 
     def validate(self) -> list[str]:
-        """Returns a list of validation errors, if any.
-        """
+        """Returns a list of validation errors, if any."""
         errors = []
         if self.threshold <= 0:
             errors.append("Invalid threshold")
@@ -48,24 +46,157 @@ class ManipulatorInfo:
         return errors
 
     def is_configured(self) -> bool:
-        """Returns True if the manipulator is configured, False otherwise.
-        """
+        """Returns True if the manipulator is configured, False otherwise."""
         return self.function != "unconfigured"
 
 
 class touchDetect:
-    def __init__(self, log=None):
-        self.approach_margin = 200  # Margin before last known position to start measurements (microns)
-        self.monitoring_duration = 2  # seconds to monitor stability after initial contact
-        self.monitoring_stability_attempts = 5  # Number of attempts to achieve stable contact
-        self.MAX_CORRECTION_ATTEMPTS = 10  # Maximum attempts to correct non-contacting manipulators
+    MAX_CORRECTION_ATTEMPTS = 10  # maximum attempts to correct non-contacting manipulators
+    MONITORING_DURATION = 2  # seconds, to monitor stability after initial contact
+    APPROACH_MARGIN = 200  # microns, margin before last known position
 
+    def __init__(self, log=None):
         # Store logging functions from GUI if provided
         self.log = log
 
     def _log(self, message):
         if self.log:
             self.log(message)
+
+    def monitor_manual_contact_detection(self, mm: object, smu: object, con: object, manipulator_infos: list[ManipulatorInfo], progress_callback=None, error_callback=None, stop_requested_callback=None) -> tuple[int, dict]:
+        """
+        Monitors for manual contact detection and saves Z positions to ManipulatorInfo objects.
+
+        Args:
+            mm: Micromanipulator object
+            smu: SMU object
+            con: Contact detection object
+            manipulator_infos: List of ManipulatorInfo objects to monitor
+            progress_callback: Function to call with progress messages
+            error_callback: Function to call with error messages
+            stop_requested_callback: Function that returns True if stop is requested
+
+        Returns:
+            tuple[int, dict]: (status, result_dict)
+        """
+        try:
+            self._log("Starting manual contact detection monitoring")
+
+            # Connect to devices
+            status, state = con.deviceConnect()
+            if status != 0:
+                if error_callback:
+                    error_callback(f"Contact detection connection failed: {state}")
+                return (status, {"Error message": f"Contact detection failed: {state}"})
+
+            status_smu, state_smu = smu.smu_connect()
+            if status_smu != 0:
+                if error_callback:
+                    error_callback(f"SMU connection failed: {state_smu}")
+                return (status_smu, {"Error message": f"SMU failed: {state_smu}"})
+
+            status_mm, state_mm = mm.mm_open()
+            if status_mm != 0:
+                if error_callback:
+                    error_callback(f"Micromanipulator connection failed: {state_mm}")
+                return (status_mm, {"Error message": f"MM failed: {state_mm}"})
+
+            if progress_callback:
+                progress_callback("All devices connected successfully")
+
+            # Filter to only configured manipulators
+            configured_manipulators = [info for info in manipulator_infos if info.is_configured()]
+
+            if not configured_manipulators:
+                error_msg = "No configured manipulators found"
+                if error_callback:
+                    error_callback(error_msg)
+                return (1, {"Error message": error_msg})
+
+            # Process each configured manipulator
+            for info in configured_manipulators:
+                if stop_requested_callback and stop_requested_callback():
+                    break
+
+                self._log(f"Starting monitoring for manipulator {info.mm_number}")
+                if progress_callback:
+                    progress_callback(f"Starting monitoring for manipulator {info.mm_number} (SMU: {info.smu_channel}, Con: {info.condet_channel}, Threshold: {info.threshold})")
+
+                # Set up measurement for this manipulator
+                status, state = self._manipulator_measurement_setup(mm, smu, con, info)
+                if status != 0:
+                    if error_callback:
+                        error_callback(f"Failed to setup manipulator {info.mm_number}: {state}")
+                    continue
+
+                if progress_callback:
+                    progress_callback(f"MANUAL CONTROL: Move manipulator {info.mm_number} manually until contact is detected")
+                    progress_callback(f"Monitoring resistance on {info.smu_channel} with threshold {info.threshold}...")
+
+                # Monitor loop for this manipulator
+                contact_detected = False
+                last_resistance_log = None
+
+                while not contact_detected and not (stop_requested_callback and stop_requested_callback()):
+                    try:
+                        contacting, r = self._contacting(smu, info)
+
+                        # Log resistance updates less frequently to avoid spam
+                        if last_resistance_log is None or abs(r - last_resistance_log) > info.threshold * 0.1:
+                            if progress_callback:
+                                progress_callback(f"Manipulator {info.mm_number} resistance: {r:.1f} Ω (threshold: {info.threshold} Ω)")
+                            last_resistance_log = r
+
+                        if contacting:
+                            # Contact detected! Save the z-position to ManipulatorInfo
+                            status, position_data = mm.mm_current_position()
+                            if status == 0:
+                                x, y, z_position = position_data
+                                info.last_z = int(z_position)
+                                self._log(f"Contact detected for manipulator {info.mm_number} at Z={z_position}")
+                                if progress_callback:
+                                    progress_callback(f"Contact detected for manipulator {info.mm_number} at Z={z_position}")
+                                contact_detected = True
+                            else:
+                                if error_callback:
+                                    error_callback(f"Failed to get position for manipulator {info.mm_number}")
+
+                        time.sleep(0.1)
+
+                    except Exception as e:
+                        if error_callback:
+                            error_callback(f"Exception during monitoring for manipulator {info.mm_number}: {str(e)}")
+                        break
+
+                # Clean up for this manipulator
+                self._channels_off_single_manipulator(con, smu)
+
+            if not (stop_requested_callback and stop_requested_callback()):
+                saved_positions = {info.mm_number: info.last_z for info in configured_manipulators if info.last_z is not None}
+                if progress_callback:
+                    progress_callback("Monitoring completed for all configured manipulators")
+                    progress_callback(f"Saved positions: {saved_positions}")
+                return (0, {"Error message": "Monitoring completed successfully", "saved_positions": saved_positions})
+            else:
+                if progress_callback:
+                    progress_callback("Monitoring stopped by user")
+                return (0, {"Error message": "Monitoring stopped by user"})
+
+        except Exception as e:
+            error_msg = f"Exception during monitoring: {str(e)}"
+            self._log(error_msg)
+            if error_callback:
+                error_callback(error_msg)
+            return (2, {"Error message": error_msg, "Exception": str(e)})
+
+        finally:
+            # Clean up
+            try:
+                self._channels_off(con, smu)
+                if progress_callback:
+                    progress_callback("Disconnected from all devices")
+            except Exception:
+                pass  # Ignore cleanup errors
 
     def _setup_and_move_to_contact(self, mm: object, smu: object, con: object, info: ManipulatorInfo) -> tuple[int, dict]:
         """Helper method to setup measurement and move to contact for a single manipulator."""
@@ -81,15 +212,14 @@ class touchDetect:
                 return status, {"Error message": f"Failed to move to last contact position: {state}"}
 
             # compute the maximum move distance for the initial move
-            effective_max_distance = self.approach_margin + info.sample_width
+            effective_max_distance = self.APPROACH_MARGIN + info.sample_width
 
             # move down until contact is detected
             status, result = self._move_until_contact(mm, smu, info, effective_max_distance)
             return status, result
-            
+
         except Exception as e:
             return 1, {"Error message": f"Exception in setup and move: {str(e)}"}
-
 
     def move_to_contact(self, mm: object, con: object, smu: object, manipulator_info: list[ManipulatorInfo]):
         """Moves the specified micromanipulators to contact with the sample.
@@ -168,7 +298,7 @@ class touchDetect:
                     assert status == 0, f"Failed to set up measurement for manipulator {info.mm_number}: {state}"
 
                     correction_max_distance = info.stride * 8  # Limited correction distance
-                    
+
                     # move until contact is detected using the method that does not use the last known position
                     status, result = self._move_until_contact(mm, smu, info, correction_max_distance)
                     if status == 0:
@@ -258,7 +388,7 @@ class touchDetect:
             manipulator_info: list of ManipulatorInfo objects
 
         Returns:
-            list[ManipulatorInfo]: 
+            list[ManipulatorInfo]:
         """
         contact_status = []
 
@@ -267,7 +397,7 @@ class touchDetect:
             assert status == 0, f"Failed to set up measurement for manipulator {info.mm_number}: {state}"
 
             try:
-                contacting = self._monitor_contact_stability(smu, info, duration_seconds=self.monitoring_duration)
+                contacting = self._monitor_contact_stability(smu, info, duration_seconds=self.MONITORING_DURATION)
                 if not contacting:
                     self._log(f"Manipulator {info.mm_number} not contacting (above threshold)")
                     contact_status.append(info)
@@ -283,7 +413,7 @@ class touchDetect:
     def _move_until_contact(self, mm: object, smu: object, manipulator_info: ManipulatorInfo, max_distance_to_move: float) -> tuple[int, dict]:
         total_distance = 0
         # Move until initial contact is detected
-        contacting, r = self._contacting(smu, manipulator_info.smu_channel, manipulator_info.threshold)
+        contacting, r = self._contacting(smu, manipulator_info)
         while not contacting:
             if total_distance > max_distance_to_move:
                 error_msg = f"Maximum distance {max_distance_to_move} exceeded for manipulator {manipulator_info.mm_number} (moved {total_distance})"
@@ -297,12 +427,12 @@ class touchDetect:
             self._log(f"Moving manipulator {manipulator_info.mm_number} down by {current_stride} microns (total moved: {total_distance + current_stride})")
 
             total_distance += current_stride
-            contacting, r = self._contacting(smu, manipulator_info.smu_channel, manipulator_info.threshold)
+            contacting, r = self._contacting(smu, manipulator_info)
         # Initial contact detected! Return success
         return (0, {"Error message": "OK"})
 
     def _move_manipulator_to_last_contact(self, mm: object, manipulator_info: ManipulatorInfo) -> tuple[int, dict]:
-        """Does no error checking, just assumes that the ManipulatorInfo is already validated in public functions.
+        """Does no error checking, just assumes that the ManipulatorInfo is already validated in public functions. Moves the manipulator to the last known contact position + APPROACH_MARGIN.
 
         Args:
             mm (object): _description_
@@ -313,9 +443,9 @@ class touchDetect:
         """
 
         last_position = manipulator_info.last_z
-        last_position = last_position - self.approach_margin  # Move down to approach margin
+        last_position = last_position - self.APPROACH_MARGIN  # Move down to approach margin
         self._log(f"Moving manipulator {manipulator_info.mm_number} to last contact position {last_position}")
-        status, result = mm.mm_move(z = last_position)
+        status, result = mm.mm_move(z=last_position)
         if status != 0:
             return (status, result)
         return (0, {"message": f"Manipulator {manipulator_info.mm_number} moved to last contact position {last_position}"})
@@ -354,6 +484,15 @@ class touchDetect:
             smu.smu_disconnect()
             con.deviceDisconnect()
             self._log("Cleanup completed successfully")
-            
+
         except Exception as e:
             self._log(f"Error during cleanup: {str(e)}")
+
+    def _channels_off_single_manipulator(self, con: object, smu: object):
+        """Cleanup function for a single manipulator without disconnecting devices."""
+        try:
+            con.deviceLoCheck(False)
+            con.deviceHiCheck(False)
+            smu.smu_outputOFF()
+        except Exception as e:
+            self._log(f"Error during single manipulator cleanup: {str(e)}")
