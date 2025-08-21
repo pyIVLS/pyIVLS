@@ -253,7 +253,7 @@ class TLCCS_GUI(QObject):
                         self.info_message.emit(f"TLCCS plugin : {info['Error message']}")
                         self.preview_running = False
                         return [status, info]
-                #time.sleep(self.sleep_time)
+                # time.sleep(self.sleep_time)
                 [status, info] = self._update_spectrum()
                 if status:
                     self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
@@ -545,9 +545,9 @@ class TLCCS_GUI(QObject):
 
     def _parse_settings_autoTime(self) -> "status":
         self.settings["integrationtimetype"] = self.settingsWidget.getIntegrationTime_combo.currentText()
-        self.settings["saveautoattmepts"] = self.settingsWidget.saveAttempts_check.isChecked()
+        self.settings["saveattempts_check"] = self.settingsWidget.saveAttempts_check.isChecked()
         self.settings["useintegrationtimeguess"] = self.settingsWidget.useIntegrationTimeGuess_check.isChecked()
-        if self.settings["saveautoattmepts"]:
+        if self.settings["saveattempts_check"]:
             [status, info] = self._parseSaveData()
             if status:
                 return [status, info]
@@ -690,6 +690,10 @@ class TLCCS_GUI(QObject):
         try:
             self._log_verbose(f"Setting integration time to {integrationTime} seconds.")
             self.drv.set_integration_time(integrationTime)
+            # single scan to make sure the time is correctly set
+            self.drv.start_scan()
+            self.drv.get_scan_data()
+
             return [0, "OK"]
         except ThreadStopped:
             pass
@@ -718,7 +722,7 @@ class TLCCS_GUI(QObject):
                 self._log_verbose("Scan is already running.")
                 self._log_verbose(f"Device status: {self.drv.get_device_status()}")
                 return [1, {"Error message": "Scan is already running"}]
-            
+
             self.drv.start_scan()
             self.scanRunning = True
             self._log_verbose("Spectrometer scan started successfully.")
