@@ -3,7 +3,7 @@
 
 import pluggy
 import configparser
-from plugins.verify_contact.verifyContactGui import touchDetectGUI
+from verifyContactGui import verifyContactGUI
 import os
 
 
@@ -27,7 +27,7 @@ class pyIVLS_verifyContact_plugin:
         self.function = config.get("plugin", "function")
         self._class = config.get("plugin", "class")
         self.dependencies = config.get("plugin", "dependencies").split(",")
-        self.pluginClass = touchDetectGUI()
+        self.pluginClass = verifyContactGUI()
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:

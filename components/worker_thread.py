@@ -13,6 +13,8 @@ class WorkerThread(QThread):
         self.args = args
         self.kwargs = kwargs
         self._stop_requested = False
+        # to handle deletion
+        self.finished.connect(self.deleteLater)
 
     def run(self):
         """Run the task in the thread."""
@@ -25,6 +27,10 @@ class WorkerThread(QThread):
                 self.finished.emit()
         except Exception as e:
             self.error.emit(str(e))
+        finally:
+            if not self._stop_requested:
+                if result is not None:
+                    self.result.emit(result)  # Emit the final result if available
 
     def stop(self):
         """Request the thread to stop gracefully."""

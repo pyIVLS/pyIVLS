@@ -624,14 +624,4 @@ class dialog(QDialog):
         else:
             self.info_message("All image points selected. If you want to retry, re-enter manual mode.")
 
-    def closeEvent(self, event):
-        """
-        Handle dialog close event to properly clean up the worker thread.
-        """
-        if self.worker_thread is not None and self.worker_thread.isRunning():
-            self.worker_thread.stop()
-            self.worker_thread.wait(3000)  # Wait up to 3 seconds for thread to finish
-            if self.worker_thread.isRunning():
-                self.worker_thread.terminate()  # Force terminate if still running
-        
-        super().closeEvent(event)
+

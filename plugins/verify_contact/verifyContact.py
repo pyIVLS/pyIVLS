@@ -29,7 +29,15 @@ class ManipulatorInfo:
             self.function: str = "unconfigured"
         else:
             self.function: str = "normal"
-
+        # convert all to proper types
+        self.mm_number = int(self.mm_number)
+        self.smu_channel = str(self.smu_channel)
+        self.condet_channel = str(self.condet_channel)
+        self.threshold = int(self.threshold)
+        self.stride = int(self.stride)
+        self.sample_width = float(self.sample_width)
+        self.last_z = int(self.last_z) if self.last_z is not None else None
+        self.spectrometer_height = int(self.spectrometer_height) if self.spectrometer_height is not None else None
     def with_new_settings(self, **kwargs) -> "ManipulatorInfo":
         """
         Creates a new ManipulatorInfo instance with updated settings.
@@ -88,7 +96,7 @@ class ManipulatorInfo:
         return self.function == "normal" and self.last_z is None
 
 
-class touchDetect:
+class verifyContact:
     MAX_CORRECTION_ATTEMPTS = 10  # maximum attempts to correct non-contacting manipulators
     MONITORING_DURATION = 2  # seconds, to monitor stability after initial contact
     APPROACH_MARGIN = 200  # microns, margin before last known position
@@ -112,6 +120,13 @@ class touchDetect:
         Returns:
             bool: True if all manipulators are in contact, False otherwise
         """
+        # connect devices
+        status, state = con.deviceConnect()
+        status_smu, state_smu = smu.smu_connect()
+
+        assert status == 0, f"Contact detection connection failed: {state}"
+        assert status_smu == 0, f"SMU connection failed: {state_smu}"
+        allgood = True
         for info in manipulators:
             # filter out unconfigured manipulators
             if not info.is_configured():
@@ -124,8 +139,9 @@ class touchDetect:
             # monitor
             if not self._monitor_contact_stability(smu, info, self.MONITORING_DURATION):
                 self._log(f"Manipulator {info.mm_number} lost contact during stability monitoring")
-                return False
-        return True
+                allgood = False
+        self._channels_off(con, smu)
+        return allgood
 
     def _monitor_contact_stability(self, smu: object, info: ManipulatorInfo, duration_seconds: int) -> bool:
         """
@@ -217,11 +233,3 @@ class touchDetect:
         except Exception as e:
             self._log(f"Error during cleanup: {str(e)}")
 
-    def _channels_off_single_manipulator(self, con: object, smu: object):
-        """Cleanup function for a single manipulator without disconnecting devices."""
-        try:
-            con.deviceLoCheck(False)
-            con.deviceHiCheck(False)
-            smu.smu_outputOFF()
-        except Exception as e:
-            self._log(f"Error during single manipulator cleanup: {str(e)}")

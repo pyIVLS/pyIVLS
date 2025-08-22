@@ -29,6 +29,16 @@ class ManipulatorInfo:
             self.function: str = "unconfigured"
         else:
             self.function: str = "normal"
+        
+        # convert all to proper types
+        self.mm_number = int(self.mm_number)
+        self.smu_channel = str(self.smu_channel)
+        self.condet_channel = str(self.condet_channel)
+        self.threshold = int(self.threshold)
+        self.stride = int(self.stride)
+        self.sample_width = float(self.sample_width)
+        self.last_z = int(self.last_z) if self.last_z is not None else None
+        self.spectrometer_height = int(self.spectrometer_height) if self.spectrometer_height is not None else None
 
     def with_new_settings(self, **kwargs) -> "ManipulatorInfo":
         """
@@ -180,6 +190,8 @@ class touchDetect:
                 while not contact_detected and not (stop_requested_callback and stop_requested_callback()):
                     try:
                         contacting, r = self._contacting(smu, info)
+                        if r < 0:
+                            raise Exception("Keithley HW exception")
 
                         # Log resistance updates less frequently to avoid spam
                         if last_resistance_log is None or abs(r - last_resistance_log) > info.threshold * 0.1:
@@ -285,10 +297,8 @@ class touchDetect:
             assert status == 0, f"Contact detection connection failed: {state}"
             assert status_smu == 0, f"SMU connection failed: {state_smu}"
             assert status_mm == 0, f"Micromanipulator connection failed: {state_mm}"
-            print(manipulator_info)
             # remove manipulators from the list with no configuration
             manipulator_info = [info for info in manipulator_info if info.is_configured()]
-            print(manipulator_info)
             # remove manipulators with invalid configurations:
             validated = []
             for info in manipulator_info:

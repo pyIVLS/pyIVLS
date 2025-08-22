@@ -58,10 +58,13 @@ class ManipulatorInfoWrapper(QObject):
 
     def validate(self) -> list[str]:
         return self.mi.validate()
+    
+    def is_visible(self) -> bool:
+        return self.man_box.isVisible()
 
     def get_standardized_settings(self) -> dict:
         """Export current settings in standardized format (1_smu, 1_con, etc.)"""
-        if self.man_box.isVisible():
+        if self.is_visible:
             return self.mi.to_named_dict()
         return {}
 
@@ -368,6 +371,7 @@ class touchDetectGUI(QObject):
         else:
             # Stop monitoring
             self.logger.log_info("Stopping monitoring thread")
+            self.settingsWidget.pushButton_2.setText("Start Monitoring")
             if self.monitoring_thread:
                 self.monitoring_thread.stop()
 
@@ -406,9 +410,16 @@ class touchDetectGUI(QObject):
         settings = {}
         # Collect manipulator settings
         for wrap in self.manipulator_wrappers:
-            wrap.update_settings_from_gui()  # Update ManipulatorInfo with current GUI values
-            wrap_set = wrap.get_standardized_settings()
-            settings.update(wrap_set)
+            # do nothing if box is not visible.
+            if wrap.is_visible():
+                wrap.update_settings_from_gui()  # Update ManipulatorInfo with current GUI values
+                errors = wrap.mi.validate()
+                if errors:
+                    self.logger.log_warn(f"Validation errors found in manipulator {wrap.mi.mm_number}: {errors}")
+                    return(1, {"Error message": f"Validation errors found in manipulator {wrap.mi.mm_number}: {errors}"})
+                else:
+                    wrap_set = wrap.get_standardized_settings()
+                    settings.update(wrap_set)
 
         # extract channels
         con_channels = []
@@ -423,13 +434,13 @@ class touchDetectGUI(QObject):
         # check that channels are unique across manipulators, except "none" can be present more than once
         if len(con_channels) != len(set(con_channels)):
             return (1, {"Error message": "Contact detection channels must be unique across manipulators."})
-
+        print(settings)
         return (0, settings)
 
     @public
     def setSettings(self, settings: dict):
         self.logger.log_debug("Setting settings for touchDetect plugin: " + str(settings))
-
+        print(settings)
         # Deep copy to avoid modifying original data
         settings_to_parse = copy.deepcopy(settings)
         for wrap in self.manipulator_wrappers:
@@ -454,12 +465,19 @@ class touchDetectGUI(QObject):
         mm, smu, con = self._fetch_dep_plugins()
         # Get configured manipulator wrappers and their ManipulatorInfo objects
         configured_wrappers = [wrapper for wrapper in self.manipulator_wrappers if wrapper.is_configured()]
+        print(len(configured_wrappers))
         manipulator_infos = [wrapper.mi for wrapper in configured_wrappers]
-
+        print(manipulator_infos)
         if not manipulator_infos:
             error_msg = "No configured manipulators found"
             self.logger.log_warn(error_msg)
             return (1, {"Error message": error_msg})
+        # validate infos
+        for info in manipulator_infos:
+            validation_errors = info.validate()
+            if validation_errors:
+                self.logger.log_warn(f"Validation errors found: {validation_errors}")
+                return (1, {"Error message": f"Validation errors found: {validation_errors}"})
 
         status, state = self.functionality.move_to_contact(mm, con, smu, manipulator_infos)
 
