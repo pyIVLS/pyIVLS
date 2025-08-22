@@ -596,7 +596,7 @@ class sweepGUI(QObject):
                 self.logger.log_warn(str(message))
             else:
                 self.logger.log_info(str(message))
-            self.info_message.emit(message["Error message"])
+            self.logger.log_info(message["Error message"])
             self.set_running(False)
             self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
 
@@ -609,7 +609,7 @@ class sweepGUI(QObject):
                 self.logger.log_warn(str(message))
             else:
                 self.logger.log_info(str(message))
-            self.info_message.emit(message["Error message"])
+            self.logger.log_info(message["Error message"])
             self.set_running(False)
             self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
 
@@ -755,13 +755,13 @@ class sweepGUI(QObject):
             exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
             self._sweepImplementation()
         except sweepException as e:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f"{e}")
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f"{e}")
             exception = 1
         except ThreadStopped:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")
             exception = 2
         except Exception as e:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f": sweep plugin implementation stopped because of unexpected exception: {e}")
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f": sweep plugin implementation stopped because of unexpected exception: {e}")
             exception = 3
         finally:
             try:
@@ -772,10 +772,10 @@ class sweepGUI(QObject):
                 self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
                 self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
                 if exception == 3 or exception == 1:
-                    self.info_message.emit("Implementation stopped because of exception. Check log")
+                    self.logger.info_popup("Implementation stopped because of exception. Check log")
             except Exception as e:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")
-                self.info_message.emit("SMU turn off failed. Check log")
+                self.logger.log_error(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")
+                self.logger.info_popup("SMU turn off failed. Check log")
             self.set_running(False)
 
     @public
