@@ -85,7 +85,9 @@ class ManipulatorInfo:
 
     def needs_z_pos(self) -> bool:
         """Returns True if the manipulator needs a Z position to be set, False otherwise."""
-        return self.function == "normal" and self.last_z is None
+        return self.function == "normal" # and self.last_z is None
+        # Commented second part of statement out because if it is set, then resetting the z-position is not possible
+        # since the manipulators are filtered out
 
 
 class touchDetect:
