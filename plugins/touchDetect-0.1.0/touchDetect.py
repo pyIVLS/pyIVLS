@@ -187,17 +187,13 @@ class touchDetect:
 
                         if contacting:
                             # Contact detected! Save the z-position to ManipulatorInfo
-                            status, position_data = mm.mm_current_position()
-                            if status == 0:
-                                x, y, z_position = position_data
-                                info.last_z = int(z_position)
-                                self._log(f"Contact detected for manipulator {info.mm_number} at Z={z_position}")
-                                if progress_callback:
-                                    progress_callback(f"Contact detected for manipulator {info.mm_number} at Z={z_position}")
-                                contact_detected = True
-                            else:
-                                if error_callback:
-                                    error_callback(f"Failed to get position for manipulator {info.mm_number}")
+                            position_data = mm.mm_current_position()
+                            x, y, z_position = position_data
+                            info.last_z = int(z_position)
+                            self._log(f"Contact detected for manipulator {info.mm_number} at Z={z_position}")
+                            if progress_callback:
+                                progress_callback(f"Contact detected for manipulator {info.mm_number} at Z={z_position}")
+                            contact_detected = True
 
                         time.sleep(0.1)
 
@@ -287,10 +283,10 @@ class touchDetect:
             assert status == 0, f"Contact detection connection failed: {state}"
             assert status_smu == 0, f"SMU connection failed: {state_smu}"
             assert status_mm == 0, f"Micromanipulator connection failed: {state_mm}"
-
+            print(manipulator_info)
             # remove manipulators from the list with no configuration
             manipulator_info = [info for info in manipulator_info if info.is_configured()]
-
+            print(manipulator_info)
             # remove manipulators with invalid configurations:
             validated = []
             for info in manipulator_info:

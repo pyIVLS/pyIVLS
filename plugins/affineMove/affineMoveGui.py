@@ -941,7 +941,6 @@ class affineMoveGUI(QObject):
                         try:
                             camera_x, camera_y = pos.positioning_coords(point)
                             target_coords[point_idx][device_idx] = (float(camera_x), float(camera_y))
-                            self.logger.log_debug(f"Point {point_idx}, Device {device_idx}: mask {point} -> camera ({camera_x}, {camera_y})")
                         except Exception as e:
                             self.logger.log_debug(f"Error converting mask coordinates {point} to camera coordinates: {e}")
                             target_coords[point_idx][device_idx] = None

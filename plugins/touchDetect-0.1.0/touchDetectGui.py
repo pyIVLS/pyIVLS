@@ -215,6 +215,8 @@ class touchDetectGUI(QObject):
             self.logger.log_debug(f"SMU channels available: {self.channel_names}")
         status, state = mm.mm_devices()
 
+        self.smu_channels = self.channel_names + ["none", "spectrometer"]
+
         if status == 0:
             self.mm_indicator.setStyleSheet(self.green_style)
             self.logger.log_info(f"Micromanipulator devices detected: {state}")
@@ -308,19 +310,6 @@ class touchDetectGUI(QObject):
             # remove manipulators that don't need z-position
             manipulator_infos = [info for info in manipulator_infos if info.needs_z_pos()]
 
-            # Validate all manipulator configurations
-            validation_errors = []
-            for wrapper in configured_wrappers:
-                errors = wrapper.validate()
-                if errors:
-                    validation_errors.extend([f"Manipulator {wrapper.mi.mm_number}: {error}" for error in errors])
-
-            # Report validation errors if any
-            if validation_errors:
-                error_msg = "; ".join(validation_errors)
-                worker_thread.error.emit(f"Validation errors: {error_msg}")
-                return (1, {"Error message": f"Validation errors: {error_msg}"})
-
             # Define callbacks for the monitoring
             def progress_callback(message):
                 worker_thread.progress.emit(message)
@@ -336,14 +325,6 @@ class touchDetectGUI(QObject):
 
             # Update the wrappers with the saved z-positions from the monitoring result
             if status == 0:
-                for wrapper in configured_wrappers:
-                    # The ManipulatorInfo objects were modified in-place during monitoring
-                    # Update the wrapper's internal ManipulatorInfo with the new last_z value
-                    if wrapper.mi.last_z is not None:
-                        # Update the functionality's last_z dictionary as well
-                        self.functionality.last_z[wrapper.mi.mm_number] = wrapper.mi.last_z
-                        worker_thread.progress.emit(f"Saved z-position {wrapper.mi.last_z} for manipulator {wrapper.mi.mm_number}")
-
                 # Log summary of saved positions
                 saved_positions = {w.mi.mm_number: w.mi.last_z for w in configured_wrappers if w.mi.last_z is not None}
                 if saved_positions:
@@ -365,7 +346,7 @@ class touchDetectGUI(QObject):
             # Start monitoring
             self.logger.log_info("Starting threaded resistance monitoring for all manipulators")
             self.is_monitoring = True
-
+            self.parse_settings_widget()
             # Update button text to show stop option
             self.settingsWidget.pushButton_2.setText("Stop Monitoring")
 
