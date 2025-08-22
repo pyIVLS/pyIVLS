@@ -413,8 +413,14 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
+    def mm_get_active_device(self):
+        """Returns the currently active device."""
+        try:
+            return [0, self.hal.get_active_device()]
+        except Exception as e:
+            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+
     def mm_up_max(self):
-        """DEPRECATED"""
         """Moves to z = 0"""
         try:
             x, y, z = self.hal.get_current_position()

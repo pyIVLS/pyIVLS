@@ -1,11 +1,10 @@
 import os
 import copy
-from touchDetect import touchDetect, ManipulatorInfo
+from verifyContact import verifyContact, ManipulatorInfo
 from PyQt6.QtCore import pyqtSignal, QObject, pyqtSlot
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox, QSpinBox
 from plugins.plugin_components import public, ConnectionIndicatorStyle, get_public_methods, LoggingHelper
-from components.worker_thread import WorkerThread
 
 
 class ManipulatorInfoWrapper(QObject):
@@ -23,9 +22,9 @@ class ManipulatorInfoWrapper(QObject):
         self.sample_width = settingsWidget.findChild(QSpinBox, "sample_width")
         self.spectro_height = settingsWidget.findChild(QSpinBox, "spectro_height")
 
-        assert self.stride is not None, "touchDetectGui: stride SpinBox not found"
-        assert self.sample_width is not None, "touchDetectGui: sample_width SpinBox not found"
-        assert self.spectro_height is not None, "touchDetectGui: spectro_height SpinBox not found"
+        assert self.stride is not None, "verifyContactGui: stride SpinBox not found"
+        assert self.sample_width is not None, "verifyContactGui: sample_width SpinBox not found"
+        assert self.spectro_height is not None, "verifyContactGui: spectro_height SpinBox not found"
 
         # internal state
         self.mi = ManipulatorInfo(mm_number=mm_number, smu_channel=self.smu_channel.currentText(), condet_channel=self.con_channel.currentText(), threshold=self.threshold.value(), stride=self.stride.value(), sample_width=self.sample_width.value(), spectrometer_height=self.spectro_height.value(), function="")
@@ -90,7 +89,7 @@ class ManipulatorInfoWrapper(QObject):
         self.man_box.setVisible(visible)
 
 
-class touchDetectGUI(QObject):
+class verifyContactGUI(QObject):
     green_style = ConnectionIndicatorStyle.GREEN_CONNECTED.value
     red_style = ConnectionIndicatorStyle.RED_DISCONNECTED.value
 
@@ -120,7 +119,7 @@ class touchDetectGUI(QObject):
             self._dependencies = value
             self.dependencies_changed()
         else:
-            raise TypeError("touchDetectGUI : dependencies must be a list")
+            raise TypeError("verifyContactGUI : dependencies must be a list")
 
     ########Functions
     def __init__(self):
@@ -132,8 +131,8 @@ class touchDetectGUI(QObject):
         # Initialize LoggingHelper
         self.logger = LoggingHelper(self)
 
-        self.functionality = touchDetect(log=self.logger.log_debug)
-        self.settingsWidget = uic.loadUi(self.path + "touchDetect_Settings.ui")
+        self.functionality = verifyContact(log=self.logger.log_debug)
+        self.settingsWidget = uic.loadUi(self.path + "verifyContact_Settings.ui")
 
         # Initialize the combo boxes for dependencies
         self.smu_box: QComboBox = self.settingsWidget.smuBox
@@ -157,8 +156,6 @@ class touchDetectGUI(QObject):
 
         # connect signals:
         self.settingsWidget.initButton.clicked.connect(self.update_status)
-        self.settingsWidget.pushButton.clicked.connect(self._test)
-        self.settingsWidget.pushButton_2.clicked.connect(self._monitor_threaded)
 
         self.con_channels = ["Hi", "Lo", "none", "spectrometer"]
         self.smu_channels = ["none", "spectrometer"]
@@ -193,9 +190,9 @@ class touchDetectGUI(QObject):
                 if self.condet_box.currentText() == metadata.get("name"):
                     condet = plugin
 
-        assert micromanipulator is not None, "touchDetect: micromanipulator plugin is None"
-        assert smu is not None, "touchDetect: smu plugin is None"
-        assert condet is not None, "touchDetect: contacting plugin is None"
+        assert micromanipulator is not None, "verifyContact: micromanipulator plugin is None"
+        assert smu is not None, "verifyContact: smu plugin is None"
+        assert condet is not None, "verifyContact: contacting plugin is None"
 
         return micromanipulator, smu, condet
 
@@ -282,125 +279,6 @@ class touchDetectGUI(QObject):
 
         return self.settingsWidget
 
-    def _monitor_worker(self, worker_thread: WorkerThread):
-        """
-        Worker function that runs the monitoring in a separate thread.
-        This function now uses the touchDetect.monitor_manual_contact_detection method.
-
-        Args:
-            worker_thread: The WorkerThread instance for communication and stop checking
-        """
-        try:
-            mm, smu, con = self._fetch_dep_plugins()
-
-            # Get current settings from GUI and update all wrappers
-            for wrapper in self.manipulator_wrappers:
-                wrapper.update_settings_from_gui()
-
-            # Get configured manipulator wrappers (use the actual wrapper ManipulatorInfo objects)
-            configured_wrappers = [wrapper for wrapper in self.manipulator_wrappers if wrapper.is_configured()]
-
-            if not configured_wrappers:
-                worker_thread.error.emit("No configured manipulators found")
-                return (1, {"Error message": "No configured manipulators found"})
-
-            # Extract the ManipulatorInfo objects from configured wrappers
-            manipulator_infos = [wrapper.mi for wrapper in configured_wrappers]
-
-            # remove manipulators that don't need z-position
-            manipulator_infos = [info for info in manipulator_infos if info.needs_z_pos()]
-            if not manipulator_infos:
-                worker_thread.error.emit("No manipulators require z-position monitoring")
-                return (1, {"Error message": "No manipulators require z-position monitoring"})
-
-            # Define callbacks for the monitoring
-            def progress_callback(message):
-                worker_thread.progress.emit(message)
-
-            def error_callback(message):
-                worker_thread.error.emit(message)
-
-            def stop_requested_callback():
-                return worker_thread.is_stop_requested()
-
-            # Use the touchDetect monitor_manual_contact_detection method
-            status, result = self.functionality.monitor_manual_contact_detection(mm=mm, smu=smu, con=con, manipulator_infos=manipulator_infos, progress_callback=progress_callback, error_callback=error_callback, stop_requested_callback=stop_requested_callback)
-
-            # Update the wrappers with the saved z-positions from the monitoring result
-            if status == 0:
-                # Log summary of saved positions
-                saved_positions = {w.mi.mm_number: w.mi.last_z for w in configured_wrappers if w.mi.last_z is not None}
-                if saved_positions:
-                    worker_thread.progress.emit(f"Monitoring completed. Saved positions: {saved_positions}")
-
-            return (status, result)
-
-        except Exception as e:
-            error_msg = f"Exception during monitoring: {str(e)}"
-            worker_thread.error.emit(error_msg)
-            return (2, {"Error message": error_msg, "Exception": str(e)})
-
-    def _monitor_threaded(self):
-        """
-        Starts or stops the monitoring process in a separate thread.
-        This keeps the GUI responsive during monitoring.
-        """
-        if not self.is_monitoring:
-            # Start monitoring
-            self.logger.log_info("Starting threaded resistance monitoring for all manipulators")
-            self.is_monitoring = True
-            self.parse_settings_widget()
-            # Update button text to show stop option
-            self.settingsWidget.pushButton_2.setText("Stop Monitoring")
-
-            # Create and start the worker thread
-            self.monitoring_thread = WorkerThread(self._monitor_worker)
-
-            # Connect thread signals
-            self.monitoring_thread.progress.connect(self._on_monitoring_progress)
-            self.monitoring_thread.error.connect(self._on_monitoring_error)
-            self.monitoring_thread.finished.connect(self._on_monitoring_finished)
-            self.monitoring_thread.result.connect(self._on_monitoring_result)
-
-            # Start the thread
-            self.monitoring_thread.start()
-
-        else:
-            # Stop monitoring
-            self.logger.log_info("Stopping monitoring thread")
-            if self.monitoring_thread:
-                self.monitoring_thread.stop()
-
-    def _on_monitoring_progress(self, message):
-        """Handle progress updates from the monitoring thread."""
-        self.logger.log_info(message)
-
-    def _on_monitoring_error(self, error_message):
-        """Handle error messages from the monitoring thread."""
-        self.logger.log_warn(error_message)
-
-    def _on_monitoring_result(self, result):
-        """Handle the final result from the monitoring thread."""
-        status, state = result
-        if status != 0:
-            self.emit_log(status, state)
-
-    def _on_monitoring_finished(self):
-        """Handle monitoring thread completion."""
-        self.is_monitoring = False
-        self.monitoring_thread = None
-        self.settingsWidget.pushButton_2.setText("Start Monitoring")
-        self.logger.log_info("Monitoring thread finished")
-
-    def _test(self):
-        self.logger.log_info("Testing move to contact functionality")
-
-        status, state = self.move_to_contact()
-        if status == 0:
-            self.logger.log_info("Move to contact test completed successfully")
-        else:
-            self.logger.log_warn(f"Move to contact test failed: {state.get('Error message', 'Unknown error')}")
-
     @public
     def parse_settings_widget(self) -> tuple[int, dict]:
         settings = {}
@@ -417,9 +295,6 @@ class touchDetectGUI(QObject):
             if key.endswith("_con"):
                 con_channels.append(value)
 
-        # filter nones
-        con_channels = [ch for ch in con_channels if ch != "none"]
-
         # check that channels are unique across manipulators, except "none" can be present more than once
         if len(con_channels) != len(set(con_channels)):
             return (1, {"Error message": "Contact detection channels must be unique across manipulators."})
@@ -428,7 +303,7 @@ class touchDetectGUI(QObject):
 
     @public
     def setSettings(self, settings: dict):
-        self.logger.log_debug("Setting settings for touchDetect plugin: " + str(settings))
+        self.logger.log_debug("Setting settings for verifyContact plugin: " + str(settings))
 
         # Deep copy to avoid modifying original data
         settings_to_parse = copy.deepcopy(settings)
@@ -448,10 +323,12 @@ class touchDetectGUI(QObject):
             wrap.queue_update(self.smu_channels, self.con_channels)
 
     ########Functions to be used externally
-    def move_to_contact(self):
-        self.logger.log_info("Starting move to contact operation")
 
+    @public
+    def sequenceStep(self, postfix: str) -> tuple[int, dict]:
+        self.logger.log_info(f"Starting VerifyContact sequence step with postfix: {postfix}")
         mm, smu, con = self._fetch_dep_plugins()
+
         # Get configured manipulator wrappers and their ManipulatorInfo objects
         configured_wrappers = [wrapper for wrapper in self.manipulator_wrappers if wrapper.is_configured()]
         manipulator_infos = [wrapper.mi for wrapper in configured_wrappers]
@@ -461,24 +338,12 @@ class touchDetectGUI(QObject):
             self.logger.log_warn(error_msg)
             return (1, {"Error message": error_msg})
 
-        status, state = self.functionality.move_to_contact(mm, con, smu, manipulator_infos)
-
-        if status != 0:
-            self.emit_log(status, state)
-            return (status, state)
-        self.logger.log_info("Move to contact operation completed successfully")
-        return (status, state)
-
-    @public
-    def sequenceStep(self, postfix: str) -> tuple[int, dict]:
-        self.logger.log_info(f"Starting touchDetect sequence step with postfix: {postfix}")
-
         # Execute move to contact for all configured manipulators
-        status, state = self.move_to_contact()
+        status, state = self.functionality.check_all_contacting(smu, con, manipulator_infos)
 
         if status != 0:
-            self.logger.log_warn(f"TouchDetect sequence step failed: {state}")
+            self.logger.log_warn(f"verifyContact sequence step failed: {state}")
             return (status, state)
 
-        self.logger.log_info("TouchDetect sequence step completed successfully")
-        return (0, {"message": "TouchDetect sequence step completed successfully", "safety_check": "passed"})
+        self.logger.log_info("verifyContact sequence step completed successfully")
+        return (0, {"message": "verifyContact sequence step completed successfully", "safety_check": "passed"})
