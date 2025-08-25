@@ -108,6 +108,8 @@ class touchDetect:
     def __init__(self, log=None):
         # Store logging functions from GUI if provided
         self.log = log
+        # Store last known Z positions for each manipulator
+        self.last_z_positions = {}
 
     def _log(self, message):
         if self.log:
@@ -155,6 +157,7 @@ class touchDetect:
                 progress_callback("All devices connected successfully")
 
             # Filter to only configured manipulators
+            print(f"Manis inside low level {manipulator_infos}")
             configured_manipulators = [info for info in manipulator_infos if info.is_configured()]
 
             if not configured_manipulators:
@@ -200,10 +203,12 @@ class touchDetect:
                             last_resistance_log = r
 
                         if contacting:
-                            # Contact detected! Save the z-position to ManipulatorInfo
+                            # Contact detected! Save the z-position to both ManipulatorInfo and low-level storage
                             position_data = mm.mm_current_position()
                             x, y, z_position = position_data
                             info.last_z = int(z_position)
+                            # Store in low-level dictionary for move_to_contact to use
+                            self.last_z_positions[info.mm_number] = int(z_position)
                             self._log(f"Contact detected for manipulator {info.mm_number} at Z={z_position}")
                             if progress_callback:
                                 progress_callback(f"Contact detected for manipulator {info.mm_number} at Z={z_position}")
@@ -299,6 +304,18 @@ class touchDetect:
             assert status_mm == 0, f"Micromanipulator connection failed: {state_mm}"
             # remove manipulators from the list with no configuration
             manipulator_info = [info for info in manipulator_info if info.is_configured()]
+            
+            # Populate last_z positions from stored data and validate
+            for info in manipulator_info:
+                if info.mm_number in self.last_z_positions:
+                    info.last_z = self.last_z_positions[info.mm_number]
+                    self._log(f"Loaded stored z position for manipulator {info.mm_number}: {info.last_z}")
+                elif info.function == "normal":
+                    # Normal manipulators require a stored z position
+                    error_msg = f"Manipulator {info.mm_number} requires a stored z position from previous monitoring. Run manual monitoring first."
+                    self._log(error_msg)
+                    return (1, {"Error message": error_msg})
+            
             # remove manipulators with invalid configurations:
             validated = []
             for info in manipulator_info:

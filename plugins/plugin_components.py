@@ -827,21 +827,18 @@ class DependencyManager:
 
         for dependency_type, combobox_name in self.combobox_mapping.items():
             if dependency_type in self._function_dict:
-                try:
-                    combobox = getattr(self.widget, combobox_name)
-                    # Store current selection to restore if possible
-                    current_selection = combobox.currentText()
+                combobox = getattr(self.widget, combobox_name)
+                # Store current selection to restore if possible
+                current_selection = combobox.currentText()
 
-                    combobox.clear()
-                    available_plugins = list(self._function_dict[dependency_type].keys())
-                    combobox.addItems(available_plugins)
+                combobox.clear()
+                available_plugins = list(self._function_dict[dependency_type].keys())
+                combobox.addItems(available_plugins)
 
-                    # Try to restore previous selection if it's still available
-                    if current_selection in available_plugins:
-                        combobox.setCurrentText(current_selection)
-                except AttributeError:
-                    # Combobox not found, skip silently
-                    continue
+                # Try to restore previous selection if it's still available
+                if current_selection in available_plugins:
+                    combobox.setCurrentText(current_selection)
+
                 # add custom implementations here
 
     def get_selected_dependencies(self) -> Dict[str, str]:

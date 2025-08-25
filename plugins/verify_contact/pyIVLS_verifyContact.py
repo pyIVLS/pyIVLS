@@ -37,7 +37,7 @@ class pyIVLS_verifyContact_plugin:
         Returns:
             dict: name, widget
         """
-        settings = plugin_data.get(self.name, {}).get("settings", {})
+        settings = plugin_data.get(self.name, {})
         return {self.name: self.pluginClass.setup(settings)}
 
     @hookimpl
@@ -61,31 +61,6 @@ class pyIVLS_verifyContact_plugin:
             return {self.name: self.pluginClass._getInfoSignal()}
 
     @hookimpl
-    def get_closeLock(self, args=None):
-        """provides the signal for logging to main app
-
-        :return: dict that includes the log signal
-        """
-
-        if args is None or args.get("function") == self.function:
-            pass
-
-    @hookimpl
-    def set_plugin(self, plugin_list):
-        """gets a list of plugins available, fetches the ones it needs.
-
-        Args:
-            plugin_list (list): list of plugins in the form of [plugin1, plugin2, ...]
-        """
-        plugins_to_fetch = []
-
-        for plugin, metadata in plugin_list:
-            if metadata.get("function", "") in self.dependencies:
-                plugins_to_fetch.append([plugin, metadata])
-
-        self.pluginClass.dependency = plugins_to_fetch
-
-    @hookimpl
     def get_functions(self, args=None):
         """returns a dict of publicly accessible functions.
 
@@ -93,6 +68,17 @@ class pyIVLS_verifyContact_plugin:
         """
         if args is None or args.get("function") == self.function:
             return {self.name: self.pluginClass._get_public_methods()}
+    
+    @hookimpl
+    def set_function(self, function_dict):
+        """provides a list of available public functions from other plugins as a nested dict
+
+        Returns:
+        """
+        pruned = {function_dict_key: function_dict[function_dict_key] for function_dict_key in self.dependencies if function_dict_key in function_dict}
+        self.pluginClass.dm.set_function_dict(pruned)
+        result = self.pluginClass._getPublicFunctions(pruned)
+        return result
     
     @hookimpl
     def get_plugin_settings(self, args=None):
