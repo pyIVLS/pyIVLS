@@ -771,6 +771,7 @@ class DependencyManager:
         self.missing_functions = []
         self.dependency_settings = {}
         self.combobox_mapping = mapping
+        self.last_selected = {}
 
     @property
     def function_dict(self) -> Dict[str, Any]:
@@ -787,6 +788,12 @@ class DependencyManager:
     def set_function_dict(self, function_dict: Dict[str, Any]) -> None:
         """Set the available function dictionary from plugin system."""
         self.function_dict = function_dict
+
+    def setup(self, settings: Dict[str, Any]) -> PyIVLSReturn:
+        """Setup the dependency manager with initial settings if needed."""
+        self.last_selected = settings.copy()
+        self.update_comboboxes()
+        return PyIVLSReturn.success()
 
     def validate_dependencies(self) -> Tuple[bool, list]:
         """
@@ -822,24 +829,17 @@ class DependencyManager:
 
     def update_comboboxes(self) -> None:
         """Update all dependency comboboxes with available plugins."""
-        if not self.widget:
-            return
-
         for dependency_type, combobox_name in self.combobox_mapping.items():
             if dependency_type in self._function_dict:
                 combobox = getattr(self.widget, combobox_name)
-                # Store current selection to restore if possible
-                current_selection = combobox.currentText()
-
                 combobox.clear()
                 available_plugins = list(self._function_dict[dependency_type].keys())
                 combobox.addItems(available_plugins)
-
                 # Try to restore previous selection if it's still available
-                if current_selection in available_plugins:
-                    combobox.setCurrentText(current_selection)
-
-                # add custom implementations here
+                if dependency_type in self.last_selected:
+                    last_selection = self.last_selected[dependency_type]
+                    if last_selection in available_plugins:
+                        combobox.setCurrentText(last_selection)
 
     def get_selected_dependencies(self) -> Dict[str, str]:
         """
@@ -959,7 +959,7 @@ class DependencyManager:
                 return PyIVLSReturn.missing_dependency(f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}")
             except Exception as e:
                 return PyIVLSReturn.missing_dependency(f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}")
-
+        print(dependency_settings)
         return PyIVLSReturn.success(dependency_settings)
 
 

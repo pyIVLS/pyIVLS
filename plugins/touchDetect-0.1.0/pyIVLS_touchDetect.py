@@ -7,7 +7,7 @@ from touchDetectGui import touchDetectGUI
 import os
 
 
-class pyIVLS_touchDetect_plugin:
+class pyIVLS_touchdetect_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
@@ -93,7 +93,7 @@ class pyIVLS_touchDetect_plugin:
         """
         if args is None or args.get("function") == self.function:
             return {self.name: self.pluginClass._get_public_methods()}
-    
+
     @hookimpl
     def get_plugin_settings(self, args=None):
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""

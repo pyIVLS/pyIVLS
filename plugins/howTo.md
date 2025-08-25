@@ -48,3 +48,7 @@ Most of the common functionality should be moved to a component, since:
 
 ## hookspecs
 TODO
+
+## WARNINGS:
+Dont use uppercase in naming, since:
+When creating a field in the .ini file to save last saved plugins, the names are compressed to all lowercase. 

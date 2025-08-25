@@ -7,7 +7,7 @@ from verifyContactGui import verifyContactGUI
 import os
 
 
-class pyIVLS_verifyContact_plugin:
+class pyIVLS_verifycontact_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
@@ -27,18 +27,18 @@ class pyIVLS_verifyContact_plugin:
         self.function = config.get("plugin", "function")
         self._class = config.get("plugin", "class")
         self.dependencies = config.get("plugin", "dependencies").split(",")
-        self.pluginClass = verifyContactGUI()
+        self.plg = verifyContactGUI()
 
     @hookimpl
-    def get_setup_interface(self, plugin_data) -> dict:
+    def get_setup_interface(self, plugin_data: dict) -> dict:
         """Returns GUI plugin for the docking area (settings/buttons). This function is called from pyIVLS_container
         Args:
             plugin_data (dict): plugin dict from pyIVLS_container. Used for example to get the initial settings.
         Returns:
             dict: name, widget
         """
-        settings = plugin_data.get(self.name, {})
-        return {self.name: self.pluginClass.setup(settings)}
+        settings = plugin_data[self.name]["settings"]
+        return {self.name: self.plg.setup(settings)}
 
     @hookimpl
     def get_log(self, args=None):
@@ -48,7 +48,7 @@ class pyIVLS_verifyContact_plugin:
         """
 
         if args is None or args.get("function") == self.function:
-            return {self.name: self.pluginClass._getLogSignal()}
+            return {self.name: self.plg.logger.logger_signal}
 
     @hookimpl
     def get_info(self, args=None):
@@ -58,7 +58,7 @@ class pyIVLS_verifyContact_plugin:
         """
 
         if args is None or args.get("function") == self.function:
-            return {self.name: self.pluginClass._getInfoSignal()}
+            return {self.name: self.plg.logger.info_popup_signal}
 
     @hookimpl
     def get_functions(self, args=None):
@@ -67,22 +67,21 @@ class pyIVLS_verifyContact_plugin:
         :return: dict containing the functions
         """
         if args is None or args.get("function") == self.function:
-            return {self.name: self.pluginClass._get_public_methods()}
-    
+            return {self.name: self.plg._get_public_methods()}
+
     @hookimpl
     def set_function(self, function_dict):
-        """provides a list of available public functions from other plugins as a nested dict
-
-        Returns:
+        """Hook to set methods from other plugins to this plugins function dictionary
+        Returns: Missing methods
         """
-        pruned = {function_dict_key: function_dict[function_dict_key] for function_dict_key in self.dependencies if function_dict_key in function_dict}
-        self.pluginClass.dm.set_function_dict(pruned)
-        result = self.pluginClass._getPublicFunctions(pruned)
-        return result
-    
+        # set functions to DependencyManager
+        self.plg.dm.set_function_dict(function_dict)
+        missing, list = self.plg.dm.validate_dependencies()
+        return list
+
     @hookimpl
     def get_plugin_settings(self, args=None):
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
         if args is None or args.get("function") == self.function:
-            status, settings = self.pluginClass.parse_settings_widget()
+            status, settings = self.plg.parse_settings_widget()
             return (self.name, status, settings)

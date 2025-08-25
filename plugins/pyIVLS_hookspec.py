@@ -43,7 +43,9 @@ class pyIVLS_hookspec:
 
     @hookspec
     def get_plugin(self, args=None):
-        """Returns the plugin as a reference to itself.
+        """
+        IN THE PROGRESS OF BEING DEPRECATED
+        Returns the plugin as a reference to itself.
         NOTE: when writing implmentations of this, the plugin should contain its own metadata, such as name, type, version, etc.
 
         Args:
@@ -52,14 +54,20 @@ class pyIVLS_hookspec:
 
         Returns:
             tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
+
+        IN THE PROGRESS OF BEING DEPRECATED
         """
 
     @hookspec
     def set_plugin(self, plugin_list, args=None):
-        """gets a list of plugins available, fetches the ones it needs.
+        """
+        IN THE PROGRESS OF BEING DEPRECATED
+
+        gets a list of plugins available, fetches the ones it needs.
 
         Args:
             plugin_list (list): list of plugins in the form of [plugin1, plugin2, ...]
+        IN THE PROGRESS OF BEING DEPRECATED
         """
 
     @hookspec
