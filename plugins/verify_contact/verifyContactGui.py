@@ -1,353 +1,53 @@
 import os
 import copy
-from verifyContact import verifyContact, ManipulatorInfo
-from PyQt6.QtCore import pyqtSignal, QObject, pyqtSlot
 from PyQt6 import uic
-from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox, QSpinBox
-from plugins.plugin_components import public, ConnectionIndicatorStyle, get_public_methods, LoggingHelper
+from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox, QSpinBox, QLabel, QPushButton
+from plugins.plugin_components import public, ConnectionIndicatorStyle, get_public_methods, LoggingHelper, DependencyManager, PyIVLSReturn
 
 
-class ManipulatorInfoWrapper(QObject):
-    update_gui_signal = pyqtSignal(dict, list, list)
-
-    def __init__(self, settingsWidget: QWidget, mm_number: int):
-        super().__init__()
-        self.man_box = settingsWidget.findChild(QGroupBox, f"manipulator{mm_number}")
-        self.smu_channel = self.man_box.findChild(QComboBox, f"mansmu_{mm_number}")
-        self.con_channel = self.man_box.findChild(QComboBox, f"mancon_{mm_number}")
-        self.threshold = self.man_box.findChild(QSpinBox, f"manres_{mm_number}")
-
-
-        # internal state
-        self.mi = ManipulatorInfo(mm_number=mm_number, smu_channel=self.smu_channel.currentText(), condet_channel=self.con_channel.currentText(), threshold=self.threshold.value(), stride=1, sample_width=1, spectrometer_height=1, function="")
-
-        # connect signal
-        self.update_gui_signal.connect(self._update_gui_slot)
-
-    def update_settings(self, settings: dict):
-        """Update settings from standardized format (1_smu, 1_con, etc.)"""
-        # Extract settings for this specific manipulator
-        manipulator_settings = {}
-        mm_num = self.mi.mm_number
-
-        # Map standardized keys to ManipulatorInfo parameters
-        key_mapping = {f"{mm_num}_smu": "smu_channel", f"{mm_num}_con": "condet_channel", f"{mm_num}_res": "threshold", f"{mm_num}_last_z": "last_z", "stride": "stride", "sample_width": "sample_width", "spectrometer_height": "spectrometer_height"}
-
-        # Extract relevant settings for this manipulator
-        for std_key, mi_key in key_mapping.items():
-            if std_key in settings:
-                manipulator_settings[mi_key] = settings[std_key]
-        # Update the ManipulatorInfo object
-        self.mi = self.mi.with_new_settings(**manipulator_settings)
-
-    def update_settings_from_gui(self):
-        """Update settings from GUI controls"""
-        self.mi = self.mi.with_new_settings(smu_channel=self.smu_channel.currentText(), condet_channel=self.con_channel.currentText(), threshold=self.threshold.value(), stride=1, sample_width=1, spectrometer_height=1)
-
-    def is_configured(self) -> bool:
-        return self.mi.is_configured()
-
-    def validate(self) -> list[str]:
-        return self.mi.validate()
-
-    def get_standardized_settings(self) -> dict:
-        """Export current settings in standardized format (1_smu, 1_con, etc.)"""
-        if self.man_box.isVisible():
-            return self.mi.to_named_dict()
-        return {}
-    
-    def is_visible(self) -> bool:
-        return self.man_box.isVisible()
-    
-    def queue_update(self, smu_channel_list: list = [], con_channel_list: list = []):
-        self.update_gui_signal.emit(self.mi.to_named_dict(), smu_channel_list, con_channel_list)
-
-    @pyqtSlot(dict, list, list)
-    def _update_gui_slot(self, settings: dict, smu_channel_list: list, con_channel_list: list):
-        # fill comboboxes
-        self.smu_channel.clear()
-        self.smu_channel.addItems(smu_channel_list)
-        self.con_channel.clear()
-        self.con_channel.addItems(con_channel_list)
-        # get the settings for this specific instance using the manipulator number
-        mm_num = self.mi.mm_number
-        self.smu_channel.setCurrentText(settings.get(f"{mm_num}_smu", ""))
-        self.con_channel.setCurrentText(settings.get(f"{mm_num}_con", ""))
-        self.threshold.setValue(int(settings.get(f"{mm_num}_res", 0)))
-
-
-
-    def set_visible(self, visible: bool):
-        self.man_box.setVisible(visible)
-
-
-class verifyContactGUI(QObject):
+class verifyContactGUI:
     green_style = ConnectionIndicatorStyle.GREEN_CONNECTED.value
     red_style = ConnectionIndicatorStyle.RED_DISCONNECTED.value
 
-    def emit_log(self, status: int, state: dict) -> None:
-        """
-        Emits a standardized log message for status dicts or error lists.
-        Args:
-            status (int): status code, 0 for success, non-zero for error.
-            state (dict): dictionary in the standard pyIVLS format
-
-        """
-        msg = state.get("Error message", "Unknown error")
-        exception = state.get("Exception", "Not provided")
-
-        if status == 0:
-            self.logger.log_info(f"{msg} : Exception: {exception}")
-        else:
-            self.logger.log_warn(f"{msg} : Exception: {exception}")
-
-    @property
-    def dependency(self):
-        return self._dependencies
-
-    @dependency.setter
-    def dependency(self, value):
-        if isinstance(value, list):
-            self._dependencies = value
-            self.dependencies_changed()
-        else:
-            raise TypeError("verifyContactGUI : dependencies must be a list")
-
-    ########Functions
     def __init__(self):
-        super().__init__()
         self.path = os.path.dirname(__file__) + os.path.sep
-        # depenenies are in format plugin: object, metadata: dict.
-        self._dependencies = [None, None]
 
-        # Initialize LoggingHelper
+        # Initialize LoggingHelper first
         self.logger = LoggingHelper(self)
 
-        self.functionality = verifyContact(log=self.logger.log_debug)
-        self.settingsWidget = uic.loadUi(self.path + "verifyContact_Settings.ui")
+        # Load UI
+        self.settingsWidget: QWidget = uic.loadUi(self.path + "verifyContact_Settings.ui")  # type: ignore
 
-        # Initialize the combo boxes for dependencies
-        self.smu_box: QComboBox = self.settingsWidget.smuBox
-        self.condet_box: QComboBox = self.settingsWidget.condetBox
+        # Initialize DependencyManager
+        dependencies = {"contactingmove": ["important"]}
+        dependency_mapper = {"contactingmove": "touchDetBox"}
+        self.dm = DependencyManager("verifyContact", dependencies, self.settingsWidget, dependency_mapper)
 
-        # find status labels and indicators
-        self.smu_indicator = self.settingsWidget.smuIndicator
-        self.con_indicator = self.settingsWidget.conIndicator
+        # Internal settings storage
+        self.settings = {}
 
-        # initialize internal state:
-        self.manipulator_wrappers: list[ManipulatorInfoWrapper] = []
-        for i in range(1, 5):
-            self.manipulator_wrappers.append(ManipulatorInfoWrapper(self.settingsWidget, i))
-            self.manipulator_wrappers[-1].set_visible(False)
-
-        # Thread management for monitoring
-        self.monitoring_thread = None
-        self.is_monitoring = False
-
-        # connect signals:
-        self.settingsWidget.initButton.clicked.connect(self.update_status)
-        self.settingsWidget.pushButton.clicked.connect(self.verify)
-
-        self.con_channels = ["Hi", "Lo", "none", "spectrometer"]
-        self.smu_channels = ["none", "spectrometer"]
-
-    ########Functions
-    ########GUI Slots
-
-    ########Functions
-    ################################### internal
-
-    def _fetch_dep_plugins(self):
-        """returns the micromanipulator, smu and contacting plugins based on the current selection in the combo boxes.
-
-        Returns:
-            tuple[mm, smu, con]: micromanipulator, smu and con plugins.
-        Raises:
-            AssertionError: if any of the plugins is not found.
-        """
-
-        micromanipulator = None
-        smu = None
-        condet = None
-        for plugin, metadata in self.dependency:
-            if metadata.get("function") == "smu":
-                if self.smu_box.currentText() == metadata.get("name"):
-                    smu = plugin
-            elif metadata.get("function") == "contacting":
-                if self.condet_box.currentText() == metadata.get("name"):
-                    condet = plugin
-
-        assert smu is not None, "verifyContact: smu plugin is None"
-        assert condet is not None, "verifyContact: contacting plugin is None"
-        placeholder = object()
-        return placeholder, smu, condet
-
-    ########Functions
-    ########GUI changes
-
-    def update_status(self):
-        """
-        Updates the status of the mm, smu and contacting plugins.
-        This function is called when the status changes.
-        """
-        self.logger.log_debug("Updating plugin status")
-        mm, smu, con = self._fetch_dep_plugins()
-        self.channel_names = smu.smu_channelNames()
-        if self.channel_names is not None:
-            self.smu_indicator.setStyleSheet(self.green_style)
-            self.logger.log_debug(f"SMU channels available: {self.channel_names}")
-
-        self.smu_channels = self.channel_names + ["none", "spectrometer"]
-
-        for wrap in self.manipulator_wrappers:
-            wrap.set_visible(True)
-            wrap.queue_update(self.smu_channels, self.con_channels)
-
-        con_status, con_state = con.deviceConnect()
-        if con_status == 0:
-            self.con_indicator.setStyleSheet(self.green_style)
-            self.logger.log_info("Contact detection device connected successfully")
-            con_status, con_state = con.deviceDisconnect()
-        else:
-            self.emit_log(con_status, con_state)
-
-    def dependencies_changed(self):
-        self.logger.log_debug("Dependencies changed, updating dependency combo boxes")
-        self.smu_box.clear()
-        self.condet_box.clear()
-
-        for plugin, metadata in self.dependency:
-            if metadata.get("function") == "smu":
-                self.smu_box.addItem(metadata.get("name"))
-            elif metadata.get("function") == "contacting":
-                self.condet_box.addItem(metadata.get("name"))
-        self.smu_box.setCurrentIndex(0)
-        self.condet_box.setCurrentIndex(0)
-        self.logger.log_info("Plugin dependencies updated successfully")
-
-    ########Functions
-    ########plugins interraction
-
-    def _getLogSignal(self):
-        return self.logger.logger_signal
-
-    def _getInfoSignal(self):
-        return self.logger.info_popup_signal
-
-    def _get_public_methods(self) -> dict:
-        """
-        Returns a nested dictionary of public methods for the plugin
-        """
+    def _get_public_methods(self):
         return get_public_methods(self)
 
-    def setup(self, settings) -> QWidget:
-        """
-        Sets up the GUI for the plugin. This function is called by hook to initialize the GUI.
-        """
-        for wrap in self.manipulator_wrappers:
-            wrap.update_settings(settings)
-            wrap.queue_update(self.smu_channels, self.con_channels)
-
-        # Set initial button text
+    def setup(self, settings: dict) -> QWidget:
+        self.settings = settings
+        # Setup the UI elements with the provided settings
+        self.dm.setup(settings)
 
         return self.settingsWidget
 
     @public
     def parse_settings_widget(self) -> tuple[int, dict]:
-        settings = {}
-        # Collect manipulator settings
-        for wrap in self.manipulator_wrappers:
-            # do nothing if box is not visible.
-            if wrap.is_visible():
-                wrap.update_settings_from_gui()  # Update ManipulatorInfo with current GUI values
-                errors = wrap.mi.validate()
-                if errors:
-                    self.logger.log_warn(f"Validation errors found in manipulator {wrap.mi.mm_number}: {errors}")
-                    return(1, {"Error message": f"Validation errors found in manipulator {wrap.mi.mm_number}: {errors}"})
-                else:
-                    wrap_set = wrap.get_standardized_settings()
-                    settings.update(wrap_set)
-
-        # extract channels
-        con_channels = []
-        for key, value in settings.items():
-            # split at "_" and check if ends in con
-            if key.endswith("_con"):
-                con_channels.append(value)
-
-        # filter nones
-        con_channels = [ch for ch in con_channels if ch != "none"]
-
-        # check that channels are unique across manipulators, except "none" can be present more than once
-        if len(con_channels) != len(set(con_channels)):
-            return (1, {"Error message": "Contact detection channels must be unique across manipulators."})
-        return (0, settings)
-
-    @public
-    def setSettings(self, settings: dict):
-        self.logger.log_debug("Setting settings for verifyContact plugin: " + str(settings))
-
-        # Deep copy to avoid modifying original data
-        settings_to_parse = copy.deepcopy(settings)
-        for wrap in self.manipulator_wrappers:
-            wrap.update_settings(settings_to_parse)
-
-    @public
-    def set_gui_from_settings(self) -> tuple[int, dict]:
-        """
-        Updates the GUI controls based on the internal settings.
-        This method should be called after setSettings to refresh the GUI.
+        """Parses the current settings from the settings widget.
 
         Returns:
-            tuple[int, dict]: (status, result) - status 0 for success
+            tuple: (status_code, settings_dict)
+                status_code: 0 if successful, 1 if error
+                settings_dict: dictionary of current settings
         """
-        for wrap in self.manipulator_wrappers:
-            wrap.queue_update(self.smu_channels, self.con_channels)
-
-    ########Functions to be used externally
-    def verify(self) -> tuple[int, dict]:
-        self.logger.log_info("Starting VerifyContact verification")
-        mm, smu, con = self._fetch_dep_plugins()
-        self.parse_settings_widget()
-
-         # Get configured manipulator wrappers and their ManipulatorInfo objects
-        configured_wrappers = [wrapper for wrapper in self.manipulator_wrappers if wrapper.is_configured()]
-        manipulator_infos = [wrapper.mi for wrapper in configured_wrappers]
-
-        if not manipulator_infos:
-            error_msg = "No configured manipulators found"
-            self.logger.log_warn(error_msg)
-            return (1, {"Error message": error_msg})
-
-        # Execute move to contact for all configured manipulators
-        status = self.functionality.check_all_contacting(smu, con, manipulator_infos)
-
-        if status is False:
-            self.logger.log_warn(f"verifyContact sequence step failed")
-            return (4, {"Error_message": "no contact after sweep"})
-        self.logger.log_debug("VerifyContact OK")
-        return (0, {"message": "VerifyContact OK"})
-
-    @public
-    def sequenceStep(self, postfix: str) -> tuple[int, dict]:
-        self.logger.log_info(f"Starting VerifyContact sequence step with postfix: {postfix}")
-        mm, smu, con = self._fetch_dep_plugins()
-
-        # Get configured manipulator wrappers and their ManipulatorInfo objects
-        configured_wrappers = [wrapper for wrapper in self.manipulator_wrappers if wrapper.is_configured()]
-        manipulator_infos = [wrapper.mi for wrapper in configured_wrappers]
-
-        if not manipulator_infos:
-            error_msg = "No configured manipulators found"
-            self.logger.log_warn(error_msg)
-            return (1, {"Error message": error_msg})
-
-        # Execute move to contact for all configured manipulators
-        status = self.functionality.check_all_contacting(smu, con, manipulator_infos)
-
-        if status is False:
-            self.logger.log_warn(f"verifyContact sequence step failed")
-            return (4, {"Error_message": "no contact after sweep"})
-
-        self.logger.log_info("verifyContact sequence step completed successfully")
-        return (0, {"message": "verifyContact sequence step completed successfully", "safety_check": "passed"})
+        print(f"verifyContact current settings before validation: {self.settings}")
+        status, state = self.dm.validate_and_extract_dependency_settings(self.settings)
+        if status != 0:
+            return status, state
+        print(f"verifyContact settings parsed: {self.settings}, status: {status}, state: {state}")
+        return 0, self.settings
