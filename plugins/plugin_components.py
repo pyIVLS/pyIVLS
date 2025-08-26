@@ -959,7 +959,6 @@ class DependencyManager:
                 return PyIVLSReturn.missing_dependency(f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}")
             except Exception as e:
                 return PyIVLSReturn.missing_dependency(f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}")
-        print(dependency_settings)
         return PyIVLSReturn.success(dependency_settings)
 
 

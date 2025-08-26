@@ -213,39 +213,6 @@ class touchDetectGUI():
         """Returns a nested dictionary of public methods for the plugin"""
         return get_public_methods(self)
 
-    def parse_settings_widget(self) -> tuple[int, dict]:
-        """
-        Parses the settings widget and returns error code and settings as a dictionary matching .ini keys.
-        Validates all settings and returns them in the .ini format.
-        """
-        self.logger.log_debug("Parsing settings widget")
-        settings = {}
-        
-        # Collect manipulator settings
-        for i, (box, smu_box, con_box, res_box) in enumerate(self.manipulator_boxes):
-            smu_channel = smu_box.currentText()
-            con_channel = con_box.currentText()
-            res_value = res_box.value()
-            
-            # Store all settings, even if empty/none (for consistency with .ini format)
-            settings[f"{i + 1}_smu"] = smu_channel
-            settings[f"{i + 1}_con"] = con_channel  
-            settings[f"{i + 1}_res"] = res_value
-
-        # Validate contact detection channels are unique (excluding empty or none)
-        con_channels = [settings[f"{i + 1}_con"] for i in range(4) 
-                       if settings[f"{i + 1}_con"] not in ["", "none"]]
-        if len(con_channels) != len(set(con_channels)):
-            self.logger.log_debug("Contact detection channel validation failed - duplicate channels")
-            return (1, {"Error message": "Contact detection channels must be unique across manipulators."})
-
-        # Get global settings from GUI controls
-        settings["stride"] = self.stride.value()
-        settings["sample_width"] = self.sample_width.value()
-        settings["spectrometer_height"] = self.spectro_height.value()
-
-        self.logger.log_debug(f"Parsed settings: {settings}")
-        return (0, settings)
 
     def setup(self, settings) -> QWidget:
         """Sets up the GUI for the plugin. This function is called by hook to initialize the GUI."""
@@ -401,6 +368,7 @@ class touchDetectGUI():
         else:
             self.logger.log_warn(f"Move to contact test failed: {state.get('Error message', 'Unknown error')}")
 
+    @public
     def parse_settings_widget(self) -> tuple[int, dict]:
         """Parses the settings widget and returns error code and settings as a dictionary matching .ini keys."""
         self.logger.log_debug("Parsing settings widget")
@@ -436,7 +404,6 @@ class touchDetectGUI():
     def setSettings(self, settings: dict):
         """Sets the plugin settings from the sequence builder in .ini format."""
         self.logger.log_debug(f"Setting settings for touchDetect plugin: {settings}")
-        # Store settings directly in .ini format
         self.settings = copy.deepcopy(settings)
 
     @public
@@ -446,9 +413,9 @@ class touchDetectGUI():
             self.logger.log_debug("Updating GUI from internal settings")
             
             # Update global settings
-            self.stride.setValue(self.settings.get("stride", 10))
-            self.sample_width.setValue(self.settings.get("sample_width", 350))
-            self.spectro_height.setValue(self.settings.get("spectrometer_height", 1000))
+            self.stride.setValue(int(self.settings["stride"]))
+            self.sample_width.setValue(int(self.settings["sample_width"]))
+            self.spectro_height.setValue(int(self.settings["spectrometer_height"]))
 
             # Update manipulator settings in GUI
             for i, (box, smu_box, con_box, res_spin) in enumerate(self.manipulator_boxes):
@@ -484,7 +451,7 @@ class touchDetectGUI():
                         self.logger.log_warn(f"Invalid resistance threshold for manipulator {i + 1}: {self.settings[res_key]}")
 
             self.logger.log_debug("GUI updated from internal settings successfully")
-            return (0, {"message": "GUI updated from settings"})
+            return (0, {"Error message": "GUI updated from settings"})
 
         except Exception as e:
             error_msg = f"Error updating GUI from settings: {str(e)}"
@@ -539,4 +506,25 @@ class touchDetectGUI():
             return (status, state)
 
         self.logger.log_info("TouchDetect sequence step completed successfully")
-        return (0, {"message": "TouchDetect sequence step completed successfully", "safety_check": "passed"})
+        return (0, {"Error message": "TouchDetect sequence step completed successfully"})
+
+    @public
+    def verify_contact(self) -> tuple[int, dict]:
+        """Verifies contact for all configured manipulators."""
+        self.logger.log_info("Starting touchDetect verify_contact operation")
+
+        # create infos
+        infos = self._create_manipulator_infos_from_settings(self.settings)
+
+        # fetch deps
+        mm, smu, con = self._fetch_dep_plugins()
+
+        # Execute verify contact for all configured manipulators
+        status, state = self.functionality.verify_contact(mm, smu, con, infos)
+
+        if status != 0:
+            self.logger.log_warn(f"TouchDetect verify_contact operation failed: {state}")
+            return (status, state)
+
+        self.logger.log_info("TouchDetect verify_contact operation completed successfully")
+        return (0, {"Error message": "TouchDetect verify_contact operation completed successfully"})

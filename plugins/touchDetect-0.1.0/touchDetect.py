@@ -559,3 +559,34 @@ class touchDetect:
             smu.smu_outputOFF()
         except Exception as e:
             self._log(f"Error during single manipulator cleanup: {str(e)}")
+
+    def verify_contact(self, mm, smu, con, infos: list[ManipulatorInfo]) -> tuple[int, dict]:
+        """Verifies contact for all manipulators."""
+        self._log("Starting verify_contact operation")
+        status_smu, state_smu = smu.smu_connect()
+        status_con, state_con = con.deviceConnect()
+        status_mm, state_mm = mm.mm_open()
+        if any(s != 0 for s in [status_smu, status_con, status_mm]):
+            return (2, {"message": "Verify contact failed to set up hardware"})
+
+        for info in infos:
+            stable = self._verify_contact_single(smu, con, mm, info)
+            if not stable:
+                return (1, {"Error message": f"Manipulator {info.mm_number} not in contact"})
+            
+        self._channels_off(con, smu)
+        self._log("Verify contact operation completed successfully")
+        return (0, {"message": "Verify contact operation completed successfully"})
+
+    def _verify_contact_single(self, smu, con, mm, info: ManipulatorInfo) -> bool:
+        """Verifies contact for a single manipulator."""
+        self._log(f"Starting verify_contact for manipulator {info.mm_number}")
+
+        status, state = self._manipulator_measurement_setup(mm, smu, con, info)
+        if status != 0:
+            return (status, state)
+
+        stable = self._monitor_contact_stability(smu, info, self.MONITORING_DURATION)
+
+
+        return stable

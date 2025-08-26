@@ -7,7 +7,7 @@ from verifyContactGui import verifyContactGUI
 import os
 
 
-class pyIVLS_verifycontact_plugin:
+class pyIVLS_verifyContact_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):

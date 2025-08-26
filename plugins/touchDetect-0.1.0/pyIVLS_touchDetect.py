@@ -7,7 +7,7 @@ from touchDetectGui import touchDetectGUI
 import os
 
 
-class pyIVLS_touchdetect_plugin:
+class pyIVLS_touchDetect_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
