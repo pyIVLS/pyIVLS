@@ -21,11 +21,17 @@ ivarad
 
 import os
 from datetime import datetime
-
+import copy
 
 from PyQt6.QtCore import QObject
 from PyQt6 import uic
-from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, ConnectionIndicatorStyle
+from plugin_components import (
+    LoggingHelper,
+    CloseLockSignalProvider,
+    public,
+    get_public_methods,
+    ConnectionIndicatorStyle,
+)
 from conDetect import conDetect
 
 
@@ -52,7 +58,7 @@ class conDetectGUI(QObject):
 
     ########Functions
     ################################### internal
-
+    @public
     def parse_settings_widget(self) -> tuple:
         """Parses the settings widget for the conDetect. Extracts current values
 
@@ -64,6 +70,10 @@ class conDetectGUI(QObject):
         ##no value checks are possible here as the source should be just address and exposure is given by a set of values
         self.logger.log_debug(f"Parsed settings: {self.settings}")
         return (0, self.settings)
+
+    @public
+    def setSettings(self, settings: dict) -> None:
+        self.settings = copy.deepcopy(settings)
 
     ########Functions
     ########GUI Slots

@@ -38,7 +38,7 @@ class pyIVLS_Sutter_plugin:
         """
 
         if args is None or args.get("function") == self.function:
-            return {self.name: self.gui._get_log_signal()}
+            return {self.name: self.gui.logger.logger_signal}
 
     @hookimpl
     def get_info(self, args=None):
@@ -48,7 +48,7 @@ class pyIVLS_Sutter_plugin:
         """
 
         if args is None or args.get("function") == self.function:
-            return {self.name: self.gui._get_info_signal()}
+            return {self.name: self.gui.logger.info_popup_signal}
 
     @hookimpl
     def get_closeLock(self, args=None):
@@ -58,22 +58,7 @@ class pyIVLS_Sutter_plugin:
         """
 
         if args is None or args.get("function") == self.function:
-            return {self.name: self.gui._get_close_lock_signal()}
-
-    @hookimpl
-    def get_plugin(self, args=None):
-        """Returns the plugin as a reference to itself.
-        NOTE: when writing implmentations of this, the plugin should contain its own metadata, such as name, type, version, etc.
-
-        Args:
-            args (_type_, optional): can be used to specify which plugin is needed based on
-            type, function, etc.
-
-        Returns:
-            tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
-        """
-        if args is None or args.get("function") == self.metadata["function"]:
-            return [self.gui, self.metadata]
+            return {self.name: self.gui.cl.closeLock}
 
     @hookimpl
     def get_plugin_settings(self, args=None):

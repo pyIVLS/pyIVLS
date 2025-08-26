@@ -28,7 +28,7 @@ class verifyContactGUI:
 
         # connect button
         self.settingsWidget.pushButton.clicked.connect(self._on_verify_contact)
-    
+
     def _on_verify_contact(self):
         status, state = self.parse_settings_widget()
         if status != 0:
@@ -46,11 +46,10 @@ class verifyContactGUI:
         func_dict = self.dm.get_function_dict_for_dependencies()
         contacting_functions = func_dict["contactingmove"]
         contacting_functions = contacting_functions[self.settings["contactingmove"]]
-        print(contacting_functions)
-        contacting_functions["setSettings"](self.settings["contactingmove_settings"]) # no return
+        contacting_functions["setSettings"](self.settings["contactingmove_settings"])  # no return
         status, state = contacting_functions["verify_contact"]()
         return status, state
-    
+
     def _get_public_methods(self):
         return get_public_methods(self)
 
@@ -76,8 +75,8 @@ class verifyContactGUI:
             return status, state
         self.settings.update(state)
         return 0, self.settings
-    
-    @public 
+
+    @public
     def setSettings(self, settings: dict) -> None:
         """Sets the plugin settings from the sequence builder in .ini format."""
         self.logger.log_debug(f"Setting settings for touchDetect plugin: {settings}")

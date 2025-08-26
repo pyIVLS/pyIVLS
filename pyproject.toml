@@ -48,4 +48,4 @@ log_cli = true
 log_cli_level = "INFO"
 
 [tool.ruff]
-line-length = 320
+line-length = 120
