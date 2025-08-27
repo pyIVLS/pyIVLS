@@ -209,6 +209,8 @@ class touchDetectGUI:
         # Set initial button text
         self.settingsWidget.pushButton_2.setText("Start Monitoring")
 
+        self.update_status()
+
         self.logger.log_debug("TouchDetect GUI setup completed")
         return self.settingsWidget
 
@@ -378,6 +380,7 @@ class touchDetectGUI:
         if status != 0:
             return status, state
         self.settings.update(state)
+        self.settings.update(settings)
 
         self.logger.log_debug(f"Parsed settings: {self.settings}")
         return (0, self.settings)

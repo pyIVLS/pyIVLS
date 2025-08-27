@@ -188,7 +188,6 @@ class affineMoveGUI(QObject):
 
     def _fetch_dep_plugins(self):
         """Returns the micromanipulator, camera and positioning plugins as dictionaries."""
-        self.logger.log_debug("Fetching dependency plugins")
 
         result = self.dm.validate_and_extract_dependency_settings(self.settings)
         status, state = result
@@ -244,7 +243,7 @@ class affineMoveGUI(QObject):
                 points = []
                 moves = [(0, 0), (3000, 0), (0, 3000)]
                 for move in moves:
-                    status, state = mm["mm_move_relative"](z_change=-100)  # slightly up to avoid collisions
+                    status, state = mm["mm_move_relative"](z_change=-1000)  # slightly up to avoid collisions
                     if status:
                         self.logger.log_info(
                             f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}"
@@ -256,7 +255,12 @@ class affineMoveGUI(QObject):
                             f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}"
                         )
                         return
-
+                    status, state = mm["mm_move_relative"](z_change=1000) # back down after move
+                    if status:
+                        self.logger.log_info(
+                            f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}"
+                        )
+                        return
                     # Update cached position after move
                     try:
                         current_pos = mm["mm_current_position"]()
@@ -441,7 +445,6 @@ class affineMoveGUI(QObject):
             tuple: Transformed point in manipulator coordinates.
         """
         if mm_dev not in self.calibrations:
-            self.logger.log_info(f"No calibration data for manipulator {mm_dev}")
             return None
 
         calibration = self.calibrations[mm_dev]  # 2x3 matrix
@@ -467,7 +470,6 @@ class affineMoveGUI(QObject):
             tuple: Transformed point in camera coordinates.
         """
         if mm_dev not in self.calibrations:
-            self.logger.log_info(f"No calibration data for manipulator {mm_dev}")
             return None
 
         calibration = self.calibrations[mm_dev]  # 2x3 matrix
@@ -707,45 +709,35 @@ class affineMoveGUI(QObject):
     def _add_visual_overlays(self):
         """Adds visual overlays using the visualization class."""
         try:
-            mm, cam, pos = self._fetch_dep_plugins()
-            if mm is None:
-                return
-
             # Get current manipulator positions in camera coordinates
-            manipulator_positions = self._get_manipulator_positions_in_camera(mm)
+            manipulator_positions = self._get_manipulator_positions_in_camera()
 
             # Get target coordinates if measurement points are available
             target_coords = self._get_target_coords_in_camera()
-
             # Prepare data for visualization
-            show_bounding_boxes = self.show_bounding_boxes_checkbox.isChecked()
             bounding_boxes = self.collision_detector.get_all_bounding_boxes()
-
             # Use visualization class to draw overlays
             self.visualization.add_visual_overlays(
                 manipulator_positions=manipulator_positions,
                 target_positions=target_coords,
                 planned_moves=self.planned_moves_cache,
                 bounding_boxes=bounding_boxes,
-                show_bounding_boxes=show_bounding_boxes,
             )
 
         except Exception as e:
             self.logger.log_warn(f"Error adding visual overlays: {e}")
 
-    def _get_manipulator_positions_in_camera(self, mm):
+
+    def _get_manipulator_positions_in_camera(self):
         """
         Get current positions of all manipulators in camera coordinates using cached positions.
 
-        Args:
-            mm: Micromanipulator plugin instance (kept for compatibility but not used for position queries)
 
         Returns:
             dict: Dictionary mapping manipulator index to camera coordinates (x, y) or None
         """
         positions = {}
         try:
-            # Use cached positions instead of querying hardware
             for manipulator_idx in self.cached_manipulator_positions.keys():
                 try:
                     cached_pos = self.get_cached_manipulator_position(manipulator_idx)
@@ -894,10 +886,10 @@ class affineMoveGUI(QObject):
 
     def _get_target_coords_in_camera(self):
         """
-        Get target coordinates for all measurement points in camera coordinates.
+        Get target coordinates for ALL measurement points in camera coordinates.
 
         Returns:
-            dict: Dictionary mapping measurement point index to {manipulator_index: camera_coordinates}
+            dict: Dictionary mapping manipulator_index to camera_coordinates (x, y)
         """
         target_coords = {}
 
@@ -924,9 +916,6 @@ class affineMoveGUI(QObject):
                             self.logger.log_debug(
                                 f"Error converting mask coordinates {point} to camera coordinates: {e}"
                             )
-                            target_coords[point_idx][device_idx] = None
-                    else:
-                        target_coords[point_idx][device_idx] = None
 
         except Exception as e:
             self.logger.log_warn(f"Error getting target coordinates: {e}")
@@ -939,6 +928,7 @@ class affineMoveGUI(QObject):
         This function is called by the micromanipulator plugin when the status changes.
         """
         mm, cam, pos = self._fetch_dep_plugins()
+        assert pos is not None, "Positioning plugin not available"
         if self.calibrations == {}:
             self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
         else:

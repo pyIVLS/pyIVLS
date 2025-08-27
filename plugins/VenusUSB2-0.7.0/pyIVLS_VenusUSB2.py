@@ -118,5 +118,5 @@ class pyIVLS_VenusUSB2_plugin:
     def get_plugin_settings(self, args=None):
         """See pyIVLS_hookspec.py for details."""
         if args is None or args.get("function") == self.metadata["function"]:
-            status, settings = self.camera_control._parse_settings_preview()
+            status, settings = self.camera_control.parse_settings_widget()
             return (self.metadata["name"], status, settings)

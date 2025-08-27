@@ -4,9 +4,9 @@ Separated from main GUI class to improve modularity and maintainability.
 """
 
 import numpy as np
-from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsTextItem
-from PyQt6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QFont
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsTextItem, QGraphicsRectItem, QGraphicsPolygonItem
+from PyQt6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QFont, QPolygonF
+from PyQt6.QtCore import Qt, QPointF
 
 
 class AffineMoveVisualization:
@@ -16,14 +16,11 @@ class AffineMoveVisualization:
         self.graphics_view = graphics_view
         self.graphics_scene = graphics_scene
 
-        # Color schemes for different manipulators
         self.manipulator_colors = [
             QColor(255, 0, 0),  # Red
             QColor(0, 255, 0),  # Green
             QColor(0, 0, 255),  # Blue
             QColor(255, 255, 0),  # Yellow
-            QColor(255, 0, 255),  # Magenta
-            QColor(0, 255, 255),  # Cyan
         ]
 
         # Camera image bounds for preventing view expansion
@@ -34,18 +31,11 @@ class AffineMoveVisualization:
         if img is None:
             return
 
-        # Convert numpy array to QImage if necessary
+        # Convert to QImage
         if isinstance(img, np.ndarray):
-            if len(img.shape) == 3:  # Color image
-                height, width, channel = img.shape
-                bytes_per_line = 3 * width
-                q_image = QImage(img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
-            else:  # Grayscale image
-                height, width = img.shape
-                bytes_per_line = width
-                q_image = QImage(img.data, width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
-        else:
-            q_image = img
+            height, width, channel = img.shape
+            bytes_per_line = 3 * width
+            q_image = QImage(img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
 
         # Update image bounds based on actual image size
         self.camera_image_bounds = (0, 0, q_image.width(), q_image.height())
@@ -64,7 +54,6 @@ class AffineMoveVisualization:
         target_positions=None,
         planned_moves=None,
         bounding_boxes=None,
-        show_bounding_boxes=False,
     ):
         """
         Adds visual overlays to the graphics scene.
@@ -74,7 +63,6 @@ class AffineMoveVisualization:
             target_positions: Dict of {manipulator_idx: (x, y)} target positions
             planned_moves: List of (manipulator_idx, current_pos, target_pos) for planned moves
             bounding_boxes: Dict of {manipulator_idx: AABB} bounding boxes
-            show_bounding_boxes: Whether to display bounding boxes
         """
         # Draw current manipulator positions
         if manipulator_positions:
@@ -82,18 +70,18 @@ class AffineMoveVisualization:
                 if pos:
                     self._draw_manipulator_dot(pos, mm_idx)
 
-        # Draw target reference positions
         if target_positions:
-            for mm_idx, pos in target_positions.items():
-                if pos:
-                    self._draw_target_reference_dot(pos, mm_idx)
+            for point_name, location_dict in target_positions.items():
+                for mm_idx, pos in location_dict.items():
+                    if pos:
+                        self._draw_target_reference_dot(pos, mm_idx)
 
-        # Draw planned moves
+        # Draw planned moves 
         if planned_moves:
             self._draw_planned_moves(planned_moves)
 
-        # Draw bounding boxes if enabled
-        if show_bounding_boxes and bounding_boxes:
+        # Always draw bounding boxes when available
+        if bounding_boxes:
             self._draw_manipulator_bounding_boxes(bounding_boxes)
 
     def _draw_manipulator_dot(self, cam_pos, mm_idx):
@@ -107,41 +95,28 @@ class AffineMoveVisualization:
         ellipse.setPen(QPen(Qt.GlobalColor.black, 2))
         self.graphics_scene.addItem(ellipse)
 
-        # Add label
-        text = QGraphicsTextItem(f"M{mm_idx}")
-        text.setPos(x + 8, y - 8)
-        text.setDefaultTextColor(color)
-        font = QFont()
-        font.setBold(True)
-        text.setFont(font)
-        self.graphics_scene.addItem(text)
-
-    def _draw_target_reference_dot(self, target_pos, mm_idx):
-        """Draw a dot representing the target position."""
-        x, y = target_pos
+    def _draw_target_reference_dot(self, cam_pos, mm_idx):
+        """Draw a target reference dot with enhanced visibility."""
+        x, y = cam_pos
         color = self._get_manipulator_color(mm_idx)
 
-        # Create hollow circle for target
-        ellipse = QGraphicsEllipseItem(x - 8, y - 8, 16, 16)
-        ellipse.setBrush(QBrush(Qt.GlobalColor.transparent))
-        ellipse.setPen(QPen(color, 3))
+        # Create larger circle for better visibility
+        ellipse = QGraphicsEllipseItem(x - 6, y - 6, 12, 12)
+        ellipse.setBrush(QBrush(color))
+        ellipse.setPen(QPen(Qt.GlobalColor.white, 3))  # White border for contrast
         self.graphics_scene.addItem(ellipse)
 
-        # Add cross in the center
-        line1 = QGraphicsLineItem(x - 4, y, x + 4, y)
-        line1.setPen(QPen(color, 2))
-        self.graphics_scene.addItem(line1)
-
-        line2 = QGraphicsLineItem(x, y - 4, x, y + 4)
-        line2.setPen(QPen(color, 2))
-        self.graphics_scene.addItem(line2)
+        # Add inner dot for target appearance
+        inner_ellipse = QGraphicsEllipseItem(x - 2, y - 2, 4, 4)
+        inner_ellipse.setBrush(QBrush(Qt.GlobalColor.white))
+        inner_ellipse.setPen(QPen(Qt.GlobalColor.white, 1))
+        self.graphics_scene.addItem(inner_ellipse)
 
     def _draw_planned_moves(self, planned_moves):
         """Draw planned movement trajectories and targets."""
         for manipulator_idx, current_pos, target_pos in planned_moves:
             if current_pos and target_pos:
                 self._draw_planned_trajectory_line(current_pos, target_pos, manipulator_idx)
-                self._draw_planned_target_dot(target_pos, manipulator_idx)
                 self._draw_planned_move_labels(current_pos, target_pos, manipulator_idx)
 
     def _draw_planned_trajectory_line(self, current_pos, target_pos, mm_idx):
@@ -157,29 +132,6 @@ class AffineMoveVisualization:
         line = QGraphicsLineItem(x1, y1, x2, y2)
         line.setPen(pen)
         self.graphics_scene.addItem(line)
-
-    def _draw_planned_target_dot(self, target_pos, mm_idx):
-        """Draw the planned target position."""
-        x, y = target_pos
-        color = self._get_manipulator_color(mm_idx)
-
-        # Create diamond shape for planned target
-        size = 6
-        points = [
-            (x, y - size),  # Top
-            (x + size, y),  # Right
-            (x, y + size),  # Bottom
-            (x - size, y),  # Left
-        ]
-
-        # Note: QGraphicsPolygonItem would be better but requires QPolygonF
-        # For simplicity, draw as lines forming a diamond
-        for i in range(4):
-            x1, y1 = points[i]
-            x2, y2 = points[(i + 1) % 4]
-            line = QGraphicsLineItem(x1, y1, x2, y2)
-            line.setPen(QPen(color, 2))
-            self.graphics_scene.addItem(line)
 
     def _draw_planned_move_labels(self, current_pos, target_pos, mm_idx):
         """Draw labels for planned moves."""
@@ -225,47 +177,31 @@ class AffineMoveVisualization:
         """Draw bounding boxes for all manipulators."""
         for manipulator_idx, bbox in bounding_boxes.items():
             if bbox:
-                coords = bbox.get_absolute_corners()
-                self._draw_bounding_box(coords, manipulator_idx, is_absolute=True)
+                try:
+                    self._draw_bounding_box(bbox, manipulator_idx)
+                except Exception as e:
+                    print(f"Error drawing bounding box for manipulator {manipulator_idx}: {e}")
 
-    def _draw_bounding_box(self, coords, manipulator_idx, is_absolute=False):
-        """
-        Draw a bounding box on the graphics scene.
-
-        Args:
-            coords: List of (x, y) coordinate tuples defining the box corners
-            manipulator_idx: Index of the manipulator for color coding
-            is_absolute: Whether coordinates are absolute (True) or relative (False)
-        """
-        if len(coords) < 3:
-            return
-
-        color = self._get_manipulator_color(manipulator_idx)
-        pen = QPen(color, 2)
-        pen.setStyle(Qt.PenStyle.DotLine)
-
-        # Draw lines connecting all corners
-        for i in range(len(coords)):
-            x1, y1 = coords[i]
-            x2, y2 = coords[(i + 1) % len(coords)]
-
-            line = QGraphicsLineItem(x1, y1, x2, y2)
-            line.setPen(pen)
-            self.graphics_scene.addItem(line)
-
-        # Add label
-        if coords:
-            center_x = sum(x for x, y in coords) / len(coords)
-            center_y = sum(y for x, y in coords) / len(coords)
-
-            text = QGraphicsTextItem(f"BB{manipulator_idx}")
-            text.setPos(center_x - 15, center_y - 8)
-            text.setDefaultTextColor(color)
-            font = QFont()
-            font.setPointSize(8)
-            font.setBold(True)
-            text.setFont(font)
-            self.graphics_scene.addItem(text)
+    def _draw_bounding_box(self, aabb, mm_idx):
+        """Draw bounding box for a manipulator."""
+        color = self._get_manipulator_color(mm_idx)
+        
+        try:
+            corners = aabb.get_absolute_corners()
+            
+            # Two points defining a rectangle (top-left and bottom-right)
+            x1, y1 = corners[0]
+            x2, y2 = corners[1]
+            
+            # Create rectangle
+            rect = QGraphicsRectItem(x1, y1, x2 - x1, y2 - y1)
+            rect.setPen(QPen(color, 3))  # Thicker lines for better visibility
+            rect.setBrush(QBrush())  # Transparent fill
+            self.graphics_scene.addItem(rect)
+                
+                
+        except Exception as e:
+            print(f"Error drawing bounding box for manipulator {mm_idx}: {e}")
 
     def _get_manipulator_color(self, mm_idx):
         """Get the color for a specific manipulator index."""

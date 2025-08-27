@@ -608,14 +608,16 @@ class touchDetect:
         status_mm, state_mm = mm["mm_open"]()
         if any(s != 0 for s in [status_smu, status_con, status_mm]):
             return (2, {"message": "Verify contact failed to set up hardware"})
-
+        stables = []
         for info in infos:
             stable = self._verify_contact_single(smu, con, mm, info)
-            if not stable:
-                return (1, {"Error message": f"Manipulator {info.mm_number} not in contact"})
+            stables.append(stable)
 
         self._channels_off(con, smu)
         self._log("Verify contact operation completed successfully")
+        for i, stable in enumerate(stables):
+            if not stable:
+                return (0, {"message": f"Manipulator {infos[i].mm_number} not in contact"})
         return (0, {"message": "Verify contact operation completed successfully"})
 
     def _verify_contact_single(self, smu, con, mm, info: ManipulatorInfo) -> bool:
