@@ -35,7 +35,7 @@ TODO: update instructions
 - Touchdetect is setup once all manipulators are contacted.
 
 ## (verifyContact setup)
-- If using verify contact, the same step apply except there is no need to find the contact point.
+- Verifycontact uses the interface provided by touchDetect, and just needs the correct dependency setting.
 
 ## Sweep setup
 - set the sweep settings on the sweep tab. ![alt text](rsc/sweep.png)
