@@ -346,7 +346,7 @@ class dummy_spectro_GUI:
                     return [status, data]
 
                 # save the spectrum if needed
-                if self.settings["saveautoattmepts"]:
+                if self.settings["saveattempts_check"]:
                     varDict = {}
                     varDict["integrationtime"] = guessIntTime / 1000.0
                     varDict["triggermode"] = 1 if self.settings["externalTrigger"] else 0
@@ -516,9 +516,9 @@ class dummy_spectro_GUI:
 
     def _parse_settings_autoTime(self) -> "status":
         self.settings["integrationtimetype"] = self.settingsWidget.getIntegrationTime_combo.currentText()
-        self.settings["saveautoattmepts"] = self.settingsWidget.saveAttempts_check.isChecked()
+        self.settings["saveattempts_check"] = self.settingsWidget.saveAttempts_check.isChecked()
         self.settings["useintegrationtimeguess"] = self.settingsWidget.useIntegrationTimeGuess_check.isChecked()
-        if self.settings["saveautoattmepts"]:
+        if self.settings["saveattempts_check"]:
             [status, info] = self._parseSaveData()
             if status:
                 return [status, info]
@@ -567,7 +567,7 @@ class dummy_spectro_GUI:
             [status, info] = self._parse_settings_integrationTime()
             if status:
                 return [status, info]
-        if not self.settings["saveautoattmepts"]:
+        if not self.settings["saveattempts_check"]:
             [status, info] = self._parseSaveData()
             if status:
                 return [status, info]
@@ -599,7 +599,7 @@ class dummy_spectro_GUI:
             [status, info] = self._parse_settings_integrationTime()
             if status:
                 return [status, info]
-        if not self.settings["saveautoattmepts"]:
+        if not self.settings["saveattempts_check"]:
             [status, info] = self._parseSaveData()
             if status:
                 return [status, info]

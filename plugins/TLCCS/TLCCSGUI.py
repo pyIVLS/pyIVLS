@@ -596,7 +596,7 @@ class TLCCS_GUI(QObject):
             [status, info] = self._parse_settings_integrationTime()
             if status:
                 return [status, info]
-        if not self.settings["saveautoattmepts"]:
+        if not self.settings["saveattempts_check"]:
             [status, info] = self._parseSaveData()
             if status:
                 return [status, info]
