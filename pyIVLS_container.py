@@ -202,7 +202,7 @@ class pyIVLS_container(QObject):
         current_config: list = self.pm.hook.get_plugin_settings()
         for plugin, code, settings in current_config:
             if code != 0:
-                self.emit_error(f"Error saving settings for plugin {plugin}: {code}, {settings['Error message']}, {settings.get('Error message', 'No error message')}")
+                self.emit_error(f"Error saving settings for plugin {plugin}: {code}, {settings['Error message']}")
                 continue
             if self.config.has_section(f"{plugin}_settings"):
                 for key, value in settings.items():

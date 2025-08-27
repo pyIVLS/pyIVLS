@@ -37,7 +37,7 @@ class pyIVLS_touchDetect_plugin:
         Returns:
             dict: name, widget
         """
-        settings = plugin_data.get(self.name, {}).get("settings", {})
+        settings = plugin_data[self.name]["settings"]  # No getters here, let's crash properly if something is missing from the .ini
         return {self.name: self.pluginClass.setup(settings)}
 
     @hookimpl
@@ -48,7 +48,7 @@ class pyIVLS_touchDetect_plugin:
         """
 
         if args is None or args.get("function") == self.function:
-            return {self.name: self.pluginClass._getLogSignal()}
+            return {self.name: self.pluginClass.logger.logger_signal}
 
     @hookimpl
     def get_info(self, args=None):
@@ -58,32 +58,7 @@ class pyIVLS_touchDetect_plugin:
         """
 
         if args is None or args.get("function") == self.function:
-            return {self.name: self.pluginClass._getInfoSignal()}
-
-    @hookimpl
-    def get_closeLock(self, args=None):
-        """provides the signal for logging to main app
-
-        :return: dict that includes the log signal
-        """
-
-        if args is None or args.get("function") == self.function:
-            pass
-
-    @hookimpl
-    def set_plugin(self, plugin_list):
-        """gets a list of plugins available, fetches the ones it needs.
-
-        Args:
-            plugin_list (list): list of plugins in the form of [plugin1, plugin2, ...]
-        """
-        plugins_to_fetch = []
-
-        for plugin, metadata in plugin_list:
-            if metadata.get("function", "") in self.dependencies:
-                plugins_to_fetch.append([plugin, metadata])
-
-        self.pluginClass.dependency = plugins_to_fetch
+            return {self.name: self.pluginClass.logger.info_popup_signal}
 
     @hookimpl
     def get_functions(self, args=None):
@@ -93,7 +68,17 @@ class pyIVLS_touchDetect_plugin:
         """
         if args is None or args.get("function") == self.function:
             return {self.name: self.pluginClass._get_public_methods()}
-    
+
+    @hookimpl
+    def set_function(self, function_dict):
+        """Hook to set methods from other plugins to this plugins function dictionary
+        Returns: Missing methods
+        """
+        # set functions to DependencyManager
+        self.pluginClass.dm.set_function_dict(function_dict)
+        missing, list = self.pluginClass.dm.validate_dependencies()
+        return list
+
     @hookimpl
     def get_plugin_settings(self, args=None):
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""

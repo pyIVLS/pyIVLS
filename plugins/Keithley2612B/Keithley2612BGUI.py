@@ -80,13 +80,16 @@ class Keithley2612BGUI:
 
     def _initGUI(
         self,
-        plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
+        plugin_info,
     ):
         if plugin_info["sourcehighc"] == "True":
             self.settingsWidget.checkBox_sourceHighC.setChecked(True)
         if plugin_info["drainhighc"] == "True":
             self.settingsWidget.checkBox_drainHighC.setChecked(True)
         self.settingsWidget.lineEditAddress.setText(plugin_info["address"])
+        self.settingsWidget.lineEditETH.setText(plugin_info["eth_address"])
+        self.settingsWidget.backendCombobox.setCurrentText(plugin_info["backend"])
+        self.settingsWidget.lineEditPort.setText(plugin_info["port"])
 
     ########Functions
     ########plugins interraction
@@ -129,6 +132,9 @@ class Keithley2612BGUI:
 
     def _parse_settings_address(self):
         self.settings["address"] = self.settingsWidget.lineEditAddress.text()
+        self.settings["eth_address"] = self.settingsWidget.lineEditETH.text()
+        self.settings["backend"] = self.settingsWidget.backendCombobox.currentText()
+        self.settings["port"] = self.settingsWidget.lineEditPort.text()
 
     ###############GUI enable/disable
     def set_running(self, status):
@@ -151,7 +157,7 @@ class Keithley2612BGUI:
         """
         self._parse_settings_address()
         try:
-            self.smu.keithley_connect(self.settings["address"])
+            self.smu.keithley_connect(self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"])
             return [0, self.smu.keithley_IDN()]
         except Exception as e:
             return [
@@ -242,7 +248,7 @@ class Keithley2612BGUI:
         """
         try:
             return [0, self.smu.getIV(channel)]
-        except:
+        except Exception as _:
             return [4, {"Error message": "Failed to get IV data"}]
 
     def smu_setOutput(self, channel, outputType, value):
@@ -254,7 +260,7 @@ class Keithley2612BGUI:
         try:
             self.smu.setOutput(channel, outputType, value)
             return [0, "OK"]
-        except:
+        except Exception as _:
             return [4, {"Error message": "Failed to set smu output"}]
 
     def smu_setup_resmes(self, channel):

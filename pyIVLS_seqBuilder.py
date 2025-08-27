@@ -246,7 +246,7 @@ class pyIVLS_seqBuilder(QObject):
         self.widget.runButton.setEnabled(not status)
         self.widget.stopButton.setEnabled(status)
 
-    def _test_action(self):
+    def _test_action(self) -> bool:
         """Checks for self-referencing items and empty loops."""
 
         def has_self_as_child(item):
@@ -275,19 +275,22 @@ class pyIVLS_seqBuilder(QObject):
         root_item = self.model.invisibleRootItem().child(0)
         if has_self_as_child(root_item):
             self.info_message.emit("Error: item cannot have itself as a child.")
-            return
+            return False
 
         # Check for empty loops
-        def check_empty_loops(item):
+        def check_empty_loops(item) -> bool:
             for row in range(item.rowCount()):
                 child_func = item.child(row, 0)
                 child_class = item.child(row, 1)
                 if child_class and child_class.text() == "loop":
                     if not loop_has_step_descendant(child_func):
                         self.info_message.emit(f"Error: Loop '{child_func.text()}' does not contain any step instructions.")
+                        return True
                 check_empty_loops(child_func)
+                return False
 
-        check_empty_loops(root_item)
+        empty_loops = check_empty_loops(root_item)
+        return not empty_loops
 
     #### Sequence functions
 
@@ -360,6 +363,7 @@ class pyIVLS_seqBuilder(QObject):
         return data
 
     def _runParser(self):
+        """Runs the sequence parser, iterates through the sequence and executes the steps."""
         ###############Main logic of iteration: 0 - no iterations, 1 - only start point, 2 - start end end point, iterstep = (end-start)/(iternum -1).The same is used in sweepCommon for drainVoltage. !!!Adapt to logic of iteration, do not modify it!!!
         self.log_message.emit("pyIVLS_seqBuilder: Running sequence parser")
         data = self.extract_data(self.model.invisibleRootItem().child(0))
@@ -411,6 +415,10 @@ class pyIVLS_seqBuilder(QObject):
     def _runAction(self):
         # disable controls
         # recipe itself should be checked (i.e. no empty loops, same plugin is not used as step in the same plugins loop, etc.), but parse settings are done during the recipe formation
+        passed = self._test_action()
+        if not passed:
+            self.info_message.emit("Sequence test failed. Please fix the errors before running the sequence.")
+            return [1, "Sequence test failed."]
         self._setRunStatus(True)
         self.run_thread = thread_with_exception(self._runParser)
         self.run_thread.start()

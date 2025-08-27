@@ -1,10 +1,18 @@
 import os
-from datetime import datetime
 import queue
 
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 from Sutter import Mpc325
+from plugin_components import (
+    LoggingHelper,
+    ConnectionIndicatorStyle,
+    public,
+    get_public_methods,
+    CloseLockSignalProvider,
+)
+import copy
+
 
 """
 From readme:
@@ -25,43 +33,6 @@ drain nplc field should be numeric"}]
 "Exception" : exception from called function
 
 """
-
-
-class SutterMoveWorker(QThread):
-    """CURRENTLY UNUSED
-
-    Args:
-        QThread (_type_): _description_
-    """
-
-    def __init__(self, hal, log_signal=None):
-        super().__init__()
-        self.hal = hal
-        self.log_signal = log_signal
-        self.command_queue = queue.Queue()
-        self._running = True
-
-    def run(self):
-        while self._running:
-            try:
-                cmd, args = self.command_queue.get(timeout=0.1)
-            except queue.Empty:
-                continue
-            try:
-                result = cmd(*args)
-                if self.log_signal and result is not None:
-                    self.log_signal.emit(str(result))
-            except Exception as e:
-                if self.log_signal:
-                    self.log_signal.emit(f"Sutter HW error: {str(e)}")
-            self.command_queue.task_done()
-
-    def stop(self):
-        self._running = False
-        self.wait()
-
-    def enqueue(self, cmd, args=()):
-        self.command_queue.put((cmd, args))
 
 
 class SutterGUI(QObject):
@@ -96,9 +67,8 @@ class SutterGUI(QObject):
     otsoha
     """
 
-    log_message = pyqtSignal(str)
-    info_message = pyqtSignal(str)
-    closeLock = pyqtSignal(bool)
+    GREEN_STYLE = ConnectionIndicatorStyle.GREEN_CONNECTED.value
+    RED_STYLE = ConnectionIndicatorStyle.RED_DISCONNECTED.value
 
     # FIXME: kinda stupid to import the names here
     def __init__(self, name, function):
@@ -106,7 +76,9 @@ class SutterGUI(QObject):
         self.hal = Mpc325()
         self.plugin_name = name
         self.plugin_function = function
-        # self._move_worker = SutterMoveWorker(self.hal, self.log_message)
+        self.logger = LoggingHelper(self)
+        self.cl = CloseLockSignalProvider()
+        self.settings = {}
 
     def setup(self, settings):
         """
@@ -114,6 +86,9 @@ class SutterGUI(QObject):
         """
         path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(path + "Sutter_settingsWidget.ui")
+
+        # Store settings internally in .ini format
+        self.settings = copy.deepcopy(settings)
 
         # connect buttons to functions
         self.settingsWidget.connectButton.clicked.connect(self._connect_button)
@@ -133,34 +108,77 @@ class SutterGUI(QObject):
         # fill combobox
         speeds = self.hal._MOVE_SPEEDS
         for speed_key, speed_value in speeds.items():
-            self.speed_input.addItem(f"{speed_key}: {int(speed_value)} µm/s")
+            self.speed_input.addItem(f"{speed_key}: {int(speed_value)} microns/s")
 
-        # set default values, try to read from settings.
-        quickmove = settings.get("quickmove", False)
-        self.quickmove_input.setChecked(bool(quickmove))
-        source = settings.get("address", "")
-        self.source_input.setText(source)
-        speed = int(settings.get("speed_idx", 0))
-        self.speed_input.setCurrentIndex(speed)
-
-        # read the default settings from the GUI
-        self.parse_settings_widget()
+        # Apply settings to GUI from internal settings
+        self._apply_settings_to_gui()
 
         self._gui_change_device_connected(self.hal.is_connected())
 
         return self.settingsWidget
 
     # GUI interactions
+    def _apply_settings_to_gui(self):
+        """Apply internal settings to GUI controls."""
+        try:
+            # Handle quickmove setting - can be boolean or string
+            quickmove = self.settings.get("quickmove", False)
+            if isinstance(quickmove, str):
+                self.quickmove_input.setChecked(quickmove.lower() == "true")
+            else:
+                self.quickmove_input.setChecked(bool(quickmove))
 
+            # Set address
+            address = self.settings.get("address", "")
+            self.source_input.setText(address)
+
+            # Set speed text
+            speed_text = self.settings.get("speed_text", "")
+            if speed_text:
+                self.speed_input.setCurrentText(speed_text)
+
+            # Update HAL internal state based on current settings
+            self._update_hal_from_settings()
+
+        except Exception as e:
+            self.logger.log_warn(f"Error applying settings to GUI: {str(e)}")
+
+    def _update_hal_from_settings(self):
+        """Update HAL internal state from current settings."""
+        try:
+            # Parse quickmove
+            quickmove = self.settings["quickmove"]
+            if isinstance(quickmove, str):
+                quickmove = quickmove.lower() == "true"
+            else:
+                quickmove = bool(quickmove)
+
+            # Get speed
+            speed = self.settings["speed"]
+            # Get address
+            address = self.settings["address"]
+            self.hal.update_internal_state(quickmove, speed, address)
+
+        except Exception as e:
+            self.logger.log_warn(f"Error updating HAL from settings: {str(e)}")
+
+    @public
     def parse_settings_widget(self) -> tuple[int, dict]:
-        """Parses the settings widget and sets the values in the class."""
+        """Parses the settings widget and returns settings in .ini file format."""
         try:
             quick_move = bool(self.quickmove_input.isChecked())
             speed_text = self.speed_input.currentText()
             speed = int(speed_text.split(":")[0])
-            source = self.source_input.text()
-            settings = {"quickmove": quick_move, "speed": speed, "address": source}
-            self.hal.update_internal_state(quick_move, speed, source)
+            address = self.source_input.text()
+
+            # Return settings in .ini format (same as sutter.ini)
+            settings = {"address": address, "speed": speed, "quickmove": quick_move, "speed_text": speed_text}
+
+            # Update internal settings
+            self.settings.update(settings)
+
+            # Update HAL internal state
+            self.hal.update_internal_state(quick_move, speed, address)
 
             return [0, settings]
         except Exception as e:
@@ -168,10 +186,10 @@ class SutterGUI(QObject):
 
     def _gui_change_device_connected(self, connected: bool):
         if connected:
-            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
+            self.settingsWidget.connectionIndicator.setStyleSheet(self.GREEN_STYLE)
 
         else:
-            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
+            self.settingsWidget.connectionIndicator.setStyleSheet(self.RED_STYLE)
 
         self.source_input.setEnabled(not connected)
         self.settingsWidget.connectButton.setText("Disconnect" if connected else "Connect")
@@ -189,8 +207,10 @@ class SutterGUI(QObject):
             self.devnum_combo.setCurrentIndex(current_dev - 1)
         else:
             self.devnum_combo.clear()
-        self.closeLock.emit(connected)
+        self.cl.emit_close_lock(connected)
 
+    # The following methods handle GUI events, but also update the internal state of the plugin.
+    # kind of non-standard.
     def _quickmove_changed(self, checked: bool):
         """Called when the quickmove checkbox is changed,
         sets visibility of the speed combobox."""
@@ -199,7 +219,9 @@ class SutterGUI(QObject):
         else:
             self.settingsWidget.speedComboBox.setEnabled(True)
 
-        self.hal.update_internal_state(self.quickmove_input.isChecked(), None, None)
+        # Update internal settings
+        self.settings["quickmove"] = checked
+        self.hal.update_internal_state(checked, None, None)
 
     def _devnum_changed(self):
         """Called when the device number combobox is changed, sets the device number in the hal."""
@@ -212,7 +234,12 @@ class SutterGUI(QObject):
     def speed_changed(self):
         """Called when the speed combobox is changed, sets the speed in the hal."""
         speed_text = self.speed_input.currentText()
-        speed = int(speed_text.split(":")[0])
+        speed = int(speed_text.split(":")[0]) if ":" in speed_text else 13
+
+        # Update internal settings
+        self.settings["speed"] = speed
+        self.settings["speed_text"] = speed_text
+
         self.hal.update_internal_state(None, speed, None)
 
     ## Button functionality:
@@ -223,11 +250,13 @@ class SutterGUI(QObject):
             if self.hal.is_connected():
                 self.hal.close()
             else:
-                self.hal.open(self.source_input.text())
+                address = self.source_input.text()
+                # Update settings with current address
+                self.settings["address"] = address
+                self.hal.open(address)
 
         except Exception as e:
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            self.log_message.emit(f"{timestamp}: Sutter error: {str(e)}")
+            self.logger.info_popup(f"Sutter connection error: {str(e)}")
 
         finally:
             if self.hal.is_connected():
@@ -236,20 +265,39 @@ class SutterGUI(QObject):
 
             else:
                 self._gui_change_device_connected(False)
-                timestamp = datetime.now().strftime("%H:%M:%S")
 
     def _status_button(self):
-        print("status button pressed WIP")
         pos = self.hal.get_current_position()
-        print(f"Current position: {pos}")
-        self.hal.move(pos[0] + 4000, pos[1], pos[2])
+        status, state = self.mm_move(x=pos[0] + 1000)
+        print(f"status: {status}, state: {state} for positive x move")
+        status, state = self.mm_move(x=pos[0] - 1000)
+        print(f"status: {status}, state: {state} for negative x move")
+        status, state = self.mm_move(y=pos[1] + 1000)
+        print(f"status: {status}, state: {state} for positive y move")
+        status, state = self.mm_move(y=pos[1] - 1000)
+        print(f"status: {status}, state: {state} for negative y move")
+        status, state = self.mm_move(z=pos[2] + 1000)
+        print(f"status: {status}, state: {state} for positive z move")
+        status, state = self.mm_move(z=pos[2] - 1000)
+        print(f"status: {status}, state: {state} for negative z move")
+        status, state = self.mm_move_relative(x_change=1000, y_change=1000, z_change=1000)
+        print(f"status: {status}, state: {state} for positive relative move")
+        status, state = self.mm_move_relative(x_change=-1000, y_change=-1000, z_change=-1000)
+        print(f"status: {status}, state: {state} for negative relative move")
+        status, state = self.mm_zmove(z_change=1000, absolute=True)
+        print(f"status: {status}, state: {state} for absolute z move down")
+        status, state = self.mm_zmove(z_change=0, absolute=True)
+        print(f"status: {status}, state: {state} for absolute z move up")
+        status, state = self.mm_zmove(z_change=1000, absolute=False)
+        print(f"status: {status}, state: {state} for relative z move down")
+        status, state = self.mm_up_max()
+        print(f"status: {status}, state: {state} for move to max z")
 
     def _stop_button(self):
-        print("stop button pressed WIP")
+        self.logger.info_popup("Stop button pressed WIP")
         # self._move_worker.stop()
 
     def _calibrate_button(self):
-        print("calibrate button pressed WIP")
         self.hal.calibrate()
 
     ## hook functionality
@@ -258,24 +306,28 @@ class SutterGUI(QObject):
         """
         Returns a a list of public methods of the class.
         """
-        # FIXME: magic constant in kind of a stupid place:
-        prefix = "mm_"
-        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method.startswith(prefix)}
-        return methods
+        return get_public_methods(self)
 
-    def _get_log_signal(self):
-        """Returns the log signal."""
-        return self.log_message
+    ## API
+    @public
+    def setSettings(self, settings: dict) -> None:
+        """Sets the plugin settings from the sequence builder in .ini format."""
+        self.settings = copy.deepcopy(settings)
+        # Update HAL internal state based on new settings
+        self._update_hal_from_settings()
 
-    def _get_info_signal(self):
-        """Returns the info signal."""
-        return self.info_message
+    @public
+    def set_gui_from_settings(self) -> tuple[int, dict]:
+        """Updates the GUI controls based on the internal settings."""
+        try:
+            self._apply_settings_to_gui()
+            return [0, {"Error message": "GUI updated from settings"}]
+        except Exception as e:
+            error_msg = f"Error updating GUI from settings: {str(e)}"
+            self.logger.log_warn(error_msg)
+            return [1, {"Error message": error_msg, "Exception": str(e)}]
 
-    def _get_close_lock_signal(self):
-        """Returns the close lock signal."""
-        return self.closeLock
-
-    ## function API
+    @public
     def mm_open(self) -> tuple:
         """Open the device.
 
@@ -285,14 +337,23 @@ class SutterGUI(QObject):
         if self.hal.is_connected():
             return [0, {"Error message": "Sutter already connected"}]
         try:
-            self.hal.open(self.source_input.text())
+            address = self.settings.get("address", "")
+            if not address:
+                address = self.source_input.text()
+                self.settings["address"] = address
 
+            self.hal.open(address)
+            # Update settings from GUI after successful connection
+            status, parsed_settings = self.parse_settings_widget()
+            if status == 0:
+                self.settings.update(parsed_settings)
             self._gui_change_device_connected(True)
             return [0, {"Error message": "Sutter connected"}]
 
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
+    @public
     def mm_change_active_device(self, dev_num: int):
         """Micromanipulator active device change.
 
@@ -304,7 +365,8 @@ class SutterGUI(QObject):
 
         """
         try:
-            self.devnum_combo.setCurrentIndex(dev_num - 1)
+            # commented out since this will be called from a separate thread
+            # self.devnum_combo.setCurrentIndex(dev_num - 1)
             if self.hal.change_active_device(dev_num):
                 return [0, {"Error message": "Sutter device changed to " + str(dev_num)}]
             return [4, {"Error message": "Sutter device change error"}]
@@ -314,6 +376,7 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
+    @public
     def mm_move(self, x=None, y=None, z=None):
         """Micromanipulator move.
 
@@ -326,6 +389,7 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
+    @public
     def mm_move_relative(self, x_change=0, y_change=0, z_change=0):
         """Micromanipulator move relative to the current position.
 
@@ -339,14 +403,22 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
+    @public
     def mm_calibrate(self, all=False):
         if not all:
             try:
-                self.hal.calibrate()
+                # move first in the z axis to the minimum position
+                self.hal.move(z=self.hal._MINIMUM_MS)
+
+                # finally calibrate the device
+                _ = self.hal.calibrate()
                 return [0, {"Error message": "Sutter calibrated"}]
             except Exception as e:
                 return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+        if all:
+            raise NotImplementedError("Sutter calibration for all devices is not implemented yet.")
 
+    @public
     def mm_stop(self):
         """Micromanipulator stop."""
         try:
@@ -355,6 +427,7 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
+    @public
     def mm_zmove(self, z_change, absolute=False):
         """Moves the micromanipulator in the z axis. If the move is out of bounds, it will return False.
 
@@ -367,7 +440,7 @@ class SutterGUI(QObject):
         """
         try:
             (x, y, z) = self.hal.get_current_position()
-            
+
             if absolute:
                 # For absolute positioning, z_change is the target z position
                 target_z = z_change
@@ -385,6 +458,15 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
+    @public
+    def mm_get_active_device(self):
+        """Returns the currently active device."""
+        try:
+            return [0, self.hal.get_active_device()]
+        except Exception as e:
+            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+
+    @public
     def mm_up_max(self):
         """Moves to z = 0"""
         try:
@@ -396,17 +478,28 @@ class SutterGUI(QObject):
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
-    def mm_current_position(self):
+    @public
+    def mm_current_position(self, manipulator_name=None):
         """Returns the current position of the micromanipulator.
 
         Returns:
             tuple: (x, y, z) position in microns
         """
         try:
-            return self.hal.get_current_position()
+            if manipulator_name is not None:
+                old_device = self.hal.get_active_device()
+                success = self.hal.change_active_device(manipulator_name)
+                if not success:
+                    return [4, {"Error message": f"Failed to change to device {manipulator_name}"}]
+                pos = self.hal.get_current_position()
+                self.hal.change_active_device(old_device)  # Restore previous device
+            else:
+                pos = self.hal.get_current_position()
+            return pos
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
 
+    @public
     def mm_devices(self):
         """Returns the number of connected devices and their statuses.
 
@@ -419,5 +512,65 @@ class SutterGUI(QObject):
                 return [code, status]  # Return error if opening failed
             dev_count, dev_statuses = self.hal.get_connected_devices_status()
             return [0, (dev_count, dev_statuses)]
+        except Exception as e:
+            return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]
+
+    @public
+    def mm_get_positions(self):
+        """Returns the current positions of all manipulators.
+
+        Returns:
+            tuple: (status, positions_dict)
+            dict: {device_number: (x, y, z)}
+        """
+        try:
+            connected_devices = self.hal.get_connected_devices_status()[1]
+            for i, status in enumerate(connected_devices):
+                if status == 1:
+                    success = self.hal.change_active_device(i + 1)
+                    if not success:
+                        return 4, {"Error message": f"Failed to change to device {i + 1}"}
+                    else:
+                        pos = self.hal.get_current_position()
+                        if pos is None:
+                            return 4, {"Error message": f"Failed to get position for device {i + 1}"}
+                        return 0, {i + 1: pos}
+
+        except Exception as e:
+            return 4, {"Error message": "Sutter HW error", "Exception": str(e)}
+
+    @public
+    def mm_get_num_manipulators(self):
+        """
+        Get the total number of manipulators available.
+
+        Returns:
+            int: Number of manipulators
+        """
+        try:
+            dev_count, _ = self.hal.get_connected_devices_status()
+            return dev_count
+        except Exception as e:
+            self.logger.log_warn(f"Error getting number of manipulators: {e}")
+            return 4  # Default to 4 manipulators if error
+
+    @public
+    def mm_slow_move(self, x=None, y=None, z=None):
+        """Micromanipulator move.
+
+        Args:
+            *args: x, y, z
+        """
+        try:
+            if x is None and y is None and z is None:
+                return [1, {"Error message": "Sutter slow move requires at least one coordinate"}]
+            if x is None:
+                x = self.hal.get_current_position()[0]
+            if y is None:
+                y = self.hal.get_current_position()[1]
+            if z is None:
+                z = self.hal.get_current_position()[2]
+            self.hal.slow_move_to(x, y, z, 7)
+            return [0, {"Error message": "Sutter moved"}]
         except Exception as e:
             return [4, {"Error message": "Sutter HW error", "Exception": str(e)}]

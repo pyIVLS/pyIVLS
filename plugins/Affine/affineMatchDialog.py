@@ -9,7 +9,7 @@
 ################################################################################
 
 from PyQt6.QtCore import QCoreApplication, QMetaObject, Qt
-from PyQt6.QtWidgets import QCheckBox, QComboBox, QGraphicsView, QGridLayout, QGroupBox, QLabel, QPushButton, QSplitter, QVBoxLayout
+from PyQt6.QtWidgets import QCheckBox, QComboBox, QGraphicsView, QGridLayout, QGroupBox, QLabel, QPushButton, QSplitter, QVBoxLayout, QSpinBox
 
 
 class Ui_Dialog(object):
@@ -83,6 +83,74 @@ class Ui_Dialog(object):
 
         self.gridLayout_3.addWidget(self.otsuImage, 1, 5, 1, 1)
 
+        self.manualThresholdMask = QCheckBox(self.groupBox)
+        self.manualThresholdMask.setObjectName("manualThresholdMask")
+
+        self.gridLayout_3.addWidget(self.manualThresholdMask, 2, 0, 1, 1)
+
+        self.thresholdMask = QSpinBox(self.groupBox)
+        self.thresholdMask.setObjectName("thresholdMask")
+        self.thresholdMask.setEnabled(False)
+        self.thresholdMask.setMinimum(0)
+        self.thresholdMask.setMaximum(255)
+        self.thresholdMask.setValue(128)
+
+        self.gridLayout_3.addWidget(self.thresholdMask, 2, 1, 1, 1)
+
+        self.manualThresholdImage = QCheckBox(self.groupBox)
+        self.manualThresholdImage.setObjectName("manualThresholdImage")
+
+        self.gridLayout_3.addWidget(self.manualThresholdImage, 3, 0, 1, 1)
+
+        self.thresholdImage = QSpinBox(self.groupBox)
+        self.thresholdImage.setObjectName("thresholdImage")
+        self.thresholdImage.setEnabled(False)
+        self.thresholdImage.setMinimum(0)
+        self.thresholdImage.setMaximum(255)
+        self.thresholdImage.setValue(128)
+
+        self.gridLayout_3.addWidget(self.thresholdImage, 3, 1, 1, 1)
+
+        self.morphologyMask = QCheckBox(self.groupBox)
+        self.morphologyMask.setObjectName("morphologyMask")
+
+        self.gridLayout_3.addWidget(self.morphologyMask, 4, 0, 1, 1)
+
+        self.morphologyTypeMask = QComboBox(self.groupBox)
+        self.morphologyTypeMask.setObjectName("morphologyTypeMask")
+        self.morphologyTypeMask.setEnabled(False)
+
+        self.gridLayout_3.addWidget(self.morphologyTypeMask, 4, 1, 1, 1)
+
+        self.morphologyStrengthMask = QSpinBox(self.groupBox)
+        self.morphologyStrengthMask.setObjectName("morphologyStrengthMask")
+        self.morphologyStrengthMask.setEnabled(False)
+        self.morphologyStrengthMask.setMinimum(1)
+        self.morphologyStrengthMask.setMaximum(15)
+        self.morphologyStrengthMask.setValue(3)
+
+        self.gridLayout_3.addWidget(self.morphologyStrengthMask, 4, 2, 1, 1)
+
+        self.morphologyImage = QCheckBox(self.groupBox)
+        self.morphologyImage.setObjectName("morphologyImage")
+
+        self.gridLayout_3.addWidget(self.morphologyImage, 5, 0, 1, 1)
+
+        self.morphologyTypeImage = QComboBox(self.groupBox)
+        self.morphologyTypeImage.setObjectName("morphologyTypeImage")
+        self.morphologyTypeImage.setEnabled(False)
+
+        self.gridLayout_3.addWidget(self.morphologyTypeImage, 5, 1, 1, 1)
+
+        self.morphologyStrengthImage = QSpinBox(self.groupBox)
+        self.morphologyStrengthImage.setObjectName("morphologyStrengthImage")
+        self.morphologyStrengthImage.setEnabled(False)
+        self.morphologyStrengthImage.setMinimum(1)
+        self.morphologyStrengthImage.setMaximum(15)
+        self.morphologyStrengthImage.setValue(3)
+
+        self.gridLayout_3.addWidget(self.morphologyStrengthImage, 5, 2, 1, 1)
+
         self.gridLayout.addWidget(self.groupBox, 0, 0, 1, 2)
 
         self.groupBox_2 = QGroupBox(Dialog)
@@ -125,6 +193,12 @@ class Ui_Dialog(object):
         self.gridLayout_4.addWidget(self.backendCombo, 3, 1, 1, 1)
 
         self.gridLayout.addWidget(self.groupBox_2, 1, 0, 1, 2)
+
+        # add a label displaying the match result
+        self.matchResultLabel = QLabel(self.groupBox_2)
+        self.matchResultLabel.setObjectName("matchResultLabel")
+        self.gridLayout_4.addWidget(self.matchResultLabel, 4, 0, 1, 2)
+        self.matchResultLabel.setText("Not matched yet")
 
         self.groupBox_4 = QGroupBox(Dialog)
         self.groupBox_4.setObjectName("groupBox_4")
@@ -186,6 +260,10 @@ class Ui_Dialog(object):
         self.cannyImage.setText(QCoreApplication.translate("Dialog", "edge detect image", None))
         self.otsuMask.setText(QCoreApplication.translate("Dialog", "otsu mask", None))
         self.otsuImage.setText(QCoreApplication.translate("Dialog", "otsu img", None))
+        self.manualThresholdMask.setText(QCoreApplication.translate("Dialog", "manual threshold mask", None))
+        self.manualThresholdImage.setText(QCoreApplication.translate("Dialog", "manual threshold img", None))
+        self.morphologyMask.setText(QCoreApplication.translate("Dialog", "morphology mask", None))
+        self.morphologyImage.setText(QCoreApplication.translate("Dialog", "morphology img", None))
         self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", "Feature detector settings", None))
         self.label_2.setText(QCoreApplication.translate("Dialog", "Residual threshold (larger -> more matches but less accurate)", None))
         self.label.setText(QCoreApplication.translate("Dialog", "ratio test) ", None))

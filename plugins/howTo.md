@@ -48,3 +48,9 @@ Most of the common functionality should be moved to a component, since:
 
 ## hookspecs
 TODO
+
+## FOOTGUNS:
+Dont use uppercase in naming, since:
+When creating a field in the .ini file to save last saved plugins, the names are compressed to all lowercase.
+Don't use spaces. in the "function" field. This is because the dependencies are saved under the type field name, and the ini file does not allow spaced in the names with the current configuration.
+ 

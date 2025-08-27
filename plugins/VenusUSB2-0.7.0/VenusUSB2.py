@@ -5,7 +5,7 @@ class VenusUSB2:
     """Handles communication with the VenusUSB2 camera"""
 
     exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
-    #exposures = [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1]  # windows interface
+    # exposures = [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1]  # windows interface
     bufferSize = 1
     cap_width = 1024
     cap_height = 768

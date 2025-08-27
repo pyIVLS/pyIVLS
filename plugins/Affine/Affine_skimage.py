@@ -26,11 +26,21 @@ class Preprocessor:
             "equalizemask": False,
             "cannymask": False,
             "otsumask": False,
+            "manualthresholdmask": False,
+            "thresholdmask": 128,
+            "morphologymask": False,
+            "morphologytypemask": "erosion",
+            "morphologystrengthmask": 3,
             "blurimage": False,
             "invertimage": False,
             "equalizeimage": False,
             "cannyimage": False,
             "otsuimage": False,
+            "manualthresholdimage": False,
+            "thresholdimage": 128,
+            "morphologyimage": False,
+            "morphologytypeimage": "erosion",
+            "morphologystrengthimage": 3,
             "sigmaimage": 1.0,
             "sigmamask": 1.0,
         }
@@ -69,6 +79,28 @@ class Preprocessor:
             threshold = ski.filters.threshold_otsu(img_uint8)
             img = img_uint8 > threshold
             img = img.astype(float)
+        if s["manualthresholdimage"]:
+            # Convert to uint8 for manual threshold
+            img_uint8 = (img * 255).astype("uint8")
+            img = img_uint8 > s["thresholdimage"]
+            img = img.astype(float)
+        if s["morphologyimage"]:
+            # Apply morphological operations
+            img_binary = (img > 0.5).astype(bool) if img.max() <= 1.0 else (img > 127).astype(bool)
+            morph_type = s["morphologytypeimage"]
+            strength = s["morphologystrengthimage"]
+            kernel = ski.morphology.disk(strength)
+            
+            if morph_type == "erosion":
+                img_binary = ski.morphology.erosion(img_binary, kernel)
+            elif morph_type == "dilation":
+                img_binary = ski.morphology.dilation(img_binary, kernel)
+            elif morph_type == "opening":
+                img_binary = ski.morphology.opening(img_binary, kernel)
+            elif morph_type == "closing":
+                img_binary = ski.morphology.closing(img_binary, kernel)
+            
+            img = img_binary.astype(float)
         img = (img * 255).astype("uint8")
         return img
 
@@ -98,6 +130,28 @@ class Preprocessor:
             threshold = ski.filters.threshold_otsu(mask_uint8)
             mask = mask_uint8 > threshold
             mask = mask.astype(float)
+        if s["manualthresholdmask"]:
+            # Convert to uint8 for manual threshold
+            mask_uint8 = (mask * 255).astype("uint8")
+            mask = mask_uint8 > s["thresholdmask"]
+            mask = mask.astype(float)
+        if s["morphologymask"]:
+            # Apply morphological operations
+            mask_binary = (mask > 0.5).astype(bool) if mask.max() <= 1.0 else (mask > 127).astype(bool)
+            morph_type = s["morphologytypemask"]
+            strength = s["morphologystrengthmask"]
+            kernel = ski.morphology.disk(strength)
+            
+            if morph_type == "erosion":
+                mask_binary = ski.morphology.erosion(mask_binary, kernel)
+            elif morph_type == "dilation":
+                mask_binary = ski.morphology.dilation(mask_binary, kernel)
+            elif morph_type == "opening":
+                mask_binary = ski.morphology.opening(mask_binary, kernel)
+            elif morph_type == "closing":
+                mask_binary = ski.morphology.closing(mask_binary, kernel)
+            
+            mask = mask_binary.astype(float)
         mask = (mask * 255).astype("uint8")
         return mask
 

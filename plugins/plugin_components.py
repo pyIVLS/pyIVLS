@@ -15,6 +15,10 @@ This also helps in keeping the GUI implementation relatively clean.
     1. Reduce repetitive code, make it easier to maintain with a single point of change (not rewriting all plugins on all changes)
     2. Make it easier to implement new plugins, since the common functionality is already implemented
     3. Way way way easier to test the components than all plugins by themselves.
+-IDEA: if the plugin returns something, it should not also log. so no returns like this:
+    self.logger.log_info("Something happened")
+    return PyIVLSReturn.success({"what happened": "something"})
+since this would lead to double logging.
 
 This file includes:
 - ConnectionIndicatorStyle: Enum for connection indicator styles
@@ -43,7 +47,6 @@ when unpacking, the data could be anything and contain any keys. lots of room fo
 
 """
 
-import inspect
 import sys
 import traceback
 from datetime import datetime
@@ -648,7 +651,7 @@ class GuiMapper(QObject):
         QCheckBox: Returns bool
         QComboBox: Returns current text as str
         QSpinBox: Returns int value
-        
+
         """
         if isinstance(widget_obj, QLineEdit):
             text = widget_obj.text().strip()
@@ -768,6 +771,7 @@ class DependencyManager:
         self.missing_functions = []
         self.dependency_settings = {}
         self.combobox_mapping = mapping
+        self.last_selected = {}
 
     @property
     def function_dict(self) -> Dict[str, Any]:
@@ -784,6 +788,12 @@ class DependencyManager:
     def set_function_dict(self, function_dict: Dict[str, Any]) -> None:
         """Set the available function dictionary from plugin system."""
         self.function_dict = function_dict
+
+    def setup(self, settings: Dict[str, Any]) -> PyIVLSReturn:
+        """Setup the dependency manager with initial settings if needed."""
+        self.last_selected = settings.copy()
+        self.update_comboboxes()
+        return PyIVLSReturn.success()
 
     def validate_dependencies(self) -> Tuple[bool, list]:
         """
@@ -819,27 +829,17 @@ class DependencyManager:
 
     def update_comboboxes(self) -> None:
         """Update all dependency comboboxes with available plugins."""
-        if not self.widget:
-            return
-
         for dependency_type, combobox_name in self.combobox_mapping.items():
             if dependency_type in self._function_dict:
-                try:
-                    combobox = getattr(self.widget, combobox_name)
-                    # Store current selection to restore if possible
-                    current_selection = combobox.currentText()
-
-                    combobox.clear()
-                    available_plugins = list(self._function_dict[dependency_type].keys())
-                    combobox.addItems(available_plugins)
-
-                    # Try to restore previous selection if it's still available
-                    if current_selection in available_plugins:
-                        combobox.setCurrentText(current_selection)
-                except AttributeError:
-                    # Combobox not found, skip silently
-                    continue
-                # add custom implementations here
+                combobox = getattr(self.widget, combobox_name)
+                combobox.clear()
+                available_plugins = list(self._function_dict[dependency_type].keys())
+                combobox.addItems(available_plugins)
+                # Try to restore previous selection if it's still available
+                if dependency_type in self.last_selected:
+                    last_selection = self.last_selected[dependency_type]
+                    if last_selection in available_plugins:
+                        combobox.setCurrentText(last_selection)
 
     def get_selected_dependencies(self) -> Dict[str, str]:
         """
@@ -959,12 +959,11 @@ class DependencyManager:
                 return PyIVLSReturn.missing_dependency(f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}")
             except Exception as e:
                 return PyIVLSReturn.missing_dependency(f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}")
-
         return PyIVLSReturn.success(dependency_settings)
 
 
 class LoggingHelper(QObject):
-    """Helper class for standard logging functionality.
+    """Helper class for standard logging functionality. pass "self" to the helper on plugin init
     Logging levels:
     DEBUG: Detailed information, typically only of interest to a developer trying to diagnose a problem.
     INFO: Confirmation that things are working as expected.

@@ -1,4 +1,6 @@
 from threading import Lock
+from typing import Optional
+import pyvisa
 import usbtmc
 import numpy as np
 
@@ -49,8 +51,6 @@ import numpy as np
 # For implementing both connections simultaneously some abstractions for module specific commands should be implemented e.g query in pyvisa and ask in usbtmc
 # At the moment all the pyvisa methods are commented
 
-# import pyvisa
-
 
 class Keithley2612B:
     ####################################  threads
@@ -67,7 +67,7 @@ class Keithley2612B:
         self.k = None
 
         # Initialize pyvisa resource manager
-        # self.rm = pyvisa.ResourceManager("@py")
+        self.rm = pyvisa.ResourceManager("@py")
 
         # Initialize constants
         ##IRtothink#### debug_mode may be replaced with something like logging
@@ -76,11 +76,17 @@ class Keithley2612B:
         self.lock = Lock()
 
     ## Communication functions
-    def safewrite(self, command):
+    def safewrite(self, command:str) -> None:
         try:
-            if self.k is None:
-                raise ValueError("Keithley 2612B is not connected. Please connect first.")
-            self.k.write(command)
+            if self.backend == "usb":
+                if self.k is None:
+                    raise ValueError("Keithley 2612B is not connected. Please connect first.")
+                self.k.write(command)
+            elif self.backend == "Ethernet":
+                if self.ke is None:
+                    raise ValueError("Keithley 2612B is not connected. Please connect first.")
+                self.ke.write(command)
+
             ##IRtothink#### debug_mode may be replaced with something like logging
             # if self.debug_mode:
             #    error_code = self.k.query("print(errorqueue.next())")
@@ -95,12 +101,19 @@ class Keithley2612B:
         #    if self.debug_mode:
         #        self.k.write("errorqueue.clear()")
 
-    def safequery(self, command):
+    def safequery(self, command:str) -> Optional[str]:
         try:
-            if self.k is None:
-                raise ValueError("Keithley 2612B is not connected. Please connect first.")
-            self.k.write(command)
-            return self.k.read()
+            if self.backend == "usb":
+                if self.k is None:
+                    raise ValueError("Keithley 2612B is not connected. Please connect first.")
+                self.k.write(command)
+                ret: str = self.k.read()
+                return ret
+            elif self.backend == "Ethernet":
+                if self.ke is None:
+                    raise ValueError("Keithley 2612B is not connected. Please connect first.")
+                ret = self.ke.query(command)
+                return ret
         except Exception as e:
             ##IRtodo#### mov to the log
             print(f"Exception querying command: {command}\nException: {e}")
@@ -116,7 +129,7 @@ class Keithley2612B:
     def keithley_IDN(self):
         return "keith"
 
-    def keithley_connect(self, address):  # -> status:
+    def keithley_connect(self, address, eth_address, backend, port):  # -> status:
         """Connect to the Keithley 2612B.
 
         Returns [status, message]:
@@ -124,16 +137,25 @@ class Keithley2612B:
             message contains devices response to IDN query if devices is connected, or an error message otherwise
         """
         self.address = address
+        self.eth_address = eth_address
+        self.port = port
+        self.backend = backend
+
         if self.k is None:
-            # connect the device
-            #### connect with pyvisa resource manager
-            # self.k = self.rm.open_resource(self.address)
-            # self.k.read_termination = "\n"
-            # self.k.write_termination = "\n"
+            if self.backend == "usb":
+                #### connect with usbtmc
+                self.k = usbtmc.Instrument(self.address)
+            elif self.backend == "Ethernet":
+                #### connect with pyvisa resource manager
+                visa_rsc_str = f"TCPIP::{self.eth_address}::{self.port}::SOCKET"
+                self.ke: pyvisa.resources.TCPIPSocket = self.rm.open_resource(visa_rsc_str, resource_pyclass=pyvisa.resources.TCPIPSocket)
+                self.ke.read_termination = "\n"
+                self.ke.write_termination = "\n"
+            else:
+                raise ValueError(f"Unknown backend: {self.backend}")
+
             ##IRtodo#### move to log
             # print(self.k.query("*IDN?"))
-            #### connect with usbtmc
-            self.k = usbtmc.Instrument(self.address)
 
     def keithley_disconnect(self):
         ##IRtodo#### move to log
@@ -152,7 +174,7 @@ class Keithley2612B:
             try:
                 # Get resistance reading.
                 res = self.safequery(f"print({channel}.measure.r())")
-                return res
+                return float(res)
             except Exception as e:
                 print(f"Error measuring resistance: {e}")
                 return -1
@@ -184,6 +206,8 @@ class Keithley2612B:
                 self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
                 # Turn on output.
                 self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
+                self.safewrite(f"display.{channel}.measure.func = display.MEASURE_OHMS")
+
                 return True
             except Exception:
                 return False
@@ -530,9 +554,9 @@ class Keithley2612B:
         Returns:
             bool: last value of the line before writing to it (True for HIGH, False for LOW).
         """
-        # set the line to be user controlled. 
+        # set the line to be user controlled.
         self.safewrite(f"digio.trigger[{line_id}].mode = digio.TRIG_BYPASS")
-        
+
         # fetch return
         last_value = self.safequery(f"print(digio.readbit({line_id}))")
 
@@ -543,5 +567,5 @@ class Keithley2612B:
         curr_value = True if int(curr_value) == 1 else False
         if curr_value != value:
             raise ValueError(f"Failed to set digio line {line_id} to {value}. Current value is {curr_value}.")
-        
+
         return True if int(last_value) == 1 else False
