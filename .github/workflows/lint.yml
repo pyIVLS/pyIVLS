@@ -1,0 +1,20 @@
+name: Lint frontend
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  ESlint-Prettier:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: ruff-action
+        uses: astral-sh/ruff-action@v3.5.1
