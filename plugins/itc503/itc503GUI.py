@@ -22,9 +22,11 @@ from datetime import datetime, timedelta
 import matplotlib.dates as mdates
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+
 from itc503 import itc503
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 
+# from mock import itc503  # for testing without the real device
 import time
 
 
@@ -87,7 +89,7 @@ class itc503GUI(QObject):
         try:
             self.itc503.open(self.settings["source"])
             self._GUIchange_deviceConnected(True)
-            self.closeLock.emit(False)
+            self.closeLock.emit(True)
             return [0, "OK"]
         except Exception as e:
             self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
@@ -102,7 +104,7 @@ class itc503GUI(QObject):
             try:
                 self.itc503.close()
                 self._GUIchange_deviceConnected(False)
-                self.closeLock.emit(True)
+                self.closeLock.emit(False)
                 return [0, "OK"]
             except Exception as e:
                 self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
@@ -112,12 +114,16 @@ class itc503GUI(QObject):
     def _setTAction(self):
         [status, info] = self._parse_settings_setT()
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}"
+            )
             self.info_message.emit(f"itc503 plugin : {info}")
             return [status, info]
         [status, info] = self._setT()
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}"
+            )
             self.info_message.emit(f"itc503 plugin : {info}")
             return [status, info]
         return [0, "OK"]
@@ -275,9 +281,13 @@ class itc503GUI(QObject):
 
     def _GUIchange_deviceConnected(self, status):
         if status:
-            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
+            self.settingsWidget.connectionIndicator.setStyleSheet(
+                "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
+            )
         else:
-            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
+            self.settingsWidget.connectionIndicator.setStyleSheet(
+                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
+            )
         self.settingsWidget.settingsGroupBox.setEnabled(status)
         self.settingsWidget.DisplayGroupBox.setEnabled(status)
         self.settingsWidget.disconnectButton.setEnabled(status)
@@ -299,7 +309,15 @@ class itc503GUI(QObject):
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method not in self.non_public_methods
+            and method in self.public_methods
+        }
         return methods
 
     def _getLogSignal(self):
@@ -409,7 +427,9 @@ class itc503GUI(QObject):
         if self.settings["sweeppts"] == 1:
             self.settings["sett"] = self.settings["sweepstart"]
         else:
-            self.settings["sett"] = self.settings["sweepstart"] + iteration * (self.settings["sweepend"] - self.settings["sweepstart"]) / (self.settings["sweeppts"] - 1)
+            self.settings["sett"] = self.settings["sweepstart"] + iteration * (
+                self.settings["sweepend"] - self.settings["sweepstart"]
+            ) / (self.settings["sweeppts"] - 1)
         # this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
         #        self.settingsWidget.setTEdit.setText(f"{self.settings['sett']}")
         [status, info] = self._setT()
