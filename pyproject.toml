@@ -9,6 +9,7 @@ dependencies = [
     "cycler==0.12.1",
     "datetime==5.5",
     "fonttools==4.55.3",
+    "gpib-ctypes>=0.3.0",
     "ifaddr==0.2.0",
     "kiwisolver==1.4.8",
     "klayout>=0.30.1",

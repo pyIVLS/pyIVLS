@@ -171,6 +171,15 @@ wheels = [
 ]
 
 [[package]]
+name = "gpib-ctypes"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/01/be/fa6877f869665e855788d3bb351cfb788fa2207ee7686d1dd5919d441421/gpib_ctypes-0.3.0.tar.gz", hash = "sha256:73d97a4cd98ce0fb5bbe8a679c58b9475750f68dcc237f411c71cf486a9f8c26", size = 31380, upload-time = "2018-12-12T23:33:00.675Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/fc/37a06f859dfdb3686285845d309c66815019330647a4c4b5d650cdf3c0f5/gpib_ctypes-0.3.0-py2.py3-none-any.whl", hash = "sha256:113bcc95980f7a165ea75ba3d19a1393df3cf27a58af69723e66e746cf32ed51", size = 16855, upload-time = "2018-12-12T23:32:58.936Z" },
+]
+
+[[package]]
 name = "ifaddr"
 version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -695,6 +704,7 @@ dependencies = [
     { name = "cycler" },
     { name = "datetime" },
     { name = "fonttools" },
+    { name = "gpib-ctypes" },
     { name = "ifaddr" },
     { name = "kiwisolver" },
     { name = "klayout" },
@@ -735,6 +745,7 @@ requires-dist = [
     { name = "cycler", specifier = "==0.12.1" },
     { name = "datetime", specifier = "==5.5" },
     { name = "fonttools", specifier = "==4.55.3" },
+    { name = "gpib-ctypes", specifier = ">=0.3.0" },
     { name = "ifaddr", specifier = "==0.2.0" },
     { name = "kiwisolver", specifier = "==1.4.8" },
     { name = "klayout", specifier = ">=0.30.1" },
