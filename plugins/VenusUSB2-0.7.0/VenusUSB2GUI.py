@@ -28,7 +28,6 @@ otsoha
 
 import numpy as np
 import os
-from datetime import datetime
 from pathvalidate import is_valid_filename
 from plugin_components import (
     public,
@@ -166,7 +165,7 @@ class VenusUSB2GUI(QObject):
         self.q_img = qt_image  # Store the QImage for saving later
 
     @public
-    def parse_settings_widget(self) -> "status":
+    def parse_settings_widget(self) -> tuple[int, dict]:
         """Parses the settings widget for the camera. Extracts current values
 
         Returns:
@@ -242,8 +241,13 @@ class VenusUSB2GUI(QObject):
 
     def _initGUI(
         self,
-        plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
+        plugin_info: dict,
     ):
+        """Initialize the GUI with the provided plugin information.
+
+        Args:
+            plugin_info (dict): A dictionary containing plugin settings.
+        """
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
 
@@ -343,8 +347,7 @@ class VenusUSB2GUI(QObject):
     def get_thread(self):
         return self.camera_thread
 
-
-    def _parseSaveData(self) -> "status":
+    def _parseSaveData(self) -> tuple[int, dict]:
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
             self.logger.log_error("address string should point to a valid directory")
@@ -357,4 +360,4 @@ class VenusUSB2GUI(QObject):
             self.logger.log_error("filename is not valid")
             self.logger.info_popup("VenusUSB2 plugin : filename is not valid")
             return [1, {"Error message": "VenusUSB2 plugin : filename is not valid"}]
-        return [0, "Ok"]
+        return [0, {"Error message": "OK"}]

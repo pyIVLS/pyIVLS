@@ -4,9 +4,9 @@ Separated from main GUI class to improve modularity and maintainability.
 """
 
 import numpy as np
-from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsTextItem, QGraphicsRectItem, QGraphicsPolygonItem
-from PyQt6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QFont, QPolygonF
-from PyQt6.QtCore import Qt, QPointF
+from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsTextItem, QGraphicsRectItem
+from PyQt6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QFont
+from PyQt6.QtCore import Qt
 
 
 class AffineMoveVisualization:

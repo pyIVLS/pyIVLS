@@ -1,7 +1,6 @@
 import os
 import copy
 from touchDetect import touchDetect, ManipulatorInfo
-from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox, QSpinBox
 from plugins.plugin_components import (
@@ -12,7 +11,6 @@ from plugins.plugin_components import (
     DependencyManager,
 )
 from components.worker_thread import WorkerThread
-import time
 
 
 class touchDetectGUI:

@@ -6,7 +6,7 @@ import sys
 from os.path import sep
 import os
 
-from PyQt6 import QtGui, QtWidgets, uic
+from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 
 

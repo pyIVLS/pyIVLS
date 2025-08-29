@@ -67,7 +67,8 @@ class peltierControllerGUI(QObject):
         self.axes = self.sc.fig.add_subplot(111)
         self.axes.set_xlabel("time (HH:MM)")
 
-        self.axes.set_ylabel(f"Temperature ({'\N{DEGREE SIGN}'}C)")
+        degree_sign = "\N{DEGREE SIGN}"
+        self.axes.set_ylabel(f"Temperature ({degree_sign}C)")
 
         self.MDIWidget.displayLayout.addWidget(self.sc._create_toolbar(self.MDIWidget))
         self.MDIWidget.displayLayout.addWidget(self.sc)
@@ -79,7 +80,9 @@ class peltierControllerGUI(QObject):
         self.settings["source"] = self.settingsWidget.peltierSource.text()
         [status, message] = self.peltierController.open(self.settings["source"])
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}"
+            )
             self.info_message.emit(f"peltierController plugin : {message}")
         else:
             self._GUIchange_deviceConnected(True)
@@ -89,7 +92,9 @@ class peltierControllerGUI(QObject):
             self._displayAction()
         [status, message] = self.peltierController.close()
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}"
+            )
             self.info_message.emit(f"peltierController plugin : {message}")
         else:
             self._GUIchange_deviceConnected(False)
@@ -101,7 +106,10 @@ class peltierControllerGUI(QObject):
         else:
             [status, message] = self.peltierController.setT(self.settings["sett"])
             if status:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+                self.log_message.emit(
+                    datetime.now().strftime("%H:%M:%S.%f")
+                    + f" : peltierController plugin : {message}, status = {status}"
+                )
                 self.info_message.emit(f"peltierController plugin : {message}")
 
     def _setPAction(self):
@@ -111,7 +119,10 @@ class peltierControllerGUI(QObject):
         else:
             [status, message] = self.peltierController.setP(self.settings["setp"])
             if status:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+                self.log_message.emit(
+                    datetime.now().strftime("%H:%M:%S.%f")
+                    + f" : peltierController plugin : {message}, status = {status}"
+                )
                 self.info_message.emit(f"peltierController plugin : {message}")
 
     def _setPIDAction(self):
@@ -119,9 +130,14 @@ class peltierControllerGUI(QObject):
         if status:
             self.info_message.emit(f"peltierController plugin : {info}")
         else:
-            [status, message] = self.peltierController.setPID(self.settings["kp"], self.settings["ki"], self.settings["kd"])
+            [status, message] = self.peltierController.setPID(
+                self.settings["kp"], self.settings["ki"], self.settings["kd"]
+            )
             if status:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+                self.log_message.emit(
+                    datetime.now().strftime("%H:%M:%S.%f")
+                    + f" : peltierController plugin : {message}, status = {status}"
+                )
                 self.info_message.emit(f"peltierController plugin : {message}")
 
     def _displayAction(self):
@@ -132,7 +148,9 @@ class peltierControllerGUI(QObject):
             [status, info] = self._parse_settings_display()
             if status:
                 self.info_message.emit(f"peltierController plugin : {info}")
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}")
+                self.log_message.emit(
+                    datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}"
+                )
             else:
                 self.Xdata = []
                 self.Ydata = []
@@ -203,7 +221,9 @@ class peltierControllerGUI(QObject):
     def _update_display(self):
         [status, info] = self.peltierController.getData()
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}")
+            self.log_message.emit(
+                datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}"
+            )
             self.info_message.emit(f"peltierController plugin : {info}")
             self.timer.stop()
         else:
@@ -216,24 +236,36 @@ class peltierControllerGUI(QObject):
                 self.Ydata = [temperature]
                 plot_refs = self.axes.plot(self.Xdata, self.Ydata, "bo")
                 self.axes.set_xlabel("time (HH:MM)")
-                self.axes.set_ylabel(f"Temperature ({'\N{DEGREE SIGN}'}C)")
+                degree_sign = "\N{DEGREE SIGN}"
+                self.axes.set_ylabel(f"Temperature ({degree_sign}C)")
                 self._plot_temperature = plot_refs[0]
                 self.axes.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
-                self.axes.set_xlim(self.Xdata[-1] - timedelta(seconds=self.settings["period"]), self.Xdata[-1] + timedelta(seconds=self.settings["period"]) * self.settings["periodpts"])
+                self.axes.set_xlim(
+                    self.Xdata[-1] - timedelta(seconds=self.settings["period"]),
+                    self.Xdata[-1] + timedelta(seconds=self.settings["period"]) * self.settings["periodpts"],
+                )
             else:
                 self.Xdata.append(datetime.now())
                 self.Ydata.append(temperature)
                 self._plot_temperature.set_xdata(self.Xdata)
                 self._plot_temperature.set_ydata(self.Ydata)
                 if len(self.Xdata) > self.settings["periodpts"]:
-                    self.axes.set_xlim(self.Xdata[-1] - timedelta(seconds=self.settings["period"] * self.settings["periodpts"]), self.Xdata[-1] + timedelta(seconds=self.settings["period"]))
+                    self.axes.set_xlim(
+                        self.Xdata[-1] - timedelta(seconds=self.settings["period"] * self.settings["periodpts"]),
+                        self.Xdata[-1] + timedelta(seconds=self.settings["period"]),
+                    )
             self.axes.set_ylim(min(self.Ydata) - 10, max(self.Ydata) + 10)  # +/- 10 just a random margin for plotting
             self.sc.draw()
 
     ########Functions
     ###############GUI setting up
 
-    def _initGUI(self, plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin"):
+    def _initGUI(self, plugin_info: dict) -> None:
+        """Initialize the GUI components with the provided plugin information.
+
+        Args:
+            plugin_info (dict): dictionary with settings obtained from plugin_data in pyIVLS_*_plugin
+        """
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
 
@@ -256,9 +288,13 @@ class peltierControllerGUI(QObject):
 
     def _GUIchange_deviceConnected(self, status):
         if status:
-            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
+            self.settingsWidget.connectionIndicator.setStyleSheet(
+                "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
+            )
         else:
-            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
+            self.settingsWidget.connectionIndicator.setStyleSheet(
+                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
+            )
         self.settingsWidget.settingsGroupBox.setEnabled(status)
         self.settingsWidget.DisplayGroupBox.setEnabled(status)
         self.settingsWidget.disconnectButton.setEnabled(status)
@@ -282,7 +318,14 @@ class peltierControllerGUI(QObject):
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods}
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method not in self.non_public_methods
+        }
         return methods
 
     def _getLogSignal(self):

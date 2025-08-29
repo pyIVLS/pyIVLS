@@ -78,8 +78,13 @@ class Keithley2612BGUI:
 
     def _initGUI(
         self,
-        plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
-    ):
+        plugin_info: dict,
+    ) -> None:
+        """Initializes the GUI with the provided settings
+
+        Args:
+            plugin_info (dict): Dictionary with settings obtained from plugin_data in pyIVLS_*_plugin
+        """
         if plugin_info["sourcehighc"] == "True":
             self.settingsWidget.checkBox_sourceHighC.setChecked(True)
         if plugin_info["drainhighc"] == "True":
@@ -257,8 +262,8 @@ class Keithley2612BGUI:
         """
         try:
             return [0, self.smu.getIV(channel)]
-        except:
-            return [4, {"Error message": "Failed to get IV data"}]
+        except Exception as e:
+            return [4, {"Error message": f"Failed to get IV data: {str(e)}"}]
 
     @public
     def smu_setOutput(self, channel, outputType, value):
@@ -269,8 +274,8 @@ class Keithley2612BGUI:
         """
         try:
             return [0, self.smu.setOutput(channel, outputType, value)]
-        except:
-            return [4, {"Error message": "Failed to set smu output"}]
+        except Exception as e:
+            return [4, {"Error message": f"Failed to set smu output: {str(e)}"}]
 
     @public
     def smu_setup_resmes(self, channel) -> PyIVLSReturn:

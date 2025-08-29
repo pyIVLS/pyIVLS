@@ -16,7 +16,7 @@ class VenusUSB2:
         # Initialize cap as empty capture
         self.cap = cv.VideoCapture()
 
-    def open(self, source=None, exposure=None) -> "status":
+    def open(self, source=None, exposure=None) -> tuple[int, dict]:
         """Opens the camera using current settings.
 
         Returns:
@@ -48,7 +48,7 @@ class VenusUSB2:
 
         if not self.cap.set(cv.CAP_PROP_EXPOSURE, exposure):
             return [4, {"Error message": "Can not set exposure time"}]
-        camera_exposure = self.cap.get(cv.CAP_PROP_EXPOSURE)
+        _ = self.cap.get(cv.CAP_PROP_EXPOSURE)
 
         return [0, {"Error message": "OK"}]
 

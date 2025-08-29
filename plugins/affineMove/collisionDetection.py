@@ -284,7 +284,7 @@ class CollisionDetector:
             if result:
                 return result
 
-        print(f"No safe segmented sequence found")
+        print("No safe segmented sequence found")
         return []  # No safe sequence found even with segmentation
 
     def _try_segmentation_permutations(self, segmented_moves: Dict, approach_name: str) -> List[Tuple[int, Tuple[float, float]]]:

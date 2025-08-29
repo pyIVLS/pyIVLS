@@ -76,7 +76,8 @@ class itc503GUI(QObject):
         self.axes = self.sc.fig.add_subplot(111)
         self.axes.set_xlabel("time (HH:MM)")
 
-        self.axes.set_ylabel(f"Temperature ({'\N{DEGREE SIGN}'}C)")
+        degree_sign = "\N{DEGREE SIGN}"
+        self.axes.set_ylabel(f"Temperature ({degree_sign}C)")
 
         self.MDIWidget.displayLayout.addWidget(self.sc._create_toolbar(self.MDIWidget))
         self.MDIWidget.displayLayout.addWidget(self.sc)
@@ -217,7 +218,8 @@ class itc503GUI(QObject):
             self.Ydata = [temperature]
             plot_refs = self.axes.plot(self.Xdata, self.Ydata, "bo")
             self.axes.set_xlabel("time (HH:MM)")
-            self.axes.set_ylabel(f"Temperature ({'\N{DEGREE SIGN}'}C)")
+            degree_sign = "\N{DEGREE SIGN}"
+            self.axes.set_ylabel(f"Temperature ({degree_sign}C)")
             self._plot_temperature = plot_refs[0]
             self.axes.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
             self.axes.set_xlim(
@@ -249,8 +251,13 @@ class itc503GUI(QObject):
 
     def _initGUI(
         self,
-        plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
+        plugin_info: dict,
     ):
+        """Initialize the GUI with the provided plugin information.
+
+        Args:
+            plugin_info (dict): A dictionary containing plugin settings.
+        """
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
 

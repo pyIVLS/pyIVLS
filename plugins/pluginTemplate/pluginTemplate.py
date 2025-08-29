@@ -14,7 +14,7 @@ class pluginTemplate:
         # Initialize cap as empty capture
         self.cap = cv.VideoCapture()
 
-    def open(self, source=None, exposure=None) -> "status":
+    def open(self, source=None, exposure=None) -> int:
         """Opens the camera using current settings.
 
         Returns:

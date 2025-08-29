@@ -20,7 +20,6 @@ ivarad
 """
 
 import os
-from datetime import datetime
 import copy
 
 from PyQt6.QtCore import QObject
@@ -141,8 +140,13 @@ class conDetectGUI(QObject):
 
     def _initGUI(
         self,
-        plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
+        plugin_info: dict,
     ):
+        """Initialize the GUI with the provided plugin information.
+
+        Args:
+            plugin_info (dict): A dictionary containing plugin settings.
+        """
         self.logger.log_debug("Initializing GUI with plugin_info.")
         self.settingsWidget.sourceLine.setText(plugin_info["source"])
 

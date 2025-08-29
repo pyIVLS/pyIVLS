@@ -66,7 +66,7 @@ class pyIVLS_peltierController_plugin:
         Returns:
             dict: functions
         """
-        if args is None or args.get("function") == plugin_function:
+        if args is None or args.get("function") == self.plugin_function:
             return {self.plugin_name: self.pluginClass._get_public_methods()}
 
     @hookimpl

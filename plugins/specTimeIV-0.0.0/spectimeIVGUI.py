@@ -12,17 +12,13 @@ This file should provide
 import os
 import time
 import copy
-from datetime import datetime
 from pathvalidate import is_valid_filename
 from PyQt6 import uic
 from PyQt6.QtWidgets import QVBoxLayout, QFileDialog, QWidget
-from PyQt6.QtCore import QObject, pyqtSignal, Qt
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from threadStopped import thread_with_exception, ThreadStopped
-from enum import Enum
-from plugin_components import LoggingHelper, FileManager, GuiMapper, DependencyManager, SMUHelper, PyIVLSReturn, DataOrder, PluginException
+from plugin_components import LoggingHelper, FileManager, GuiMapper, DependencyManager, PyIVLSReturn, DataOrder, PluginException
 
-import numpy as np
 import pandas as pd
 
 

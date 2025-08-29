@@ -114,8 +114,16 @@ class sweepGUI(QObject):
 
     def _initGUI(
         self,
-        plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
-    ):
+        plugin_info: dict,
+    ) -> int:
+        """populates GUI with values stored in settings
+
+        Args:
+            plugin_info (dict): dictionary with settings obtained from plugin_data in pyIVLS_*_plugin
+
+        Returns:
+            int: status code
+        """
         ##populates GUI with values stored in settings
 
         self.logger.log_debug("Initializing GUI with plugin_info: " + str(plugin_info))
@@ -327,7 +335,13 @@ class sweepGUI(QObject):
         """
         smu_selection = self.settingsWidget.smuBox.currentText()
         if not self.function_dict:
-            return [3, {"Error message": "Missing functions in sweep plugin. Check log", "Missing functions": self.missing_functions}]
+            return [
+                3,
+                {
+                    "Error message": "Missing functions in sweep plugin. Check log",
+                    "Missing functions": self.missing_functions,
+                },
+            ]
         if smu_selection not in self.function_dict["smu"]:
             return [3, {"Error message": "SMU plugin not found in function_dict"}]
 
@@ -395,9 +409,17 @@ class sweepGUI(QObject):
         try:
             self.settings["continuouspoints"] = int(self.settingsWidget.lineEdit_continuousPoints.text())
         except ValueError:
-            return [1, {"Error message": "Value error in sweep plugin: continuous number of points field should be integer"}]
+            return [
+                1,
+                {"Error message": "Value error in sweep plugin: continuous number of points field should be integer"},
+            ]
         if self.settings["continuouspoints"] < 1:
-            return [1, {"Error message": "Value error in sweep plugin: continuous number of points field can not be less than 1"}]
+            return [
+                1,
+                {
+                    "Error message": "Value error in sweep plugin: continuous number of points field can not be less than 1"
+                },
+            ]
 
         # limit should be float >0
         try:
@@ -412,7 +434,9 @@ class sweepGUI(QObject):
             if "lineFrequency" not in self.smu_settings:
                 return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
             line_freq = self.smu_settings["lineFrequency"]
-            self.settings["continuousnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_continuousNPLC.text())
+            self.settings["continuousnplc"] = (
+                0.001 * line_freq * float(self.settingsWidget.lineEdit_continuousNPLC.text())
+            )
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: continuous nplc field should be numeric"}]
         if self.settings["continuousnplc"] <= 0:
@@ -443,9 +467,15 @@ class sweepGUI(QObject):
         try:
             self.settings["pulsedpoints"] = int(self.settingsWidget.lineEdit_pulsedPoints.text())
         except ValueError:
-            return [1, {"Error message": "Value error in sweep plugin: pulsed number of points field should be integer"}]
+            return [
+                1,
+                {"Error message": "Value error in sweep plugin: pulsed number of points field should be integer"},
+            ]
         if self.settings["pulsedpoints"] < 1:
-            return [1, {"Error message": "Value error in sweep plugin: pulsed number of points field can not be less than 1"}]
+            return [
+                1,
+                {"Error message": "Value error in sweep plugin: pulsed number of points field can not be less than 1"},
+            ]
 
         # limit should be float >0
         try:
@@ -501,7 +531,10 @@ class sweepGUI(QObject):
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: drain number of points field should be integer"}]
         if self.settings["drainpoints"] < 1:
-            return [1, {"Error message": "Value error in sweep plugin: drain number of points field can not be less than 1"}]
+            return [
+                1,
+                {"Error message": "Value error in sweep plugin: drain number of points field can not be less than 1"},
+            ]
 
         # limit should be float >0
         try:
@@ -542,7 +575,10 @@ class sweepGUI(QObject):
 
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            return [1, {"Error message": "Value error in sweep plugin: address string should point to a valid directory"}]
+            return [
+                1,
+                {"Error message": "Value error in sweep plugin: address string should point to a valid directory"},
+            ]
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
             return [1, {"Error message": "Value error in sweep plugin: File name is not valid"}]
@@ -625,7 +661,9 @@ class sweepGUI(QObject):
         [recipe, drainsteps, sensesteps, modesteps] = create_sweep_reciepe(self.settings, self.smu_settings)
         data = np.array([])
         for recipeStep, measurement in enumerate(recipe):
-            if self.function_dict["smu"][self.settings["smu"]]["smu_init"](measurement):  # reinitialization at every step is needed because limits for pused and continuous may be deffierent
+            if self.function_dict["smu"][self.settings["smu"]]["smu_init"](
+                measurement
+            ):  # reinitialization at every step is needed because limits for pused and continuous may be deffierent
                 raise sweepException("sweep plugin : smu_init failed")
             # creating a new header
             if recipeStep % (sensesteps * modesteps) == 0:
@@ -663,7 +701,9 @@ class sweepGUI(QObject):
             buffer_prev = 0
             while True:
                 time.sleep(self.settings["plotupdate"])
-                [lastI, lastV, lastPoints] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["source"])
+                [lastI, lastV, lastPoints] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](
+                    measurement["source"]
+                )
                 if lastPoints >= measurement["steps"] * measurement["repeat"]:
                     break
                 if lastPoints > buffer_prev:
@@ -673,7 +713,9 @@ class sweepGUI(QObject):
                         plot_refs = self.axes.plot(Xdata_source, Ydata_source, "bo")
                         _plot_ref_source = plot_refs[0]
                         if not measurement["single_ch"]:
-                            [lastI_drain, lastV_drain, lastPoints_drain] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["source"], lastPoints)
+                            [lastI_drain, lastV_drain, lastPoints_drain] = self.function_dict["smu"][
+                                self.settings["smu"]
+                            ]["smu_getLastBufferValue"](measurement["source"], lastPoints)
                             Xdata_drain = [lastV]
                             Ydata_drain = [lastI]
                             plot_refs = self.axes.plot(Xdata_drain, Ydata_drain, "go")
@@ -684,7 +726,9 @@ class sweepGUI(QObject):
                         _plot_ref_source.set_xdata(Xdata_source)
                         _plot_ref_source.set_ydata(Ydata_source)
                         if not measurement["single_ch"]:
-                            [lastI_drain, lastV_drain, lastPoints_drain] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["drain"], lastPoints)
+                            [lastI_drain, lastV_drain, lastPoints_drain] = self.function_dict["smu"][
+                                self.settings["smu"]
+                            ]["smu_getLastBufferValue"](measurement["drain"], lastPoints)
                             Xdata_drain.append(lastV_drain)
                             Ydata_drain.append(lastI_drain)
                             _plot_ref_drain.set_xdata(Xdata_source)
@@ -692,7 +736,13 @@ class sweepGUI(QObject):
                     self.axes.relim()
                     self.axes.autoscale_view()
                     self.sc.draw()
-                    if (measurement["type"] == "i" and (abs(lastV) > self.settings["prescaler"] * abs(measurement["limit"]))) or (measurement["type"] == "i" and (abs(lastV) > self.settings["prescaler"] * abs(measurement["limit"]))):
+                    if (
+                        measurement["type"] == "i"
+                        and (abs(lastV) > self.settings["prescaler"] * abs(measurement["limit"]))
+                    ) or (
+                        measurement["type"] == "i"
+                        and (abs(lastV) > self.settings["prescaler"] * abs(measurement["limit"]))
+                    ):
                         self.function_dict["smu"][self.settings["smu"]]["smu_abort"](measurement["source"])
                         break
                     buffer_prev = lastPoints
@@ -725,7 +775,13 @@ class sweepGUI(QObject):
                     IV_drain = np.vstack([IV_drain, np.full((IVresize, 2), "")])
                 data = np.hstack([data, IV_drain])
             if drainsteps > 1:
-                fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + f"{drainvoltage}V" + ".dat"
+                fulladdress = (
+                    self.settings["address"]
+                    + os.sep
+                    + self.settings["filename"]
+                    + f"{measurement['drainvoltage']}V"
+                    + ".dat"
+                )
             else:
                 fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
             with open(fulladdress, "w") as f:
@@ -761,7 +817,10 @@ class sweepGUI(QObject):
             self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")
             exception = 2
         except Exception as e:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f": sweep plugin implementation stopped because of unexpected exception: {e}")
+            self.logger.log_info(
+                datetime.now().strftime("%H:%M:%S.%f")
+                + f": sweep plugin implementation stopped because of unexpected exception: {e}"
+            )
             exception = 3
         finally:
             try:
@@ -774,7 +833,10 @@ class sweepGUI(QObject):
                 if exception == 3 or exception == 1:
                     self.logger.info_popup("Implementation stopped because of exception. Check log")
             except Exception as e:
-                self.logger.log_error(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")
+                self.logger.log_error(
+                    datetime.now().strftime("%H:%M:%S.%f")
+                    + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}"
+                )
                 self.logger.info_popup("SMU turn off failed. Check log")
             self.set_running(False)
 
@@ -819,7 +881,9 @@ class sweepGUI(QObject):
         set_combobox_value(self.settingsWidget.comboBox_drainSenseMode, self.settings["drainsensemode"])
 
         line_freq = self.smu_settings["lineFrequency"]
-        self.settingsWidget.lineEdit_continuousNPLC.setText(str(float(self.settings["continuousnplc"]) * 1000 / line_freq))
+        self.settingsWidget.lineEdit_continuousNPLC.setText(
+            str(float(self.settings["continuousnplc"]) * 1000 / line_freq)
+        )
         self.settingsWidget.lineEdit_continuousDelay.setText(str(float(self.settings["continuousdelay"]) * 1000))
         self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"]) * 1000 / line_freq))
         self.settingsWidget.lineEdit_pulsedDelay.setText(str(float(self.settings["pulseddelay"]) * 1000))
@@ -851,6 +915,10 @@ class sweepGUI(QObject):
             if self.settings["singlechannel"].lower() == "true":
                 self.settingsWidget.checkBox_singleChannel.setChecked(True)
         else:
-            raise ValueError("Invalid type for singlechannel setting: expected bool or str, got {}".format(type(self.settings["singlechannel"])))
+            raise ValueError(
+                "Invalid type for singlechannel setting: expected bool or str, got {}".format(
+                    type(self.settings["singlechannel"])
+                )
+            )
         self.logger.log_debug("GUI settings set from internal settings")
         self._update_GUI_state()

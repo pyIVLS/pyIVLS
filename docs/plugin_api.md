@@ -67,10 +67,22 @@ Plugins that have settings widgets, or are used as depenencies for other plugins
 
 Plugins that are integrated to use seqBuilder
 - set_gui_from_settings() -> None, to set the GUI from the settings stored in the seqbuilder
-- sequenceStep(postfix: str) -> (status, state), 
-- getIterations() -> int,
-- loopingIteration(currentIteration: int) -> (status, iterText),
+- sequenceStep(postfix: str) -> (status, state), provides the functionality for a single step in the sequence.
+- getIterations() -> int, returns the number of iterations for a looping plugin. Return used internally in seqBuilder.
+- loopingIteration(currentIteration: int) -> (status, iterText), Provides the functionality for a single iteration of a loop. For example, moving the probes to a single measurement point in the affineMove plugin. 
+
+## SettingsWidgets:
+- USE ALL FUNCTIONALITY THAT QT HAS TO OFFER: If you need an inputwidget that only accepts integers in a certain range, use a spinbox and not a lineInput. This reduces boilerplate and makes it easier for everything to just work. Examples:
+    - address, path, etc -> Line edit, text edit. Parsed in the code
+    - integer -> spin box
+    - float -> double spin box
+    - numerical in a certain range -> slider or spinbox with limits
+    - choose from predefined set (for example, which dependency to use) -> combobox
+- All settings input fields should preferably be populated in the code instead of through the saved settingsWidget. This again reduces the chances of user error by removing default values
+- All settingswidgets should be wrapped in scrollbars so that the whole settings tab can be scaled to be smaller when working on a small screen.
+- If the settings widget is in a relatively stable state with few modifications coming, I think it should be compiled into python code instead of reading the UI-file. This provides static analysis and code completion when using a compatible IDE.
+
+
 
 ## Best practices:
 - Keep an internal settings dictionary for the plugin. This is to make sure that unwanted GUI changes are not transferred to the run settings
-

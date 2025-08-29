@@ -1,8 +1,7 @@
 import os
-import queue
 
 from PyQt6 import QtWidgets, uic
-from PyQt6.QtCore import QObject, pyqtSignal, QThread
+from PyQt6.QtCore import QObject
 from Sutter import Mpc325
 from plugin_components import (
     LoggingHelper,

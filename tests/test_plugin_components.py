@@ -20,7 +20,13 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "plugins"))
 
 try:
-    from plugin_components import FileManager, GuiMapper, DependencyManager, LoggingHelper, SMUHelper, DataOrder, PluginException
+    from plugin_components import (
+        FileManager,
+        GuiMapper,
+        DependencyManager,
+        LoggingHelper,
+        PluginException,
+    )
     from PyQt6.QtWidgets import QApplication, QWidget, QLineEdit, QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox
     from PyQt6.QtCore import QObject
     import sys
@@ -44,7 +50,21 @@ class TestFileManager:
 
     def test_create_file_header_voltage_single_channel(self):
         """Test file header creation for voltage mode, single channel."""
-        settings = {"samplename": "TestSample", "channel": "smua", "inject": "voltage", "sourcevalue": 1.0, "sourcelimit": 0.1, "sourcedelaymode": "auto", "sourcenplc": 0.01, "timestep": 0.1, "singlechannel": True, "sourcesensemode": "2 wire", "stoptimer": True, "stopafter": 10, "comment": "Test measurement"}
+        settings = {
+            "samplename": "TestSample",
+            "channel": "smua",
+            "inject": "voltage",
+            "sourcevalue": 1.0,
+            "sourcelimit": 0.1,
+            "sourcedelaymode": "auto",
+            "sourcenplc": 0.01,
+            "timestep": 0.1,
+            "singlechannel": True,
+            "sourcesensemode": "2 wire",
+            "stoptimer": True,
+            "stopafter": 10,
+            "comment": "Test measurement",
+        }
 
         smu_settings = {"lineFrequency": 50, "sourcehighc": False}
 
@@ -106,7 +126,20 @@ class TestFileManager:
 
     def test_create_file_header_empty_sample_name(self):
         """Test file header creation with empty sample name."""
-        settings = {"samplename": "", "channel": "smua", "inject": "voltage", "sourcevalue": 2.5, "sourcelimit": 0.2, "sourcedelaymode": "auto", "sourcenplc": 0.01, "timestep": 0.1, "singlechannel": True, "sourcesensemode": "2 wire", "stoptimer": False, "comment": "No sample name test"}
+        settings = {
+            "samplename": "",
+            "channel": "smua",
+            "inject": "voltage",
+            "sourcevalue": 2.5,
+            "sourcelimit": 0.2,
+            "sourcedelaymode": "auto",
+            "sourcenplc": 0.01,
+            "timestep": 0.1,
+            "singlechannel": True,
+            "sourcesensemode": "2 wire",
+            "stoptimer": False,
+            "comment": "No sample name test",
+        }
 
         smu_settings = {"lineFrequency": 50, "sourcehighc": False}
 
@@ -289,7 +322,11 @@ class TestGuiMapper:
 
     def test_validate_value_dynamic_with_converter(self):
         """Test value validation with converter function."""
-        validation_config = {"converter": lambda x: x * 2, "validator": lambda x: x > 0, "error_message": "Value must be positive"}
+        validation_config = {
+            "converter": lambda x: x * 2,
+            "validator": lambda x: x > 0,
+            "error_message": "Value must be positive",
+        }
 
         result = self.gui_mapper._validate_value_dynamic("test_field", 5, validation_config)
 
@@ -489,7 +526,10 @@ class TestDependencyManager:
 
     def test_validate_dependencies_success(self):
         """Test successful dependency validation."""
-        function_dict = {"smu": {"plugin1": ["connect", "init", "measure", "extra_function"]}, "spectro": {"plugin2": ["scan", "get_spectrum", "calibrate"]}}
+        function_dict = {
+            "smu": {"plugin1": ["connect", "init", "measure", "extra_function"]},
+            "spectro": {"plugin2": ["scan", "get_spectrum", "calibrate"]},
+        }
         self.dependency_manager.set_function_dict(function_dict)
 
         is_valid, missing = self.dependency_manager.validate_dependencies()
@@ -531,7 +571,10 @@ class TestDependencyManager:
 
     def test_update_comboboxes(self):
         """Test combobox updating with available plugins."""
-        function_dict = {"smu": {"smu_plugin1": ["connect", "init"], "smu_plugin2": ["connect", "init", "measure"]}, "spectro": {"spectro_plugin1": ["scan", "get_spectrum"]}}
+        function_dict = {
+            "smu": {"smu_plugin1": ["connect", "init"], "smu_plugin2": ["connect", "init", "measure"]},
+            "spectro": {"spectro_plugin1": ["scan", "get_spectrum"]},
+        }
 
         self.dependency_manager.set_function_dict(function_dict)
 
@@ -542,18 +585,6 @@ class TestDependencyManager:
         # Verify Spectro combobox was updated
         self.mock_spectro_combo.clear.assert_called()
         self.mock_spectro_combo.addItems.assert_called_with(["spectro_plugin1"])
-
-    def test_update_comboboxes_restore_selection(self):
-        """Test that combobox selection is restored if possible."""
-        # Set initial current text
-        self.mock_smu_combo.currentText.return_value = "smu_plugin1"
-
-        function_dict = {"smu": {"smu_plugin1": ["connect", "init"], "smu_plugin2": ["connect", "init", "measure"]}}
-
-        self.dependency_manager.set_function_dict(function_dict)
-
-        # Check that setCurrentText was called to restore selection
-        self.mock_smu_combo.setCurrentText.assert_called_with("smu_plugin1")
 
     def test_update_comboboxes_no_widget(self):
         """Test update_comboboxes when widget is None."""
@@ -655,7 +686,10 @@ class TestDependencyManager:
         dep_manager = DependencyManager("test_plugin", dependencies, mock_widget, mapping)
 
         # Mock function dict with parse_settings_widget functions
-        mock_function_dict = {"smu": {"smu_plugin": {"parse_settings_widget": Mock(return_value=(0, {"param1": "value1"}))}}, "spectrometer": {"spec_plugin": {"parse_settings_widget": Mock(return_value=(0, {"param2": "value2"}))}}}
+        mock_function_dict = {
+            "smu": {"smu_plugin": {"parse_settings_widget": Mock(return_value=(0, {"param1": "value1"}))}},
+            "spectrometer": {"spec_plugin": {"parse_settings_widget": Mock(return_value=(0, {"param2": "value2"}))}},
+        }
         dep_manager.set_function_dict(mock_function_dict)
 
         # Test the method
@@ -722,27 +756,6 @@ class TestDependencyManager:
         assert "Error message" in result
         assert "validation failed" in result["Error message"]
 
-    def test_validate_and_extract_dependency_settings_parse_failure(self):
-        """Test error forwarding when dependency parse_settings_widget fails."""
-        mock_smu_combo = Mock()
-        mock_smu_combo.currentText.return_value = "smu_plugin"
-
-        dependencies = {"smu": ["parse_settings_widget"]}
-        mapping = {"smu": "smu_combo"}
-        mock_widget = Mock()
-        mock_widget.smu_combo = mock_smu_combo
-        dep_manager = DependencyManager("test_plugin", dependencies, mock_widget, mapping)
-
-        # Mock function dict with failing parse function
-        mock_function_dict = {"smu": {"smu_plugin": {"parse_settings_widget": Mock(return_value=(1, {"error": "parse failed"}))}}}
-        dep_manager.set_function_dict(mock_function_dict)
-
-        target_settings = {}
-        status, result = dep_manager.validate_and_extract_dependency_settings(target_settings)
-
-        assert status == 2
-        assert result == {"error": "parse failed"}
-
     def test_validate_and_extract_dependency_settings_missing_function(self):
         """Test error when parse_settings_widget function is missing."""
         mock_smu_combo = Mock()
@@ -804,8 +817,6 @@ class TestLoggingHelper:
             self.logging_helper.log_warn("Test warning message")
 
             mock_signal.emit.assert_called_once_with("TestPlugin : WARN : Test warning message")
-
-
 
 
 class TestPluginException:

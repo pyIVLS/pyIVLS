@@ -15,7 +15,6 @@ from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
 from PyQt6.QtCore import pyqtSignal, Qt, pyqtSlot
-from PyQt6 import QtWidgets
 from plugin_components import LoggingHelper
 from typing import Optional
 import time
@@ -158,7 +157,7 @@ class dialog(QDialog):
         if self.affine.A is not None:
             result = self.affine.result
             self.draw_result(result, self.pointslist)
-            self.info_message(f"Showing saved result")
+            self.info_message("Showing saved result")
 
     def _preprocessing_settings_changed(self):
         """

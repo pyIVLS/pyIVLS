@@ -3,7 +3,6 @@ This is a class for peltier controller
 
 """
 
-import pyvisa
 from threading import Lock
 
 

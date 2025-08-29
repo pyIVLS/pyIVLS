@@ -77,8 +77,13 @@ class pluginTemplateGUI(QObject):
     ###############GUI setting up
     def _initGUI(
         self,
-        plugin_info: "dictionary with settings obtained from plugin_data in pyIVLS_*_plugin",
+        plugin_info: dict,
     ):
+        """Initialize the GUI components with the provided plugin information.
+
+        Args:
+            plugin_info (dict): dictionary with settings obtained from plugin_data in pyIVLS_
+        """
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
 
@@ -97,7 +102,15 @@ class pluginTemplateGUI(QObject):
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method not in self.non_public_methods
+            and method in self.public_methods
+        }
         return methods
 
     def _getLogSignal(self):
@@ -111,7 +124,7 @@ class pluginTemplateGUI(QObject):
 
     ########Functions to be used externally
     ###############get settings from GUI
-    def parse_settings_widget(self) -> "status":
+    def parse_settings_widget(self) -> tuple[int, dict]:
         """Parses the settings widget for the templatePlugin. Extracts current values. Checks if values are allowed. Provides settings of template plugin to an external plugin
 
         Returns [status, settings_dict]:

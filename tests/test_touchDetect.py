@@ -26,9 +26,6 @@ try:
     from touchDetect import touchDetect, ManipulatorInfo
     from touchDetectGui import touchDetectGUI, ManipulatorInfoWrapper
     from PyQt6.QtWidgets import QApplication, QComboBox, QGroupBox, QSpinBox
-    from PyQt6.QtCore import QObject
-    from plugin_components import LoggingHelper
-    from components.worker_thread import WorkerThread
 
     # Create QApplication if it doesn't exist (needed for Qt widgets)
     if not QApplication.instance():
@@ -45,7 +42,17 @@ class TestManipulatorInfo:
 
     def test_init_normal_configuration(self):
         """Test normal manipulator configuration."""
-        info = ManipulatorInfo(mm_number=1, smu_channel="smua", condet_channel="Hi", threshold=50, stride=5, sample_width=1000.0, function="", last_z=5000, spectrometer_height=None)
+        info = ManipulatorInfo(
+            mm_number=1,
+            smu_channel="smua",
+            condet_channel="Hi",
+            threshold=50,
+            stride=5,
+            sample_width=1000.0,
+            function="",
+            last_z=5000,
+            spectrometer_height=None,
+        )
 
         assert info.mm_number == 1
         assert info.smu_channel == "smua"
@@ -58,25 +65,52 @@ class TestManipulatorInfo:
 
     def test_init_spectrometer_configuration(self):
         """Test spectrometer manipulator configuration."""
-        info = ManipulatorInfo(mm_number=2, smu_channel="spectrometer", condet_channel="Lo", threshold=100, stride=10, sample_width=500.0, function="", spectrometer_height=1500)
+        info = ManipulatorInfo(
+            mm_number=2,
+            smu_channel="spectrometer",
+            condet_channel="Lo",
+            threshold=100,
+            stride=10,
+            sample_width=500.0,
+            function="",
+            spectrometer_height=1500,
+        )
 
         assert info.function == "spectrometer"
 
     def test_init_unconfigured_none_channels(self):
         """Test unconfigured manipulator with 'none' channels."""
-        info = ManipulatorInfo(mm_number=3, smu_channel="none", condet_channel="Hi", threshold=75, stride=3, sample_width=800.0, function="")
+        info = ManipulatorInfo(
+            mm_number=3,
+            smu_channel="none",
+            condet_channel="Hi",
+            threshold=75,
+            stride=3,
+            sample_width=800.0,
+            function="",
+        )
 
         assert info.function == "unconfigured"
 
     def test_init_unconfigured_empty_channels(self):
         """Test unconfigured manipulator with empty channels."""
-        info = ManipulatorInfo(mm_number=4, smu_channel="", condet_channel="Lo", threshold=25, stride=2, sample_width=1200.0, function="")
+        info = ManipulatorInfo(
+            mm_number=4, smu_channel="", condet_channel="Lo", threshold=25, stride=2, sample_width=1200.0, function=""
+        )
 
         assert info.function == "unconfigured"
 
     def test_with_new_settings(self):
         """Test creating new instance with updated settings."""
-        original = ManipulatorInfo(mm_number=1, smu_channel="smua", condet_channel="Hi", threshold=50, stride=5, sample_width=1000.0, function="")
+        original = ManipulatorInfo(
+            mm_number=1,
+            smu_channel="smua",
+            condet_channel="Hi",
+            threshold=50,
+            stride=5,
+            sample_width=1000.0,
+            function="",
+        )
 
         updated = original.with_new_settings(threshold=100, stride=10)
 
@@ -92,7 +126,15 @@ class TestManipulatorInfo:
 
     def test_with_new_settings_changes_function(self):
         """Test that changing settings can change the function type."""
-        normal_config = ManipulatorInfo(mm_number=1, smu_channel="smua", condet_channel="Hi", threshold=50, stride=5, sample_width=1000.0, function="")
+        normal_config = ManipulatorInfo(
+            mm_number=1,
+            smu_channel="smua",
+            condet_channel="Hi",
+            threshold=50,
+            stride=5,
+            sample_width=1000.0,
+            function="",
+        )
         assert normal_config.function == "normal"
 
         # Change to spectrometer
@@ -105,25 +147,72 @@ class TestManipulatorInfo:
 
     def test_to_dict(self):
         """Test conversion to dictionary."""
-        info = ManipulatorInfo(mm_number=1, smu_channel="smua", condet_channel="Hi", threshold=50, stride=5, sample_width=1000.0, function="", last_z=5000, spectrometer_height=1500)
+        info = ManipulatorInfo(
+            mm_number=1,
+            smu_channel="smua",
+            condet_channel="Hi",
+            threshold=50,
+            stride=5,
+            sample_width=1000.0,
+            function="",
+            last_z=5000,
+            spectrometer_height=1500,
+        )
 
         result = info.to_dict()
-        expected = {"mm_number": 1, "smu_channel": "smua", "condet_channel": "Hi", "threshold": 50, "stride": 5, "sample_width": 1000.0, "function": "normal", "last_z": 5000, "spectrometer_height": 1500}
+        expected = {
+            "mm_number": 1,
+            "smu_channel": "smua",
+            "condet_channel": "Hi",
+            "threshold": 50,
+            "stride": 5,
+            "sample_width": 1000.0,
+            "function": "normal",
+            "last_z": 5000,
+            "spectrometer_height": 1500,
+        }
 
         assert result == expected
 
     def test_to_named_dict(self):
         """Test conversion to named dictionary format."""
-        info = ManipulatorInfo(mm_number=2, smu_channel="smub", condet_channel="Lo", threshold=75, stride=8, sample_width=1200.0, function="", last_z=4500, spectrometer_height=1800)
+        info = ManipulatorInfo(
+            mm_number=2,
+            smu_channel="smub",
+            condet_channel="Lo",
+            threshold=75,
+            stride=8,
+            sample_width=1200.0,
+            function="",
+            last_z=4500,
+            spectrometer_height=1800,
+        )
 
         result = info.to_named_dict()
-        expected = {"2_smu": "smub", "2_con": "Lo", "2_res": 75, "2_last_z": 4500, "stride": 8, "sample_width": 1200.0, "spectrometer_height": 1800}
+        expected = {
+            "2_smu": "smub",
+            "2_con": "Lo",
+            "2_res": 75,
+            "2_last_z": 4500,
+            "stride": 8,
+            "sample_width": 1200.0,
+            "spectrometer_height": 1800,
+        }
 
         assert result == expected
 
     def test_validate_normal_valid(self):
         """Test validation of valid normal configuration."""
-        info = ManipulatorInfo(mm_number=1, smu_channel="smua", condet_channel="Hi", threshold=50, stride=5, sample_width=1000.0, function="", last_z=5000)
+        info = ManipulatorInfo(
+            mm_number=1,
+            smu_channel="smua",
+            condet_channel="Hi",
+            threshold=50,
+            stride=5,
+            sample_width=1000.0,
+            function="",
+            last_z=5000,
+        )
 
         errors = info.validate()
         assert errors == []
@@ -312,7 +401,9 @@ class TestTouchDetect:
         self.mock_smu.smu_setup_resmes.return_value = (0, {"message": "Setup successful"})
         self.mock_mm.mm_change_active_device.return_value = (0, {"message": "Device changed"})
 
-        status, result = self.touch_detect._manipulator_measurement_setup(self.mock_mm, self.mock_smu, self.mock_con, info)
+        status, result = self.touch_detect._manipulator_measurement_setup(
+            self.mock_mm, self.mock_smu, self.mock_con, info
+        )
 
         assert status == 0
         assert "SMU setup successful" in result["message"]
@@ -328,7 +419,9 @@ class TestTouchDetect:
         self.mock_smu.smu_setup_resmes.return_value = (0, {"message": "Setup successful"})
         self.mock_mm.mm_change_active_device.return_value = (0, {"message": "Device changed"})
 
-        status, result = self.touch_detect._manipulator_measurement_setup(self.mock_mm, self.mock_smu, self.mock_con, info)
+        status, result = self.touch_detect._manipulator_measurement_setup(
+            self.mock_mm, self.mock_smu, self.mock_con, info
+        )
 
         assert status == 0
         self.mock_con.deviceLoCheck.assert_called_with(True)
@@ -341,7 +434,9 @@ class TestTouchDetect:
         self.mock_smu.smu_setup_resmes.return_value = (0, {"message": "Setup successful"})
         self.mock_mm.mm_change_active_device.return_value = (0, {"message": "Device changed"})
 
-        status, result = self.touch_detect._manipulator_measurement_setup(self.mock_mm, self.mock_smu, self.mock_con, info)
+        status, result = self.touch_detect._manipulator_measurement_setup(
+            self.mock_mm, self.mock_smu, self.mock_con, info
+        )
 
         assert status == 1
         assert "Invalid contact detection channel" in result["Error message"]
@@ -403,8 +498,6 @@ class TestTouchDetect:
 
     def test_calculate_adaptive_stride_close_to_contact(self):
         """Test adaptive stride calculation when close to contact."""
-        info = ManipulatorInfo(1, "smua", "Hi", 50, 5, 1000.0, "")
-
         # Close to contact (< 20 ohms)
         stride = self.touch_detect._calculate_adaptive_stride(20, 15.0)
         assert stride == 5  # 20 // 4 = 5
@@ -474,7 +567,9 @@ class TestMonitoringConfiguration:
             ManipulatorInfo(2, "", "Lo", 50, 5, 1000.0, ""),
         ]
 
-        status, result = self.touch_detect.monitor_manual_contact_detection(self.mock_mm, self.mock_smu, self.mock_con, manipulator_infos)
+        status, result = self.touch_detect.monitor_manual_contact_detection(
+            self.mock_mm, self.mock_smu, self.mock_con, manipulator_infos
+        )
 
         assert status == 1
         assert "No configured manipulators found" in result["Error message"]
@@ -496,7 +591,15 @@ class TestMonitoringConfiguration:
         error_callback = Mock()
         stop_requested_callback = Mock(return_value=False)
 
-        status, result = self.touch_detect.monitor_manual_contact_detection(self.mock_mm, self.mock_smu, self.mock_con, manipulator_infos, progress_callback, error_callback, stop_requested_callback)
+        status, result = self.touch_detect.monitor_manual_contact_detection(
+            self.mock_mm,
+            self.mock_smu,
+            self.mock_con,
+            manipulator_infos,
+            progress_callback,
+            error_callback,
+            stop_requested_callback,
+        )
 
         # Should succeed with no manipulators needing z positions
         assert status == 0
@@ -520,7 +623,15 @@ class TestMonitoringConfiguration:
         error_callback = Mock()
         stop_requested_callback = Mock(return_value=False)
 
-        status, result = self.touch_detect.monitor_manual_contact_detection(self.mock_mm, self.mock_smu, self.mock_con, manipulator_infos, progress_callback, error_callback, stop_requested_callback)
+        status, result = self.touch_detect.monitor_manual_contact_detection(
+            self.mock_mm,
+            self.mock_smu,
+            self.mock_con,
+            manipulator_infos,
+            progress_callback,
+            error_callback,
+            stop_requested_callback,
+        )
 
         assert status == 0
 
@@ -543,7 +654,15 @@ class TestMonitoringConfiguration:
         error_callback = Mock()
         stop_requested_callback = Mock(return_value=False)
 
-        status, result = self.touch_detect.monitor_manual_contact_detection(self.mock_mm, self.mock_smu, self.mock_con, [info], progress_callback, error_callback, stop_requested_callback)
+        status, result = self.touch_detect.monitor_manual_contact_detection(
+            self.mock_mm,
+            self.mock_smu,
+            self.mock_con,
+            [info],
+            progress_callback,
+            error_callback,
+            stop_requested_callback,
+        )
 
         assert status == 0
         assert info.last_z == 5500  # Z position should be saved
@@ -560,7 +679,15 @@ class TestMonitoringConfiguration:
         error_callback = Mock()
         stop_requested_callback = Mock(return_value=True)  # Immediate stop
 
-        status, result = self.touch_detect.monitor_manual_contact_detection(self.mock_mm, self.mock_smu, self.mock_con, [info], progress_callback, error_callback, stop_requested_callback)
+        status, result = self.touch_detect.monitor_manual_contact_detection(
+            self.mock_mm,
+            self.mock_smu,
+            self.mock_con,
+            [info],
+            progress_callback,
+            error_callback,
+            stop_requested_callback,
+        )
 
         assert status == 0
         assert "stopped by user" in result["Error message"]
@@ -571,7 +698,9 @@ class TestMonitoringConfiguration:
 
         info = ManipulatorInfo(1, "smua", "Hi", 50, 5, 1000.0, "", last_z=None)
 
-        status, result = self.touch_detect.monitor_manual_contact_detection(self.mock_mm, self.mock_smu, self.mock_con, [info])
+        status, result = self.touch_detect.monitor_manual_contact_detection(
+            self.mock_mm, self.mock_smu, self.mock_con, [info]
+        )
 
         assert status == 1
         assert "Contact detection failed" in result["Error message"]
@@ -641,7 +770,15 @@ class TestManipulatorInfoWrapper:
 
     def test_update_settings_from_standardized_format(self):
         """Test updating settings from standardized format."""
-        settings = {"1_smu": "smua", "1_con": "Hi", "1_res": 50, "1_last_z": 5000, "stride": 5, "sample_width": 1000, "spectrometer_height": 1500}
+        settings = {
+            "1_smu": "smua",
+            "1_con": "Hi",
+            "1_res": 50,
+            "1_last_z": 5000,
+            "stride": 5,
+            "sample_width": 1000,
+            "spectrometer_height": 1500,
+        }
 
         self.wrapper.update_settings(settings)
 
@@ -732,10 +869,28 @@ class TestManipulatorInfoWrapper:
     def test_get_standardized_settings_visible(self):
         """Test getting standardized settings when widget is visible."""
         self.wrapper.man_box.isVisible.return_value = True
-        self.wrapper.mi = ManipulatorInfo(mm_number=1, smu_channel="smua", condet_channel="Hi", threshold=50, stride=5, sample_width=1000.0, function="", last_z=5000, spectrometer_height=1500)
+        self.wrapper.mi = ManipulatorInfo(
+            mm_number=1,
+            smu_channel="smua",
+            condet_channel="Hi",
+            threshold=50,
+            stride=5,
+            sample_width=1000.0,
+            function="",
+            last_z=5000,
+            spectrometer_height=1500,
+        )
 
         result = self.wrapper.get_standardized_settings()
-        expected = {"1_smu": "smua", "1_con": "Hi", "1_res": 50, "1_last_z": 5000, "stride": 5, "sample_width": 1000.0, "spectrometer_height": 1500}
+        expected = {
+            "1_smu": "smua",
+            "1_con": "Hi",
+            "1_res": 50,
+            "1_last_z": 5000,
+            "stride": 5,
+            "sample_width": 1000.0,
+            "spectrometer_height": 1500,
+        }
 
         assert result == expected
 
@@ -773,11 +928,25 @@ class TestTouchDetectGUISettingsUpdate:
         self.mock_smu_metadata = {"function": "smu", "name": "TestSMU"}
         self.mock_con_metadata = {"function": "contacting", "name": "TestCon"}
 
-        self.gui.dependency = [(self.mock_mm_plugin, self.mock_mm_metadata), (self.mock_smu_plugin, self.mock_smu_metadata), (self.mock_con_plugin, self.mock_con_metadata)]
+        self.gui.dependency = [
+            (self.mock_mm_plugin, self.mock_mm_metadata),
+            (self.mock_smu_plugin, self.mock_smu_metadata),
+            (self.mock_con_plugin, self.mock_con_metadata),
+        ]
 
     def test_setSettings_updates_all_wrappers(self):
         """Test that setSettings properly updates all manipulator wrappers."""
-        settings = {"1_smu": "smua", "1_con": "Hi", "1_res": 50, "2_smu": "smub", "2_con": "Lo", "2_res": 75, "stride": 5, "sample_width": 1000, "spectrometer_height": 1500}
+        settings = {
+            "1_smu": "smua",
+            "1_con": "Hi",
+            "1_res": 50,
+            "2_smu": "smub",
+            "2_con": "Lo",
+            "2_res": 75,
+            "stride": 5,
+            "sample_width": 1000,
+            "spectrometer_height": 1500,
+        }
 
         # Mock the wrapper update_settings calls
         for wrapper in self.gui.manipulator_wrappers:
@@ -791,7 +960,14 @@ class TestTouchDetectGUISettingsUpdate:
 
     def test_setup_updates_wrappers_and_queues_gui_update(self):
         """Test that setup properly updates wrappers and queues GUI updates."""
-        settings = {"1_smu": "smua", "1_con": "Hi", "1_res": 50, "stride": 5, "sample_width": 1000, "spectrometer_height": 1500}
+        settings = {
+            "1_smu": "smua",
+            "1_con": "Hi",
+            "1_res": 50,
+            "stride": 5,
+            "sample_width": 1000,
+            "spectrometer_height": 1500,
+        }
 
         # Mock the wrapper methods
         for wrapper in self.gui.manipulator_wrappers:
@@ -858,7 +1034,16 @@ class TestTouchDetectGUISettingsUpdate:
         for i, wrapper in enumerate(self.gui.manipulator_wrappers):
             wrapper.update_settings_from_gui = Mock()
             if i == 0:
-                wrapper.get_standardized_settings = Mock(return_value={"1_smu": "smua", "1_con": "Hi", "1_res": 50, "stride": 5, "sample_width": 1000, "spectrometer_height": 1500})
+                wrapper.get_standardized_settings = Mock(
+                    return_value={
+                        "1_smu": "smua",
+                        "1_con": "Hi",
+                        "1_res": 50,
+                        "stride": 5,
+                        "sample_width": 1000,
+                        "spectrometer_height": 1500,
+                    }
+                )
             elif i == 1:
                 wrapper.get_standardized_settings = Mock(return_value={"2_smu": "smub", "2_con": "Lo", "2_res": 75})
             else:
@@ -888,7 +1073,14 @@ class TestTouchDetectGUISettingsUpdate:
 
             # Only first wrapper has settings to avoid duplicate global keys
             if i == 0:
-                wrapper_settings = {"1_smu": "smua", "1_con": "Hi", "1_res": 50, "stride": 5, "sample_width": 1000, "spectrometer_height": 1500}
+                wrapper_settings = {
+                    "1_smu": "smua",
+                    "1_con": "Hi",
+                    "1_res": 50,
+                    "stride": 5,
+                    "sample_width": 1000,
+                    "spectrometer_height": 1500,
+                }
             elif i == 1:
                 wrapper_settings = {
                     "2_smu": "smub",
@@ -915,7 +1107,16 @@ class TestTouchDetectGUISettingsUpdate:
         # Configure wrappers to be configured
         for i, wrapper in enumerate(self.gui.manipulator_wrappers):
             wrapper.is_configured = Mock(return_value=(i < 2))
-            wrapper.mi = ManipulatorInfo(mm_number=i + 1, smu_channel="smua" if i < 2 else "none", condet_channel="Hi" if i < 2 else "none", threshold=50, stride=5, sample_width=1000.0, function="", last_z=5000)
+            wrapper.mi = ManipulatorInfo(
+                mm_number=i + 1,
+                smu_channel="smua" if i < 2 else "none",
+                condet_channel="Hi" if i < 2 else "none",
+                threshold=50,
+                stride=5,
+                sample_width=1000.0,
+                function="",
+                last_z=5000,
+            )
 
         # Mock the functionality
         with patch.object(self.gui.functionality, "move_to_contact") as mock_move:
@@ -932,7 +1133,16 @@ class TestTouchDetectGUISettingsUpdate:
         """Test that configuration state remains consistent across operations."""
         # Set up a manipulator with specific configuration
         wrapper = self.gui.manipulator_wrappers[0]
-        wrapper.mi = ManipulatorInfo(mm_number=1, smu_channel="smua", condet_channel="Hi", threshold=50, stride=5, sample_width=1000.0, function="", last_z=None)
+        wrapper.mi = ManipulatorInfo(
+            mm_number=1,
+            smu_channel="smua",
+            condet_channel="Hi",
+            threshold=50,
+            stride=5,
+            sample_width=1000.0,
+            function="",
+            last_z=None,
+        )
 
         # Verify initial state
         assert wrapper.is_configured()
@@ -974,7 +1184,11 @@ class TestMonitoringConfigurationIssues:
         self.mock_smu_metadata = {"function": "smu", "name": "TestSMU"}
         self.mock_con_metadata = {"function": "contacting", "name": "TestCon"}
 
-        self.gui.dependency = [(self.mock_mm_plugin, self.mock_mm_metadata), (self.mock_smu_plugin, self.mock_smu_metadata), (self.mock_con_plugin, self.mock_con_metadata)]
+        self.gui.dependency = [
+            (self.mock_mm_plugin, self.mock_mm_metadata),
+            (self.mock_smu_plugin, self.mock_smu_metadata),
+            (self.mock_con_plugin, self.mock_con_metadata),
+        ]
 
         # Mock successful device connections
         self.mock_con_plugin.deviceConnect.return_value = (0, {"message": "Connected"})
