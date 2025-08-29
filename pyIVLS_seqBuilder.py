@@ -150,6 +150,10 @@ class pyIVLS_seqBuilder(QObject):
         # get the row number of the index
         row = idx.row()
 
+        # check if the row has content
+        if not idx.isValid():
+            return
+
         menu = QMenu()
         delete_action = QAction("Delete", self.widget.treeView)
         update_action = QAction("Update Settings", self.widget.treeView)
