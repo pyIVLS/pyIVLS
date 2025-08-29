@@ -71,6 +71,7 @@ class Keithley2612B:
     def __init__(self, dbg_mode=False):
         # handler for Keithley
         self.k = None
+        self.ke = None
 
         # Initialize pyvisa resource manager
         self.rm = pyvisa.ResourceManager("@py")
