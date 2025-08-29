@@ -1,10 +1,9 @@
 # Running a sweep on a series of points
-TODO: update instructions
 ## Turn on hardware
 - switch wired connection to keithley if running through ETH
 
 ## Enable needed plugins
-
+- Sweep, SMU, Affine, camera, AffineMove, touchDetect
 ## Setting measurement points
 - Upload mask through the Affine settings widget. The mask can be previewed on the affine MDI-Widget. Mask can be a .gds file or a screenshot from the mask as an image.
 - Add the measurement points on the mask image. ![alt text](rsc/affine.png) the checkbox for "add new points" enables adding new measurement points, "center click on patch" sets the measurement at the center of the clicked component, the number combobox sets the number of contact points for that measurement. "write/read" buttons read predefined measrurements points from .csv files. Highlighting the defined points in the list view previews them on the mask image.![alt text](rsc/defined_points.png)

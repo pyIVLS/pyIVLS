@@ -93,6 +93,8 @@ class Keithley2612B:
                 if self.ke is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 self.ke.write(command)
+            else:
+                raise ValueError(f"Unknown backend: {self.backend}")
 
             ##IRtothink#### debug_mode may be replaced with something like logging
             # if self.debug_mode:
@@ -149,16 +151,21 @@ class Keithley2612B:
         self.backend = backend
 
         if self.backend == BackendType.USB.value:
+            print("usb backend")
             if self.k is None:
+                print("USB initial connection")
                 #### connect with usbtmc
                 self.k = usbtmc.Instrument(self.address)
         elif self.backend == BackendType.ETHERNET.value:
+            print("ethernet backend")
             if self.ke is None:
+                print("Ethernet initial connection")
                 #### connect with pyvisa resource manager
                 visa_rsc_str = f"TCPIP::{self.eth_address}::{self.port}::SOCKET"
-                self.ke: pyvisa.resources.TCPIPSocket = self.rm.open_resource(
+                self.ke = self.rm.open_resource(
                     visa_rsc_str, resource_pyclass=pyvisa.resources.TCPIPSocket
                 )
+                assert self.ke is not None
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
         else:
@@ -170,10 +177,17 @@ class Keithley2612B:
     def keithley_disconnect(self):
         ##IRtodo#### move to log
         # print("Disconnecting from Keithley 2612B")
+                    
         if self.k is not None:
             self.k.close()
+        # commented out since .close on a visa resource also marks the handle
+        # To be invalid. This messes with future connection attempts. 
+        # https://pyvisa.readthedocs.io/en/1.8/api/resources.html#pyvisa.resources.Resource.close
+        """
         if self.ke is not None:
             self.ke.close()
+        """ 
+
 
     ## Device functions
     def resistance_measurement(self, channel) -> float:
@@ -194,7 +208,7 @@ class Keithley2612B:
         else:
             raise ValueError(f"Invalid channel {channel}")
 
-    def resistance_measurement_setup(self, channel) -> bool:
+    def resistance_measurement_setup(self, channel) -> tuple[bool, str]:
         """Measure the resistance at the probe.
 
         Returns:
@@ -220,9 +234,9 @@ class Keithley2612B:
                 self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
                 self.safewrite(f"display.{channel}.measure.func = display.MEASURE_OHMS")
 
-                return True
-            except Exception:
-                return False
+                return True, "ok"
+            except Exception as e:
+                return False, str(e)
 
         else:
             raise ValueError(f"Invalid channel {channel}")

@@ -273,11 +273,11 @@ class Keithley2612BGUI:
             tuple: (status, resistance value) where status is 0 for success, non-zero for error.
         """
         try:
-            success = self.smu.resistance_measurement_setup(channel)
+            success, err_text = self.smu.resistance_measurement_setup(channel)
             if success:
                 return (0, {"Error message": "Keithley setup resistance measurement"})
             else:
-                return (4, {"Error message": "HW issue in keithley resistance setup"})
+                return (4, {"Error message": f"HW issue in keithley resistance setup: {err_text}"})
         except Exception as e:
             return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})
 

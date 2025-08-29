@@ -190,7 +190,9 @@ class Mpc325:
         with self._comm_lock:
             self._flush()
             self.ser.write(bytes([85]))  # Send command to the device (ASCII: U)
+            self.ser.timeout = 3
             output = self.ser.read_until(expected=self.end_marker_bytes)
+            self.ser.timeout = self._TIMEOUT
             unpacked_data = self._validate_and_unpack("6B", output, name="get_connected_devices_status")
             num_devices = unpacked_data[0]  # Number of devices connected
             device_statuses = unpacked_data[1:5]  # Status of each device (0 or 1)
