@@ -3,6 +3,12 @@ from typing import Optional
 import pyvisa
 import usbtmc
 import numpy as np
+from enum import Enum
+
+
+class BackendType(Enum):
+    USB = "USB"
+    ETHERNET = "Ethernet"
 
 
 """
@@ -78,11 +84,11 @@ class Keithley2612B:
     ## Communication functions
     def safewrite(self, command: str) -> None:
         try:
-            if self.backend == "USB":
+            if self.backend == BackendType.USB.value:
                 if self.k is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 self.k.write(command)
-            elif self.backend == "Ethernet":
+            elif self.backend == BackendType.ETHERNET.value:
                 if self.ke is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 self.ke.write(command)
@@ -103,13 +109,13 @@ class Keithley2612B:
 
     def safequery(self, command: str) -> Optional[str]:
         try:
-            if self.backend == "USB":
+            if self.backend == BackendType.USB.value:
                 if self.k is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 self.k.write(command)
                 ret: str = self.k.read()
                 return ret
-            elif self.backend == "Ethernet":
+            elif self.backend == BackendType.ETHERNET.value:
                 if self.ke is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 ret = self.ke.query(command)
@@ -141,11 +147,12 @@ class Keithley2612B:
         self.port = port
         self.backend = backend
 
-        if self.k is None:
-            if self.backend == "USB":
+        if self.backend == BackendType.USB.value:
+            if self.k is None:
                 #### connect with usbtmc
                 self.k = usbtmc.Instrument(self.address)
-            elif self.backend == "Ethernet":
+        elif self.backend == BackendType.ETHERNET.value:
+            if self.ke is None:
                 #### connect with pyvisa resource manager
                 visa_rsc_str = f"TCPIP::{self.eth_address}::{self.port}::SOCKET"
                 self.ke: pyvisa.resources.TCPIPSocket = self.rm.open_resource(
@@ -153,8 +160,8 @@ class Keithley2612B:
                 )
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
-            else:
-                raise ValueError(f"Unknown backend: {self.backend}")
+        else:
+            raise ValueError(f"Unknown backend: {self.backend}")
 
             ##IRtodo#### move to log
             # print(self.k.query("*IDN?"))
@@ -164,6 +171,8 @@ class Keithley2612B:
         # print("Disconnecting from Keithley 2612B")
         if self.k is not None:
             self.k.close()
+        if self.ke is not None:
+            self.ke.close()
 
     ## Device functions
     def resistance_measurement(self, channel) -> float:
