@@ -76,9 +76,9 @@ class Keithley2612B:
         self.lock = Lock()
 
     ## Communication functions
-    def safewrite(self, command:str) -> None:
+    def safewrite(self, command: str) -> None:
         try:
-            if self.backend == "usb":
+            if self.backend == "USB":
                 if self.k is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 self.k.write(command)
@@ -101,9 +101,9 @@ class Keithley2612B:
         #    if self.debug_mode:
         #        self.k.write("errorqueue.clear()")
 
-    def safequery(self, command:str) -> Optional[str]:
+    def safequery(self, command: str) -> Optional[str]:
         try:
-            if self.backend == "usb":
+            if self.backend == "USB":
                 if self.k is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 self.k.write(command)
@@ -142,13 +142,15 @@ class Keithley2612B:
         self.backend = backend
 
         if self.k is None:
-            if self.backend == "usb":
+            if self.backend == "USB":
                 #### connect with usbtmc
                 self.k = usbtmc.Instrument(self.address)
             elif self.backend == "Ethernet":
                 #### connect with pyvisa resource manager
                 visa_rsc_str = f"TCPIP::{self.eth_address}::{self.port}::SOCKET"
-                self.ke: pyvisa.resources.TCPIPSocket = self.rm.open_resource(visa_rsc_str, resource_pyclass=pyvisa.resources.TCPIPSocket)
+                self.ke: pyvisa.resources.TCPIPSocket = self.rm.open_resource(
+                    visa_rsc_str, resource_pyclass=pyvisa.resources.TCPIPSocket
+                )
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
             else:
@@ -435,7 +437,9 @@ class Keithley2612B:
 
                 # set limits and modes
                 ##IRtodo#### drain limits are not set, probably it should be done the same way as for the source
-                if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (s["type"] == "v" and abs(s["limit"]) >= 1.5):
+                if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (
+                    s["type"] == "v" and abs(s["limit"]) >= 1.5
+                ):
                     self.safewrite(f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF")
                     self.safewrite(f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
                     self.safewrite(f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
@@ -500,9 +504,13 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE")
                 self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")
                 self.safewrite(f"{s['source']}.trigger.endsweep.action = {s['source']}.SOURCE_IDLE")
-                self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                self.safewrite(
+                    f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
+                )
                 if s["single_ch"]:
-                    self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
+                    self.safewrite(
+                        f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID"
+                    )
 
                 ####################setting up drain
                 else:
@@ -515,8 +523,12 @@ class Keithley2612B:
                     #### initialize sweep actions
                     self.safewrite(f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)")
                     self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE")
-                    self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")  # do not sweep the source (see 7-243 or 590 of the manual)
-                    self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                    self.safewrite(
+                        f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE"
+                    )  # do not sweep the source (see 7-243 or 590 of the manual)
+                    self.safewrite(
+                        f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
+                    )
                     self.safewrite("trigger.blender[2].orenable = false")
                     self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
                     self.safewrite(f"trigger.blender[2].stimulus[2] = {s['drain']}.trigger.MEASURE_COMPLETE_EVENT_ID")
