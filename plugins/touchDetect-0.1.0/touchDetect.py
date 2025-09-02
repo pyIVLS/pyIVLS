@@ -136,12 +136,12 @@ class touchDetect:
         stop_requested_callback=None,
     ) -> tuple[int, dict]:
         """
-        Monitors for manual contact detection and saves Z positions to ManipulatorInfo objects.
+        Monitors for manual contact detection and saves Z positions to an internal dictionary.
 
         Args:
-            mm: Micromanipulator object
-            smu: SMU object
-            con: Contact detection object
+            mm: Micromanipulator methods dict
+            smu: SMU methods dict
+            con: Contact detection methods dict
             manipulator_infos: List of ManipulatorInfo objects to monitor
             progress_callback: Function to call with progress messages
             error_callback: Function to call with error messages
@@ -313,9 +313,9 @@ class touchDetect:
         4. Monitor all contacts for stability before confirming success
 
         Args:
-            mm (object): micromanipulator object
-            con (object): contact detection switcher
-            smu (object): smu
+            mm (dict): micromanipulator methods dict
+            con (dict): contact detection switcher methods dict
+            smu (dict): smu methods dict
             manipulator_info (list[ManipulatorInfo]): list of ManipulatorInfo objects
         Returns:
             tuple: (status_code, result_dict)
@@ -417,7 +417,7 @@ class touchDetect:
         Monitors contact stability for a specified duration after initial contact detection.
 
         Args:
-            smu: SMU object for resistance measurement
+            smu: SMU method dictionary
             channel: SMU channel to measure
             threshold: resistance threshold for contact detection
             duration_seconds: how long to monitor for stability
@@ -479,8 +479,8 @@ class touchDetect:
         """Check contact status for all manipulators and return a list of booleans.
 
         Args:
-            smu: SMU object
-            con: contact detection object
+            smu: SMU method dict
+            con: contact detection method dict
             manipulator_info: list of ManipulatorInfo objects
 
         Returns:
@@ -509,6 +509,17 @@ class touchDetect:
     def _move_until_contact(
         self, mm: dict, smu: dict, manipulator_info: ManipulatorInfo, max_distance_to_move: float
     ) -> tuple[int, dict]:
+        """Move the manipulator until contact is detected or the maximum distance is exceeded.
+
+        Args:
+            mm (dict): Micromanipulator methods dict
+            smu (dict): SMU methods dict
+            manipulator_info (ManipulatorInfo): Manipulator information
+            max_distance_to_move (float): Maximum distance to move the manipulator
+
+        Returns:
+            tuple[int, dict]: Status code and additional information
+        """
         total_distance = 0
         # Move until initial contact is detected
         contacting, r = self._contacting(smu, manipulator_info)
@@ -535,11 +546,11 @@ class touchDetect:
         """Does no error checking, just assumes that the ManipulatorInfo is already validated in public functions. Moves the manipulator to the last known contact position + APPROACH_MARGIN.
 
         Args:
-            mm (object): _description_
-            manipulator_info (ManipulatorInfo): _description_
+            mm (dict): Micromanipulator methods dict
+            manipulator_info (ManipulatorInfo): Manipulator information
 
         Returns:
-            tuple[int, dict]: _description_
+            tuple[int, dict]: Status code and additional information
         """
 
         last_position = manipulator_info.last_z
@@ -550,7 +561,7 @@ class touchDetect:
             return (status, result)
         return (
             0,
-            {"message": f"Manipulator {manipulator_info.mm_number} moved to last contact position {last_position}"},
+            {"Error message": "OK"},
         )
 
     def _manipulator_measurement_setup(self, mm: dict, smu: dict, con: dict, mi: ManipulatorInfo) -> tuple[int, dict]:
@@ -574,7 +585,7 @@ class touchDetect:
             else:
                 raise ValueError(f"Invalid contact detection channel {mi.condet_channel}")
 
-            return (0, {"message": f"SMU setup successful for manipulator {mi.mm_number}"})
+            return (0, {"Error message": f"SMU setup successful for manipulator {mi.mm_number}"})
         except Exception as e:
             return (1, {"Error message": f"Error setting up SMU for manipulator {mi.mm_number}: {str(e)}"})
 
@@ -607,7 +618,7 @@ class touchDetect:
         status_con, state_con = con["deviceConnect"]()
         status_mm, state_mm = mm["mm_open"]()
         if any(s != 0 for s in [status_smu, status_con, status_mm]):
-            return (2, {"message": "Verify contact failed to set up hardware"})
+            return (2, {"Error message": "Verify contact failed to set up hardware"})
         stables = []
         for info in infos:
             stable = self._verify_contact_single(smu, con, mm, info)
@@ -617,10 +628,10 @@ class touchDetect:
         self._log("Verify contact operation completed successfully")
         for i, stable in enumerate(stables):
             if not stable:
-                return (0, {"message": f"Manipulator {infos[i].mm_number} not in contact"})
-        return (0, {"message": "Verify contact operation completed successfully"})
+                return (0, {"Error message": f"Manipulator {infos[i].mm_number} not in contact"})
+        return (0, {"Error message": "Verify contact operation completed successfully"})
 
-    def _verify_contact_single(self, smu, con, mm, info: ManipulatorInfo) -> bool:
+    def _verify_contact_single(self, smu: dict, con: dict, mm: dict, info: ManipulatorInfo) -> bool:
         """Verifies contact for a single manipulator."""
         self._log(f"Starting verify_contact for manipulator {info.mm_number}")
 
