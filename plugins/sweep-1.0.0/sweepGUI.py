@@ -585,7 +585,6 @@ class sweepGUI(QObject):
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-
         return [0, self.settings]
 
     @public
@@ -612,7 +611,6 @@ class sweepGUI(QObject):
         self.settingsWidget.runButton.setEnabled(not status)
         self.settingsWidget.groupBox_dep.setEnabled(not status)
         self.closelock.emit_close_lock(status)
-        self.set_gui_from_settings()
 
     ########sweep implementation
 
