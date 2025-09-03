@@ -91,7 +91,6 @@ class Mpc325:
         self.quick_move = False
         self.port = ""
         self._comm_lock = threading.Lock()
-        self._stop_requested = threading.Event()
         self.end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
 
     def update_internal_state(self, quick_move: bool = None, speed: int = None, source: str = None):
@@ -259,11 +258,7 @@ class Mpc325:
 
     def stop(self):
         """Stop the current movement"""
-        with self._comm_lock:
-            self._flush()
-            self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>)
-            output = self.ser.read_until(expected=self.end_marker_bytes)
-            assert output[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {output[-1]}"
+        self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>)
 
     def move(self, x=None, y=None, z=None):
         """Move to a position. If quick_move is set to True, the movement will be at full speed.
@@ -285,9 +280,7 @@ class Mpc325:
 
         # If the position after handrails is the same, do nothing.
         if (curr_pos[0] == self._handrail_micron(x)) and (curr_pos[1] == self._handrail_micron(y)) and (curr_pos[2] == self._handrail_micron(z)):
-            print(f"Already at position {curr_pos}. Not moving.")
             return
-        print(f"I think I should move to {self._handrail_micron(x)}, {self._handrail_micron(y)}, {self._handrail_micron(z)} and using the speed {self.speed} ({self._MOVE_SPEEDS[self.speed]} microns/s). I'm in quickmove: {self.quick_move}")
         if self.quick_move:
             self.quick_move_to(x, y, z)
         else:
@@ -342,7 +335,6 @@ class Mpc325:
             x_s = self._handrail_step(self._m2s(self._handrail_micron(x)))
             y_s = self._handrail_step(self._m2s(self._handrail_micron(y)))
             z_s = self._handrail_step(self._m2s(self._handrail_micron(z)))
-            print(f"Moving to {self._handrail_micron(x)}, {self._handrail_micron(y)}, {self._handrail_micron(z)} with speed {speed} ({self._MOVE_SPEEDS[speed]} microns/s)")
             command2 = struct.pack("<3I", x_s, y_s, z_s)  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
             self.ser.write(command1)
             time.sleep(0.03)  # wait period specified in the manual (30 ms)
