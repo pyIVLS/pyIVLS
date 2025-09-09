@@ -13,6 +13,7 @@ from plugin_components import (
 )
 import copy
 from components.threadStopped import ThreadStopped
+import numpy as np
 
 """
 From readme:
@@ -33,8 +34,11 @@ drain nplc field should be numeric"}]
 "Exception" : exception from called function
 
 """
+
+
 def handle_sutter_exceptions(func):
     """Decorator to handle Sutter-specific exceptions while letting ThreadStopped pass through"""
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         try:
@@ -46,7 +50,9 @@ def handle_sutter_exceptions(func):
             return [1, {"Error message": f"Value error in Sutter plugin: {str(e)}", "Exception": str(e)}]
         except Exception as e:
             return [4, {"Error message": f"Sutter HW error: {str(e)}", "Exception": str(e)}]
+
     return wrapper
+
 
 class SutterGUI(QObject):
     """
@@ -363,7 +369,6 @@ class SutterGUI(QObject):
         self._gui_change_device_connected(True)
         return (0, {"Error message": "Sutter connected"})
 
-
     @public
     @handle_sutter_exceptions
     def mm_change_active_device(self, dev_num: int):
@@ -382,7 +387,6 @@ class SutterGUI(QObject):
             return [0, {"Error message": "Sutter device changed to " + str(dev_num)}]
         return [4, {"Error message": "Sutter device change error"}]
 
-
     @public
     @handle_sutter_exceptions
     def mm_move(self, x=None, y=None, z=None):
@@ -391,9 +395,23 @@ class SutterGUI(QObject):
         Args:
             *args: x, y, z
         """
-        self.hal.move(x, y, z)
-        return [0, {"Error message": "Sutter moved"}]
+        # break the move into smaller steps to allow for non-blocking behavior
+        x, y, z = self.hal.get_current_position()
 
+        # break the move into smaller steps to allow for non-blocking behavior
+        step_size = 100
+        # arange creates a range of values from start and not including end
+        if x is not None:
+            x_steps = np.arange(x, x + step_size, step_size)
+        if y is not None:
+            y_steps = np.arange(y, y + step_size, step_size)
+        if z is not None:
+            z_steps = np.arange(z, z + step_size, step_size)
+
+        for x_step, y_step, z_step in zip(x_steps, y_steps, z_steps):
+            self.hal.move(x_step, y_step, z_step)
+
+        return [0, {"Error message": "Sutter moved"}]
 
     @public
     @handle_sutter_exceptions
@@ -404,9 +422,8 @@ class SutterGUI(QObject):
             *args: x_change, y_change, z_change
         """
         (x, y, z) = self.hal.get_current_position()
-        self.hal.move(x + x_change, y + y_change, z + z_change)
+        self.mm_move(x + x_change, y + y_change, z + z_change)
         return [0, {"Error message": "Sutter moved"}]
-
 
     @public
     @handle_sutter_exceptions
@@ -457,13 +474,11 @@ class SutterGUI(QObject):
             self.hal.move(x, y, target_z)
             return (0, {"Error message": "Sutter moved"})
 
-
     @public
     @handle_sutter_exceptions
     def mm_get_active_device(self) -> tuple:
         """Returns the currently active device."""
         return (0, self.hal.get_active_device())
-
 
     @public
     @handle_sutter_exceptions
@@ -474,7 +489,6 @@ class SutterGUI(QObject):
             return (0, {"Error message": "Sutter already at max"})
         self.hal.move(x, y, 0)
         return (0, {"Error message": "Sutter moved up to max"})
-
 
     @public
     @handle_sutter_exceptions
@@ -495,7 +509,6 @@ class SutterGUI(QObject):
             pos = self.hal.get_current_position()
         return pos
 
-
     @public
     @handle_sutter_exceptions
     def mm_devices(self):
@@ -509,7 +522,6 @@ class SutterGUI(QObject):
             return [code, status]  # Return error if opening failed
         dev_count, dev_statuses = self.hal.get_connected_devices_status()
         return [0, (dev_count, dev_statuses)]
-
 
     @public
     @handle_sutter_exceptions
@@ -532,8 +544,6 @@ class SutterGUI(QObject):
                         return 4, {"Error message": f"Failed to get position for device {i + 1}"}
                     return 0, {i + 1: pos}
 
-
-
     @public
     @handle_sutter_exceptions
     def mm_get_num_manipulators(self):
@@ -545,7 +555,6 @@ class SutterGUI(QObject):
         """
         dev_count, _ = self.hal.get_connected_devices_status()
         return dev_count
-
 
     @public
     @handle_sutter_exceptions
@@ -565,4 +574,3 @@ class SutterGUI(QObject):
             z = self.hal.get_current_position()[2]
         self.hal.slow_move_to(x, y, z, 7)
         return [0, {"Error message": "Sutter moved"}]
-
