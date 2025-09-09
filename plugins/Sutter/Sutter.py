@@ -2,40 +2,13 @@
 
 import struct  # Handling binary
 import time  # for device-spesified wait-times
-from datetime import datetime  # for error messages
 from typing import Final  # for constants
 import threading  # for thread safety
 
 import numpy as np  # for better typing
 import serial  # Accessing sutter device through serial port
 
-
-class SutterError(Exception):
-    """
-    # NOTE UNUSED
-    From readme:
-    0 = no error,
-    1 = Value error,
-    2 = Any error reported by dependent plugin,
-    3 = missing functions or plugins,
-    4 = harware error
-    plugins return errors in form of list [number, {"Error message":"Error text", "Exception":f"e"}]
-    e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
-    error text will be shown in the dialog message in the interaction plugin,
-    so the error text should contain the plugin name,
-    e.g. return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
-
-    """
-
-    def __init__(self, message, error_code):
-        super().__init__(message)
-        self.error_code = error_code
-        self.message = message
-        self.timestamp = datetime.now().strftime("%H:%M:%S.%f")
-        self.message = f"{self.timestamp}: {self.message} (Sutter error Code: {self.error_code})"
-
-    def __str__(self):
-        return self.message
+# TODO: Worker thread with locking that still allows stopping mid operation. Currently the reads are blocking.
 
 
 class Mpc325:
@@ -150,6 +123,7 @@ class Mpc325:
         Args:
             format (str): format string for struct
             output (): bytes recieved from serial port
+            name (str, optional): unused
 
         Returns:
            Tuple : unpacked data based on format, without the end marker. If end marker is invalid, throws assertion error.
@@ -176,7 +150,6 @@ class Mpc325:
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         self.ser.flush()
-        # NOTE: added some more waittime to try out.
         time.sleep(0.002)  # Hardcoded wait time (2 ms) between commands from the manual.
 
     def get_connected_devices_status(self):
@@ -225,7 +198,9 @@ class Mpc325:
                 raise ValueError(f"Device number {dev_num} is out of range. Must be between 1 and 4.")
             command = struct.pack("<2B", 73, dev_num)
             self.ser.write(command)  # Send command to the device (ASCII: I )
-            output = self.ser.read(2)  # response should be 2 bytes, 1st is the currently active device, 2nd is the completion indicator
+            output = self.ser.read(
+                2
+            )  # response should be 2 bytes, 1st is the currently active device, 2nd is the completion indicator
             unpacked = self._validate_and_unpack("2B", output, name="change_active_device")
             if unpacked[0] != dev_num:
                 return False
@@ -279,7 +254,11 @@ class Mpc325:
             z = curr_pos[2]
 
         # If the position after handrails is the same, do nothing.
-        if (curr_pos[0] == self._handrail_micron(x)) and (curr_pos[1] == self._handrail_micron(y)) and (curr_pos[2] == self._handrail_micron(z)):
+        if (
+            (curr_pos[0] == self._handrail_micron(x))
+            and (curr_pos[1] == self._handrail_micron(y))
+            and (curr_pos[2] == self._handrail_micron(z))
+        ):
             return
         if self.quick_move:
             self.quick_move_to(x, y, z)
@@ -303,7 +282,9 @@ class Mpc325:
             y_s = self._handrail_step(self._m2s(self._handrail_micron(y)))
             z_s = self._handrail_step(self._m2s(self._handrail_micron(z)))
 
-            command2 = struct.pack("<3I", x_s, y_s, z_s)  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
+            command2 = struct.pack(
+                "<3I", x_s, y_s, z_s
+            )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
 
             self.ser.write(command1)
             self.ser.write(command2)
@@ -335,7 +316,9 @@ class Mpc325:
             x_s = self._handrail_step(self._m2s(self._handrail_micron(x)))
             y_s = self._handrail_step(self._m2s(self._handrail_micron(y)))
             z_s = self._handrail_step(self._m2s(self._handrail_micron(z)))
-            command2 = struct.pack("<3I", x_s, y_s, z_s)  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
+            command2 = struct.pack(
+                "<3I", x_s, y_s, z_s
+            )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
             self.ser.write(command1)
             time.sleep(0.03)  # wait period specified in the manual (30 ms)
             self.ser.write(command2)
