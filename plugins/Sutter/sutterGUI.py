@@ -13,8 +13,7 @@ from plugin_components import (
 )
 import copy
 from components.threadStopped import ThreadStopped
-import numpy as np
-
+import threading
 """
 From readme:
 0 = no error, 
@@ -46,6 +45,9 @@ def handle_sutter_exceptions(func):
         except ThreadStopped:
             # Re-raise ThreadStopped without catching it
             raise
+        except InterruptedError as e:
+            # Handle move interruption as a successful stop operation
+            return [0, {"Error message": f"Sutter move interrupted: {str(e)}"}]
         except ValueError as e:
             return [1, {"Error message": f"Value error in Sutter plugin: {str(e)}", "Exception": str(e)}]
         except Exception as e:
@@ -286,35 +288,102 @@ class SutterGUI(QObject):
                 self._gui_change_device_connected(False)
 
     def _status_button(self):
-        pos = self.hal.get_current_position()
-        status, state = self.mm_move(x=pos[0] + 1000)
-        print(f"status: {status}, state: {state} for positive x move")
-        status, state = self.mm_move(x=pos[0] - 1000)
-        print(f"status: {status}, state: {state} for negative x move")
-        status, state = self.mm_move(y=pos[1] + 1000)
-        print(f"status: {status}, state: {state} for positive y move")
-        status, state = self.mm_move(y=pos[1] - 1000)
-        print(f"status: {status}, state: {state} for negative y move")
-        status, state = self.mm_move(z=pos[2] + 1000)
-        print(f"status: {status}, state: {state} for positive z move")
-        status, state = self.mm_move(z=pos[2] - 1000)
-        print(f"status: {status}, state: {state} for negative z move")
-        status, state = self.mm_move_relative(x_change=1000, y_change=1000, z_change=1000)
-        print(f"status: {status}, state: {state} for positive relative move")
-        status, state = self.mm_move_relative(x_change=-1000, y_change=-1000, z_change=-1000)
-        print(f"status: {status}, state: {state} for negative relative move")
-        status, state = self.mm_zmove(z_change=1000, absolute=True)
-        print(f"status: {status}, state: {state} for absolute z move down")
-        status, state = self.mm_zmove(z_change=0, absolute=True)
-        print(f"status: {status}, state: {state} for absolute z move up")
-        status, state = self.mm_zmove(z_change=1000, absolute=False)
-        print(f"status: {status}, state: {state} for relative z move down")
-        status, state = self.mm_up_max()
-        print(f"status: {status}, state: {state} for move to max z")
+        def _move_sequence():
+            pos = self.hal.get_current_position()
+            print(f"Current position in status button: x={pos[0]}, y={pos[1]}, z={pos[2]}")
+            status, state = self.mm_move(x=0, y=0, z=0)
+            print(f"status: {status}, state: {state} for zeroing move")
+
+
+            status, state = self.mm_move_relative(x_change=1000, y_change=1000, z_change=1000)
+            print(f"status: {status}, state: {state} for positive relative move")
+            status, state = self.mm_move_relative(x_change=-1000, y_change=-1000, z_change=-1000)
+            print(f"status: {status}, state: {state} for negative relative move")
+            status, state = self.mm_zmove(z_change=1000, absolute=True)
+            print(f"status: {status}, state: {state} for absolute z move down")
+            status, state = self.mm_zmove(z_change=0, absolute=True)
+            print(f"status: {status}, state: {state} for absolute z move up")
+            status, state = self.mm_zmove(z_change=1000, absolute=False)
+            print(f"status: {status}, state: {state} for relative z move down")
+            status, state = self.mm_up_max()
+            print(f"status: {status}, state: {state} for move to max z")
+
+        def _quickmove_slowmove_check():
+            pos = self.hal.get_current_position()
+            print(f"Current position in quickmove/slowmove check: x={pos[0]}, y={pos[1]}, z={pos[2]}")
+            initial = self.hal.quick_move
+            self.hal.quick_move = True
+            self.mm_move(x=pos[0] + 200, y=pos[1] + 200, z=pos[2] + 200)
+            self.mm_move(x=pos[0], y=pos[1], z=pos[2])
+            self.hal.quick_move = False
+            self.mm_move(x=pos[0] + 200, y=pos[1] + 200, z=pos[2] + 200)
+            self.mm_move(x=pos[0], y=pos[1], z=pos[2])
+            self.hal.quick_move = initial
+
+        def check_working_slow_moves_single_axis():
+            import time
+            import numpy as np
+            # Running this shows that speeds up to 12 work when using spesified wait time between command1 and 2. When using wait time * 4 modes up to 13 work.
+            for i in range(16):
+                n = 200
+                pos = self.hal.get_current_position()
+                move_times = []
+                initial = self.hal.quick_move
+                self.hal.quick_move = False
+                initial_speed = self.hal.speed
+                self.hal.speed = i
+                # move n microns, track time:
+                start_time = time.perf_counter()
+                self.mm_move(x=pos[0] + n)
+                end_time = time.perf_counter()
+                move_times.append(end_time - start_time)
+                start_time = time.perf_counter()
+                self.mm_move(x=pos[0])
+                end_time = time.perf_counter()
+                move_times.append(end_time - start_time)
+                print(f"moved with speed {i}: {np.mean(move_times)} seconds")
+                self.hal.quick_move = initial
+                self.hal.speed = initial_speed
+
+        def check_working_slow_moves_multi_axis():
+            import time
+            import numpy as np
+            # Running this shows that speeds up to 13 work.
+            for i in range(16):
+                pos = self.hal.get_current_position()
+                move_times = []
+                initial = self.hal.quick_move
+                self.hal.quick_move = False
+                initial_speed = self.hal.speed
+                self.hal.speed = i
+                # move n microns, track time:
+                n = 200
+                start_time = time.perf_counter()
+                self.mm_move(x=pos[0] + n, y=pos[1] + n, z=pos[2] + n)
+                end_time = time.perf_counter()
+                move_times.append(end_time - start_time)
+                start_time = time.perf_counter()
+                self.mm_move(x=pos[0], y=pos[1], z=pos[2])
+                end_time = time.perf_counter()
+                move_times.append(end_time - start_time)
+                print(f"moved with speed {i}: {np.mean(move_times)} seconds")
+                self.hal.quick_move = initial
+                self.hal.speed = initial_speed
+
+        # run move sequence in a thread
+        move_thread = threading.Thread(target=_move_sequence)
+        move_thread.start()
 
     def _stop_button(self):
-        self.logger.info_popup("Stop button pressed WIP")
-        # self._move_worker.stop()
+        """Called when the stop button is pressed. Stops any ongoing movement."""
+        try:
+            status, result = self.mm_stop()
+            if status == 0:
+                self.logger.info_popup("Sutter movement stopped successfully")
+            else:
+                self.logger.info_popup(f"Stop command failed: {result.get('Error message', 'Unknown error')}")
+        except Exception as e:
+            self.logger.info_popup(f"Error stopping Sutter: {str(e)}")
 
     def _calibrate_button(self):
         self.hal.calibrate()
@@ -366,7 +435,7 @@ class SutterGUI(QObject):
         status, parsed_settings = self.parse_settings_widget()
         if status == 0:
             self.settings.update(parsed_settings)
-        self._gui_change_device_connected(True)
+        self._gui_change_device_connected(self.hal.is_connected())
         return (0, {"Error message": "Sutter connected"})
 
     @public
@@ -393,24 +462,11 @@ class SutterGUI(QObject):
         """Micromanipulator move.
 
         Args:
-            *args: x, y, z
+            x, y, z: Target coordinates. If None, the current position for that axis is maintained.
         """
-        # break the move into smaller steps to allow for non-blocking behavior
-        x, y, z = self.hal.get_current_position()
-
-        # break the move into smaller steps to allow for non-blocking behavior
-        step_size = 100
-        # arange creates a range of values from start and not including end
-        if x is not None:
-            x_steps = np.arange(x, x + step_size, step_size)
-        if y is not None:
-            y_steps = np.arange(y, y + step_size, step_size)
-        if z is not None:
-            z_steps = np.arange(z, z + step_size, step_size)
-
-        for x_step, y_step, z_step in zip(x_steps, y_steps, z_steps):
-            self.hal.move(x_step, y_step, z_step)
-
+        # Perform direct move
+        self.hal.move(x, y, z)
+        
         return [0, {"Error message": "Sutter moved"}]
 
     @public
@@ -430,7 +486,7 @@ class SutterGUI(QObject):
     def mm_calibrate(self, all=False):
         if not all:
             # move first in the z axis to the minimum position
-            self.hal.move(z=self.hal._MINIMUM_MS)
+            self.mm_move(z=self.hal._MINIMUM_MS)
             # finally calibrate the device
             _ = self.hal.calibrate()
             return [0, {"Error message": "Sutter calibrated"}]
@@ -441,9 +497,11 @@ class SutterGUI(QObject):
     @handle_sutter_exceptions
     def mm_stop(self) -> tuple:
         """Micromanipulator stop."""
-        print("Stopping Sutter...")
-        self.hal.stop()
-        return (0, {"Error message": "Sutter stopped"})
+        try:
+            self.hal.stop()
+            return (0, {"Error message": "Sutter stopped"})
+        except Exception as e:
+            return (4, {"Error message": f"Sutter stop error: {str(e)}", "Exception": str(e)})
 
     @public
     @handle_sutter_exceptions
@@ -464,14 +522,14 @@ class SutterGUI(QObject):
             target_z = z_change
             if target_z > self.hal._MAXIMUM_M or target_z < self.hal._MINIMUM_MS:
                 return (1, {"Error message": "Sutter move out of bounds"})
-            self.hal.move(x, y, target_z)
+            self.mm_move(x, y, target_z)
             return (0, {"Error message": "Sutter moved"})
         else:
             # For relative positioning, z_change is the offset
             target_z = z + z_change
             if target_z > self.hal._MAXIMUM_M or target_z < self.hal._MINIMUM_MS:
                 return (1, {"Error message": "Sutter move out of bounds"})
-            self.hal.move(x, y, target_z)
+            self.mm_move(x, y, target_z)
             return (0, {"Error message": "Sutter moved"})
 
     @public
@@ -487,7 +545,7 @@ class SutterGUI(QObject):
         x, y, z = self.hal.get_current_position()
         if z == 0:
             return (0, {"Error message": "Sutter already at max"})
-        self.hal.move(x, y, 0)
+        self.mm_move(x, y, 0)
         return (0, {"Error message": "Sutter moved up to max"})
 
     @public
@@ -559,10 +617,10 @@ class SutterGUI(QObject):
     @public
     @handle_sutter_exceptions
     def mm_slow_move(self, x=None, y=None, z=None):
-        """Micromanipulator move.
+        """Micromanipulator slow move (for testing stop functionality).
 
         Args:
-            *args: x, y, z
+            x, y, z: Target coordinates. If None, the current position for that axis is maintained.
         """
         if x is None and y is None and z is None:
             return [1, {"Error message": "Sutter slow move requires at least one coordinate"}]
