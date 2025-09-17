@@ -14,6 +14,7 @@ from plugin_components import (
 import copy
 from components.threadStopped import ThreadStopped
 import threading
+
 """
 From readme:
 0 = no error, 
@@ -294,7 +295,6 @@ class SutterGUI(QObject):
             status, state = self.mm_move(x=0, y=0, z=0)
             print(f"status: {status}, state: {state} for zeroing move")
 
-
             status, state = self.mm_move_relative(x_change=1000, y_change=1000, z_change=1000)
             print(f"status: {status}, state: {state} for positive relative move")
             status, state = self.mm_move_relative(x_change=-1000, y_change=-1000, z_change=-1000)
@@ -323,9 +323,10 @@ class SutterGUI(QObject):
         def check_working_slow_moves_single_axis():
             import time
             import numpy as np
+
             # Running this shows that speeds up to 12 work when using spesified wait time between command1 and 2. When using wait time * 4 modes up to 13 work.
-            for i in range(16):
-                n = 200
+            for i in range(10, 16):
+                n = 1000
                 pos = self.hal.get_current_position()
                 move_times = []
                 initial = self.hal.quick_move
@@ -348,6 +349,7 @@ class SutterGUI(QObject):
         def check_working_slow_moves_multi_axis():
             import time
             import numpy as np
+
             # Running this shows that speeds up to 13 work.
             for i in range(16):
                 pos = self.hal.get_current_position()
@@ -371,7 +373,7 @@ class SutterGUI(QObject):
                 self.hal.speed = initial_speed
 
         # run move sequence in a thread
-        move_thread = threading.Thread(target=_move_sequence)
+        move_thread = threading.Thread(target=check_working_slow_moves_single_axis)
         move_thread.start()
 
     def _stop_button(self):
@@ -466,7 +468,7 @@ class SutterGUI(QObject):
         """
         # Perform direct move
         self.hal.move(x, y, z)
-        
+
         return [0, {"Error message": "Sutter moved"}]
 
     @public

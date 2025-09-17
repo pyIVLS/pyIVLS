@@ -8,8 +8,6 @@ import threading  # for thread safety
 import numpy as np  # for better typing
 import serial  # Accessing sutter device through serial port
 
-# TODO: Worker thread with locking that still allows stopping mid operation. Currently the reads are blocking.
-
 
 class Mpc325:
     """
@@ -29,7 +27,7 @@ class Mpc325:
         13: 1137.5,
     """
     # FIXME: The issue must be hardware related, since the I double checked every command being sent to the device and
-    # they match with the corresponding quickmove commands. The speed is also correctly being packed into the command 
+    # they match with the corresponding quickmove commands. The speed is also correctly being packed into the command
     # when checked before sending. Increasing the wait time between commands 1 and 2 sometimes allows higher speeds to work,
     # but not reliably.
     # on higher speeds, the manipulators try to move so the command is getting to them, but the movement itself doesn't happen. Slipping hardware???
@@ -239,13 +237,13 @@ class Mpc325:
 
     def _read_with_stop_check(self, until_marker=struct.pack("<B", 13)):
         """Read from serial port while checking for stop event.
-        
+
         Args:
             until_marker (bytes): Read until this marker is found
-            
+
         Returns:
             bytes: Data read from serial port
-            
+
         Raises:
             InterruptedError: If stop event is set during reading
         """
@@ -253,7 +251,7 @@ class Mpc325:
         assert timeout is not None, "Serial timeout must be set for reading"
         start_time = time.monotonic()
         # Read until marker
-        data = b''
+        data = b""
         while True:
             # raise interrupted error if stop event is set
             if self._stop_event.is_set():
@@ -271,14 +269,15 @@ class Mpc325:
             else:
                 time.sleep(0.001)  # Small delay to prevent busy waiting
 
-
     def stop(self):
         """Stop the current movement"""
         self._stop_event.set()  # Signal that a stop is requested
-        #self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>).
-        time.sleep(0.1) # sleep for some time before resetting the stop event just so that the next move isn't immediately queued.
-        #self.ser.read(1) # read the return from stop write
-        self._flush() # clear the buffers 
+        # self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>).
+        time.sleep(
+            0.1
+        )  # sleep for some time before resetting the stop event just so that the next move isn't immediately queued.
+        # self.ser.read(1) # read the return from stop write
+        self._flush()  # clear the buffers
         self._stop_event.clear()
 
     def move(self, x=None, y=None, z=None):
@@ -331,7 +330,6 @@ class Mpc325:
                 "<3I", x_s, y_s, z_s
             )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
 
-
             self.ser.write(command1)
             self.ser.write(command2)
             debug = False
@@ -366,7 +364,7 @@ class Mpc325:
             if speed is None:
                 speed = self.speed
             self._flush()
-            
+
             # FIXME: variable for debug
             debug = False
             # Enforce speed limits
