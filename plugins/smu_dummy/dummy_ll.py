@@ -61,6 +61,7 @@ class dummy_ll(QObject):
     path = dirname(__file__) + sep
     datafile_address = "/u/17/hakkano1/unix/Documents/pyIVLS/plugins/smu_dummy/ivls_data.dat"
     datafile_address = path + "ivls_data.dat"
+    print(datafile_address)
     linepointer = 0
     dataarray = np.array([])
     ####################################  threads

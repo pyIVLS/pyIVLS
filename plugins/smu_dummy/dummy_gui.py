@@ -263,6 +263,7 @@ class Keithley2612BGUI:
         try:
             return [0, self.smu.getIV(channel)]
         except Exception as e:
+            print("failed to get IV data", e)
             return [4, {"Error message": f"Failed to get IV data: {str(e)}"}]
 
     @public

@@ -420,32 +420,32 @@ class Ui_Form(object):
         self.groupBox.setObjectName(u"groupBox")
         self.horizontalLayout_2 = QHBoxLayout(self.groupBox)
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.spectroCheckAfter = QCheckBox(self.groupBox)
-        self.spectroCheckAfter.setObjectName(u"spectroCheckAfter")
+        self.spectro_check_after = QCheckBox(self.groupBox)
+        self.spectro_check_after.setObjectName(u"spectro_check_after")
 
-        self.horizontalLayout_2.addWidget(self.spectroCheckAfter)
+        self.horizontalLayout_2.addWidget(self.spectro_check_after)
 
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.spectroPause = QCheckBox(self.groupBox)
-        self.spectroPause.setObjectName(u"spectroPause")
+        self.spectro_pause = QCheckBox(self.groupBox)
+        self.spectro_pause.setObjectName(u"spectro_pause")
 
-        self.horizontalLayout.addWidget(self.spectroPause)
+        self.horizontalLayout.addWidget(self.spectro_pause)
 
-        self.spectroPauseSpinBox = QDoubleSpinBox(self.groupBox)
-        self.spectroPauseSpinBox.setObjectName(u"spectroPauseSpinBox")
-        self.spectroPauseSpinBox.setMaximum(15.000000000000000)
-        self.spectroPauseSpinBox.setSingleStep(0.500000000000000)
+        self.spectro_pause_time = QDoubleSpinBox(self.groupBox)
+        self.spectro_pause_time.setObjectName(u"spectro_pause_time")
+        self.spectro_pause_time.setMaximum(15.000000000000000)
+        self.spectro_pause_time.setSingleStep(0.500000000000000)
 
-        self.horizontalLayout.addWidget(self.spectroPauseSpinBox)
+        self.horizontalLayout.addWidget(self.spectro_pause_time)
 
 
         self.horizontalLayout_2.addLayout(self.horizontalLayout)
 
-        self.spectro3 = QCheckBox(self.groupBox)
-        self.spectro3.setObjectName(u"spectro3")
+        self.spectro_use_last_integ = QCheckBox(self.groupBox)
+        self.spectro_use_last_integ.setObjectName(u"spectro_use_last_integ")
 
-        self.horizontalLayout_2.addWidget(self.spectro3)
+        self.horizontalLayout_2.addWidget(self.spectro_use_last_integ)
 
 
         self.verticalLayout.addWidget(self.groupBox)
@@ -526,8 +526,8 @@ class Ui_Form(object):
         self.lineEdit_Delay.setText(QCoreApplication.translate("Form", u"10", None))
         self.label_DelayUnits.setText(QCoreApplication.translate("Form", u"ms", None))
         self.groupBox.setTitle(QCoreApplication.translate("Form", u"Spectrometer", None))
-        self.spectroCheckAfter.setText(QCoreApplication.translate("Form", u"Measure IV before and after", None))
-        self.spectroPause.setText(QCoreApplication.translate("Form", u"pause", None))
-        self.spectro3.setText(QCoreApplication.translate("Form", u"mysterycheck", None))
+        self.spectro_check_after.setText(QCoreApplication.translate("Form", u"Measure IV before and after", None))
+        self.spectro_pause.setText(QCoreApplication.translate("Form", u"pause", None))
+        self.spectro_use_last_integ.setText(QCoreApplication.translate("Form", u"mysterycheck", None))
     # retranslateUi
 
