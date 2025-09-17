@@ -1133,7 +1133,7 @@ class affineMoveGUI(QObject):
             if mm:
                 mm["mm_stop"]()
             self.logger.log_info("Movement thread stopped by user")
-            return [3, {"Error message": "Thread stopped by user"}]
+            return (3, {"Error message": "Thread stopped by user"})
         except Exception as e:
             self.logger.log_info(f"Error in loopingIteration: {str(e)}")
             return [2, f"Error in looping iteration: {str(e)}"]

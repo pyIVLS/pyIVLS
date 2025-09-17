@@ -223,17 +223,15 @@ class Affine_IO:
         it = view.begin_layers()
         # colorlist, encoded as 32bit values in the following way:
         # The color is a 32bit value encoding the blue value in the lower 8 bits, the green value in the next 8 bits and the red value in the 8 bits above that.
+        """             
         colorlist = [
             0xFF0000,  # Red
             0x00FF00,  # Green
             0x0000FF,  # Blue
         ]
-        """             
-            0xFFFF00,  # Yellow
-            0xFF00FF,  # Magenta
-            0x00FFFF,  # Cyan
+
         """
-        color_idx = 0
+        # color_idx = 0
         while not it.at_end():
             lp = it.current()
             new_layer = lp.dup()
