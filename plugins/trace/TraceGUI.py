@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QPlainTextEdit,
     QSpinBox,
+    QSizePolicy,
 )
 
 
@@ -113,10 +114,21 @@ class TraceGui(QObject):
 
     def _create_mdi_widget(self):
         self.MDIWidget = QWidget()
+        # Set size policy to expand in both directions
+        self.MDIWidget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for better space usage
         self.MDIWidget.setLayout(layout)
+        
         self.logView = QPlainTextEdit()
         self.logView.setReadOnly(True)
+        # Set size policy to expand and take all available space
+        self.logView.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        
+        # Disable automatic scrolling behaviors
+        self.logView.setCenterOnScroll(False)
+        
         layout.addWidget(self.logView)
 
     def _connect_signals(self):
@@ -201,17 +213,17 @@ class TraceGui(QObject):
     def _set_log_level(self, level):
         self.current_log_level = level
         self.last_pos = 0
-        self.logView.clear()
+        # Don't clear - let _update_log_view handle content update while preserving scroll
         self._update_log_view()
 
     def _set_session_only(self, checked):
         self.last_pos = 0
-        self.logView.clear()
+        # Don't clear - let _update_log_view handle content update while preserving scroll
         self._update_log_view()
 
     def _set_line_count(self, value):
         self.MAX_LOG_LINES = value
-        self.logView.clear()
+        # Don't clear - let _update_log_view handle content update while preserving scroll
         self._update_log_view()
 
     def _update_log_view(self):
@@ -236,30 +248,42 @@ class TraceGui(QObject):
                 if session_marker in filtered_lines[i]:
                     filtered_lines = filtered_lines[i:]
                     break
-        # Maintain scrollbar position after content update
-        scrollbar = self.logView.verticalScrollBar()
-        prev_value = scrollbar.value() if scrollbar is not None else 0
-        prev_maximum = scrollbar.maximum() if scrollbar is not None else 0
 
         current_content = "".join(filtered_lines)
         previous_content = self.logView.toPlainText()
-        content_changed = current_content != previous_content
-
-        self.logView.setPlainText(current_content)
-
-        # Restore scroll position after content update
-        if scrollbar is not None:
-            if not content_changed:
-                # If content didn't change, maintain exact position
-                scrollbar.setValue(prev_value)
-            else:
-                # Content changed, maintain relative position
-                if prev_maximum > 0:
-                    relative_pos = prev_value / prev_maximum
-                    new_position = int(relative_pos * scrollbar.maximum())
-                    scrollbar.setValue(new_position)
-                else:
-                    scrollbar.setValue(0)
+        
+        # Only update if content actually changed
+        if current_content != previous_content:
+            # Store the current cursor position and scroll position
+            cursor = self.logView.textCursor()
+            cursor_position = cursor.position()
+            scrollbar = self.logView.verticalScrollBar()
+            scroll_value = scrollbar.value() if scrollbar is not None else 0
+            
+            # Block signals to prevent automatic scrolling during text update
+            self.logView.blockSignals(True)
+            
+            try:
+                # Update the content
+                self.logView.setPlainText(current_content)
+                
+                # Restore cursor position (but make sure it's not beyond the new text length)
+                new_text_length = len(current_content)
+                if cursor_position > new_text_length:
+                    cursor_position = new_text_length
+                
+                cursor = self.logView.textCursor()
+                cursor.setPosition(cursor_position)
+                self.logView.setTextCursor(cursor)
+                
+                # Restore scroll position
+                if scrollbar is not None:
+                    scrollbar.setValue(scroll_value)
+                    
+            finally:
+                # Re-enable signals
+                self.logView.blockSignals(False)
+        
         # Reset last_pos so that a new browse/settings change will reload from the end
         self.last_pos = 0
 

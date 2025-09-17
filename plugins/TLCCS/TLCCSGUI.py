@@ -28,6 +28,7 @@ added spectrometerGetScan as a safer way to start a scan and get a spectrum
 
 """
 
+from typing import Optional
 import TLCCS_const as const
 
 import time
@@ -351,6 +352,7 @@ class TLCCS_GUI(QObject):
         external_cleanup=None,
         external_cleanup_args=None,
         pause_duration: float = 0.0,
+        last_integration_time: Optional[float] = None,
     ) -> tuple[int, float | dict]:
         """
         Calculates the optimal integration time, allowing external actions and cleanup with arguments.
@@ -372,12 +374,19 @@ class TLCCS_GUI(QObject):
         high_spectrum = self.autoValue_max  # max spectrum value
 
         if self.settings["integrationtimetype"] == "auto":
-            if self.settings["useintegrationtimeguess"]:
-                # guess from current value
-                guessIntTime = self.settings["integrationTime"] * 1000  # ms
+            # initial guess for time if not provided
+            if last_integration_time is None:
+                if self.settings["useintegrationtimeguess"]:
+                    # guess from current value
+                    guessIntTime = self.settings["integrationTime"] * 1000  # ms
+                else:
+                    # guess from min and max
+                    guessIntTime = (self.autoTime_min + self.autoTime_max) / 2 * 1000  # ms
+            # initial guess provided as argument, use that.
             else:
-                # guess from min and max
-                guessIntTime = (self.autoTime_min + self.autoTime_max) / 2 * 1000  # ms
+                guessIntTime = last_integration_time * 1000  # ms
+
+            # start iterating through integration times using guessIntTime as initial guess
             for iter in range(self.intTimeMaxIterations):
                 self._log_verbose(f"Iteration {iter + 1}: Current guess = {guessIntTime} ms.")
                 self.settings["integrationTime"] = (
@@ -611,7 +620,7 @@ class TLCCS_GUI(QObject):
             return [
                 1,
                 {
-                    "Error message": "Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"
+                    "Error message": f"Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"
                 },
             ]
         if self.settings["integrationTime"] < 1:

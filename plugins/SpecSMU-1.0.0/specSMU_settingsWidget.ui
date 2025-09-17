@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>934</width>
-    <height>650</height>
+    <width>1566</width>
+    <height>1050</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -30,8 +30,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>914</width>
-        <height>630</height>
+        <width>1546</width>
+        <height>1030</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -746,6 +746,50 @@
                 </layout>
                </item>
               </layout>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupBox">
+            <property name="title">
+             <string>Spectrometer</string>
+            </property>
+            <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <item>
+              <widget class="QCheckBox" name="spectroCheckAfter">
+               <property name="text">
+                <string>Measure IV before and after</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout">
+               <item>
+                <widget class="QCheckBox" name="spectroPause">
+                 <property name="text">
+                  <string>pause</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QDoubleSpinBox" name="spectroPauseSpinBox">
+                 <property name="maximum">
+                  <double>15.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.500000000000000</double>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="spectroUseLastInteg">
+               <property name="text">
+                <string>mysterycheck</string>
+               </property>
+              </widget>
              </item>
             </layout>
            </widget>

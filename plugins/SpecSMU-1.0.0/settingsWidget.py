@@ -9,14 +9,14 @@
 ################################################################################
 
 from PyQt6.QtCore import QCoreApplication, QMetaObject, QRect, QSize
-from PyQt6.QtWidgets import QCheckBox, QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QScrollArea, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QCheckBox, QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QScrollArea, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget, QDoubleSpinBox
 
 
 class Ui_Form(object):
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"Form")
-        Form.resize(934, 650)
+        Form.resize(1560, 1037)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -29,7 +29,7 @@ class Ui_Form(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 914, 630))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 1540, 1017))
         self.verticalLayout_4 = QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout_4.setObjectName(u"verticalLayout_4")
         self.groupBox_general = QGroupBox(self.scrollAreaWidgetContents)
@@ -416,6 +416,40 @@ class Ui_Form(object):
 
         self.verticalLayout.addWidget(self.groupBox_control)
 
+        self.groupBox = QGroupBox(self.groupBox_general)
+        self.groupBox.setObjectName(u"groupBox")
+        self.horizontalLayout_2 = QHBoxLayout(self.groupBox)
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.spectro_check_after = QCheckBox(self.groupBox)
+        self.spectro_check_after.setObjectName(u"spectro_check_after")
+
+        self.horizontalLayout_2.addWidget(self.spectro_check_after)
+
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.spectro_pause = QCheckBox(self.groupBox)
+        self.spectro_pause.setObjectName(u"spectro_pause")
+
+        self.horizontalLayout.addWidget(self.spectro_pause)
+
+        self.spectro_pause_time = QDoubleSpinBox(self.groupBox)
+        self.spectro_pause_time.setObjectName(u"spectro_pause_time")
+        self.spectro_pause_time.setMaximum(15.000000000000000)
+        self.spectro_pause_time.setSingleStep(0.500000000000000)
+
+        self.horizontalLayout.addWidget(self.spectro_pause_time)
+
+
+        self.horizontalLayout_2.addLayout(self.horizontalLayout)
+
+        self.spectro_use_last_integ = QCheckBox(self.groupBox)
+        self.spectro_use_last_integ.setObjectName(u"spectro_use_last_integ")
+
+        self.horizontalLayout_2.addWidget(self.spectro_use_last_integ)
+
+
+        self.verticalLayout.addWidget(self.groupBox)
+
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout.addItem(self.verticalSpacer)
@@ -491,5 +525,9 @@ class Ui_Form(object):
         self.label_Delay.setText(QCoreApplication.translate("Form", u"Delay", None))
         self.lineEdit_Delay.setText(QCoreApplication.translate("Form", u"10", None))
         self.label_DelayUnits.setText(QCoreApplication.translate("Form", u"ms", None))
+        self.groupBox.setTitle(QCoreApplication.translate("Form", u"Spectrometer", None))
+        self.spectro_check_after.setText(QCoreApplication.translate("Form", u"Measure IV before and after", None))
+        self.spectro_pause.setText(QCoreApplication.translate("Form", u"pause", None))
+        self.spectro_use_last_integ.setText(QCoreApplication.translate("Form", u"getAutoTime initial guess from last integration time", None))
     # retranslateUi
 
