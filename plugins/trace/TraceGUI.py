@@ -1,7 +1,17 @@
 import os
 from PyQt6.QtCore import QObject, QTimer
 from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
-from PyQt6.QtWidgets import QVBoxLayout, QWidget, QComboBox, QLabel, QPushButton, QFileDialog, QCheckBox, QPlainTextEdit, QSpinBox
+from PyQt6.QtWidgets import (
+    QVBoxLayout,
+    QWidget,
+    QComboBox,
+    QLabel,
+    QPushButton,
+    QFileDialog,
+    QCheckBox,
+    QPlainTextEdit,
+    QSpinBox,
+)
 
 
 class LogHighlighter(QSyntaxHighlighter):
@@ -78,7 +88,9 @@ class TraceGui(QObject):
         self.liveUpdateCheck.setChecked(True)
 
         # Log rotation settings
-        self.autoRotateCheck = QCheckBox("Auto-rotate log file (RECOMMENDED TO KEEP THIS ON, too large log files cause considerable performance issues)")
+        self.autoRotateCheck = QCheckBox(
+            "Auto-rotate log file (RECOMMENDED TO KEEP THIS ON, too large log files cause considerable performance issues)"
+        )
         self.autoRotateCheck.setToolTip("Automatically truncate log file when it gets too large")
         self.maxFileSizeLabel = QLabel("Max file size (MB):")
         self.maxFileSizeSpin = QSpinBox()
@@ -176,7 +188,9 @@ class TraceGui(QObject):
             print(f"Error rotating log file: {e}")
 
     def _browse_log_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(None, "Select log file", os.getcwd(), "Log Files (*.log);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(
+            None, "Select log file", os.getcwd(), "Log Files (*.log);;All Files (*)"
+        )
         if file_path:
             self.log_file_path = file_path
             self.logFilePathEdit.setText(file_path)
@@ -222,45 +236,29 @@ class TraceGui(QObject):
                 if session_marker in filtered_lines[i]:
                     filtered_lines = filtered_lines[i:]
                     break
-        # Save current scrollbar position and check if at bottom
+        # Maintain scrollbar position after content update
         scrollbar = self.logView.verticalScrollBar()
-        was_at_bottom = False
-        prev_value = 0
-        prev_maximum = 0
-        
-        if scrollbar is not None and scrollbar.maximum() > 0:
-            prev_value = scrollbar.value()
-            prev_maximum = scrollbar.maximum()
-            # User is at bottom if they're within 20 pixels of the bottom AND
-            # they're actually at or very close to the maximum position
-            SCROLLBAR_BOTTOM_THRESHOLD = 20
-            was_at_bottom = (prev_maximum - prev_value) <= SCROLLBAR_BOTTOM_THRESHOLD and prev_value >= (prev_maximum * 0.95)
-        
-        # Store the current content to detect if it actually changed
+        prev_value = scrollbar.value() if scrollbar is not None else 0
+        prev_maximum = scrollbar.maximum() if scrollbar is not None else 0
+
         current_content = "".join(filtered_lines)
         previous_content = self.logView.toPlainText()
         content_changed = current_content != previous_content
-        
-        # Update the content
+
         self.logView.setPlainText(current_content)
-        
+
         # Restore scroll position after content update
         if scrollbar is not None:
-            if was_at_bottom and content_changed:
-                # Only auto-scroll if user was genuinely at bottom AND content actually changed
-                scrollbar.setValue(scrollbar.maximum())
-            elif not content_changed:
+            if not content_changed:
                 # If content didn't change, maintain exact position
                 scrollbar.setValue(prev_value)
             else:
-                # Content changed but user wasn't at bottom - try to maintain relative position
+                # Content changed, maintain relative position
                 if prev_maximum > 0:
-                    # Calculate relative position as percentage
                     relative_pos = prev_value / prev_maximum
                     new_position = int(relative_pos * scrollbar.maximum())
                     scrollbar.setValue(new_position)
                 else:
-                    # Fallback for edge cases
                     scrollbar.setValue(0)
         # Reset last_pos so that a new browse/settings change will reload from the end
         self.last_pos = 0
