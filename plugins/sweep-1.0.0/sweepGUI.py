@@ -612,7 +612,6 @@ class sweepGUI(QObject):
         self.settingsWidget.runButton.setEnabled(not status)
         self.settingsWidget.groupBox_dep.setEnabled(not status)
         self.closelock.emit_close_lock(status)
-        #self.set_gui_from_settings()
 
     ########sweep implementation
 
