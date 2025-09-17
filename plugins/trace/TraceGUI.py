@@ -1,6 +1,6 @@
 import os
 from PyQt6.QtCore import QObject, QTimer
-from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QTextCursor
+from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
 from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
