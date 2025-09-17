@@ -134,6 +134,9 @@ class Mpc325:
         Returns:
            Tuple : unpacked data based on format, without the end marker. If end marker is invalid, throws assertion error.
         """
+        print(len(output))
+        print(output)
+        print(f"I'm expecting size {struct.calcsize(format_str)}")
         unpacked_data = struct.unpack(format_str, output)
         # Check last byte for simple validation.
         assert unpacked_data[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {unpacked_data[-1]}"
@@ -253,20 +256,22 @@ class Mpc325:
         assert timeout is not None, "Serial timeout must be set for reading"
         start_time = time.monotonic()
         # Read until marker
-        data = b''
+        data = bytearray()
         while True:
             # raise interrupted error if stop event is set
             if self._stop_event.is_set():
                 raise InterruptedError("Move interrupted by stop command")
             # read if something is waiting
             if self.ser.in_waiting > 0:
-                byte = self.ser.read(1)
+                print(f"read {self.ser.in_waiting} bytes")
+                byte = self.ser.read(self.ser.in_waiting)
+                print(f"Read bytes: {byte}")
                 if byte:
-                    data += byte
+                    data.extend(byte)
                     # return if the end marker is found
                     if data.endswith(until_marker):
                         return data
-            if time.monotonic() - start_time > timeout:
+            elif time.monotonic() - start_time > timeout:
                 raise TimeoutError("Read timed out")
             else:
                 time.sleep(0.001)  # Small delay to prevent busy waiting

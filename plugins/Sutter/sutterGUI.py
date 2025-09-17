@@ -337,13 +337,42 @@ class SutterGUI(QObject):
                 self.mm_move(x=pos[0] + n)
                 end_time = time.perf_counter()
                 move_times.append(end_time - start_time)
+                """
                 start_time = time.perf_counter()
                 self.mm_move(x=pos[0])
                 end_time = time.perf_counter()
                 move_times.append(end_time - start_time)
+                """
                 print(f"moved with speed {i}: {np.mean(move_times)} seconds")
                 self.hal.quick_move = initial
                 self.hal.speed = initial_speed
+            
+        def check_fast_moves():
+            import time
+            import numpy as np
+            # Running this shows that speeds up to 12 work when using spesified wait time between command1 and 2. When using wait time * 4 modes up to 13 work.
+            for i in range(12,16):
+                n = 1000
+                pos = self.hal.get_current_position()
+                move_times = []
+                initial = self.hal.quick_move
+                self.hal.quick_move = False
+                initial_speed = self.hal.speed
+                self.hal.speed = i
+                # move n microns, track time:
+                start_time = time.perf_counter()
+                self.mm_move(x=pos[0] + n)
+                end_time = time.perf_counter()
+                move_times.append(end_time - start_time)
+                """
+                start_time = time.perf_counter()
+                self.mm_move(x=pos[0])
+                end_time = time.perf_counter()
+                move_times.append(end_time - start_time)
+                """
+                print(f"moved with speed {i}: {np.mean(move_times)} seconds")
+                self.hal.quick_move = initial
+                self.hal.speed = initial_speed   
 
         def check_working_slow_moves_multi_axis():
             import time
@@ -371,7 +400,7 @@ class SutterGUI(QObject):
                 self.hal.speed = initial_speed
 
         # run move sequence in a thread
-        move_thread = threading.Thread(target=_move_sequence)
+        move_thread = threading.Thread(target=check_fast_moves)
         move_thread.start()
 
     def _stop_button(self):
@@ -386,7 +415,7 @@ class SutterGUI(QObject):
             self.logger.info_popup(f"Error stopping Sutter: {str(e)}")
 
     def _calibrate_button(self):
-        self.hal.calibrate()
+        self.mm_calibrate()
 
     ## hook functionality
 

@@ -231,10 +231,10 @@ class affineMoveGUI(QObject):
                     f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)"
                 )
                 # calibrate
-                status, state = mm["mm_calibrate"]()
-                self.logger.log_debug(
-                    f"Calibration status manipulator {i + 1}: {state.get('Error message', 'Success')}"
-                )
+                #status, state = mm["mm_calibrate"]()
+                #self.logger.log_debug(
+                #    f"Calibration status manipulator {i + 1}: {state.get('Error message', 'Success')}"
+                #)
                 """                
                 # move to "home"
                 status, state = mm["mm_move"](12500, 12500)
@@ -274,7 +274,12 @@ class affineMoveGUI(QObject):
                     if point is None:
                         self.logger.info_popup("Calibration cancelled by user.")
                         return
-                    x, y, z = mm["mm_current_position"]()
+                    ret = mm["mm_current_position"]()
+                    if len(ret) < 3:
+                        self.logger.log_warn(f"Could not retrieve current position for manipulator {i + 1}: {ret}")
+                        return
+                    x, y, z = ret
+
                     self.logger.log_debug(f"Clicked point: {point}, current position: ({x}, {y}, {z})")
                     mm_point = (x, y)
                     points.append((mm_point, point))

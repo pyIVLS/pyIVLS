@@ -306,7 +306,7 @@ class touchDetectGUI:
             self.monitoring_thread.progress.connect(self._on_monitoring_progress)
             self.monitoring_thread.error.connect(self._on_monitoring_error)
             self.monitoring_thread.finished.connect(self._on_monitoring_finished)
-            self.monitoring_thread.result.connect(self._on_monitoring_result)
+            self.monitoring_thread.result_signal.connect(self._on_monitoring_result)
             self.monitoring_thread.start()
         else:
             self.logger.log_info("Stopping monitoring thread")
