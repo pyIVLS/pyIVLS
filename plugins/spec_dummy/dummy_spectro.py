@@ -52,6 +52,7 @@ from plugin_components import (
     CloseLockSignalProvider,
     FileManager,
 )
+from typing import Optional
 
 
 class dummy_spectro_GUI:
@@ -325,6 +326,7 @@ class dummy_spectro_GUI:
         external_cleanup=None,
         external_cleanup_args=None,
         pause_duration: float = 0.0,
+        last_integration_time: Optional[float] = None,
     ) -> tuple[int, float | dict]:
         """
         Calculates the optimal integration time, allowing external actions and cleanup with arguments.
@@ -346,12 +348,19 @@ class dummy_spectro_GUI:
         high_spectrum = self.autoValue_max  # max spectrum value
 
         if self.settings["integrationtimetype"] == "auto":
-            if self.settings["useintegrationtimeguess"]:
-                # guess from current value
-                guessIntTime = self.settings["integrationTime"] * 1000  # ms
+            # initial guess for time if not provided
+            if last_integration_time is None:
+                if self.settings["useintegrationtimeguess"]:
+                    # guess from current value
+                    guessIntTime = self.settings["integrationTime"] * 1000  # ms
+                else:
+                    # guess from min and max
+                    guessIntTime = (self.autoTime_min + self.autoTime_max) / 2 * 1000  # ms
+            # initial guess provided as argument, use that.
             else:
-                # guess from min and max
-                guessIntTime = (self.autoTime_min + self.autoTime_max) / 2 * 1000  # ms
+                guessIntTime = last_integration_time * 1000  # ms
+
+            # start iterating through integration times using guessIntTime as initial guess
             for iter in range(self.intTimeMaxIterations):
                 self.logger.log_debug(f"Iteration {iter + 1}: Current guess = {guessIntTime} ms.")
                 self.settings["integrationTime"] = (
@@ -374,11 +383,14 @@ class dummy_spectro_GUI:
                             return status, info
                     except TypeError:
                         self.logger.log_debug("getAutoTime: External action completed without standard return value")
-                [status, data] = self.spectrometerGetScan()
-                if status:
-                    self.logger.log_debug(f"getAutoTime: Failed to get scan. {status}, {data}")
-                    return [status, data]
 
+                [status, info] = self._update_spectrum()
+                self.logger.log_debug(
+                    f"getAutoTime: Retrieved spectrum with shape {info[1].shape} and max value {max(info[1])}."
+                )
+                if status:
+                    self.logger.log_debug(f"getAutoTime: Failed to update spectrum. {status}, {info}")
+                    return [status, info]
                 # save the spectrum if needed
                 if self.settings["saveattempts_check"]:
                     varDict = {}
@@ -393,7 +405,7 @@ class dummy_spectro_GUI:
                         + os.sep
                         + self.settings["filename"]
                         + f"_{int(guessIntTime)}ms.csv",
-                        data=data,
+                        data=info[1],
                     )
                 # external cleanup if needed
                 if external_cleanup:
@@ -411,7 +423,8 @@ class dummy_spectro_GUI:
                 if pause_duration > 0:
                     self.logger.log_debug(f"getAutoTime: Pausing for {pause_duration} seconds.")
                     time.sleep(pause_duration)
-                target = max(data)  # target value to optimize
+
+                target = max(info[1])  # target value to optimize
                 # if spectrum is in the range, found good integration time
                 if low_spectrum <= target <= high_spectrum:
                     self.logger.log_debug(f"Optimal integration time found: {guessIntTime / 1000.0} seconds.")

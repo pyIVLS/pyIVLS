@@ -78,6 +78,7 @@ class specSMU_GUI(QWidget):
         self._connect_signals()
         self.settings = {}
         self.function_dict = {}
+        self.last_integration_time: Optional[float] = None  # s
 
     def _connect_signals(self) -> None:
         """
@@ -379,6 +380,7 @@ class specSMU_GUI(QWidget):
             self.settings["singlechannel"] = raw_settings["singlechannel"]  # bool
             self.settings["spectro_check_after"] = raw_settings["spectro_check_after"]  # bool
             self.settings["spectro_pause"] = raw_settings["spectro_pause"]  # bool
+            self.settings["spectro_use_last_integ"] = raw_settings["spectro_use_last_integ"]  # bool
             self.settings["drainchannel"] = ""  # PLACEHOLDER FIXME:
 
             # Parse numeric fields
@@ -552,7 +554,7 @@ class specSMU_GUI(QWidget):
             self.function_dict["smu"][smu_name]["smu_setOutput"](
                 self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue
             )
-            integration_time_setting = self.spectrometer_settings["integrationTime"]
+            integration_time_setting = float(self.spectrometer_settings["integrationTime"])
             status, integration_time_seconds = self.function_dict["spectrometer"][spectro_name][
                 "spectrometerGetIntegrationTime"
             ]()
@@ -578,6 +580,15 @@ class specSMU_GUI(QWidget):
                 # set settings for spectrometer
                 self.function_dict["spectrometer"][spectro_name]["setSettings"](self.spectrometer_settings)
 
+                # use last integration time if checkbox is set and last_integration_time is available
+                last_integration_time = None
+                if self.settings["spectro_use_last_integ"]:
+                    # no checks on wheter self.last_integration_time is set, since getAutoTime takes in Optional[float]
+                    self._log_verbose(
+                        f"Using last valid integration time as initial guess for AutoTime: {self.last_integration_time}"
+                    )
+                    last_integration_time = self.last_integration_time
+
                 # check mode, pulse or continuous
                 if self.settings["mode"] == "pulsed":
                     # "Abandon all hope, ye who enter here"
@@ -586,9 +597,10 @@ class specSMU_GUI(QWidget):
                         external_action_args=(self.settings["channel"],),
                         external_cleanup=self.function_dict["smu"][smu_name]["smu_outputOFF"],
                         pause_duration=self.settings["pause"],
+                        last_integration_time=last_integration_time,
                     )
                     if not status:
-                        integration_time_setting = auto_time
+                        integration_time_setting = float(auto_time)
                         self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](
                             integration_time_setting
                         )
@@ -596,9 +608,11 @@ class specSMU_GUI(QWidget):
                 else:
                     # continuous mode, just set the output on and get the auto time
                     self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
-                    status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"]()
+                    status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](
+                        last_integration_time=last_integration_time
+                    )
                     if not status:
-                        integration_time_setting = auto_time
+                        integration_time_setting = float(auto_time)
                         self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](
                             integration_time_setting
                         )
@@ -608,8 +622,13 @@ class specSMU_GUI(QWidget):
                     self._log_verbose("Error in getting auto time from spectrometer")
                     raise NotImplementedError("Error in getting auto time from spectrometer, no handling provided")
 
-            # integration time set, smu ready -> get spectrum
-            self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
+            # integration time set, smu ready, spectrometer ready:
+            self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])  # output on
+
+            # pause before any reads if spectro_pause is set
+            if self.settings["spectro_pause"]:
+                self._log_verbose(f"Pausing for {self.settings['spectro_pause_time']} seconds before reading spectrum")
+                time.sleep(self.settings["spectro_pause_time"])
 
             # if checkbox for before and after is set:
             if self.settings["spectro_check_after"]:
@@ -650,6 +669,9 @@ class specSMU_GUI(QWidget):
             self.function_dict["spectrometer"][spectro_name]["createFile"](
                 varDict=varDict, filedelimeter=";", address=address, data=spectrum
             )
+
+            # updating the internal state of last integration time
+            self.last_integration_time = integration_time_setting
         self._log_verbose("Exiting _SpecSMUImplementation")
         return 0
 
@@ -694,5 +716,5 @@ class specSMU_GUI(QWidget):
         settings["spectro_check_after"] = self.settingsWidget.spectro_check_after.isChecked()
         settings["spectro_pause"] = self.settingsWidget.spectro_pause.isChecked()
         settings["spectro_pause_time"] = self.settingsWidget.spectro_pause_time.value()
-        # TODO: add the mystery checkbox functionality
+        settings["spectro_use_last_integ"] = self.settingsWidget.spectro_use_last_integ.isChecked()
         return settings

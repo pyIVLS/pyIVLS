@@ -528,6 +528,6 @@ class Ui_Form(object):
         self.groupBox.setTitle(QCoreApplication.translate("Form", u"Spectrometer", None))
         self.spectro_check_after.setText(QCoreApplication.translate("Form", u"Measure IV before and after", None))
         self.spectro_pause.setText(QCoreApplication.translate("Form", u"pause", None))
-        self.spectro_use_last_integ.setText(QCoreApplication.translate("Form", u"mysterycheck", None))
+        self.spectro_use_last_integ.setText(QCoreApplication.translate("Form", u"getAutoTime initial guess from last integration time", None))
     # retranslateUi
 

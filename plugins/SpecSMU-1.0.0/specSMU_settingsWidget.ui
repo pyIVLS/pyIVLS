@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1560</width>
-    <height>1037</height>
+    <width>1566</width>
+    <height>1050</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -30,8 +30,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>1540</width>
-        <height>1017</height>
+        <width>1546</width>
+        <height>1030</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -785,7 +785,7 @@
               </layout>
              </item>
              <item>
-              <widget class="QCheckBox" name="spectro3">
+              <widget class="QCheckBox" name="spectroUseLastInteg">
                <property name="text">
                 <string>mysterycheck</string>
                </property>
