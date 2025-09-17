@@ -460,7 +460,6 @@ class specSMU_GUI(QWidget):
         if status:
             self._log_verbose(f"Error connecting Spectrometer: {message}")
             return [status, message]
-        
 
         try:
             self._SpecSMUImplementation()
@@ -585,7 +584,6 @@ class specSMU_GUI(QWidget):
                         last_integration_time=last_integration_time
                     )
 
-
                 # Depending on the branch, auto_time may be None if getAutoTime failed
                 if not status:
                     # Write integration time setting to be the one determined by auto time
@@ -596,26 +594,28 @@ class specSMU_GUI(QWidget):
                     raise NotImplementedError(
                         f"Error in getting auto integration time: {auto_time}, no handling provided"
                     )
-            
+
             # integration time setting is determined based on autotime or from GUI, now check if it is different from the current one
             if not np.isclose(integration_time, integration_time_setting, atol=0, rtol=0.0001):
                 self._log_verbose(
                     f"Setting integration time to {integration_time_setting}, current is {integration_time}"
                 )
-                self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
+                self._log_verbose(
+                    f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}"
+                )
                 status, state = self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](
                     integration_time_setting
                 )
                 if status:
                     self._log_verbose(f"Error setting integration time: {integration_time_setting}")
-                    raise NotImplementedError(
-                        f"Error in setting integration time: {state}, no handling provided"
-                    )
+                    raise NotImplementedError(f"Error in setting integration time: {state}, no handling provided")
             else:
                 self._log_verbose(
                     f"Not changing integration time, current {integration_time} is close to setting {integration_time_setting}"
                 )
-                self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
+                self._log_verbose(
+                    f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}"
+                )
 
             # integration time set, smu ready, spectrometer ready:
             self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])  # output on
@@ -626,6 +626,7 @@ class specSMU_GUI(QWidget):
                 time.sleep(self.settings["spectro_pause_time"])
 
             # if checkbox for before and after is set:
+            sourceIV_before = (None, None, None)  # Ensure variable is always defined
             if self.settings["spectro_check_after"]:
                 # IV before spectrum
                 status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
@@ -701,7 +702,6 @@ class specSMU_GUI(QWidget):
         settings["delaymode"] = self.settingsWidget.comboBox_DelayMode.currentText()
         settings["sourcesensemode"] = self.settingsWidget.comboBox_sourceSenseMode.currentText()
         settings["singlechannel"] = self.settingsWidget.checkBox_singleChannel.isChecked()
-        print("single channel:", settings["singlechannel"])
         settings["start"] = self.settingsWidget.lineEdit_Start.text()
         settings["end"] = self.settingsWidget.lineEdit_End.text()
         settings["points"] = self.settingsWidget.lineEdit_Points.text()
