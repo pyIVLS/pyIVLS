@@ -460,6 +460,7 @@ class specSMU_GUI(QWidget):
         if status:
             self._log_verbose(f"Error connecting Spectrometer: {message}")
             return [status, message]
+        
 
         try:
             self._SpecSMUImplementation()
@@ -523,21 +524,6 @@ class specSMU_GUI(QWidget):
         self._log_verbose("Entering _SpecSMUImplementation")
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
-
-        def set_integ_get_spectrum(integration_time):
-            self._log_verbose(f"Setting integration time: {integration_time}")
-            status, message = self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](
-                integration_time
-            )
-            if status:
-                self._log_verbose(f"Error setting integration time: {message}")
-                return [status, message]
-            status, spectrum_option = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
-            if status:
-                self._log_verbose(f"Error getting spectrum: {spectrum_option}")
-                return [status, spectrum_option]
-            return [0, spectrum_option]
-
         status, state = self.smuInit()
         assert status == 0, f"Error in initializing SMU: {state}"
         smuLoop = self.settings["points"]
@@ -564,14 +550,7 @@ class specSMU_GUI(QWidget):
                 raise NotImplementedError(
                     f"Error in getting integration time from spectrometer: {integration_time}, no handling provided"
                 )
-            # check if integration time needs to be set again. Using np.isclose to compare floating point numbers because of potential precision / unit conversion uncertainties
-            if not np.isclose(integration_time, integration_time_setting, atol=0, rtol=0.0001):
-                status, spectrum = set_integ_get_spectrum(integration_time_setting)
-                if status:
-                    self._log_verbose(f"Error setting integration time or getting spectrum: {spectrum}")
-                    raise NotImplementedError(
-                        f"Error in setting integration time or getting spectrum: {spectrum}, no handling provided"
-                    )
+
             # set filename
             self.spectrometer_settings["filename"] = specFilename + f"_{smuSetValue:.4f}" + " iv.csv"
 
@@ -599,39 +578,56 @@ class specSMU_GUI(QWidget):
                         pause_duration=self.settings["pause"],
                         last_integration_time=last_integration_time,
                     )
-                    if not status:
-                        integration_time_setting = float(auto_time)
-                        self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](
-                            integration_time_setting
-                        )
-                        self._log_verbose(f"Auto integration time set to {integration_time_setting} seconds")
                 else:
                     # continuous mode, just set the output on and get the auto time
                     self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
                     status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](
                         last_integration_time=last_integration_time
                     )
-                    if not status:
-                        integration_time_setting = float(auto_time)
-                        self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](
-                            integration_time_setting
-                        )
-                        self._log_verbose(f"Auto integration time set to {integration_time_setting} seconds")
-                if not auto_time:
-                    # did not get auto time, raise error
-                    self._log_verbose("Error in getting auto time from spectrometer")
-                    raise NotImplementedError("Error in getting auto time from spectrometer, no handling provided")
+
+
+                # Depending on the branch, auto_time may be None if getAutoTime failed
+                if not status:
+                    # Write integration time setting to be the one determined by auto time
+                    integration_time_setting = float(auto_time)
+                # failure in autotime
+                else:
+                    self._log_verbose(f"Error getting auto integration time: {auto_time}")
+                    raise NotImplementedError(
+                        f"Error in getting auto integration time: {auto_time}, no handling provided"
+                    )
+            
+            # integration time setting is determined based on autotime or from GUI, now check if it is different from the current one
+            if not np.isclose(integration_time, integration_time_setting, atol=0, rtol=0.0001):
+                self._log_verbose(
+                    f"Setting integration time to {integration_time_setting}, current is {integration_time}"
+                )
+                self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
+                status, state = self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](
+                    integration_time_setting
+                )
+                if status:
+                    self._log_verbose(f"Error setting integration time: {integration_time_setting}")
+                    raise NotImplementedError(
+                        f"Error in setting integration time: {state}, no handling provided"
+                    )
+            else:
+                self._log_verbose(
+                    f"Not changing integration time, current {integration_time} is close to setting {integration_time_setting}"
+                )
+                self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
 
             # integration time set, smu ready, spectrometer ready:
             self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])  # output on
 
-            # pause before any reads if spectro_pause is set
+            # pause before any measurements if spectro_pause is set
             if self.settings["spectro_pause"]:
                 self._log_verbose(f"Pausing for {self.settings['spectro_pause_time']} seconds before reading spectrum")
                 time.sleep(self.settings["spectro_pause_time"])
 
             # if checkbox for before and after is set:
             if self.settings["spectro_check_after"]:
+                # IV before spectrum
                 status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
 
             # spectrum

@@ -46,7 +46,7 @@ class LLIO:
         bulk_in_pipe and timeout."""
         if self._connect():
             self.bulk_in_pipe = const.LL_DEFAULT_BULK_IN_PIPE
-            self.timeout = const.LL_DEFAULT_TIMEOUT
+            self.timeout = 0 # for no timeout
             self.flush()
             return True
         return False

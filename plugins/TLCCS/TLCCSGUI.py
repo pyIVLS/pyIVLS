@@ -620,7 +620,7 @@ class TLCCS_GUI(QObject):
             return [
                 1,
                 {
-                    "Error message": "Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"
+                    "Error message": f"Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"
                 },
             ]
         if self.settings["integrationTime"] < 1:
