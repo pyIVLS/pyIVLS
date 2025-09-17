@@ -373,7 +373,9 @@ class pyIVLS_container(QObject):
 
                 # check if the plugin is a dependency for another plugin
                 if is_dependency:
-                    self.show_message_signal.emit(f"Plugin {plugin} is a dependency for {dependent_plugin}, not unloading")
+                    self.show_message_signal.emit(
+                        f"Plugin {plugin} is a dependency for {dependent_plugin}, not unloading"
+                    )
                     return False
                 # if not, unregister the plugin
                 self.pm.unregister(plugin_instance)
@@ -400,6 +402,11 @@ class pyIVLS_container(QObject):
             if type == "plugin":
                 if self.config[plugin]["load"] == "True":
                     self._register(plugin)
+
+        # everything is loaded, exchange public functions
+        self.public_function_exchange()
+        self.plugins_updated_signal.emit()
+        self.cleanup()
 
     def public_function_exchange(self):
         # Get all the plugin public functions by plugin name
@@ -484,7 +491,13 @@ class pyIVLS_container(QObject):
                     # If type is plugin and fulfills the dependency
                     if type == "plugin" and self.config[section].get("function") == dependency:
                         # Check if any plugin of this type is already registered
-                        active_plugins_of_type = [sec for sec in self.config.sections() if sec.rsplit("_", 1)[1] == "plugin" and self.config[sec].get("function") == dependency and self.pm.get_plugin(self.config[sec]["name"]) is not None]
+                        active_plugins_of_type = [
+                            sec
+                            for sec in self.config.sections()
+                            if sec.rsplit("_", 1)[1] == "plugin"
+                            and self.config[sec].get("function") == dependency
+                            and self.pm.get_plugin(self.config[sec]["name"]) is not None
+                        ]
 
                         # Add dependency only if no active plugins of this type exist
                         if not active_plugins_of_type and section not in plugins_to_activate:
@@ -518,7 +531,13 @@ class pyIVLS_container(QObject):
         plugin_type = self.config[plugin]["function"]
 
         # Check if the plugin is the last of its type
-        active_plugins_of_type = [section for section in self.config.sections() if section.rsplit("_", 1)[1] == "plugin" and self.config[section].get("function") == plugin_type and self.pm.get_plugin(self.config[section]["name"]) is not None]
+        active_plugins_of_type = [
+            section
+            for section in self.config.sections()
+            if section.rsplit("_", 1)[1] == "plugin"
+            and self.config[section].get("function") == plugin_type
+            and self.pm.get_plugin(self.config[section]["name"]) is not None
+        ]
 
         is_last_of_type = len(active_plugins_of_type) == 1
 

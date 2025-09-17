@@ -52,6 +52,8 @@ class specSMU_GUI(QWidget):
         self.verbose = True  # FIXME
         self._connect_signals()
         self.settings = {}
+        self.function_dict = {}
+
 
     def _connect_signals(self) -> None:
         """
