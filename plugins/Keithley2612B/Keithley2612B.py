@@ -344,6 +344,9 @@ class Keithley2612B:
                     )
                 )
             )
+            print(f"Read {len(iv)} points from {channel} buffers")
+            print(f"I values: {i_values}")
+            print(f"V values: {v_values}")
             return np.array(iv)
 
     def abort_sweep(self, channel):
@@ -397,6 +400,7 @@ class Keithley2612B:
         else:
             self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
 
+        # write nplc
         self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
 
         if s["sourcehighc"]:
@@ -601,11 +605,13 @@ class Keithley2612B:
                 return 0
 
             except Exception as e:
-                self.abort_sweep()
-                print(f"Caught exception during keithley_run_sweep : {e}")
+                # redundant. It should be decided whether this low level class should do any handling
+                # or just raise the exception to the upper level
+                # to me it seems natural that this handles abort, but the upper level has to handle some exceptions as well.
+                self.abort_sweep_all()#
                 raise e
     
-    def abort_sweep(self):
+    def abort_sweep_all(self):
         """Aborts any ongoing sweep on both channels."""
         self.safewrite("smua.abort()")
         self.safewrite("smub.abort()")
@@ -635,4 +641,4 @@ class Keithley2612B:
         if curr_value != value:
             raise ValueError(f"Failed to set digio line {line_id} to {value}. Current value is {curr_value}.")
 
-        return True if int(last_value) == 1 else False
+        return True if int(last_value) == 1 else False 

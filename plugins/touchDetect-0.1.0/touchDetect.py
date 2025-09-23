@@ -262,6 +262,7 @@ class touchDetect:
             else:
                 if progress_callback:
                     progress_callback("Monitoring stopped by user")
+                self._channels_off(con, smu)
                 return (0, {"Error message": "Monitoring stopped by user"})
 
         except Exception as e:

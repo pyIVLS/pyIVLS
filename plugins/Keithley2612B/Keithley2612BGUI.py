@@ -152,6 +152,8 @@ class Keithley2612BGUI:
     def smu_channelNames(self):
         """provides channel names for particular SMU
         this should make plugins more universal, but still need to be rechecked"""
+        if self.settings["backend"] == "Mock":
+            return ["MockA", "MockB"]
         return self.channel_names
 
     def smu_connect(self):
