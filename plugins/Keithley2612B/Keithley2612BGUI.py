@@ -240,13 +240,13 @@ class Keithley2612BGUI:
         """
         return self.smu.read_buffers(channel)
 
-    def smu_getIV(self, channel):
+    def smu_getIV(self, channel) -> tuple[int, list[float]]:
         """gets IV data
 
         Returns:
             list [i, v]
         """
-        return [0, self.smu.getIV(channel)]
+        return (0, self.smu.getIV(channel))
 
 
     def smu_setOutput(self, channel, outputType, value):

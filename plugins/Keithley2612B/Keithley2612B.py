@@ -131,7 +131,7 @@ class Keithley2612B:
             elif self.backend == BackendType.ETHERNET.value:
                 if self.ke is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
-                ret = self.ke.query(command)
+                ret = self.ke.query(command, )
                 return ret
             elif self.backend == BackendType.MOCK.value:
                 if not self.mock_con:
@@ -166,6 +166,7 @@ class Keithley2612B:
                 print("USB initial connection")
                 #### connect with usbtmc
                 self.k = usbtmc.Instrument(self.address)
+                self.k.timeout = 25  # in seconds??
         elif self.backend == BackendType.ETHERNET.value:
             print("ethernet backend")
             if self.ke is None:
@@ -176,6 +177,7 @@ class Keithley2612B:
                     visa_rsc_str, resource_pyclass=pyvisa.resources.TCPIPSocket
                 )
                 assert self.ke is not None
+                self.ke.timeout = 25000  # in milliseconds
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
         elif self.backend == BackendType.MOCK.value:
@@ -275,6 +277,7 @@ class Keithley2612B:
             return [i_value, v_value, readings]
         else:
             test = self.safequery(f"print ({channel}.measure.iv())").split("\t")
+            print(f"Test Query for IV data: {test}")
             return list(np.array(test).astype(float))
 
     def setOutput(self, channel, outputType, value):

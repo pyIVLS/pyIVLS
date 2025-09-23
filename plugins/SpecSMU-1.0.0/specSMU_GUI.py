@@ -42,7 +42,8 @@ class specSMU_GUI(QWidget):
         """Logs a message if verbose mode is enabled."""
         if self.verbose:
             classname = self.__class__.__name__
-            self.log_message.emit(classname + f" : VERBOSE : {message}")
+            #self.log_message.emit(classname + f" : VERBOSE : {message}")
+            print(classname + f" : VERBOSE : {message}")
 
     ########Functions
     def __init__(self):
@@ -444,7 +445,7 @@ class specSMU_GUI(QWidget):
     ###############sequence implementation
 
     def sequenceStep(self, postfix):
-        self._log_verbose("Entering sequenceStep")
+        self._log_verbose("Entering sequenceStep with postfix: " + postfix)
         self.spectrometer_settings["filename"] = self.spectrometer_settings["filename"] + postfix
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
@@ -462,6 +463,7 @@ class specSMU_GUI(QWidget):
             return [status, message]
 
         try:
+            self._log_verbose("inside try block of sequenceStep")
             self._SpecSMUImplementation()
             self._log_verbose("SpecSMU action finished successfully")
             return [0, "specSMU action finished"]
@@ -539,6 +541,7 @@ class specSMU_GUI(QWidget):
             self.function_dict["smu"][smu_name]["smu_setOutput"](
                 self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue
             )
+            self._log_verbose("SMU output set")
             integration_time_setting = float(self.spectrometer_settings["integrationTime"])
             status, integration_time_seconds = self.function_dict["spectrometer"][spectro_name][
                 "spectrometerGetIntegrationTime"
@@ -626,7 +629,6 @@ class specSMU_GUI(QWidget):
                 time.sleep(self.settings["spectro_pause_time"])
 
             # if checkbox for before and after is set:
-            sourceIV_before = (None, None, None)  # Ensure variable is always defined
             if self.settings["spectro_check_after"]:
                 # IV before spectrum
                 status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
@@ -654,11 +656,11 @@ class specSMU_GUI(QWidget):
             varDict["name"] = self.spectrometer_settings["samplename"]
             if self.settings["spectro_check_after"]:
                 # sourceIV is returned as a tuple (i, v, readings)
-                i_before, v_before, _ = sourceIV_before
-                i_after, v_after, _ = sourceIV_after
+                i_before, v_before = sourceIV_before
+                i_after, v_after = sourceIV_after
                 readings = str(i_before) + "," + str(v_before) + "," + str(i_after) + "," + str(v_after)
             else:
-                i_after, v_after, _ = sourceIV_after
+                i_after, v_after = sourceIV_after
                 readings = str(i_after) + "," + str(v_after)
 
             varDict["comment"] = self.spectrometer_settings["comment"] + " " + readings
