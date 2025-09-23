@@ -17,28 +17,14 @@ from PyQt6 import uic
 from PyQt6.QtWidgets import QVBoxLayout, QFileDialog, QWidget
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from threadStopped import thread_with_exception, ThreadStopped
-from plugin_components import (
-    LoggingHelper,
-    FileManager,
-    GuiMapper,
-    DependencyManager,
-    PyIVLSReturn,
-    DataOrder,
-    PluginException,
-)
+from plugin_components import LoggingHelper, FileManager, GuiMapper, DependencyManager, PyIVLSReturn, DataOrder, PluginException
 
 import pandas as pd
 
 
 class specTimeIVGUI:
     non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "parse_settings_widget",
-        "set_running",
-        "setSettings",
-        "sequenceStep",
-        "set_gui_from_settings",
-    ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_widget", "set_running", "setSettings", "sequenceStep", "set_gui_from_settings"]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
     ########Functions
     def __init__(self):
@@ -185,58 +171,17 @@ class specTimeIVGUI:
         # Validation and conversion rules for extracting values from GUI
         # FIXME: The validation rules contain a magic constant for line frequency
         self.dynamic_validation_rules = {
-            "address": {
-                "validator": lambda x: isinstance(x, str) and len(x.strip()) > 0 and os.path.exists(x),
-                "error_message": "Address is required",
-            },
-            "filename": {
-                "validator": lambda x: isinstance(x, str) and is_valid_filename(x),
-                "error_message": "filename must be a valid filename",
-            },
-            "timestep": {
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Time step must be positive",
-            },
-            "stopafter": {
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Stop time must be positive",
-            },
-            "autosaveinterval": {
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Auto save interval must be positive",
-            },
-            "sourcelimit": {
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Source limit must be positive",
-            },
-            "drainlimit": {
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Drain limit must be positive",
-            },
-            "sourcenplc": {
-                "converter": lambda x: float(x) * 0.001 * line_frequency,
-                "display_converter": lambda x: float(x) / (0.001 * line_frequency),
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Source NPLC must be positive",
-            },
-            "sourcedelay": {
-                "converter": lambda x: float(x) / 1000,
-                "display_converter": lambda x: float(x) * 1000,
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Source delay must be positive",
-            },
-            "drainnplc": {
-                "converter": lambda x: float(x) * 0.001 * line_frequency,
-                "display_converter": lambda x: float(x) / (0.001 * line_frequency),
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Drain NPLC must be positive",
-            },
-            "draindelay": {
-                "converter": lambda x: float(x) / 1000,
-                "display_converter": lambda x: float(x) * 1000,
-                "validator": lambda x: isinstance(x, (float)) and x > 0,
-                "error_message": "Drain delay must be positive",
-            },
+            "address": {"validator": lambda x: isinstance(x, str) and len(x.strip()) > 0 and os.path.exists(x), "error_message": "Address is required"},
+            "filename": {"validator": lambda x: isinstance(x, str) and is_valid_filename(x), "error_message": "filename must be a valid filename"},
+            "timestep": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Time step must be positive"},
+            "stopafter": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Stop time must be positive"},
+            "autosaveinterval": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Auto save interval must be positive"},
+            "sourcelimit": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Source limit must be positive"},
+            "drainlimit": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Drain limit must be positive"},
+            "sourcenplc": {"converter": lambda x: float(x) * 0.001 * line_frequency, "display_converter": lambda x: float(x) / (0.001 * line_frequency), "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Source NPLC must be positive"},
+            "sourcedelay": {"converter": lambda x: float(x) / 1000, "display_converter": lambda x: float(x) * 1000, "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Source delay must be positive"},
+            "drainnplc": {"converter": lambda x: float(x) * 0.001 * line_frequency, "display_converter": lambda x: float(x) / (0.001 * line_frequency), "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Drain NPLC must be positive"},
+            "draindelay": {"converter": lambda x: float(x) / 1000, "display_converter": lambda x: float(x) * 1000, "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Drain delay must be positive"},
         }
 
     ########Functions
@@ -477,15 +422,7 @@ class specTimeIVGUI:
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-            and method in self.public_methods
-        }
+        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
         return methods
 
     ########Functions

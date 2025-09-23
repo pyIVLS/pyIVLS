@@ -1,67 +1,5 @@
 from datetime import datetime
 import copy
-from dataclasses import dataclass
-
-
-@dataclass
-class keithleySettings:
-    source: str
-    drain: str
-    type: str
-    sourcesense: bool
-    drainsense: bool
-    single_ch: bool
-    pulse: bool
-    pulsepause: float
-    sourcenplc: float
-    drainnplc: float
-    delay: bool
-    delayduration: float
-    draindelay: bool
-    draindelayduration: float
-    steps: int
-    start: float
-    end: float
-    limit: float
-    sourcehighc: bool
-    drainhighc: bool
-    repeat: int
-    drainvoltage: float = 0.0
-    drainlimit: float = 0.0
-
-    # s["source"] source channel: may take values [smua, smub]
-    # s["drain"] dain channel: may take values [smub, smua]
-    # s["type"] source inject current or voltage: may take values [i ,v]
-    # s["sourcesense"] source sence mode: may take values [True - 4 wire, False - 2 wire]
-    # s["drainsense"] drain sence mode: may take values [True - 4 wire, False - 2 wire]
-
-    # s["single_ch"] single channel mode: may be True or False
-
-    # s["pulse"] set pulsed mode: may be True - pulsed, False - continuous
-    # s["pulsepause"] pause between pulses in sweep
-
-    # s['sourcenplc'] integration time in nplc units
-    # s["drainnplc"] integration time in nplc units
-
-    # s["delay"] stabilization time mode for source: may take values [True - Auto, False - manual]
-    # s["delayduration"] stabilization time duration if manual
-
-    # s["draindelay"] stabilization time mode for drain: may take values [True - Auto, False - manual]
-    # s["draindelayduration"] stabilization time duration if manual
-
-    # s["steps"] number of points in sweep
-    # s["start"] start point of sweep
-    # s["end"] end point of sweep
-    # s["limit"] limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
-
-    # s["sourcehighc"] high capacitance mode for source
-    # s["drainhighc"] high capacitance mode for drain
-
-    # s["repeat"] repeat count
-
-    # settings for drain
-    ## s["drainvoltage"] voltage on drain
-    ## s["drainlimit"] limit for current in voltage mode or for voltage in current mode
 
 
 def create_file_header(settings, smu_settings, backVoltage=None):
@@ -192,13 +130,9 @@ def create_sweep_reciepe(settings, settings_smu):
     s["repeat"] = settings["repeat"]  # repeat count: should be int >0
     s["pulsepause"] = settings["pulsedpause"]  # pause between pulses in sweep (may not be used in continuous)
     s["drainnplc"] = settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
-    # stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)
-    # convert this to boolean since Keithley2612B.py expects boolean
-    s["draindelay"] = settings["draindelaymode"] == "auto"
-    # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
-    s["drainlimit"] = settings["drainlimit"]
-    # stabilization time duration if manual (may not be used in single channel mode)
-    s["draindelayduration"] = settings["draindelay"]
+    s["draindelay"] = settings["draindelaymode"]  # stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)
+    s["draindelayduration"] = settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
+    s["drainlimit"] = settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
     s["sourcehighc"] = settings_smu["sourcehighc"]
     s["drainhighc"] = settings_smu["drainhighc"]
     if settings["singlechannel"]:
@@ -234,12 +168,10 @@ def create_sweep_reciepe(settings, settings_smu):
         for sensecnt, sense in enumerate(loopsensesource):
             s["sourcesense"] = sense  # source sence mode: may take values [True - 4 wire, False - 2 wire]
             s["drainsense"] = loopsensedrain[sensecnt]  # drain sence mode: may take values [True - 4 wire, False - 2 wire]
-            print(f"settings['mode'] {settings['mode']}")
             if not (settings["mode"] == "pulsed"):
                 s["pulse"] = False  # set pulsed mode: may be True - pulsed, False - continuous
                 s["sourcenplc"] = settings["continuousnplc"]  # integration time in nplc units
-                # stabilization time mode for source: may take values [True - Auto, False - manual]
-                s["delay"] = settings["continuousdelaymode"] == "auto"
+                s["delay"] = settings["continuousdelaymode"]  # stabilization time mode for source: may take values [True - Auto, False - manual]
                 s["delayduration"] = settings["continuousdelay"]  # stabilization time duration if manual
                 s["steps"] = settings["continuouspoints"]  # number of points in sweep
                 s["start"] = settings["continuousstart"]  # start point of sweep
@@ -256,7 +188,5 @@ def create_sweep_reciepe(settings, settings_smu):
                 s["end"] = settings["pulsedend"]  # end point of sweep
                 s["limit"] = settings["pulsedlimit"]  # limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
                 recipe.append(copy.deepcopy(s))
-            else:
-                raise NotImplementedError("Unknown mode")
 
     return [recipe, loopdrain, len(loopsensesource), 2 if settings["mode"] == "mixed" else 1]

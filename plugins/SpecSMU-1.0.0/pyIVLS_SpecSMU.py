@@ -44,13 +44,7 @@ class pyIVLS_SpecSMU_plugin:
         self._class = config.get("plugin", "class", fallback="")
         self.dependencies = config.get("plugin", "dependencies", fallback="smu,spectrometer").split(",")
         self.version = config.get("plugin", "version", fallback="")
-        self.metadata = {
-            "name": self.name,
-            "type": self.type,
-            "function": self.function,
-            "version": self.version,
-            "dependencies": self.dependencies,
-        }
+        self.metadata = {"name": self.name, "type": self.type, "function": self.function, "version": self.version, "dependencies": self.dependencies}
         self.specsmu = specSMU_GUI()
         # Pass plugin metadata (including defaults) to the GUI for use in raw getter
         self.specsmu.plugin_metadata = {
@@ -93,7 +87,7 @@ class pyIVLS_SpecSMU_plugin:
             # status, parsed_settings = self.specsmu.parse_settings_widget()
             # return (self.name, status, parsed_settings)
             return (self.name, 0, settings)
-
+        
     @hookimpl
     def get_log(self, args=None):
         """provides the signal for logging to main app

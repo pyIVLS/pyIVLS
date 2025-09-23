@@ -1,5 +1,5 @@
-import os
 from threading import Lock
+from PyQt6.QtCore import QObject, pyqtSignal
 import numpy as np
 
 
@@ -53,8 +53,14 @@ import numpy as np
 # import usbtmc
 
 
-class Keithley2612B:
-    datafile_address = os.path.dirname(__file__) + os.path.sep + "ivls_data.dat"
+class dummy_ll(QObject):
+    log_message = pyqtSignal(str)
+
+    from os.path import dirname, sep
+
+    path = dirname(__file__) + sep
+    datafile_address = "/u/17/hakkano1/unix/Documents/pyIVLS/plugins/smu_dummy/ivls_data.dat"
+    datafile_address = path + "ivls_data.dat"
     linepointer = 0
     dataarray = np.array([])
     ####################################  threads
@@ -67,6 +73,7 @@ class Keithley2612B:
 
     ########Functions
     def __init__(self, dbg_mode=False):
+        super().__init__()
         # handler for Keithley
         self.k = None
 
@@ -82,30 +89,20 @@ class Keithley2612B:
     ## Communication functions
     def safewrite(self, command):
         try:
-            # self.k.write(command)
-            print(command)
-            ##IRtothink#### debug_mode may be replaced with something like logging
-            # if self.debug_mode:
-            #    error_code = self.k.query("print(errorqueue.next())")
-            #    if "Queue Is Empty" not in error_code:
-            #        print(f"Error sending command: {command}\nError code: {error_code}")
+            # Simulate writing a command
+            self.log_message.emit(f"Command written: {command}")
         except Exception as e:
-            ##IRtodo#### mov to the log
-            print(f"Exception sending command: {command}\nException: {e}")
-            ##IRtothink#### some exception handling should be implemented
+            self.log_message.emit(f"Error writing command: {command}, Exception: {e}")
             raise e
-        # finally:
-        #    if self.debug_mode:
-        #        self.k.write("errorqueue.clear()")
 
     def safequery(self, command):
         try:
-            self.k.write(command)
-            return self.k.read()
+            # Simulate querying a command
+            response = f"Response to {command}"  # Placeholder for actual response
+            self.log_message.emit(f"Command queried: {command}, Response: {response}")
+            return response
         except Exception as e:
-            ##IRtodo#### mov to the log
-            print(f"Exception querying command: {command}\nException: {e}")
-            ##IRtothink#### some exception handling implemented
+            self.log_message.emit(f"Error querying command: {command}, Exception: {e}")
             raise e
 
     # def safequery(self, command):
@@ -158,14 +155,32 @@ class Keithley2612B:
         """
         if channel == "smua" or channel == "smub":
             try:
+                # Get resistance reading.
+                res = self.safequery(f"print({channel}.measure.r())")
+                return res
+            except Exception as e:
+                print(f"Error measuring resistance: {e}")
+                return -1
+
+        else:
+            raise ValueError(f"Invalid channel {channel}")
+
+    def resistance_measurement_setup(self, channel) -> bool:
+        """Measure the resistance at the probe.
+
+        Returns:
+            bool: success
+        """
+        if channel == "smua" or channel == "smub":
+            try:
                 # Restore Series 2600B defaults.
                 self.safewrite(f"{channel}.reset()")
                 # Select current source function.
                 self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
-                # Set source range to 10 mA.
-                self.safewrite(f"{channel}.source.rangei = 10e-3")
-                # Set current source to 10 mA.
-                self.safewrite(f"{channel}.source.leveli = 10e-3")
+                # Set source range to 1 mA.
+                self.safewrite(f"{channel}.source.rangei = 10e-4")
+                # Set current source to 1 mA.
+                self.safewrite(f"{channel}.source.leveli = 10e-4")
                 # Set voltage limit to 1 V. FIXME: Value of 1 v is arbitrary.
                 self.safewrite(f"{channel}.source.limitv = 1")
                 # Enable 2-wire ohms. FIXME: Check this
@@ -174,15 +189,10 @@ class Keithley2612B:
                 self.safewrite(f"{channel}.measure.autorangev = {channel}.AUTORANGE_ON")
                 # Turn on output.
                 self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_ON")
-                # Get resistance reading.
-                res = self.safequery(f"print({channel}.measure.r())")
-                return res
-            except Exception as e:
-                print(f"Error measuring resistance: {e}")
-                return -1
-            finally:
-                self.safewrite(f"{channel}.source.output = {channel}.OUTPUT_OFF")
-                self.safewrite(f"{channel}.source.leveli = 0")
+                return True
+            except Exception:
+                return False
+
         else:
             raise ValueError(f"Invalid channel {channel}")
 
@@ -222,14 +232,12 @@ class Keithley2612B:
         return [i_value, v_value, readings]
 
     def setOutput(self, channel, outputType, value):
-        """sets smu output but does not switch it ON
-        channel = "smua" or "smub"
-        outputType = "i" or "v"
-        value = float
-        """
-        ##IRtothink#### some check may be added
-        # self.safewrite(f"{source}.source.level{outputType} = {value}")
-        print(f"{channel}.source.level{outputType} = {value}")
+        try:
+            if channel is not None:
+                self.log_message.emit(f"{channel}.source.level{outputType} = {value}")
+        except Exception as e:
+            self.log_message.emit(f"Error setting output: {e}")
+            raise e
 
     def get_last_buffer_value(self, channel):
         """
@@ -281,10 +289,14 @@ class Keithley2612B:
         """
         swihces on channels
         """
-        if source is not None:
-            self.safewrite(f"{source}.source.output={source}.OUTPUT_ON")
-        if drain is not None:
-            self.safewrite(f"{drain}.source.output={drain}.OUTPUT_ON")
+        try:
+            if source is not None:
+                self.log_message.emit(f"Turning on source: {source}")
+            if drain is not None:
+                self.log_message.emit(f"Turning on drain: {drain}")
+        except Exception as e:
+            self.log_message.emit(f"Error turning on channels: {e}")
+            raise e
 
     def keithley_init(self, s: dict):
         ##IRtothink#### pulsed operation should be rechecked if strict pulse duration will be needed
@@ -299,6 +311,11 @@ class Keithley2612B:
         """
         #      try:
         [status, self.dataarray] = self.readIVLS(self.datafile_address)
+        print(f"Reading data file: {self.datafile_address}, status: {status}")
+        print(f"Data array shape: {self.dataarray.shape}")
+        if status:
+            print(f"Error reading data file: {self.datafile_address}")
+            return status
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
         ####set visualization
@@ -522,13 +539,36 @@ class Keithley2612B:
 
             return 0
 
+    #            except:
+    #                # if something fails, abort the measurement and turn off the source.
+    #                self.safewrite(f"{s['source']}.abort()")
+    #                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
+    #                if not s["single_ch"]:
+    #                      self.safewrite(f"{s['drain']}.abort()")
+    #                      self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
+    #
+    #                return 1
+    def set_digio(self, line_id: int, value: bool):
+        """Set a digital I/O line to a value.
 
-#            except:
-#                # if something fails, abort the measurement and turn off the source.
-#                self.safewrite(f"{s['source']}.abort()")
-#                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
-#                if not s["single_ch"]:
-#                      self.safewrite(f"{s['drain']}.abort()")
-#                      self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
-#
-#                return 1
+        Args:
+            line_id (int): digio id. see keithley 2600b reference manual p.4-41 for details.
+            value (bool): The value to set the line to (True for HIGH, False for LOW) low=0v, high=5v. See 2600b reference manual p.4-39 for details.
+        Returns:
+            bool: last value of the line before writing to it (True for HIGH, False for LOW).
+        """
+        # set the line to be user controlled.
+        self.safewrite(f"digio.trigger[{line_id}].mode = digio.TRIG_BYPASS")
+
+        # fetch return
+        last_value = self.safequery(f"print(digio.readbit({line_id}))")
+
+        # write to the line
+        self.safewrite(f"digio.writebit({line_id}, {int(value)})")
+        # get set value for validation
+        curr_value = self.safequery(f"print(digio.readbit({line_id}))")
+        curr_value = True if int(curr_value) == 1 else False
+        if curr_value != value:
+            raise ValueError(f"Failed to set digio line {line_id} to {value}. Current value is {curr_value}.")
+
+        return True if int(last_value) == 1 else False

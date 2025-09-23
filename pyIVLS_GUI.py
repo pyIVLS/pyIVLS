@@ -152,13 +152,7 @@ class pyIVLS_GUI(QObject):
     def action_read_config_file(self) -> None:
         """Prompts user to select a configuration file through QFileDialog. Path emitted as signal(str)"""
         # https://forum.qt.io/topic/143116/qfiledialog-getopenfilename-causing-program-to-crash/14
-        path, _ = QFileDialog.getOpenFileName(
-            self.window,
-            "Select Configuration File",
-            self.path,
-            "Configuration Files (*.ini)",
-            options=QFileDialog.Option.DontUseNativeDialog | QFileDialog.Option.ReadOnly,
-        )
+        path, _ = QFileDialog.getOpenFileName(self.window, "Select Configuration File", self.path, "Configuration Files (*.ini)", options=QFileDialog.Option.DontUseNativeDialog | QFileDialog.Option.ReadOnly)
         if path:
             self.update_config_signal.emit(path)
 

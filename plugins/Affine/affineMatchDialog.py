@@ -9,18 +9,7 @@
 ################################################################################
 
 from PyQt6.QtCore import QCoreApplication, QMetaObject, Qt
-from PyQt6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QGraphicsView,
-    QGridLayout,
-    QGroupBox,
-    QLabel,
-    QPushButton,
-    QSplitter,
-    QVBoxLayout,
-    QSpinBox,
-)
+from PyQt6.QtWidgets import QCheckBox, QComboBox, QGraphicsView, QGridLayout, QGroupBox, QLabel, QPushButton, QSplitter, QVBoxLayout, QSpinBox
 
 
 class Ui_Dialog(object):

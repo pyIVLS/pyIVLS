@@ -26,13 +26,7 @@ class pyIVLS_Trace_plugin:
         self._class = config.get("plugin", "class")
         self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
         self.version = config.get("plugin", "version")
-        self.metadata = {
-            "name": self.name,
-            "type": self.type,
-            "function": self.function,
-            "version": self.version,
-            "dependencies": self.dependencies,
-        }
+        self.metadata = {"name": self.name, "type": self.type, "function": self.function, "version": self.version, "dependencies": self.dependencies}
         self.trace_control = TraceGui()
 
     @hookimpl

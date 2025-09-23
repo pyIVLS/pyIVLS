@@ -1,18 +1,33 @@
 import pluggy
-from Keithley2612BGUI import Keithley2612BGUI
+from dummy_gui import Keithley2612BGUI
+import os
+import configparser
 
 
-class pyIVLS_Keithley2612B_plugin:
+class pyIVLS_smu_dummy_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-        self.plugin_name = "Keithley2612B"
-        self.plugin_function = "smu"
-        self.dependencies = []
-        self.type = "device"  # unnecessary
-        self.address = "Keithley2612B"  # unnecessary
+        path = os.path.dirname(__file__)
+        for file in os.listdir(path):
+            if file.endswith(".ini"):
+                path = os.path.join(path, file)
+                break
+        config = configparser.ConfigParser()
+        config.read(path)
+
+        self.name = config.get("plugin", "name")
+        self.type = config.get(
+            "plugin",
+            "type",
+        )
+        self.function = config.get("plugin", "function", fallback="")
+        self._class = config.get("plugin", "class", fallback="")
+        self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
+        self.version = config.get("plugin", "version", fallback="")
+        self.metadata = {"name": self.name, "type": self.type, "function": self.function, "version": self.version, "dependencies": self.dependencies}
+
         self.smu = Keithley2612BGUI()
-        self.metadata = {"name": self.plugin_name, "type": self.type, "function": self.plugin_function, "address": self.address, "version": "placeholder", "dependencies": self.dependencies}
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:
@@ -22,8 +37,8 @@ class pyIVLS_Keithley2612B_plugin:
         This argument will allow the specific implementation of the hook to identify if any response is needed or not.
         :return: dict containing widget and setup structure
         """
-        self.smu._initGUI(plugin_data[self.plugin_name]["settings"])
-        return {self.plugin_name: self.smu.settingsWidget}
+        self.smu._initGUI(plugin_data[self.name]["settings"])
+        return {self.name: self.smu.settingsWidget}
 
     @hookimpl
     def get_functions(self, args=None):
@@ -32,8 +47,8 @@ class pyIVLS_Keithley2612B_plugin:
         :return: dict of functions
         """
 
-        if args is None or args.get("function") == self.plugin_function:
-            return {self.plugin_name: self.smu._get_public_methods()}
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.smu._get_public_methods()}
 
     @hookimpl
     def get_plugin_settings(self, args=None):
@@ -56,3 +71,9 @@ class pyIVLS_Keithley2612B_plugin:
         """
         if args is None or args.get("function") == self.metadata["function"]:
             return [self.smu, self.metadata]
+
+    @hookimpl
+    def get_log(self, args=None):
+        """Provides the log_message signal for logging to the main app."""
+        if args is None or args.get("function") == self.metadata["function"]:
+            return {self.name: self.smu.smu.log_message}

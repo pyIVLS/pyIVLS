@@ -391,7 +391,9 @@ class dialog(QDialog):
                 # Draw unmatched keypoints in image (right side)
                 for idx, (y, x) in enumerate(kp2):
                     if idx not in matched_indices_2:
-                        ax.plot(x + w1, y, "mo", markersize=1.5, alpha=0.7)  # magenta circles for unmatched image keypoints
+                        ax.plot(
+                            x + w1, y, "mo", markersize=1.5, alpha=0.7
+                        )  # magenta circles for unmatched image keypoints
             # Draw defined points
             if show_points and pointslist is not None:
                 for pt in pointslist:
@@ -520,7 +522,9 @@ class dialog(QDialog):
         self.mask_points = []
         self.img_points = []
         self._draw_manual_points()
-        self.info_message(f"Manual mode enabled. Click {self.num_needed} points on the mask (left), then {self.num_needed} on the image (right). Colors indicate matching order.")
+        self.info_message(
+            f"Manual mode enabled. Click {self.num_needed} points on the mask (left), then {self.num_needed} on the image (right). Colors indicate matching order."
+        )
 
     def _draw_manual_points(self):
         """

@@ -14,7 +14,6 @@ class ThreadStopped(Exception):
     def __str__(self):
         return f"ThreadStopped: {self.message}"
 
-
 class thread_with_exception(threading.Thread):
     def __init__(self, trgt, *arg):
         threading.Thread.__init__(self, target=trgt, args=arg)

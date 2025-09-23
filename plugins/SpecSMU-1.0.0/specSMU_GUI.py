@@ -27,12 +27,7 @@ class specSMU_GUI(QWidget):
     """GUI implementation"""
 
     non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "parse_settings_widget",
-        "sequenceStep",
-        "setSettings",
-        "set_gui_from_settings",
-    ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+    public_methods = ["parse_settings_widget", "sequenceStep", "setSettings", "set_gui_from_settings"]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ########Signals
     log_message = pyqtSignal(str)
     ##not needed for sequence implementation, may be added later only for standalone mode
@@ -49,28 +44,8 @@ class specSMU_GUI(QWidget):
         super(specSMU_GUI, self).__init__()
         self.path = os.path.dirname(__file__) + os.path.sep
         self.dependency = {
-            "smu": [
-                "parse_settings_widget",
-                "smu_connect",
-                "smu_init",
-                "smu_outputOFF",
-                "smu_outputON",
-                "smu_disconnect",
-                "set_running",
-                "smu_setOutput",
-                "smu_channelNames",
-            ],
-            "spectrometer": [
-                "parse_settings_preview",
-                "setSettings",
-                "spectrometerConnect",
-                "spectrometerDisconnect",
-                "spectrometerSetIntegrationTime",
-                "spectrometerGetIntegrationTime",
-                "spectrometerStartScan",
-                "spectrometerGetSpectrum",
-                "spectrometerGetScan",
-            ],
+            "smu": ["parse_settings_widget", "smu_connect", "smu_init", "smu_outputOFF", "smu_outputON", "smu_disconnect", "set_running", "smu_setOutput", "smu_channelNames"],
+            "spectrometer": ["parse_settings_preview", "setSettings", "spectrometerConnect", "spectrometerDisconnect", "spectrometerSetIntegrationTime", "spectrometerGetIntegrationTime", "spectrometerStartScan", "spectrometerGetSpectrum", "spectrometerGetScan"],
         }
         self.settingsWidget = Ui_Form()
         self.settingsWidget.setupUi(self)
@@ -296,15 +271,7 @@ class specSMU_GUI(QWidget):
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-            and method in self.public_methods
-        }
+        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
         return methods
 
     def _getLogSignal(self):
@@ -331,13 +298,7 @@ class specSMU_GUI(QWidget):
 
         if not self.function_dict:
             self._log_verbose("Missing function_dict in SpecSMU plugin")
-            return [
-                3,
-                {
-                    "Error message": "Missing functions in SpecSMU plugin. Check log",
-                    "Missing functions": self.missing_functions,
-                },
-            ]
+            return [3, {"Error message": "Missing functions in SpecSMU plugin. Check log", "Missing functions": self.missing_functions}]
 
         # Use the raw getter for initial settings
         raw_settings = self.get_settings_dict_raw()
@@ -531,10 +492,7 @@ class specSMU_GUI(QWidget):
                 if self.settings["mode"] == "pulsed":
                     # "Abandon all hope, ye who enter here"
                     status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](
-                        external_action=self.function_dict["smu"][smu_name]["smu_outputON"],
-                        external_action_args=(self.settings["channel"],),
-                        external_cleanup=self.function_dict["smu"][smu_name]["smu_outputOFF"],
-                        pause_duration=self.settings["pause"],
+                        external_action=self.function_dict["smu"][smu_name]["smu_outputON"], external_action_args=(self.settings["channel"],), external_cleanup=self.function_dict["smu"][smu_name]["smu_outputOFF"], pause_duration=self.settings["pause"]
                     )
                     if not status:
                         integration_time_setting = auto_time

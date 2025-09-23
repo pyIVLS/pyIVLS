@@ -258,7 +258,9 @@ class timeIVGUI(QObject):
 
         # source nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            self.settings["sourcenplc"] = 0.001 * self.smu_settings["lineFrequency"] * float(self.settingsWidget.lineEdit_sourceNPLC.text())
+            self.settings["sourcenplc"] = (
+                0.001 * self.smu_settings["lineFrequency"] * float(self.settingsWidget.lineEdit_sourceNPLC.text())
+            )
         except ValueError:
             return (
                 1,
@@ -309,7 +311,9 @@ class timeIVGUI(QObject):
 
         # drain nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            self.settings["drainnplc"] = 0.001 * self.smu_settings["lineFrequency"] * float(self.settingsWidget.lineEdit_drainNPLC.text())
+            self.settings["drainnplc"] = (
+                0.001 * self.smu_settings["lineFrequency"] * float(self.settingsWidget.lineEdit_drainNPLC.text())
+            )
         except ValueError:
             return (
                 1,
@@ -382,7 +386,9 @@ class timeIVGUI(QObject):
         self.settingsWidget.smuBox.addItems(list(self.function_dict["smu"].keys()))
         self.settingsWidget.smuBox.setCurrentText(default_smu)
 
-        currentIndex = self.settingsWidget.comboBox_channel.findText(plugin_info["channel"], Qt.MatchFlag.MatchFixedString)
+        currentIndex = self.settingsWidget.comboBox_channel.findText(
+            plugin_info["channel"], Qt.MatchFlag.MatchFixedString
+        )
         if currentIndex > -1:
             self.settingsWidget.comboBox_channel.setCurrentIndex(currentIndex)
         currentIndex = self.settingsWidget.comboBox_inject.findText(plugin_info["inject"])
@@ -553,7 +559,9 @@ class timeIVGUI(QObject):
                 continue
             for dependency_function in self.dependency[dependency_plugin]:
                 if dependency_function not in function_dict[dependency_plugin]:
-                    self.logger.log_error(f"Function '{dependency_function}' for dependency plugin '{dependency_plugin}' not found")
+                    self.logger.log_error(
+                        f"Function '{dependency_function}' for dependency plugin '{dependency_plugin}' not found"
+                    )
                     self.missing_functions.append(f"{dependency_plugin}:{dependency_function}")
         if not self.missing_functions:
             self.settingsWidget.runButton.setEnabled(True)
@@ -608,11 +616,15 @@ class timeIVGUI(QObject):
 
         self.settingsWidget.lineEdit_sourceSetValue.setText(str(self.settings["sourcevalue"]))
         self.settingsWidget.lineEdit_sourceLimit.setText(str(self.settings["sourcelimit"]))
-        self.settingsWidget.lineEdit_sourceNPLC.setText(str(self.settings["sourcenplc"] / (0.001 * self.smu_settings["lineFrequency"])))
+        self.settingsWidget.lineEdit_sourceNPLC.setText(
+            str(self.settings["sourcenplc"] / (0.001 * self.smu_settings["lineFrequency"]))
+        )
         self.settingsWidget.lineEdit_sourceDelay.setText(str(self.settings["sourcedelay"] * 1000))
         self.settingsWidget.lineEdit_drainSetValue.setText(str(self.settings["drainvalue"]))
         self.settingsWidget.lineEdit_drainLimit.setText(str(self.settings["drainlimit"]))
-        self.settingsWidget.lineEdit_drainNPLC.setText(str(self.settings["drainnplc"] / (0.001 * self.smu_settings["lineFrequency"])))
+        self.settingsWidget.lineEdit_drainNPLC.setText(
+            str(self.settings["drainnplc"] / (0.001 * self.smu_settings["lineFrequency"]))
+        )
         self.settingsWidget.lineEdit_drainDelay.setText(str(self.settings["draindelay"] * 1000))
 
         # Update the SMU selection combobox
@@ -633,22 +645,40 @@ class timeIVGUI(QObject):
         s = {}
         # THIS IS MISSING SOURCE VALUE ak start and end
         s["pulse"] = False
-        s["source"] = self.settings["channel"]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
+        s["source"] = self.settings[
+            "channel"
+        ]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
         s["drain"] = self.settings["drainchannel"]
-        s["type"] = "v" if self.settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
+        s["type"] = (
+            "v" if self.settings["inject"] == "voltage" else "i"
+        )  # source inject current or voltage: may take values [i ,v]
         s["single_ch"] = self.settings["singlechannel"]  # single channel mode: may be True or False
-        s["start"] = self.settings["sourcevalue"]  # start value for source in voltage mode or for drain in current mode (may not be used in single channel mode)
+        s["start"] = self.settings[
+            "sourcevalue"
+        ]  # start value for source in voltage mode or for drain in current mode (may not be used in single channel mode)
         s["end"] = self.settings["sourcevalue"]  # end value for source in
         s["sourcenplc"] = self.settings["sourcenplc"]  # drain NPLC (may not be used in single channel mode)
-        s["delay"] = True if self.settings["sourcedelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
-        s["delayduration"] = self.settings["sourcedelay"]  # stabilization time duration if manual (may not be used in single channel mode)
-        s["limit"] = self.settings["sourcelimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+        s["delay"] = (
+            True if self.settings["sourcedelaymode"] == "auto" else False
+        )  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["delayduration"] = self.settings[
+            "sourcedelay"
+        ]  # stabilization time duration if manual (may not be used in single channel mode)
+        s["limit"] = self.settings[
+            "sourcelimit"
+        ]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["sourcehighc"] = self.smu_settings["sourcehighc"]
 
         s["drainnplc"] = self.settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
-        s["draindelay"] = True if self.settings["draindelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
-        s["draindelayduration"] = self.settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
-        s["drainlimit"] = self.settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+        s["draindelay"] = (
+            True if self.settings["draindelaymode"] == "auto" else False
+        )  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["draindelayduration"] = self.settings[
+            "draindelay"
+        ]  # stabilization time duration if manual (may not be used in single channel mode)
+        s["drainlimit"] = self.settings[
+            "drainlimit"
+        ]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["drainhighc"] = self.smu_settings["drainhighc"]
 
         if self.settings["sourcesensemode"] == "4 wire":
@@ -859,7 +889,9 @@ class timeIVGUI(QObject):
 
         if not self.settings["singlechannel"]:
             self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source and drain channels.")
-            self.function_dict["smu"][self.settings["smu"]]["smu_outputON"](self.settings["channel"], self.settings["drainchannel"])
+            self.function_dict["smu"][self.settings["smu"]]["smu_outputON"](
+                self.settings["channel"], self.settings["drainchannel"]
+            )
         else:
             self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source channel.")
             self.function_dict["smu"][self.settings["smu"]]["smu_outputON"](self.settings["channel"])
@@ -872,7 +904,9 @@ class timeIVGUI(QObject):
 
             if not self.settings["singlechannel"]:
                 self.logger.log_debug("_timeIVimplementation: Fetching IV data for drain channel.")
-                status, drainIV = self.function_dict["smu"][self.settings["smu"]]["smu_getIV"](self.settings["drainchannel"])
+                status, drainIV = self.function_dict["smu"][self.settings["smu"]]["smu_getIV"](
+                    self.settings["drainchannel"]
+                )
                 if status:
                     raise timeIVexception(drainIV["Error message"])
 

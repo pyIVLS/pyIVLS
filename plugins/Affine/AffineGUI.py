@@ -164,9 +164,9 @@ class AffineGUI:
                 if file.endswith(".ui"):
                     try:
                         if file.split("_")[1].lower() == "settingswidget.ui":
-                            settingsWidget = uic.loadUi(self.path + file)  # type: ignore
+                            settingsWidget = uic.loadUi(self.path + file) # type: ignore
                         elif file.split("_")[1].lower() == "mdiwidget.ui":
-                            MDIWidget = uic.loadUi(self.path + file)  # type: ignore
+                            MDIWidget = uic.loadUi(self.path + file) # type: ignore
                     except IndexError:
                         continue
         assert settingsWidget is not None, "Settings widget not found in the plugin directory."

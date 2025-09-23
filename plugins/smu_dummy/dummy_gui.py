@@ -1,8 +1,6 @@
 import os
-
-# from Keithley2612B_test import Keithley2612B
-from Keithley2612B import Keithley2612B
-
+from dummy_ll import dummy_ll
+from plugin_components import PyIVLSReturn, public, get_public_methods, LoggingHelper
 from PyQt6 import uic
 
 
@@ -52,8 +50,6 @@ from PyQt6 import uic
 class Keithley2612BGUI:
     """GUI for Keithley2612B"""
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-
     ####################################  threads
 
     ################################### internal functions
@@ -70,26 +66,30 @@ class Keithley2612BGUI:
 
         # Initialize Keithley module
         ##IRtodo#### move Keithley address to GUI
-        self.smu = Keithley2612B()
+        self.smu = dummy_ll()
+        self.logger = LoggingHelper(self)
         self.settings = {}
+        self.name = "mock_smu"
 
-        self.channel_names = ["smua", "smub"]
+        self.channel_names = ["not", "real"]
 
     ########Functions
     ###############GUI setting up
 
     def _initGUI(
         self,
-        plugin_info,
-    ):
+        plugin_info: dict,
+    ) -> None:
+        """Initializes the GUI with the provided settings
+
+        Args:
+            plugin_info (dict): Dictionary with settings obtained from plugin_data in pyIVLS_*_plugin
+        """
         if plugin_info["sourcehighc"] == "True":
             self.settingsWidget.checkBox_sourceHighC.setChecked(True)
         if plugin_info["drainhighc"] == "True":
             self.settingsWidget.checkBox_drainHighC.setChecked(True)
         self.settingsWidget.lineEditAddress.setText(plugin_info["address"])
-        self.settingsWidget.lineEditETH.setText(plugin_info["eth_address"])
-        self.settingsWidget.backendCombobox.setCurrentText(plugin_info["backend"])
-        self.settingsWidget.lineEditPort.setText(plugin_info["port"])
 
     ########Functions
     ########plugins interraction
@@ -97,15 +97,13 @@ class Keithley2612BGUI:
         """
         Returns a nested dictionary of public methods for the plugin
         """
-        # if the plugin type matches the requested type, return the functions
-
-        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods}
-        return methods
+        return get_public_methods(self)
 
     ########Functions to be used externally
     ###############get settings from GUI
 
-    def parse_settings_widget(self):
+    @public
+    def parse_settings_widget(self) -> PyIVLSReturn:
         """Parses the settings widget for the Keithley. Extracts current values
 
         Returns [status, settings_dict]:
@@ -128,25 +126,26 @@ class Keithley2612BGUI:
             info = self.smu.getLineFrequency()
             self.settings["lineFrequency"] = info
         self._parse_settings_address()
-        return [0, self.settings]
+        return PyIVLSReturn.success(self.settings)
 
     def _parse_settings_address(self):
         self.settings["address"] = self.settingsWidget.lineEditAddress.text()
-        self.settings["eth_address"] = self.settingsWidget.lineEditETH.text()
-        self.settings["backend"] = self.settingsWidget.backendCombobox.currentText()
-        self.settings["port"] = self.settingsWidget.lineEditPort.text()
 
     ###############GUI enable/disable
-    def set_running(self, status):
+    @public
+    def set_running(self, status) -> PyIVLSReturn:
         self.settingsWidget.groupBox_HWsettings.setEnabled(not status)
         self.settingsWidget.groupBox_channels.setEnabled(not status)
+        return PyIVLSReturn.success()
 
     ###############providing access to SMU functions
+    @public
     def smu_channelNames(self):
         """provides channel names for particular SMU
         this should make plugins more universal, but still need to be rechecked"""
-        return self.channel_names
+        return ["not", "real"]
 
+    @public
     def smu_connect(self):
         """an interface for an externall calling function to connect to Keithley
 
@@ -157,7 +156,7 @@ class Keithley2612BGUI:
         """
         self._parse_settings_address()
         try:
-            self.smu.keithley_connect(self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"])
+            self.smu.keithley_connect(self.settings["address"])
             return [0, self.smu.keithley_IDN()]
         except Exception as e:
             return [
@@ -168,30 +167,39 @@ class Keithley2612BGUI:
                 },
             ]
 
-    def smu_disconnect(self):
+    @public
+    def smu_disconnect(self) -> PyIVLSReturn:
         """an interface for an externall calling function to disconnect Keithley"""
         self.smu.keithley_disconnect()
+        return PyIVLSReturn.success()
 
-    def smu_abort(self, channel):
+    @public
+    def smu_abort(self, channel) -> PyIVLSReturn:
         """An interface for an externall calling function to stop the sweep on Keithley
         (this function will NOT switch OFF the outputs)
         s: channel to get the last value (may be 'smua' or 'smub')
         """
 
         self.smu.abort_sweep(channel)
+        return PyIVLSReturn.success()
 
-    def smu_outputON(self, source=None, drain=None):
+    @public
+    def smu_outputON(self, source=None, drain=None) -> PyIVLSReturn:
         """An interface for an externall calling function to switch on the output
 
         source and drain are "smua" or "smub"
         """
         self.smu.channelsON(source, drain)
+        return PyIVLSReturn.success()
 
-    def smu_outputOFF(self):
+    @public
+    def smu_outputOFF(self) -> PyIVLSReturn:
         """An interface for an externall calling function to switch off the output"""
 
         self.smu.channelsOFF()
+        return PyIVLSReturn.success()
 
+    @public
     def smu_init(self, s: dict):
         """an interface for an externall calling function to initialize Keithley
         s: dictionary containing the settings for the sweep to initialize. It is different from the self. settings, as it contains data only for the current sweep
@@ -205,8 +213,11 @@ class Keithley2612BGUI:
 
         Note: this function should be called only when the settings are checked, i.e. after parse_settings_widget
         """
+        print("Dummy init")
+
         return self.smu.keithley_init(s)
 
+    @public
     def smu_runSweep(self, s: dict):
         """an interface for an externall calling function to run sweep on Keithley
         s: dictionary containing the settings to run the sweep. It is different from the self. settings, as it contains data only for the current sweep
@@ -222,6 +233,7 @@ class Keithley2612BGUI:
         """
         return self.smu.keithley_run_sweep(s)
 
+    @public
     def smu_getLastBufferValue(self, channel, readings=None):
         """an interface for an externall calling function to get last buffer value from Keithley
         s: channel to get the last value (may be 'smua' or 'smub')
@@ -229,8 +241,9 @@ class Keithley2612BGUI:
         Returns:
             list [i, v, number of point in the buffer]
         """
-        return self.smu.get_last_buffer_value(channel, readings)
+        return self.smu.get_last_buffer_value(channel)
 
+    @public
     def smu_bufferRead(self, channel):
         """an interface for an externall calling function to get the content of a channel buffer from Keithley
         s: channel to get the last value (may be 'smua' or 'smub')
@@ -240,26 +253,32 @@ class Keithley2612BGUI:
         """
         return self.smu.read_buffers(channel)
 
+    @public
     def smu_getIV(self, channel):
         """gets IV data
 
         Returns:
             list [i, v]
         """
-        return [0, self.smu.getIV(channel)]
+        try:
+            return [0, self.smu.getIV(channel)]
+        except Exception as e:
+            return [4, {"Error message": f"Failed to get IV data: {str(e)}"}]
 
-
+    @public
     def smu_setOutput(self, channel, outputType, value):
-        #        """sets smu output but does not switch it ON
-        # channel = "smua" or "smub"
-        # outputType = "i" or "v"
-        # value = float
-        #        """
-        self.smu.setOutput(channel, outputType, value)
-        return [0, "OK"]
+        """sets smu output but does not switch it ON
+        channel = "smua" or "smub"
+        outputType = "i" or "v"
+        value = float
+        """
+        try:
+            return [0, self.smu.setOutput(channel, outputType, value)]
+        except Exception as e:
+            return [4, {"Error message": f"Failed to set smu output: {str(e)}"}]
 
-
-    def smu_setup_resmes(self, channel):
+    @public
+    def smu_setup_resmes(self, channel) -> PyIVLSReturn:
         """Sets up resistance measurement
 
         Args:
@@ -268,13 +287,16 @@ class Keithley2612BGUI:
         Returns:
             tuple: (status, resistance value) where status is 0 for success, non-zero for error.
         """
-        success, err_text = self.smu.resistance_measurement_setup(channel)
-        if success:
-            return (0, {"Error message": "Keithley setup resistance measurement"})
-        else:
-            return (4, {"Error message": f"HW issue in keithley resistance setup: {err_text}"})
+        try:
+            success = self.smu.resistance_measurement_setup(channel)
+            if success:
+                return PyIVLSReturn.success()
+            else:
+                return PyIVLSReturn.hardware_error("HW issue in keithley resistance setup", self.name)
+        except Exception as e:
+            return PyIVLSReturn.hardware_error(f"Failed to measure resistance: {str(e)}", self.name, exception=e)
 
-
+    @public
     def smu_resmes(self, channel):
         """Measures resistance on the specified channel.
 
@@ -284,11 +306,14 @@ class Keithley2612BGUI:
         Returns:
             tuple: (status, resistance value) where status is 0 for success, non-zero for error.
         """
-        resistance = self.smu.resistance_measurement(channel)
-        return (0, resistance)
+        try:
+            resistance = self.smu.resistance_measurement(channel)
+            return (0, resistance)
+        except Exception as e:
+            return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})
 
-
-    def smu_set_digio(self, channel, value):
+    @public
+    def smu_set_digio(self, channel, value) -> PyIVLSReturn:
         """Sets digital output on the specified channel.
 
         Args:
@@ -298,6 +323,8 @@ class Keithley2612BGUI:
         Returns:
             tuple: (status, message) where status is 0 for success, non-zero for error.
         """
-        self.smu.set_digio(channel, value)
-        return (0, {"Error message": "Digital output set successfully"})
-
+        try:
+            self.smu.set_digio(channel, value)
+            return PyIVLSReturn.success()
+        except Exception as e:
+            return PyIVLSReturn.hardware_error("Failed to set digital output", self.name, exception=e)

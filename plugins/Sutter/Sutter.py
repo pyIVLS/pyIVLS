@@ -278,7 +278,9 @@ class Mpc325:
         """Stop the current movement"""
         self._stop_event.set()  # Signal that a stop is requested
         # self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>).
-        time.sleep(0.1)  # sleep for some time before resetting the stop event just so that the next move isn't immediately queued.
+        time.sleep(
+            0.1
+        )  # sleep for some time before resetting the stop event just so that the next move isn't immediately queued.
         # self.ser.read(1) # read the return from stop write
         self._flush()  # clear the buffers
         self._stop_event.clear()
@@ -301,7 +303,11 @@ class Mpc325:
             z = curr_pos[2]
 
         # If the position after handrails is the same, do nothing.
-        if (curr_pos[0] == self._handrail_micron(x)) and (curr_pos[1] == self._handrail_micron(y)) and (curr_pos[2] == self._handrail_micron(z)):
+        if (
+            (curr_pos[0] == self._handrail_micron(x))
+            and (curr_pos[1] == self._handrail_micron(y))
+            and (curr_pos[2] == self._handrail_micron(z))
+        ):
             return
         if self.quick_move:
             self.quick_move_to(x, y, z)
@@ -325,7 +331,9 @@ class Mpc325:
             y_s = self._handrail_step(self._m2s(self._handrail_micron(y)))
             z_s = self._handrail_step(self._m2s(self._handrail_micron(z)))
 
-            command2 = struct.pack("<3I", x_s, y_s, z_s)  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
+            command2 = struct.pack(
+                "<3I", x_s, y_s, z_s
+            )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
 
             self.ser.write(command1)
             self.ser.write(command2)
@@ -372,10 +380,12 @@ class Mpc325:
             x_s = self._handrail_step(self._m2s(self._handrail_micron(x)))
             y_s = self._handrail_step(self._m2s(self._handrail_micron(y)))
             z_s = self._handrail_step(self._m2s(self._handrail_micron(z)))
-            command2 = struct.pack("<3I", x_s, y_s, z_s)  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
+            command2 = struct.pack(
+                "<3I", x_s, y_s, z_s
+            )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
 
             self.ser.write(command1)
-            time.sleep(0.035)  # wait period specified in the manual (30 ms) Updated to 35 ms on recommendation from Sutter instr
+            time.sleep(0.035)  # wait period specified in the manual (30 ms) Updated to 35 ms on recommendation from Sutter instr 
             self.ser.write(command2)
             if debug:
                 print(f"Moving to ({x}, {y}, {z}) at speed {speed}")

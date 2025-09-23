@@ -484,11 +484,7 @@ class pyIVLS_container(QObject):
                     # If type is plugin and fulfills the dependency
                     if type == "plugin" and self.config[section].get("function") == dependency:
                         # Check if any plugin of this type is already registered
-                        active_plugins_of_type = [
-                            sec
-                            for sec in self.config.sections()
-                            if sec.rsplit("_", 1)[1] == "plugin" and self.config[sec].get("function") == dependency and self.pm.get_plugin(self.config[sec]["name"]) is not None
-                        ]
+                        active_plugins_of_type = [sec for sec in self.config.sections() if sec.rsplit("_", 1)[1] == "plugin" and self.config[sec].get("function") == dependency and self.pm.get_plugin(self.config[sec]["name"]) is not None]
 
                         # Add dependency only if no active plugins of this type exist
                         if not active_plugins_of_type and section not in plugins_to_activate:
@@ -522,11 +518,7 @@ class pyIVLS_container(QObject):
         plugin_type = self.config[plugin]["function"]
 
         # Check if the plugin is the last of its type
-        active_plugins_of_type = [
-            section
-            for section in self.config.sections()
-            if section.rsplit("_", 1)[1] == "plugin" and self.config[section].get("function") == plugin_type and self.pm.get_plugin(self.config[section]["name"]) is not None
-        ]
+        active_plugins_of_type = [section for section in self.config.sections() if section.rsplit("_", 1)[1] == "plugin" and self.config[section].get("function") == plugin_type and self.pm.get_plugin(self.config[section]["name"]) is not None]
 
         is_last_of_type = len(active_plugins_of_type) == 1
 

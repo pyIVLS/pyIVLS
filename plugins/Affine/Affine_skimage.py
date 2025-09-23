@@ -417,7 +417,9 @@ class Affine:
         self.result["transform"] = model
         return True
 
-    def get_transformation(self, src: np.ndarray, dst: np.ndarray, residual_threshold: int = 10) -> Tuple[Any, np.ndarray]:
+    def get_transformation(
+        self, src: np.ndarray, dst: np.ndarray, residual_threshold: int = 10
+    ) -> Tuple[Any, np.ndarray]:
         """
         Estimate the affine transformation using RANSAC.
         Args:

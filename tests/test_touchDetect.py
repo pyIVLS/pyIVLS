@@ -94,7 +94,9 @@ class TestManipulatorInfo:
 
     def test_init_unconfigured_empty_channels(self):
         """Test unconfigured manipulator with empty channels."""
-        info = ManipulatorInfo(mm_number=4, smu_channel="", condet_channel="Lo", threshold=25, stride=2, sample_width=1200.0, function="")
+        info = ManipulatorInfo(
+            mm_number=4, smu_channel="", condet_channel="Lo", threshold=25, stride=2, sample_width=1200.0, function=""
+        )
 
         assert info.function == "unconfigured"
 
@@ -399,7 +401,9 @@ class TestTouchDetect:
         self.mock_smu.smu_setup_resmes.return_value = (0, {"message": "Setup successful"})
         self.mock_mm.mm_change_active_device.return_value = (0, {"message": "Device changed"})
 
-        status, result = self.touch_detect._manipulator_measurement_setup(self.mock_mm, self.mock_smu, self.mock_con, info)
+        status, result = self.touch_detect._manipulator_measurement_setup(
+            self.mock_mm, self.mock_smu, self.mock_con, info
+        )
 
         assert status == 0
         assert "SMU setup successful" in result["message"]
@@ -415,7 +419,9 @@ class TestTouchDetect:
         self.mock_smu.smu_setup_resmes.return_value = (0, {"message": "Setup successful"})
         self.mock_mm.mm_change_active_device.return_value = (0, {"message": "Device changed"})
 
-        status, result = self.touch_detect._manipulator_measurement_setup(self.mock_mm, self.mock_smu, self.mock_con, info)
+        status, result = self.touch_detect._manipulator_measurement_setup(
+            self.mock_mm, self.mock_smu, self.mock_con, info
+        )
 
         assert status == 0
         self.mock_con.deviceLoCheck.assert_called_with(True)
@@ -428,7 +434,9 @@ class TestTouchDetect:
         self.mock_smu.smu_setup_resmes.return_value = (0, {"message": "Setup successful"})
         self.mock_mm.mm_change_active_device.return_value = (0, {"message": "Device changed"})
 
-        status, result = self.touch_detect._manipulator_measurement_setup(self.mock_mm, self.mock_smu, self.mock_con, info)
+        status, result = self.touch_detect._manipulator_measurement_setup(
+            self.mock_mm, self.mock_smu, self.mock_con, info
+        )
 
         assert status == 1
         assert "Invalid contact detection channel" in result["Error message"]
@@ -559,7 +567,9 @@ class TestMonitoringConfiguration:
             ManipulatorInfo(2, "", "Lo", 50, 5, 1000.0, ""),
         ]
 
-        status, result = self.touch_detect.monitor_manual_contact_detection(self.mock_mm, self.mock_smu, self.mock_con, manipulator_infos)
+        status, result = self.touch_detect.monitor_manual_contact_detection(
+            self.mock_mm, self.mock_smu, self.mock_con, manipulator_infos
+        )
 
         assert status == 1
         assert "No configured manipulators found" in result["Error message"]
@@ -688,7 +698,9 @@ class TestMonitoringConfiguration:
 
         info = ManipulatorInfo(1, "smua", "Hi", 50, 5, 1000.0, "", last_z=None)
 
-        status, result = self.touch_detect.monitor_manual_contact_detection(self.mock_mm, self.mock_smu, self.mock_con, [info])
+        status, result = self.touch_detect.monitor_manual_contact_detection(
+            self.mock_mm, self.mock_smu, self.mock_con, [info]
+        )
 
         assert status == 1
         assert "Contact detection failed" in result["Error message"]

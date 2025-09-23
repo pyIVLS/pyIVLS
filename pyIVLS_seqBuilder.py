@@ -418,17 +418,7 @@ class pyIVLS_seqBuilder(QObject):
                         break
                 if nextStepClass == "loop":
                     iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
-                    looping.append(
-                        {
-                            "looping": stackItem["looping"],
-                            "loopFunction": nextStepFunction,
-                            "totalSteps": len(stackItem["looping"]),
-                            "currentStep": 0,
-                            "totalIterations": iter,
-                            "currentIteration": 0,
-                            "namePostfix": "",
-                        }
-                    )
+                    looping.append({"looping": stackItem["looping"], "loopFunction": nextStepFunction, "totalSteps": len(stackItem["looping"]), "currentStep": 0, "totalIterations": iter, "currentIteration": 0, "namePostfix": ""})
                     stackData = stackItem["looping"] + stackData
             self.log_message.emit("pyIVLS_seqBuilder: Sequence parser finished")
             self._sigSeqEnd.emit()
@@ -436,7 +426,8 @@ class pyIVLS_seqBuilder(QObject):
             print(f"Error occurred: {e}")
         finally:
             self._setNotRunning()
-            self._sigSeqEnd.emit()
+            self._sigSeqEnd.emit()  
+
 
     def _runAction(self):
         # disable controls

@@ -13,7 +13,6 @@ class MockCCSDRV:
 
     def close(self):
         pass
-
     def get_integration_time(self):
         return self.integration_time
 
@@ -41,10 +40,11 @@ class MockCCSDRV:
         self.scan_active = True
 
     def get_scan_data(self):
-        data = (np.random.rand(3648)) / 2  # from 0 to 0.5
-        data -= 0.4  # from -0.4 to 0.1
+        data = (np.random.rand(3648)) / 2 # from 0 to 0.5
+        data -= 0.4 # from -0.4 to 0.1
         data = data + (self.integration_time)
         return np.array(data)
+
 
     def read_eeprom(self, addr, idx, length):
         return bytes([int(255 * np.random.rand()) for _ in range(length)])
