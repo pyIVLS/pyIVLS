@@ -193,9 +193,6 @@ class DummyCameraGUI(QObject):
         methods = {
             method: getattr(self, method)
             for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method in self.public_methods
+            if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method in self.public_methods
         }
         return methods

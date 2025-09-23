@@ -100,11 +100,7 @@ class pyIVLS_timeIV_plugin:
         Returns:
             dict: name, widget
         """
-        pruned = {
-            function_dict_key: function_dict[function_dict_key]
-            for function_dict_key in self.dependencies
-            if function_dict_key in function_dict
-        }
+        pruned = {function_dict_key: function_dict[function_dict_key] for function_dict_key in self.dependencies if function_dict_key in function_dict}
         self.pluginClass.function_dict = pruned
         return self.pluginClass.function_dict
 

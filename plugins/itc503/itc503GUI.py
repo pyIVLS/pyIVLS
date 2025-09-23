@@ -115,16 +115,12 @@ class itc503GUI(QObject):
     def _setTAction(self):
         [status, info] = self._parse_settings_setT()
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
             self.info_message.emit(f"itc503 plugin : {info}")
             return [status, info]
         [status, info] = self._setT()
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
             self.info_message.emit(f"itc503 plugin : {info}")
             return [status, info]
         return [0, "OK"]
@@ -288,13 +284,9 @@ class itc503GUI(QObject):
 
     def _GUIchange_deviceConnected(self, status):
         if status:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
         else:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
         self.settingsWidget.settingsGroupBox.setEnabled(status)
         self.settingsWidget.DisplayGroupBox.setEnabled(status)
         self.settingsWidget.disconnectButton.setEnabled(status)
@@ -434,9 +426,7 @@ class itc503GUI(QObject):
         if self.settings["sweeppts"] == 1:
             self.settings["sett"] = self.settings["sweepstart"]
         else:
-            self.settings["sett"] = self.settings["sweepstart"] + iteration * (
-                self.settings["sweepend"] - self.settings["sweepstart"]
-            ) / (self.settings["sweeppts"] - 1)
+            self.settings["sett"] = self.settings["sweepstart"] + iteration * (self.settings["sweepend"] - self.settings["sweepstart"]) / (self.settings["sweeppts"] - 1)
         # this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
         #        self.settingsWidget.setTEdit.setText(f"{self.settings['sett']}")
         [status, info] = self._setT()

@@ -407,9 +407,7 @@ class Keithley2612B:
                 self.safewrite(f"{s['drain']}.measure.delay = {s['draindelayduration']}")
 
             # set limits and modes
-            if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (
-                s["type"] == "v" and abs(s["limit"]) >= 1.5
-            ):
+            if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (s["type"] == "v" and abs(s["limit"]) >= 1.5):
                 self.safewrite(f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF")
                 self.safewrite(f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
@@ -482,9 +480,7 @@ class Keithley2612B:
             self.safewrite(f"{s['source']}.trigger.endsweep.action = {s['source']}.SOURCE_IDLE")
             self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
             if s["single_ch"]:
-                self.safewrite(
-                    f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID"
-                )
+                self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
 
             ####################setting up drain
             else:
@@ -497,12 +493,8 @@ class Keithley2612B:
                 #### initialize sweep actions
                 self.safewrite(f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)")
                 self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE")
-                self.safewrite(
-                    f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE"
-                )  # do not sweep the source (see 7-243 or 590 of the manual)
-                self.safewrite(
-                    f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
-                )
+                self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")  # do not sweep the source (see 7-243 or 590 of the manual)
+                self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                 self.safewrite("trigger.blender[2].orenable = false")
                 self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
                 self.safewrite(f"trigger.blender[2].stimulus[2] = {s['drain']}.trigger.MEASURE_COMPLETE_EVENT_ID")

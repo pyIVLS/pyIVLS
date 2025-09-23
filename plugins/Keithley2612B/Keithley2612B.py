@@ -6,6 +6,7 @@ import usbtmc
 import numpy as np
 from enum import Enum
 
+
 # for mock connection
 def readIVLS(address):
     try:
@@ -13,6 +14,7 @@ def readIVLS(address):
     except Exception as e:
         print(f"Exception reading mock data file: {address}\nException: {e}")
         return [-1, str(e)]
+
 
 class BackendType(Enum):
     USB = "USB"
@@ -89,7 +91,7 @@ class Keithley2612B:
         # Initialize the lock for the measurement
         self.lock = Lock()
 
-        # initialize mock data 
+        # initialize mock data
         self.datafile_address = os.path.dirname(__file__) + os.path.sep + "ivls_data.dat"
         self.linepointer = 0
         self.dataarray = np.array([])
@@ -112,13 +114,11 @@ class Keithley2612B:
             else:
                 raise ValueError(f"Unknown backend: {self.backend}")
 
-
         except Exception as e:
             ##IRtodo#### mov to the log
             print(f"Exception sending command: {command}\nException: {e}")
             ##IRtothink#### some exception handling should be implemented
             raise e
-
 
     def safequery(self, command: str) -> str:
         try:
@@ -143,7 +143,6 @@ class Keithley2612B:
             print(f"Exception querying command: {command}\nException: {e}")
             ##IRtothink#### some exception handling implemented
             raise e
-
 
     def keithley_IDN(self):
         return "keith"
@@ -172,9 +171,7 @@ class Keithley2612B:
                 print("Ethernet initial connection")
                 #### connect with pyvisa resource manager
                 visa_rsc_str = f"TCPIP::{self.eth_address}::{self.port}::SOCKET"
-                self.ke = self.rm.open_resource(
-                    visa_rsc_str, resource_pyclass=pyvisa.resources.TCPIPSocket
-                )
+                self.ke = self.rm.open_resource(visa_rsc_str, resource_pyclass=pyvisa.resources.TCPIPSocket)
                 assert self.ke is not None
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
@@ -183,7 +180,6 @@ class Keithley2612B:
             print("WARNING: USING MOCK CONNECTION")
             [status, self.dataarray] = readIVLS(self.datafile_address)
             assert status == 0
-
 
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
@@ -194,15 +190,13 @@ class Keithley2612B:
     def keithley_disconnect(self):
         ##IRtodo#### move to log
         # print("Disconnecting from Keithley 2612B")
-                    
+
         if self.k is not None:
             self.k.close()
-        # HOX: do not close self.ke, because    
+        # HOX: do not close self.ke, because
         # close on a visa resource also marks the handle
-        # To be invalid. This messes with future connection attempts. 
+        # To be invalid. This messes with future connection attempts.
         # https://pyvisa.readthedocs.io/en/1.8/api/resources.html#pyvisa.resources.Resource.close
-
-
 
     ## Device functions
     def resistance_measurement(self, channel) -> float:
@@ -495,9 +489,7 @@ class Keithley2612B:
 
             # set limits and modes
             ##IRtodo#### drain limits are not set, probably it should be done the same way as for the source
-            if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (
-                s["type"] == "v" and abs(s["limit"]) >= 1.5
-            ):
+            if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (s["type"] == "v" and abs(s["limit"]) >= 1.5):
                 self.safewrite(f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF")
                 self.safewrite(f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
@@ -512,8 +504,6 @@ class Keithley2612B:
                 self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_ON")
 
             return 0
-
-
 
     def keithley_run_sweep(self, s: dict):  # -> status:
         """Runs a single channel sweep on. Handles locking the instrument and releasing it after the sweep is started.
@@ -561,13 +551,9 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE")
                 self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")
                 self.safewrite(f"{s['source']}.trigger.endsweep.action = {s['source']}.SOURCE_IDLE")
-                self.safewrite(
-                    f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
-                )
+                self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                 if s["single_ch"]:
-                    self.safewrite(
-                        f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID"
-                    )
+                    self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
 
                 ####################setting up drain
                 else:
@@ -580,12 +566,8 @@ class Keithley2612B:
                     #### initialize sweep actions
                     self.safewrite(f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)")
                     self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE")
-                    self.safewrite(
-                        f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE"
-                    )  # do not sweep the source (see 7-243 or 590 of the manual)
-                    self.safewrite(
-                        f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID"
-                    )
+                    self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")  # do not sweep the source (see 7-243 or 590 of the manual)
+                    self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                     self.safewrite("trigger.blender[2].orenable = false")
                     self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
                     self.safewrite(f"trigger.blender[2].stimulus[2] = {s['drain']}.trigger.MEASURE_COMPLETE_EVENT_ID")
@@ -608,9 +590,9 @@ class Keithley2612B:
                 # redundant. It should be decided whether this low level class should do any handling
                 # or just raise the exception to the upper level
                 # to me it seems natural that this handles abort, but the upper level has to handle some exceptions as well.
-                self.abort_sweep_all()#
+                self.abort_sweep_all()  #
                 raise e
-    
+
     def abort_sweep_all(self):
         """Aborts any ongoing sweep on both channels."""
         self.safewrite("smua.abort()")
@@ -641,4 +623,4 @@ class Keithley2612B:
         if curr_value != value:
             raise ValueError(f"Failed to set digio line {line_id} to {value}. Current value is {curr_value}.")
 
-        return True if int(last_value) == 1 else False 
+        return True if int(last_value) == 1 else False

@@ -44,12 +44,7 @@ class pyIVLS_GUI(QObject):
         msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-        msg.setWindowFlags(
-            Qt.WindowType.CustomizeWindowHint
-            | Qt.WindowType.WindowTitleHint
-            | Qt.WindowType.WindowShadeButtonHint
-            | Qt.WindowType.WindowStaysOnTopHint
-        )
+        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint | Qt.WindowType.WindowStaysOnTopHint)
         msg.raise_()
         msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
         msg.exec()
@@ -87,9 +82,7 @@ class pyIVLS_GUI(QObject):
     def reactClose(self):
         if self._blocking_plugins:
             plugin_list = ", ".join(sorted(self._blocking_plugins))
-            self.show_message(
-                f"Cannot close: The following plugins are still active: {plugin_list}. Stop running processes and disconnect devices before closing."
-            )
+            self.show_message(f"Cannot close: The following plugins are still active: {plugin_list}. Stop running processes and disconnect devices before closing.")
         else:
             self.show_message("Stop running processes and disconnect devices before close")
 
@@ -221,9 +214,7 @@ class pyIVLS_GUI(QObject):
         # Close subwindows that are not in the widgets dict
         for sw in subwindows:
             if sw.windowTitle() not in widgets:
-                self.window.mdiArea.removeSubWindow(
-                    sw
-                )  # Remove subwindow because the subwindow list is used to iterate over existing windows
+                self.window.mdiArea.removeSubWindow(sw)  # Remove subwindow because the subwindow list is used to iterate over existing windows
                 sw.close()  # Actually close
 
     def setSeqBuilder(self):

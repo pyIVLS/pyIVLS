@@ -80,9 +80,7 @@ class peltierControllerGUI(QObject):
         self.settings["source"] = self.settingsWidget.peltierSource.text()
         [status, message] = self.peltierController.open(self.settings["source"])
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
             self.info_message.emit(f"peltierController plugin : {message}")
         else:
             self._GUIchange_deviceConnected(True)
@@ -92,9 +90,7 @@ class peltierControllerGUI(QObject):
             self._displayAction()
         [status, message] = self.peltierController.close()
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
             self.info_message.emit(f"peltierController plugin : {message}")
         else:
             self._GUIchange_deviceConnected(False)
@@ -106,10 +102,7 @@ class peltierControllerGUI(QObject):
         else:
             [status, message] = self.peltierController.setT(self.settings["sett"])
             if status:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : peltierController plugin : {message}, status = {status}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
                 self.info_message.emit(f"peltierController plugin : {message}")
 
     def _setPAction(self):
@@ -119,10 +112,7 @@ class peltierControllerGUI(QObject):
         else:
             [status, message] = self.peltierController.setP(self.settings["setp"])
             if status:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : peltierController plugin : {message}, status = {status}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
                 self.info_message.emit(f"peltierController plugin : {message}")
 
     def _setPIDAction(self):
@@ -130,14 +120,9 @@ class peltierControllerGUI(QObject):
         if status:
             self.info_message.emit(f"peltierController plugin : {info}")
         else:
-            [status, message] = self.peltierController.setPID(
-                self.settings["kp"], self.settings["ki"], self.settings["kd"]
-            )
+            [status, message] = self.peltierController.setPID(self.settings["kp"], self.settings["ki"], self.settings["kd"])
             if status:
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : peltierController plugin : {message}, status = {status}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
                 self.info_message.emit(f"peltierController plugin : {message}")
 
     def _displayAction(self):
@@ -148,9 +133,7 @@ class peltierControllerGUI(QObject):
             [status, info] = self._parse_settings_display()
             if status:
                 self.info_message.emit(f"peltierController plugin : {info}")
-                self.log_message.emit(
-                    datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}"
-                )
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}")
             else:
                 self.Xdata = []
                 self.Ydata = []
@@ -221,9 +204,7 @@ class peltierControllerGUI(QObject):
     def _update_display(self):
         [status, info] = self.peltierController.getData()
         if status:
-            self.log_message.emit(
-                datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}"
-            )
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}")
             self.info_message.emit(f"peltierController plugin : {info}")
             self.timer.stop()
         else:
@@ -288,13 +269,9 @@ class peltierControllerGUI(QObject):
 
     def _GUIchange_deviceConnected(self, status):
         if status:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
         else:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
         self.settingsWidget.settingsGroupBox.setEnabled(status)
         self.settingsWidget.DisplayGroupBox.setEnabled(status)
         self.settingsWidget.disconnectButton.setEnabled(status)
@@ -321,10 +298,7 @@ class peltierControllerGUI(QObject):
         methods = {
             method: getattr(self, method)
             for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
+            if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods
         }
         return methods
 

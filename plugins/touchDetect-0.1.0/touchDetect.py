@@ -192,9 +192,7 @@ class touchDetect:
 
                 self._log(f"Starting monitoring for manipulator {info.mm_number}")
                 if progress_callback:
-                    progress_callback(
-                        f"Starting monitoring for manipulator {info.mm_number} (SMU: {info.smu_channel}, Con: {info.condet_channel}, Threshold: {info.threshold})"
-                    )
+                    progress_callback(f"Starting monitoring for manipulator {info.mm_number} (SMU: {info.smu_channel}, Con: {info.condet_channel}, Threshold: {info.threshold})")
 
                 # Set up measurement for this manipulator
                 status, state = self._manipulator_measurement_setup(mm, smu, con, info)
@@ -204,9 +202,7 @@ class touchDetect:
                     continue
 
                 if progress_callback:
-                    progress_callback(
-                        f"MANUAL CONTROL: Move manipulator {info.mm_number} manually until contact is detected"
-                    )
+                    progress_callback(f"MANUAL CONTROL: Move manipulator {info.mm_number} manually until contact is detected")
                     progress_callback(f"Monitoring resistance on {info.smu_channel} with threshold {info.threshold}...")
 
                 # Monitor loop for this manipulator
@@ -222,9 +218,7 @@ class touchDetect:
                         # Log resistance updates less frequently to avoid spam
                         if last_resistance_log is None or abs(r - last_resistance_log) > info.threshold * 0.1:
                             if progress_callback:
-                                progress_callback(
-                                    f"Manipulator {info.mm_number} resistance: {r:.1f} Ω (threshold: {info.threshold} Ω)"
-                                )
+                                progress_callback(f"Manipulator {info.mm_number} resistance: {r:.1f} Ω (threshold: {info.threshold} Ω)")
                             last_resistance_log = r
 
                         if contacting:
@@ -236,9 +230,7 @@ class touchDetect:
                             self.last_z_positions[info.mm_number] = int(z_position)
                             self._log(f"Contact detected for manipulator {info.mm_number} at Z={z_position}")
                             if progress_callback:
-                                progress_callback(
-                                    f"Contact detected for manipulator {info.mm_number} at Z={z_position}"
-                                )
+                                progress_callback(f"Contact detected for manipulator {info.mm_number} at Z={z_position}")
                             contact_detected = True
 
                         time.sleep(0.1)
@@ -252,9 +244,7 @@ class touchDetect:
                 self._channels_off_single_manipulator(con, smu)
 
             if not (stop_requested_callback and stop_requested_callback()):
-                saved_positions = {
-                    info.mm_number: info.last_z for info in configured_manipulators if info.last_z is not None
-                }
+                saved_positions = {info.mm_number: info.last_z for info in configured_manipulators if info.last_z is not None}
                 if progress_callback:
                     progress_callback("Monitoring completed for all configured manipulators")
                     progress_callback(f"Saved positions: {saved_positions}")
@@ -361,9 +351,7 @@ class touchDetect:
             self._log("PHASE 1: Moving all manipulators to initial contact")
 
             for info in manipulator_info:
-                self._log(
-                    f"Processing manipulator {info.mm_number} with threshold {info.threshold}, stride {info.stride}, max distance {info.sample_width}"
-                )
+                self._log(f"Processing manipulator {info.mm_number} with threshold {info.threshold}, stride {info.stride}, max distance {info.sample_width}")
                 status, result = self._setup_and_move_to_contact(mm, smu, con, info)
                 assert status == 0, f"Failed to move manipulator {info.mm_number} to contact: {result}"
 
@@ -382,9 +370,7 @@ class touchDetect:
                     self._log("All configured manipulators are contacting")
                     break
 
-                self._log(
-                    f"Found {len(uncontacting)} non-contacting manipulators: {[m.mm_number for m in uncontacting]}"
-                )
+                self._log(f"Found {len(uncontacting)} non-contacting manipulators: {[m.mm_number for m in uncontacting]}")
 
                 # Move non-contacting manipulators further toward sample
                 for info in uncontacting:
@@ -511,9 +497,7 @@ class touchDetect:
 
         return contact_status
 
-    def _move_until_contact(
-        self, mm: dict, smu: dict, manipulator_info: ManipulatorInfo, max_distance_to_move: float
-    ) -> tuple[int, dict]:
+    def _move_until_contact(self, mm: dict, smu: dict, manipulator_info: ManipulatorInfo, max_distance_to_move: float) -> tuple[int, dict]:
         """Move the manipulator until contact is detected or the maximum distance is exceeded.
 
         Args:
@@ -538,9 +522,7 @@ class touchDetect:
 
             status, state = mm["mm_zmove"](current_stride)
             assert status == 0, f"Z-move failed: {state}"
-            self._log(
-                f"Moving manipulator {manipulator_info.mm_number} down by {current_stride} microns (total moved: {total_distance + current_stride})"
-            )
+            self._log(f"Moving manipulator {manipulator_info.mm_number} down by {current_stride} microns (total moved: {total_distance + current_stride})")
 
             total_distance += current_stride
             contacting, r = self._contacting(smu, manipulator_info)

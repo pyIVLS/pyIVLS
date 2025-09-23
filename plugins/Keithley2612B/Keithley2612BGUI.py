@@ -102,10 +102,7 @@ class Keithley2612BGUI:
         methods = {
             method: getattr(self, method)
             for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
+            if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods
         }
         return methods
 
@@ -166,9 +163,7 @@ class Keithley2612BGUI:
         """
         self._parse_settings_address()
         try:
-            self.smu.keithley_connect(
-                self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"]
-            )
+            self.smu.keithley_connect(self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"])
             return [0, self.smu.keithley_IDN()]
         except Exception as e:
             return [

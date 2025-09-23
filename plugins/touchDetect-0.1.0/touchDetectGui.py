@@ -445,9 +445,7 @@ class touchDetectGUI:
                     try:
                         res_spin.setValue(int(self.settings[res_key]))
                     except (ValueError, TypeError):
-                        self.logger.log_warn(
-                            f"Invalid resistance threshold for manipulator {i + 1}: {self.settings[res_key]}"
-                        )
+                        self.logger.log_warn(f"Invalid resistance threshold for manipulator {i + 1}: {self.settings[res_key]}")
 
             self.logger.log_debug("GUI updated from internal settings successfully")
             return (0, {"Error message": "GUI updated from settings"})

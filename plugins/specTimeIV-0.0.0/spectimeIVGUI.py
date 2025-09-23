@@ -251,9 +251,7 @@ class specTimeIVGUI:
         This function assumes that the settings have already been set using the `setSettings` function.
         """
         # Use dynamic mapper to set all GUI values with automatic conversion
-        result = self.dynamic_mapper.set_values(
-            self.settings, self.dynamic_field_mapping, self.dynamic_validation_rules
-        )
+        result = self.dynamic_mapper.set_values(self.settings, self.dynamic_field_mapping, self.dynamic_validation_rules)
 
         if result.is_error:
             self.logger.log_error(f"Error setting GUI values: {result.error_message}")
@@ -502,37 +500,21 @@ class specTimeIVGUI:
         s = {}
         # THIS IS MISSING SOURCE VALUE ak start and end
         s["pulse"] = False
-        s["source"] = self.settings[
-            "channel"
-        ]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
+        s["source"] = self.settings["channel"]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
         s["drain"] = self.settings["drainchannel"]
-        s["type"] = (
-            "v" if self.settings["inject"] == "voltage" else "i"
-        )  # source inject current or voltage: may take values [i ,v]
+        s["type"] = "v" if self.settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
         s["single_ch"] = self.settings["singlechannel"]  # single channel mode: may be True or False
 
         s["sourcenplc"] = self.settings["sourcenplc"]  # drain NPLC (may not be used in single channel mode)
-        s["delay"] = (
-            True if self.settings["sourcedelaymode"] == "auto" else False
-        )  # stabilization time mode for source: may take values [True - Auto, False - manual]
-        s["delayduration"] = self.settings[
-            "sourcedelay"
-        ]  # stabilization time duration if manual (may not be used in single channel mode)
-        s["limit"] = self.settings[
-            "sourcelimit"
-        ]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+        s["delay"] = True if self.settings["sourcedelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["delayduration"] = self.settings["sourcedelay"]  # stabilization time duration if manual (may not be used in single channel mode)
+        s["limit"] = self.settings["sourcelimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["sourcehighc"] = self.smu_settings["sourcehighc"]
 
         s["drainnplc"] = self.settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
-        s["draindelay"] = (
-            True if self.settings["draindelaymode"] == "auto" else False
-        )  # stabilization time mode for source: may take values [True - Auto, False - manual]
-        s["draindelayduration"] = self.settings[
-            "draindelay"
-        ]  # stabilization time duration if manual (may not be used in single channel mode)
-        s["drainlimit"] = self.settings[
-            "drainlimit"
-        ]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+        s["draindelay"] = True if self.settings["draindelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["draindelayduration"] = self.settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
+        s["drainlimit"] = self.settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["drainhighc"] = self.smu_settings["drainhighc"]
 
         if self.settings["sourcesensemode"] == "4 wire":
@@ -657,9 +639,7 @@ class specTimeIVGUI:
         # Turn on output
         if not self.settings["singlechannel"]:
             self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source and drain channels.")
-            status, state = function_dict["smu"][smu_name]["smu_outputON"](
-                self.settings["channel"], self.settings["drainchannel"]
-            )
+            status, state = function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"], self.settings["drainchannel"])
         else:
             self.logger.log_debug("_timeIVimplementation: Turning on SMU output for source channel.")
             status, state = function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
@@ -684,16 +664,12 @@ class specTimeIVGUI:
         # check what mode spectrometer is in for integration time
         auto_mode = self.spectrometer_settings["integrationtimetype"] == "auto"
         if auto_mode:
-            self.logger.log_warn(
-                "Spectrometer auto integration time mode is not supported in spectimeIV plugin. Defaulting to constant integration time."
-            )
+            self.logger.log_warn("Spectrometer auto integration time mode is not supported in spectimeIV plugin. Defaulting to constant integration time.")
         # Get and set constant integration time for the measurement
         integration_time_setting = self.spectrometer_settings["integrationTime"]
         self.logger.log_debug(f"Setting constant integration time: {integration_time_setting}")
 
-        status, state = function_dict["spectrometer"][spectrometer_name]["spectrometerSetIntegrationTime"](
-            integration_time_setting
-        )
+        status, state = function_dict["spectrometer"][spectrometer_name]["spectrometerSetIntegrationTime"](integration_time_setting)
         if status:
             self.logger.log_warn(f"Error setting integration time: {state}")
             raise PluginException(f"Error setting integration time: {state}")
@@ -789,12 +765,7 @@ class specTimeIVGUI:
                 self.axes_twinx.cla()
                 self.axes_twinx.plot(timeData, sourceI, "b*")
 
-                if (
-                    not self.settings["singlechannel"]
-                    and drainIV is not None
-                    and drainV is not None
-                    and drainI is not None
-                ):
+                if not self.settings["singlechannel"] and drainIV is not None and drainV is not None and drainI is not None:
                     drainV.append(drainIV[DataOrder.V.value])
                     drainI.append(drainIV[DataOrder.I.value])
                     self.axes_twinx.plot(timeData, drainI, "g*")
@@ -830,22 +801,14 @@ class specTimeIVGUI:
                 # add IV data to the comment on the spectrometer file
                 if not self.settings["singlechannel"] and drainI is not None and drainV is not None:
                     drainIV_formatted = [float(drainI[-1]), float(drainV[-1])]
-                    varDict["comment"] = (
-                        self.spectrometer_settings.get("comment", "")
-                        + f" Time: {toc:.2f}s, Source I/V: {sourceIV_formatted}, Drain I/V: {drainIV_formatted}"
-                    )
+                    varDict["comment"] = self.spectrometer_settings.get("comment", "") + f" Time: {toc:.2f}s, Source I/V: {sourceIV_formatted}, Drain I/V: {drainIV_formatted}"
                 else:
-                    varDict["comment"] = (
-                        self.spectrometer_settings.get("comment", "")
-                        + f" Time: {toc:.2f}s, Source I/V: {sourceIV_formatted}"
-                    )
+                    varDict["comment"] = self.spectrometer_settings.get("comment", "") + f" Time: {toc:.2f}s, Source I/V: {sourceIV_formatted}"
 
                 # Save spectrum file
                 spectrum_address = self.spectrometer_settings["address"] + os.sep + spectrum_filename
                 try:
-                    status, state = function_dict["spectrometer"][spectrometer_name]["createFile"](
-                        varDict=varDict, filedelimeter=";", address=spectrum_address, data=spectrum
-                    )
+                    status, state = function_dict["spectrometer"][spectrometer_name]["createFile"](varDict=varDict, filedelimeter=";", address=spectrum_address, data=spectrum)
                     if status:
                         self.logger.log_error(f"Error saving spectrum: {state}")
                     else:
@@ -913,8 +876,6 @@ class specTimeIVGUI:
                 if exception == 3 or exception == 1:
                     self.logger.info_popup("Implementation stopped because of exception. Check log")
             except Exception as e:
-                self.logger.log_warn(
-                    f"timeIV plugin: smu or spectrometer turn off failed because of unexpected exception: {e}"
-                )
+                self.logger.log_warn(f"timeIV plugin: smu or spectrometer turn off failed because of unexpected exception: {e}")
                 self.logger.info_popup("SMU or spectrometer turn off failed. Check log")
             self.set_running(False)

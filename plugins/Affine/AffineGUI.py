@@ -350,15 +350,11 @@ class AffineGUI:
         status, settings = self.parse_settings_widget()
         if status == 0:
             # Pass the settings dict to the dialog
-            self.dialog = dialog(
-                self.affine, img[1], self.mdi_mask, settings, pointslist=pointslist, logger=self.logger
-            )
+            self.dialog = dialog(self.affine, img[1], self.mdi_mask, settings, pointslist=pointslist, logger=self.logger)
             self.dialog.finished.connect(_on_close)
             self.dialog.show()
         else:
-            self.logger.log_warn(
-                f"Affine: Error parsing settings widget: {settings['error message']} {settings['exception']}"
-            )
+            self.logger.log_warn(f"Affine: Error parsing settings widget: {settings['error message']} {settings['exception']}")
 
     def _gds_label_clicked(self, event):
         def measurement_point_mode(x, y):

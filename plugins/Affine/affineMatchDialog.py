@@ -276,9 +276,7 @@ class Ui_Dialog(object):
         self.morphologyMask.setText(QCoreApplication.translate("Dialog", "morphology mask", None))
         self.morphologyImage.setText(QCoreApplication.translate("Dialog", "morphology img", None))
         self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", "Feature detector settings", None))
-        self.label_2.setText(
-            QCoreApplication.translate("Dialog", "Residual threshold (larger -> more matches but less accurate)", None)
-        )
+        self.label_2.setText(QCoreApplication.translate("Dialog", "Residual threshold (larger -> more matches but less accurate)", None))
         self.label.setText(QCoreApplication.translate("Dialog", "ratio test) ", None))
         self.crossCheck.setText(QCoreApplication.translate("Dialog", "Crosscheck", None))
         self.label_3.setText(QCoreApplication.translate("Dialog", "Feature detector backend", None))

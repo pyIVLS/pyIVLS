@@ -48,12 +48,7 @@ class AABB:
 
         # Check for overlap using the standard AABB collision detection algorithm
         # Use <= for touching to not be considered collision
-        return not (
-            self_max_x <= other_min_x
-            or self_min_x >= other_max_x
-            or self_max_y <= other_min_y
-            or self_min_y >= other_max_y
-        )
+        return not (self_max_x <= other_min_x or self_min_x >= other_max_x or self_max_y <= other_min_y or self_min_y >= other_max_y)
 
     def __str__(self) -> str:
         return f"AABB({self.tip_x:.1f}, {self.tip_y:.1f})"
@@ -107,9 +102,7 @@ class CollisionDetector:
         """Get all bounding boxes"""
         return self.bounding_boxes.copy()
 
-    def check_move_collision(
-        self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]], trajectory_steps: int = 20
-    ) -> bool:
+    def check_move_collision(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]], trajectory_steps: int = 20) -> bool:
         """
         Check if a single manipulator movement would cause collisions.
 
@@ -155,9 +148,7 @@ class CollisionDetector:
 
         return False  # No collision detected
 
-    def generate_safe_movement_sequence(
-        self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]
-    ) -> List[Tuple[int, Tuple[float, float]]]:
+    def generate_safe_movement_sequence(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> List[Tuple[int, Tuple[float, float]]]:
         """
         Generate a safe movement sequence to avoid collisions.
 
@@ -196,9 +187,7 @@ class CollisionDetector:
         print("Segmented moves failed, trying with avoidance moves...")
         return self._generate_avoidance_movement_sequence(moves)
 
-    def _test_movement_sequence(
-        self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]], sequence: List[int]
-    ) -> bool:
+    def _test_movement_sequence(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]], sequence: List[int]) -> bool:
         """Test if a movement sequence is collision-free"""
         # Store original positions
         original_positions = {}
@@ -231,9 +220,7 @@ class CollisionDetector:
                 if manip_idx in self.bounding_boxes:
                     self.bounding_boxes[manip_idx].move_bbox(orig_x, orig_y)
 
-    def _generate_linear_trajectory(
-        self, start: Tuple[float, float], end: Tuple[float, float], steps: int
-    ) -> List[Tuple[float, float]]:
+    def _generate_linear_trajectory(self, start: Tuple[float, float], end: Tuple[float, float], steps: int) -> List[Tuple[float, float]]:
         """Generate linear trajectory between two points"""
         start_x, start_y = start
         end_x, end_y = end
@@ -253,9 +240,7 @@ class CollisionDetector:
 
         return trajectory
 
-    def _generate_segmented_movement_sequence(
-        self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]
-    ) -> List[Tuple[int, Tuple[float, float]]]:
+    def _generate_segmented_movement_sequence(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> List[Tuple[int, Tuple[float, float]]]:
         """
         Generate a safe movement sequence by breaking moves into X and Y components.
 
@@ -302,9 +287,7 @@ class CollisionDetector:
         print("No safe segmented sequence found")
         return []  # No safe sequence found even with segmentation
 
-    def _try_segmentation_permutations(
-        self, segmented_moves: Dict, approach_name: str
-    ) -> List[Tuple[int, Tuple[float, float]]]:
+    def _try_segmentation_permutations(self, segmented_moves: Dict, approach_name: str) -> List[Tuple[int, Tuple[float, float]]]:
         """Try all permutations of a given segmentation approach"""
         if not segmented_moves:
             return []
@@ -342,9 +325,7 @@ class CollisionDetector:
         print(f"No safe {approach_name} sequence found after testing {permutation_count} permutations")
         return []
 
-    def _create_segmented_moves(
-        self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]
-    ) -> Dict[Tuple[int, str], Tuple[Tuple[float, float], Tuple[float, float]]]:
+    def _create_segmented_moves(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> Dict[Tuple[int, str], Tuple[Tuple[float, float], Tuple[float, float]]]:
         """
         Break down moves into X and Y components.
 
@@ -466,9 +447,7 @@ class CollisionDetector:
                 if manip_idx in self.bounding_boxes:
                     self.bounding_boxes[manip_idx].move_bbox(orig_x, orig_y)
 
-    def _generate_avoidance_movement_sequence(
-        self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]
-    ) -> List[Tuple[int, Tuple[float, float]]]:
+    def _generate_avoidance_movement_sequence(self, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> List[Tuple[int, Tuple[float, float]]]:
         """
         Generate a movement sequence with avoidance moves to handle complex collision scenarios.
         This method tries to inject intermediate moves that get manipulators out of each other's way.
@@ -500,9 +479,7 @@ class CollisionDetector:
         print("No avoidance sequence found")
         return []
 
-    def _is_manipulator_blocking_path(
-        self, blocking_manip: int, blocked_manip: int, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]
-    ) -> bool:
+    def _is_manipulator_blocking_path(self, blocking_manip: int, blocked_manip: int, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> bool:
         """
         Check if one manipulator is blocking the path of another.
 
@@ -564,9 +541,7 @@ class CollisionDetector:
 
         return []
 
-    def _calculate_avoidance_moves(
-        self, blocking_manip: int, blocked_manip: int, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]
-    ) -> List[Tuple[float, float]]:
+    def _calculate_avoidance_moves(self, blocking_manip: int, blocked_manip: int, moves: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]]) -> List[Tuple[float, float]]:
         """
         Calculate potential avoidance positions for the blocking manipulator.
 
