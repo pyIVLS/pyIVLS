@@ -40,7 +40,13 @@ class pyIVLS_DummyCamera_plugin:
         self._class = config.get("plugin", "class", fallback="")
         self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
         self.version = config.get("plugin", "version", fallback="")
-        self.metadata = {"name": self.name, "type": self.type, "function": self.function, "version": self.version, "dependencies": self.dependencies}
+        self.metadata = {
+            "name": self.name,
+            "type": self.type,
+            "function": self.function,
+            "version": self.version,
+            "dependencies": self.dependencies,
+        }
 
         self.camera_control = DummyCameraGUI()
 

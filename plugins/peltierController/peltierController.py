@@ -14,7 +14,9 @@ class peltierController:
         self.device.bytesize = serial.EIGHTBITS  # number of bits per bytes
         self.device.parity = serial.PARITY_NONE  # set parity check: no parity
         self.device.stopbits = serial.STOPBITS_ONE  # number of stop bits
-        self.device.writeTimeout = 2  # just to make sure that there will be enough time if there will be overlapping operations
+        self.device.writeTimeout = (
+            2  # just to make sure that there will be enough time if there will be overlapping operations
+        )
 
         self.lock = Lock()
 

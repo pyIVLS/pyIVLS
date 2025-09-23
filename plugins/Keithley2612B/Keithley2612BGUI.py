@@ -99,7 +99,14 @@ class Keithley2612BGUI:
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods}
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method))
+            and not method.startswith("__")
+            and not method.startswith("_")
+            and method not in self.non_public_methods
+        }
         return methods
 
     ########Functions to be used externally
@@ -157,7 +164,9 @@ class Keithley2612BGUI:
         """
         self._parse_settings_address()
         try:
-            self.smu.keithley_connect(self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"])
+            self.smu.keithley_connect(
+                self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"]
+            )
             return [0, self.smu.keithley_IDN()]
         except Exception as e:
             return [
@@ -248,7 +257,6 @@ class Keithley2612BGUI:
         """
         return [0, self.smu.getIV(channel)]
 
-
     def smu_setOutput(self, channel, outputType, value):
         #        """sets smu output but does not switch it ON
         # channel = "smua" or "smub"
@@ -257,7 +265,6 @@ class Keithley2612BGUI:
         #        """
         self.smu.setOutput(channel, outputType, value)
         return [0, "OK"]
-
 
     def smu_setup_resmes(self, channel):
         """Sets up resistance measurement
@@ -274,7 +281,6 @@ class Keithley2612BGUI:
         else:
             return (4, {"Error message": f"HW issue in keithley resistance setup: {err_text}"})
 
-
     def smu_resmes(self, channel):
         """Measures resistance on the specified channel.
 
@@ -286,7 +292,6 @@ class Keithley2612BGUI:
         """
         resistance = self.smu.resistance_measurement(channel)
         return (0, resistance)
-
 
     def smu_set_digio(self, channel, value):
         """Sets digital output on the specified channel.
@@ -300,4 +305,3 @@ class Keithley2612BGUI:
         """
         self.smu.set_digio(channel, value)
         return (0, {"Error message": "Digital output set successfully"})
-

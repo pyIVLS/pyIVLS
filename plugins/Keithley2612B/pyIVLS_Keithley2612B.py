@@ -12,7 +12,14 @@ class pyIVLS_Keithley2612B_plugin:
         self.type = "device"  # unnecessary
         self.address = "Keithley2612B"  # unnecessary
         self.smu = Keithley2612BGUI()
-        self.metadata = {"name": self.plugin_name, "type": self.type, "function": self.plugin_function, "address": self.address, "version": "placeholder", "dependencies": self.dependencies}
+        self.metadata = {
+            "name": self.plugin_name,
+            "type": self.type,
+            "function": self.plugin_function,
+            "address": self.address,
+            "version": "placeholder",
+            "dependencies": self.dependencies,
+        }
 
     @hookimpl
     def get_setup_interface(self, plugin_data) -> dict:

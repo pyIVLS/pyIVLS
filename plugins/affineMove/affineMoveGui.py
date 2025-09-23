@@ -231,10 +231,10 @@ class affineMoveGUI(QObject):
                     f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)"
                 )
                 # calibrate
-                #status, state = mm["mm_calibrate"]()
-                #self.logger.log_debug(
+                # status, state = mm["mm_calibrate"]()
+                # self.logger.log_debug(
                 #    f"Calibration status manipulator {i + 1}: {state.get('Error message', 'Success')}"
-                #)
+                # )
                 """                
                 # move to "home"
                 status, state = mm["mm_move"](12500, 12500)
@@ -256,7 +256,7 @@ class affineMoveGUI(QObject):
                             f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}"
                         )
                         return
-                    status, state = mm["mm_move_relative"](z_change=1000) # back down after move
+                    status, state = mm["mm_move_relative"](z_change=1000)  # back down after move
                     if status:
                         self.logger.log_info(
                             f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}"
@@ -733,7 +733,6 @@ class affineMoveGUI(QObject):
         except Exception as e:
             self.logger.log_warn(f"Error adding visual overlays: {e}")
 
-
     def _get_manipulator_positions_in_camera(self):
         """
         Get current positions of all manipulators in camera coordinates using cached positions.
@@ -872,19 +871,14 @@ class affineMoveGUI(QObject):
                     cam_pos = self.convert_mm_to_camera_coords((final_pos[0], final_pos[1]), manipulator_idx)
                     if cam_pos:
                         # Update collision detector with new tip position
-                        self.collision_detector.update_manipulator_tip_position(
-                            manipulator_idx, cam_pos[0], cam_pos[1]
-                        )
+                        self.collision_detector.update_manipulator_tip_position(manipulator_idx, cam_pos[0], cam_pos[1])
                         self.logger.log_debug(
                             f"Updated bounding box tip for manipulator {manipulator_idx} to camera coords: {cam_pos}"
                         )
 
-
             self.logger.log_debug(f"Successfully moved manipulator {manipulator_idx} to ({x}, {y})")
 
         return status, state
-
-
 
     def _get_target_coords_in_camera(self):
         """
@@ -1203,7 +1197,6 @@ class affineMoveGUI(QObject):
         else:
             return 1, f"Only {successful_moves}/{total_moves} moves completed successfully"
 
-
     def _update_planned_moves_visualization(self, current_move_idx: int):
         """
         Update the visualization to show only the next planned move.
@@ -1232,7 +1225,6 @@ class affineMoveGUI(QObject):
                 self.update_planned_moves_signal.emit(planned_moves)
                 return
 
-
         # If we couldn't get current position, clear visualization
         self.clear_planned_moves_signal.emit()
 
@@ -1253,7 +1245,6 @@ class affineMoveGUI(QObject):
                 current_cam_pos = self.convert_mm_to_camera_coords((cached_pos[0], cached_pos[1]), manip_idx)
                 if current_cam_pos:
                     preview_moves.append((manip_idx, current_cam_pos, (target_cam_x, target_cam_y)))
-
 
         if preview_moves:
             # Emit signal to show preview

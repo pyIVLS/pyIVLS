@@ -188,7 +188,10 @@ class pyIVLS_seqBuilder(QObject):
 
     def update_classView(self):
         self.widget.comboBox_class.clear()
-        if not (self.widget.comboBox_function.currentText() == "" or self.widget.comboBox_function.currentText() == "loop end"):
+        if not (
+            self.widget.comboBox_function.currentText() == ""
+            or self.widget.comboBox_function.currentText() == "loop end"
+        ):
             for item in self.available_instructions[self.widget.comboBox_function.currentText()]["class"]:
                 self.widget.comboBox_class.addItem(item)
 
@@ -222,7 +225,9 @@ class pyIVLS_seqBuilder(QObject):
             )
 
     def _readRecipeAction(self):
-        filename = QFileDialog.getOpenFileName(None, "Open pyIVLS sequence file", self.path, "json (*.json);; all (*.*)")
+        filename = QFileDialog.getOpenFileName(
+            None, "Open pyIVLS sequence file", self.path, "json (*.json);; all (*.*)"
+        )
         if not filename[0]:
             return 1
         with open(filename[0], "r") as file:
@@ -288,7 +293,9 @@ class pyIVLS_seqBuilder(QObject):
                 child_class = item.child(row, 1)
                 if child_class and child_class.text() == "loop":
                     if not loop_has_step_descendant(child_func):
-                        self.info_message.emit(f"Error: Loop '{child_func.text()}' does not contain any step instructions.")
+                        self.info_message.emit(
+                            f"Error: Loop '{child_func.text()}' does not contain any step instructions."
+                        )
                         return True
                 check_empty_loops(child_func)
                 return False
@@ -316,7 +323,9 @@ class pyIVLS_seqBuilder(QObject):
             self.info_message.emit("Cannot add a plugin that already exists in its ancestry or as a direct child")
             return 1
 
-        status, instructionSettings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
+        status, instructionSettings = self.available_instructions[instructionFunc]["functions"][
+            "parse_settings_widget"
+        ]()
         if status:
             self.info_message.emit(instructionSettings["Error message"])
             return 1
@@ -377,7 +386,9 @@ class pyIVLS_seqBuilder(QObject):
             while (not stackData == []) or (not looping == []):
                 if not looping == []:
                     if looping[-1]["currentStep"] == 0:
-                        [status, iterText] = self.available_instructions[looping[-1]["loopFunction"]]["functions"]["loopingIteration"](looping[-1]["currentIteration"])
+                        [status, iterText] = self.available_instructions[looping[-1]["loopFunction"]]["functions"][
+                            "loopingIteration"
+                        ](looping[-1]["currentIteration"])
                         if status:
                             raise ValueError(iterText)
                             """
@@ -407,7 +418,9 @@ class pyIVLS_seqBuilder(QObject):
                     namePostfix = ""
                     for loopItem in looping:
                         namePostfix = namePostfix + loopItem["namePostfix"]
-                    [status, message] = self.available_instructions[nextStepFunction]["functions"]["sequenceStep"](namePostfix)
+                    [status, message] = self.available_instructions[nextStepFunction]["functions"]["sequenceStep"](
+                        namePostfix
+                    )
                     if status:
                         raise ValueError(message)
                         """
@@ -418,7 +431,17 @@ class pyIVLS_seqBuilder(QObject):
                         break
                 if nextStepClass == "loop":
                     iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
-                    looping.append({"looping": stackItem["looping"], "loopFunction": nextStepFunction, "totalSteps": len(stackItem["looping"]), "currentStep": 0, "totalIterations": iter, "currentIteration": 0, "namePostfix": ""})
+                    looping.append(
+                        {
+                            "looping": stackItem["looping"],
+                            "loopFunction": nextStepFunction,
+                            "totalSteps": len(stackItem["looping"]),
+                            "currentStep": 0,
+                            "totalIterations": iter,
+                            "currentIteration": 0,
+                            "namePostfix": "",
+                        }
+                    )
                     stackData = stackItem["looping"] + stackData
             self.log_message.emit("pyIVLS_seqBuilder: Sequence parser finished")
             self._sigSeqEnd.emit()
@@ -426,8 +449,7 @@ class pyIVLS_seqBuilder(QObject):
             print(f"Error occurred: {e}")
         finally:
             self._setNotRunning()
-            self._sigSeqEnd.emit()  
-
+            self._sigSeqEnd.emit()
 
     def _runAction(self):
         # disable controls

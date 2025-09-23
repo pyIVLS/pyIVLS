@@ -71,7 +71,9 @@ class itc503:
         with self.lock:
             self.device.clear()  # it may be an exageration, but it feels that sometimes there are some bytes left in buffer
             self.device.write("R1")
-            str = self.device.read_bytes(8)  # a workaround, as the number of bytes is different, and self.device.read does not work
+            str = self.device.read_bytes(
+                8
+            )  # a workaround, as the number of bytes is different, and self.device.read does not work
             if str[-1] == ord("\r"):
                 temp = float(str[1:-1])
                 self.device.clear()

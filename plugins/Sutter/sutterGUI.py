@@ -102,15 +102,9 @@ class SutterGUI(QObject):
         self.cl = CloseLockSignalProvider()
         self.settings = {}
 
-    def setup(self, settings):
-        """
-        Setup the sutter GUI by loading ui and initializing the hal. Connect buttons to functions.
-        """
+        # loading ui since it might be accessed before setup is called
         path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(path + "Sutter_settingsWidget.ui")
-
-        # Store settings internally in .ini format
-        self.settings = copy.deepcopy(settings)
 
         # connect buttons to functions
         self.settingsWidget.connectButton.clicked.connect(self._connect_button)
@@ -126,6 +120,13 @@ class SutterGUI(QObject):
         self.source_input: QtWidgets.QLineEdit = self.settingsWidget.sourceInput
         self.speed_input: QtWidgets.QComboBox = self.settingsWidget.speedComboBox
         self.devnum_combo: QtWidgets.QComboBox = self.settingsWidget.devnumCombo
+
+    def setup(self, settings):
+        """
+        Setup the sutter GUI by loading ui and initializing the hal. Connect buttons to functions.
+        """
+        # Store settings internally in .ini format
+        self.settings = copy.deepcopy(settings)
 
         # fill combobox
         speeds = self.hal._MOVE_SPEEDS
@@ -347,12 +348,13 @@ class SutterGUI(QObject):
                 print(f"moved with speed {i}: {np.mean(move_times)} seconds")
                 self.hal.quick_move = initial
                 self.hal.speed = initial_speed
-            
+
         def check_fast_moves():
             import time
             import numpy as np
+
             # Running this shows that speeds up to 12 work when using spesified wait time between command1 and 2. When using wait time * 4 modes up to 13 work.
-            for i in range(12,16):
+            for i in range(12, 16):
                 n = 1000
                 pos = self.hal.get_current_position()
                 move_times = []
@@ -373,7 +375,7 @@ class SutterGUI(QObject):
                 """
                 print(f"moved with speed {i}: {np.mean(move_times)} seconds")
                 self.hal.quick_move = initial
-                self.hal.speed = initial_speed   
+                self.hal.speed = initial_speed
 
         def check_working_slow_moves_multi_axis():
             import time

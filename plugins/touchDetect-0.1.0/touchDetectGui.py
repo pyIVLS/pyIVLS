@@ -321,6 +321,8 @@ class touchDetectGUI:
             self.monitoring_thread.start()
         else:
             self.logger.log_info("Stopping monitoring thread")
+            self.is_monitoring = False
+            self.settingsWidget.pushButton_2.setText("Start Monitoring")
             if self.monitoring_thread:
                 self.monitoring_thread.stop()
 

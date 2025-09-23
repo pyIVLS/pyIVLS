@@ -795,7 +795,7 @@ class sweepGUI(QObject):
         [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
         if status:
             return [status, message]
-        self._sweepImplementation()
+        self._sequenceImplementation()
         self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
         return [0, "sweep finished"]
 
@@ -822,21 +822,15 @@ class sweepGUI(QObject):
             )
             exception = 3
         finally:
-            try:
-                if exception > 1:
-                    self.function_dict["smu"][self.settings["smu"]]["smu_abort"](self.settings["channel"])
-                    if not self.settings["singlechannel"]:
-                        self.function_dict["smu"][self.settings["smu"]]["smu_abort"](self.settings["drainchannel"])
-                self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
-                self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
-                if exception == 3 or exception == 1:
-                    self.logger.info_popup("Implementation stopped because of exception. Check log")
-            except Exception as e:
-                self.logger.log_error(
-                    datetime.now().strftime("%H:%M:%S.%f")
-                    + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}"
-                )
-                self.logger.info_popup("SMU turn off failed. Check log")
+            if exception > 1:
+                self.function_dict["smu"][self.settings["smu"]]["smu_abort"](self.settings["channel"])
+                if not self.settings["singlechannel"]:
+                    self.function_dict["smu"][self.settings["smu"]]["smu_abort"](self.settings["drainchannel"])
+            self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
+            self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
+            if exception == 3 or exception == 1:
+                self.logger.info_popup("Implementation stopped because of exception. Check log")
+
             self.set_running(False)
 
     @public

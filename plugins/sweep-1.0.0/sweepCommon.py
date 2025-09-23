@@ -123,16 +123,26 @@ def create_sweep_reciepe(settings, settings_smu):
     recipe = []
     s = {}
     # making a template for modification
-    s["source"] = settings["channel"]  # source channel: may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
+    s["source"] = settings[
+        "channel"
+    ]  # source channel: may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
     s["drain"] = settings["drainchannel"]
-    s["type"] = "v" if settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
+    s["type"] = (
+        "v" if settings["inject"] == "voltage" else "i"
+    )  # source inject current or voltage: may take values [i ,v]
     s["single_ch"] = settings["singlechannel"]  # single channel mode: may be True or False
     s["repeat"] = settings["repeat"]  # repeat count: should be int >0
     s["pulsepause"] = settings["pulsedpause"]  # pause between pulses in sweep (may not be used in continuous)
     s["drainnplc"] = settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
-    s["draindelay"] = settings["draindelaymode"]  # stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)
-    s["draindelayduration"] = settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
-    s["drainlimit"] = settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+    s["draindelay"] = settings[
+        "draindelaymode"
+    ]  # stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)
+    s["draindelayduration"] = settings[
+        "draindelay"
+    ]  # stabilization time duration if manual (may not be used in single channel mode)
+    s["drainlimit"] = settings[
+        "drainlimit"
+    ]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
     s["sourcehighc"] = settings_smu["sourcehighc"]
     s["drainhighc"] = settings_smu["drainhighc"]
     if settings["singlechannel"]:
@@ -167,26 +177,36 @@ def create_sweep_reciepe(settings, settings_smu):
         s["drainvoltage"] = drainstart + drainstep * drainchange  # voltage on drain
         for sensecnt, sense in enumerate(loopsensesource):
             s["sourcesense"] = sense  # source sence mode: may take values [True - 4 wire, False - 2 wire]
-            s["drainsense"] = loopsensedrain[sensecnt]  # drain sence mode: may take values [True - 4 wire, False - 2 wire]
+            s["drainsense"] = loopsensedrain[
+                sensecnt
+            ]  # drain sence mode: may take values [True - 4 wire, False - 2 wire]
             if not (settings["mode"] == "pulsed"):
                 s["pulse"] = False  # set pulsed mode: may be True - pulsed, False - continuous
                 s["sourcenplc"] = settings["continuousnplc"]  # integration time in nplc units
-                s["delay"] = settings["continuousdelaymode"]  # stabilization time mode for source: may take values [True - Auto, False - manual]
+                s["delay"] = settings[
+                    "continuousdelaymode"
+                ]  # stabilization time mode for source: may take values [True - Auto, False - manual]
                 s["delayduration"] = settings["continuousdelay"]  # stabilization time duration if manual
                 s["steps"] = settings["continuouspoints"]  # number of points in sweep
                 s["start"] = settings["continuousstart"]  # start point of sweep
                 s["end"] = settings["continuousend"]  # end point of sweep
-                s["limit"] = settings["continuouslimit"]  # limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
+                s["limit"] = settings[
+                    "continuouslimit"
+                ]  # limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
                 recipe.append(copy.deepcopy(s))
             if not (settings["mode"] == "continuous"):
                 s["pulse"] = True  # set pulsed mode: may be True - pulsed, False - continuous
                 s["sourcenplc"] = settings["pulsednplc"]  # integration time in nplc units
-                s["delay"] = settings["pulseddelaymode"]  # stabilization time mode for source: may take values [True - Auto, False - manual]
+                s["delay"] = settings[
+                    "pulseddelaymode"
+                ]  # stabilization time mode for source: may take values [True - Auto, False - manual]
                 s["delayduration"] = settings["pulseddelay"]  # stabilization time duration if manual
                 s["steps"] = settings["pulsedpoints"]  # number of points in sweep
                 s["start"] = settings["pulsedstart"]  # start point of sweep
                 s["end"] = settings["pulsedend"]  # end point of sweep
-                s["limit"] = settings["pulsedlimit"]  # limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
+                s["limit"] = settings[
+                    "pulsedlimit"
+                ]  # limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
                 recipe.append(copy.deepcopy(s))
 
     return [recipe, loopdrain, len(loopsensesource), 2 if settings["mode"] == "mixed" else 1]

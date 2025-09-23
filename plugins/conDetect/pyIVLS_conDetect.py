@@ -17,7 +17,14 @@ class pyIVLS_conDetect_plugin:
         self.dependencies = []
         self.type = "script"  # unnecessary
         self.address = "conDetect"  # unnecessary
-        self.metadata = {"name": self.plugin_name, "type": self.type, "function": self.plugin_function, "address": self.address, "version": "placeholder", "dependencies": self.dependencies}
+        self.metadata = {
+            "name": self.plugin_name,
+            "type": self.type,
+            "function": self.plugin_function,
+            "address": self.address,
+            "version": "placeholder",
+            "dependencies": self.dependencies,
+        }
 
         self.GUI = conDetectGUI()
 

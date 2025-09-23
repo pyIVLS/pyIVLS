@@ -146,27 +146,37 @@ class CCSDRV:
 
         statuses = []
         if debug:
-            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_IDLE, '016b')} for scan_idle")
+            print(
+                f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_IDLE, '016b')} for scan_idle"
+            )
         if status & const.CCS_SERIES_STATUS_SCAN_IDLE:
             statuses.append("SCAN_IDLE")
 
         if debug:
-            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_TRIGGERED, '016b')} for scan_triggered")
+            print(
+                f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_TRIGGERED, '016b')} for scan_triggered"
+            )
         if status & const.CCS_SERIES_STATUS_SCAN_TRIGGERED:
             statuses.append("SCAN_TRIGGERED")
 
         if debug:
-            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_START_TRANS, '016b')} for scan_start_trans")
+            print(
+                f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_START_TRANS, '016b')} for scan_start_trans"
+            )
         if status & const.CCS_SERIES_STATUS_SCAN_START_TRANS:
             statuses.append("SCAN_START_TRANS")
 
         if debug:
-            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_TRANSFER, '016b')} for scan_transfer")
+            print(
+                f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_TRANSFER, '016b')} for scan_transfer"
+            )
         if status & const.CCS_SERIES_STATUS_SCAN_TRANSFER:
             statuses.append("SCAN_TRANSFER")
 
         if debug:
-            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_WAIT_FOR_EXT_TRIG, '016b')} for wait_for_ext_trig")
+            print(
+                f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_WAIT_FOR_EXT_TRIG, '016b')} for wait_for_ext_trig"
+            )
         if status & const.CCS_SERIES_STATUS_WAIT_FOR_EXT_TRIG:
             statuses.append("WAIT_FOR_EXT_TRIG")
         if debug:

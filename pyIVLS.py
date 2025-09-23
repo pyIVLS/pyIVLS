@@ -50,7 +50,10 @@ def update_settings_widget():
             plugin_name = list(closeLockSignal_dict.keys())[0]
             signal = closeLockSignal_dict[plugin_name]
             # Use lambda to capture plugin_name
-            signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name), type=Qt.ConnectionType.UniqueConnection)
+            signal.connect(
+                lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name),
+                type=Qt.ConnectionType.UniqueConnection,
+            )
         except Exception:
             pass
 

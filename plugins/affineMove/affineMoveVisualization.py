@@ -4,7 +4,14 @@ Separated from main GUI class to improve modularity and maintainability.
 """
 
 import numpy as np
-from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsTextItem, QGraphicsRectItem
+from PyQt6.QtWidgets import (
+    QGraphicsScene,
+    QGraphicsView,
+    QGraphicsEllipseItem,
+    QGraphicsLineItem,
+    QGraphicsTextItem,
+    QGraphicsRectItem,
+)
 from PyQt6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QFont
 from PyQt6.QtCore import Qt
 
@@ -76,7 +83,7 @@ class AffineMoveVisualization:
                     if pos:
                         self._draw_target_reference_dot(pos, mm_idx)
 
-        # Draw planned moves 
+        # Draw planned moves
         if planned_moves:
             self._draw_planned_moves(planned_moves)
 
@@ -185,21 +192,20 @@ class AffineMoveVisualization:
     def _draw_bounding_box(self, aabb, mm_idx):
         """Draw bounding box for a manipulator."""
         color = self._get_manipulator_color(mm_idx)
-        
+
         try:
             corners = aabb.get_absolute_corners()
-            
+
             # Two points defining a rectangle (top-left and bottom-right)
             x1, y1 = corners[0]
             x2, y2 = corners[1]
-            
+
             # Create rectangle
             rect = QGraphicsRectItem(x1, y1, x2 - x1, y2 - y1)
             rect.setPen(QPen(color, 3))  # Thicker lines for better visibility
             rect.setBrush(QBrush())  # Transparent fill
             self.graphics_scene.addItem(rect)
-                
-                
+
         except Exception as e:
             print(f"Error drawing bounding box for manipulator {mm_idx}: {e}")
 

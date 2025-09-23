@@ -1,17 +1,17 @@
-
 import pyvisa
+
 rm = pyvisa.ResourceManager("@py")
-print(rm.list_resources('?*'))
+print(rm.list_resources("?*"))
 keithley_add = "192.168.001.005"
 keithley_port = 5025
 Keithley_visa = f"TCPIP::{keithley_add}::{keithley_port}::SOCKET"
 session = rm.open_resource(Keithley_visa)
-print('\n Open Successful!')
+print("\n Open Successful!")
 session.read_termination = "\n"
 session.write_termination = "\n"
-command = '*IDN?'
-print('Command: ' + command)
-print('IDN: ' + str(session.query(command)))
+command = "*IDN?"
+print("Command: " + command)
+print("IDN: " + str(session.query(command)))
 
 
 """

@@ -385,7 +385,9 @@ class Mpc325:
             )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
 
             self.ser.write(command1)
-            time.sleep(0.035)  # wait period specified in the manual (30 ms) Updated to 35 ms on recommendation from Sutter instr 
+            time.sleep(
+                0.035
+            )  # wait period specified in the manual (30 ms) Updated to 35 ms on recommendation from Sutter instr
             self.ser.write(command2)
             if debug:
                 print(f"Moving to ({x}, {y}, {z}) at speed {speed}")

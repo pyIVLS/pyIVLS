@@ -601,15 +601,16 @@ class Keithley2612B:
                 return 0
 
             except Exception as e:
-                # if something fails, abort the measurement and turn off the source.
-                self.safewrite(f"{s['source']}.abort()")
-                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
-                if not s["single_ch"]:
-                    self.safewrite(f"{s['drain']}.abort()")
-                    self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
+                self.abort_sweep()
                 print(f"Caught exception during keithley_run_sweep : {e}")
                 raise e
-                return 1
+    
+    def abort_sweep(self):
+        """Aborts any ongoing sweep on both channels."""
+        self.safewrite("smua.abort()")
+        self.safewrite("smub.abort()")
+        self.safewrite("smua.source.output = smua.OUTPUT_OFF")
+        self.safewrite("smub.source.output = smub.OUTPUT_OFF")
 
     def set_digio(self, line_id: int, value: bool):
         """Set a digital I/O line to a value.

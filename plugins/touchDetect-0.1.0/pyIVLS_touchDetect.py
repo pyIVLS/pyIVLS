@@ -37,7 +37,9 @@ class pyIVLS_touchDetect_plugin:
         Returns:
             dict: name, widget
         """
-        settings = plugin_data[self.name]["settings"]  # No getters here, let's crash properly if something is missing from the .ini
+        settings = plugin_data[self.name][
+            "settings"
+        ]  # No getters here, let's crash properly if something is missing from the .ini
         return {self.name: self.pluginClass.setup(settings)}
 
     @hookimpl
