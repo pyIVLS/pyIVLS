@@ -246,10 +246,8 @@ class Keithley2612BGUI:
         Returns:
             list [i, v]
         """
-        try:
-            return [0, self.smu.getIV(channel)]
-        except Exception as _:
-            return [4, {"Error message": "Failed to get IV data"}]
+        return [0, self.smu.getIV(channel)]
+
 
     def smu_setOutput(self, channel, outputType, value):
         #        """sets smu output but does not switch it ON
@@ -257,11 +255,9 @@ class Keithley2612BGUI:
         # outputType = "i" or "v"
         # value = float
         #        """
-        try:
-            self.smu.setOutput(channel, outputType, value)
-            return [0, "OK"]
-        except Exception as _:
-            return [4, {"Error message": "Failed to set smu output"}]
+        self.smu.setOutput(channel, outputType, value)
+        return [0, "OK"]
+
 
     def smu_setup_resmes(self, channel):
         """Sets up resistance measurement
@@ -272,14 +268,12 @@ class Keithley2612BGUI:
         Returns:
             tuple: (status, resistance value) where status is 0 for success, non-zero for error.
         """
-        try:
-            success, err_text = self.smu.resistance_measurement_setup(channel)
-            if success:
-                return (0, {"Error message": "Keithley setup resistance measurement"})
-            else:
-                return (4, {"Error message": f"HW issue in keithley resistance setup: {err_text}"})
-        except Exception as e:
-            return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})
+        success, err_text = self.smu.resistance_measurement_setup(channel)
+        if success:
+            return (0, {"Error message": "Keithley setup resistance measurement"})
+        else:
+            return (4, {"Error message": f"HW issue in keithley resistance setup: {err_text}"})
+
 
     def smu_resmes(self, channel):
         """Measures resistance on the specified channel.
@@ -290,11 +284,9 @@ class Keithley2612BGUI:
         Returns:
             tuple: (status, resistance value) where status is 0 for success, non-zero for error.
         """
-        try:
-            resistance = self.smu.resistance_measurement(channel)
-            return (0, resistance)
-        except Exception as e:
-            return (4, {"Error message": f"Failed to measure resistance: {str(e)}"})
+        resistance = self.smu.resistance_measurement(channel)
+        return (0, resistance)
+
 
     def smu_set_digio(self, channel, value):
         """Sets digital output on the specified channel.
@@ -306,8 +298,6 @@ class Keithley2612BGUI:
         Returns:
             tuple: (status, message) where status is 0 for success, non-zero for error.
         """
-        try:
-            self.smu.set_digio(channel, value)
-            return (0, {"Error message": "Digital output set successfully"})
-        except Exception as e:
-            return (4, {"Error message": "Failed to set digital output", "Exception": str(e)})
+        self.smu.set_digio(channel, value)
+        return (0, {"Error message": "Digital output set successfully"})
+

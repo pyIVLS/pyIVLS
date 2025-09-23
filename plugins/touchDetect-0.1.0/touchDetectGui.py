@@ -11,6 +11,7 @@ from plugins.plugin_components import (
     DependencyManager,
 )
 from components.worker_thread import WorkerThread
+from components.threadStopped import ThreadStopped
 
 
 class touchDetectGUI:
@@ -127,40 +128,51 @@ class touchDetectGUI:
         mm, smu, con = self._fetch_dep_plugins()
 
         # Update SMU status
-        # self.channel_names = smu.smu_channelNames() OLD
-        self.channel_names = smu["smu_channelNames"]()  # new
-        if self.channel_names is not None:
-            self.smu_indicator.setStyleSheet(self.green_style)
-            self.logger.log_debug(f"SMU channels available: {self.channel_names}")
+        if smu is not None:
+            self.channel_names = smu["smu_channelNames"]()  # new
+            if self.channel_names is not None:
+                self.smu_indicator.setStyleSheet(self.green_style)
+                self.logger.log_debug(f"SMU channels available: {self.channel_names}")
+            else:
+                self.smu_indicator.setStyleSheet(self.red_style)
+                self.logger.log_debug("SMU channels not available")
         else:
             self.smu_indicator.setStyleSheet(self.red_style)
-            self.logger.log_debug("SMU channels not available")
+            self.logger.log_debug("SMU plugin not available")
 
         # Update micromanipulator status
-        status, state = mm["mm_devices"]()
-        if status == 0:
-            self.mm_indicator.setStyleSheet(self.green_style)
-            self.logger.log_debug(f"Micromanipulator devices detected: {state}")
-            num_dev, active_list = state
-            for i, is_active in enumerate(active_list):
-                if is_active:
-                    self.logger.log_debug(f"Enabling manipulator {i + 1} controls")
-                    box, smu_box, con_box, res_spin = self.manipulator_boxes[i]
-                    box.setVisible(True)
-                    self._setup_manipulator_controls(smu_box, con_box, res_spin, i)
-        else:
+        if mm is None:
             self.mm_indicator.setStyleSheet(self.red_style)
-            self.logger.log_warn(f"Micromanipulator error: {state}")
+            self.logger.log_debug("Micromanipulator plugin not available")
+        else:
+            status, state = mm["mm_devices"]()
+            if status == 0:
+                self.mm_indicator.setStyleSheet(self.green_style)
+                self.logger.log_debug(f"Micromanipulator devices detected: {state}")
+                num_dev, active_list = state
+                for i, is_active in enumerate(active_list):
+                    if is_active:
+                        self.logger.log_debug(f"Enabling manipulator {i + 1} controls")
+                        box, smu_box, con_box, res_spin = self.manipulator_boxes[i]
+                        box.setVisible(True)
+                        self._setup_manipulator_controls(smu_box, con_box, res_spin, i)
+            else:
+                self.mm_indicator.setStyleSheet(self.red_style)
+                self.logger.log_warn(f"Micromanipulator error: {state}")
 
         # Update contact detection status
-        con_status, con_state = con["deviceConnect"]()
-        if con_status == 0:
-            self.con_indicator.setStyleSheet(self.green_style)
-            self.logger.log_debug("Contact detection device connected successfully")
-            con["deviceDisconnect"]()
-        else:
+        if con is None:
             self.con_indicator.setStyleSheet(self.red_style)
-            self.logger.log_warn(f"Contact detection error: {con_state}")
+            self.logger.log_debug("Contact detection plugin not available")
+        else:
+            con_status, con_state = con["deviceConnect"]()
+            if con_status == 0:
+                self.con_indicator.setStyleSheet(self.green_style)
+                self.logger.log_debug("Contact detection device connected successfully")
+                con["deviceDisconnect"]()
+            else:
+                self.con_indicator.setStyleSheet(self.red_style)
+                self.logger.log_warn(f"Contact detection error: {con_state}")
 
     def _setup_manipulator_controls(self, smu_box, con_box, res_spin, manipulator_index):
         """Setup controls for a specific manipulator"""
@@ -305,7 +317,7 @@ class touchDetectGUI:
             self.monitoring_thread.progress.connect(self._on_monitoring_progress)
             self.monitoring_thread.error.connect(self._on_monitoring_error)
             self.monitoring_thread.finished.connect(self._on_monitoring_finished)
-            self.monitoring_thread.result.connect(self._on_monitoring_result)
+            self.monitoring_thread.result_signal.connect(self._on_monitoring_result)
             self.monitoring_thread.start()
         else:
             self.logger.log_info("Stopping monitoring thread")
@@ -482,19 +494,21 @@ class touchDetectGUI:
     def sequenceStep(self, postfix: str) -> tuple[int, dict]:
         """Performs the sequence step by moving all configured manipulators to contact."""
         self.logger.log_info(f"Starting touchDetect sequence step with postfix: {postfix}")
+        try:
+            # Execute move to contact for all configured manipulators
+            status, state = self.move_to_contact()
 
-        # Execute move to contact for all configured manipulators
-        status, state = self.move_to_contact()
+            if status != 0:
+                self.logger.log_warn(f"TouchDetect sequence step failed: {state}")
+                return (status, state)
 
-        if status != 0:
-            self.logger.log_warn(f"TouchDetect sequence step failed: {state}")
-            return (status, state)
-
-        self.logger.log_info("TouchDetect sequence step completed successfully")
-        return (
-            0,
-            {"Error message": "TouchDetect sequence step completed successfully"},
-        )
+            self.logger.log_info("TouchDetect sequence step completed successfully")
+            return (
+                0,
+                {"Error message": "TouchDetect sequence step completed successfully"},
+            )
+        except ThreadStopped as _:
+            return (3, {"Error message": "Thread stopped by user"})
 
     @public
     def verify_contact(self) -> tuple[int, dict]:

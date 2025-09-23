@@ -142,6 +142,11 @@
                 <string>Ethernet</string>
                </property>
               </item>
+              <item>
+               <property name="text">
+                <string>MOCK</string>
+               </property>
+              </item>
              </widget>
             </item>
             <item>
@@ -259,6 +264,9 @@
        </item>
        <item>
         <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
          <property name="sizeHint" stdset="0">
           <size>
            <width>20</width>
