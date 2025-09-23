@@ -128,40 +128,51 @@ class touchDetectGUI:
         mm, smu, con = self._fetch_dep_plugins()
 
         # Update SMU status
-        # self.channel_names = smu.smu_channelNames() OLD
-        self.channel_names = smu["smu_channelNames"]()  # new
-        if self.channel_names is not None:
-            self.smu_indicator.setStyleSheet(self.green_style)
-            self.logger.log_debug(f"SMU channels available: {self.channel_names}")
+        if smu is not None:
+            self.channel_names = smu["smu_channelNames"]()  # new
+            if self.channel_names is not None:
+                self.smu_indicator.setStyleSheet(self.green_style)
+                self.logger.log_debug(f"SMU channels available: {self.channel_names}")
+            else:
+                self.smu_indicator.setStyleSheet(self.red_style)
+                self.logger.log_debug("SMU channels not available")
         else:
             self.smu_indicator.setStyleSheet(self.red_style)
-            self.logger.log_debug("SMU channels not available")
+            self.logger.log_debug("SMU plugin not available")
 
         # Update micromanipulator status
-        status, state = mm["mm_devices"]()
-        if status == 0:
-            self.mm_indicator.setStyleSheet(self.green_style)
-            self.logger.log_debug(f"Micromanipulator devices detected: {state}")
-            num_dev, active_list = state
-            for i, is_active in enumerate(active_list):
-                if is_active:
-                    self.logger.log_debug(f"Enabling manipulator {i + 1} controls")
-                    box, smu_box, con_box, res_spin = self.manipulator_boxes[i]
-                    box.setVisible(True)
-                    self._setup_manipulator_controls(smu_box, con_box, res_spin, i)
-        else:
+        if mm is None:
             self.mm_indicator.setStyleSheet(self.red_style)
-            self.logger.log_warn(f"Micromanipulator error: {state}")
+            self.logger.log_debug("Micromanipulator plugin not available")
+        else:
+            status, state = mm["mm_devices"]()
+            if status == 0:
+                self.mm_indicator.setStyleSheet(self.green_style)
+                self.logger.log_debug(f"Micromanipulator devices detected: {state}")
+                num_dev, active_list = state
+                for i, is_active in enumerate(active_list):
+                    if is_active:
+                        self.logger.log_debug(f"Enabling manipulator {i + 1} controls")
+                        box, smu_box, con_box, res_spin = self.manipulator_boxes[i]
+                        box.setVisible(True)
+                        self._setup_manipulator_controls(smu_box, con_box, res_spin, i)
+            else:
+                self.mm_indicator.setStyleSheet(self.red_style)
+                self.logger.log_warn(f"Micromanipulator error: {state}")
 
         # Update contact detection status
-        con_status, con_state = con["deviceConnect"]()
-        if con_status == 0:
-            self.con_indicator.setStyleSheet(self.green_style)
-            self.logger.log_debug("Contact detection device connected successfully")
-            con["deviceDisconnect"]()
-        else:
+        if con is None:
             self.con_indicator.setStyleSheet(self.red_style)
-            self.logger.log_warn(f"Contact detection error: {con_state}")
+            self.logger.log_debug("Contact detection plugin not available")
+        else:
+            con_status, con_state = con["deviceConnect"]()
+            if con_status == 0:
+                self.con_indicator.setStyleSheet(self.green_style)
+                self.logger.log_debug("Contact detection device connected successfully")
+                con["deviceDisconnect"]()
+            else:
+                self.con_indicator.setStyleSheet(self.red_style)
+                self.logger.log_warn(f"Contact detection error: {con_state}")
 
     def _setup_manipulator_controls(self, smu_box, con_box, res_spin, manipulator_index):
         """Setup controls for a specific manipulator"""
