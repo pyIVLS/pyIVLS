@@ -1,6 +1,5 @@
 import os
 from threading import Lock
-from typing import Optional
 import pyvisa
 import usbtmc
 import numpy as np

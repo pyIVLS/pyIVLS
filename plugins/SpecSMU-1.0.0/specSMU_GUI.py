@@ -592,8 +592,21 @@ class specSMU_GUI(QWidget):
                     # Write integration time setting to be the one determined by auto time
                     integration_time_setting = float(auto_time)
                 # failure in autotime
+                elif status == 1:
+                    if auto_time["Error message"] == "Integration time too high":
+                        raise NotImplementedError(
+                            f"Error in getting auto integration time: {auto_time}, no handling provided"
+                        )
+                    elif auto_time["Error message"] == "Integration time too low":
+                        # getAutoTime failed because it hit the lower limit of the auto range
+                        continue  # skip this point, do not measure
+                    else: 
+                        raise NotImplementedError(
+                            f"Error in getting auto integration time: {auto_time}, no handling provided"
+                        )
                 else:
                     self._log_verbose(f"Error getting auto integration time: {auto_time}")
+                    # autotime failed
                     raise NotImplementedError(
                         f"Error in getting auto integration time: {auto_time}, no handling provided"
                     )
