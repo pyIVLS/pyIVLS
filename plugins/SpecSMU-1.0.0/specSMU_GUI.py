@@ -588,7 +588,7 @@ class specSMU_GUI(QWidget):
                     )
 
                 # Depending on the branch, auto_time may be None if getAutoTime failed
-                if not status:
+                if status == 0:
                     # Write integration time setting to be the one determined by auto time
                     integration_time_setting = float(auto_time)
                 # failure in autotime
@@ -604,6 +604,7 @@ class specSMU_GUI(QWidget):
                         raise NotImplementedError(
                             f"Error in getting auto integration time: {auto_time}, no handling provided"
                         )
+                # some other error code than 0,1
                 else:
                     self._log_verbose(f"Error getting auto integration time: {auto_time}")
                     # autotime failed
