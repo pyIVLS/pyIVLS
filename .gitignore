@@ -11,4 +11,4 @@ pyIVLS.log
 *.csv
 *.dat
 pyIVLS.ini
-!plugins\Keithley2612B\ivls_data.dat
+!ivls_data.dat
