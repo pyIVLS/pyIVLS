@@ -379,7 +379,7 @@ class TestKeithley2612B:
     def test_channel_names_mock_backend(self):
         """Test channel names for mock backend."""
         result = self.keithley.channel_names("MOCK")
-        assert result == ["mockA", "mockB"]
+        assert result == ["mocka", "mockb"]
 
     def test_single_channel_mode(self):
         """Test that drain settings are not applied in single channel mode."""

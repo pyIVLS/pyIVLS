@@ -3,6 +3,7 @@ from threading import Lock
 import pyvisa
 import usbtmc
 import numpy as np
+import time
 from enum import Enum
 from typing import Optional
 from pyvisa.resources import MessageBasedResource
@@ -161,7 +162,9 @@ class Keithley2612B:
             if self.k is None:
                 #### connect with usbtmc
                 self.k = usbtmc.Instrument(self.address)
-                assert self.k.connected, "Could not connect to Keithley 2612B via USB"
+                con_test = self.k.ask("*IDN?")
+                assert "keithley" in con_test.lower(), f"Connected to wrong device: {con_test}"
+
                 self.k.timeout = 25  # in seconds??
         elif self.backend == BackendType.ETHERNET.value:
             if self.ke is None:
@@ -179,9 +182,13 @@ class Keithley2612B:
 
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
+        
+        if self.backend != BackendType.MOCK.value:
+            self.safewrite("display.clear()")
+            self.safewrite("display.settext('Connected to PyIVLS')")
+            time.sleep(2)
+            self.safewrite("display.clear()")
 
-            ##IRtodo#### move to log
-            # print(self.k.query("*IDN?"))
 
     def keithley_disconnect(self) -> None:
         ##IRtodo#### move to log
@@ -290,7 +297,6 @@ class Keithley2612B:
             i_value = self.dataarray[readings, 0]
             v_value = self.dataarray[readings, 1]
             self.linepointer = self.linepointer + 1
-            print()
             return [i_value, v_value, readings]
         else:
             if readings is None:
