@@ -1,4 +1,5 @@
 #!/home/ivls/git_pyIVLS/pyIVLS/.venv/bin/python3
+from asyncio.log import logger
 import sys
 from os.path import dirname, sep
 
@@ -34,8 +35,9 @@ def update_settings_widget():
     for logSignal in pluginsContainer.getLogSignals():
         try:
             logSignal.connect(GUI_mainWindow.addDataLog, type=Qt.ConnectionType.UniqueConnection)
-        except Exception:
-            pass
+            print(f"Connected log signal: {logSignal}")
+        except TypeError:
+            print(f"Trying to reconnect, pass: {logSignal}")
 
     for infoSignal in pluginsContainer.getInfoSignals():
         try:
@@ -82,19 +84,8 @@ if __name__ == "__main__":
     GUI_mainWindow.update_config_signal.connect(pluginsContainer.update_config_file)
     pluginsContainer.register_start_up()
 
-    for logSignal in pluginsContainer.getLogSignals():
-        logSignal.connect(GUI_mainWindow.addDataLog)
+    update_settings_widget()
 
-    for infoSignal in pluginsContainer.getInfoSignals():
-        infoSignal.connect(GUI_mainWindow.show_message)
-
-    # Connect close lock signals with plugin names in main loop too
-    plugin_closeLockSignals = pluginsContainer.pm.hook.get_closeLock()
-    for closeLockSignal_dict in plugin_closeLockSignals:
-        plugin_name = list(closeLockSignal_dict.keys())[0]
-        signal = closeLockSignal_dict[plugin_name]
-        # Use lambda to capture plugin_name
-        signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name))
 
     pluginsContainer.seqComponents_signal.connect(GUI_mainWindow.seqBuilder.getPluginFunctions)
 

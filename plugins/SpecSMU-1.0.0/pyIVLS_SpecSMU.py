@@ -87,7 +87,7 @@ class pyIVLS_SpecSMU_plugin:
             # status, parsed_settings = self.specsmu.parse_settings_widget()
             # return (self.name, status, parsed_settings)
             return (self.name, 0, settings)
-        
+
     @hookimpl
     def get_log(self, args=None):
         """provides the signal for logging to main app
@@ -95,4 +95,4 @@ class pyIVLS_SpecSMU_plugin:
         :return: dict that includes the log signal
         """
         if args is None or args.get("function") == self.function:
-            return {self.name: self.specsmu.log_message}
+            return {self.name: self.specsmu.logger.logger_signal}

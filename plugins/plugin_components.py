@@ -57,6 +57,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QSpinBox, QWidget
 from dataclasses import dataclass
 
+
 class ConnectionIndicatorStyle(Enum):
     """Enum for connection indicator styles."""
 
@@ -102,11 +103,7 @@ def get_public_methods(obj) -> Dict:
     Returns:
         Dict of method names to their callable objects
     """
-    return {
-        name: getattr(obj, name)
-        for name in dir(obj)
-        if callable(getattr(obj, name, None)) and getattr(getattr(obj, name, None), "_is_public", False)
-    }
+    return {name: getattr(obj, name) for name in dir(obj) if callable(getattr(obj, name, None)) and getattr(getattr(obj, name, None), "_is_public", False)}
 
 
 class PyIVLSReturnCode(Enum):
@@ -120,7 +117,8 @@ class PyIVLSReturnCode(Enum):
     THREAD_STOPPED = 5
     # add more if needed, also add a factory method for each new code
 
-#unused
+
+# unused
 @dataclass
 class KeithleySettings:
     source: str
@@ -221,9 +219,11 @@ class KeithleySettings:
             raise ValueError("Pulse pause duration must be non-negative")
         if self.single_ch and self.drain != "voltage":
             raise ValueError("In single channel mode, drain must be set to 'voltage'")
-        
+
     def __post_init__(self):
         self.validate()
+
+
 class PyIVLSReturn:
     """
     This class provides a standardized way to handle returns across all plugin (GUIs, since the ll-implementation should be stand-alone) while
@@ -335,9 +335,7 @@ class PyIVLSReturn:
         return cls(PyIVLSReturnCode.DEPENDENCY_ERROR, error_data)
 
     @classmethod
-    def missing_dependency(
-        cls, message: str, missing_functions: Optional[List[str]] = None, **extra_data
-    ) -> "PyIVLSReturn":
+    def missing_dependency(cls, message: str, missing_functions: Optional[List[str]] = None, **extra_data) -> "PyIVLSReturn":
         """
         Create a missing dependency return.
 
@@ -519,7 +517,9 @@ class FileManager:
             comment = f"{comment}Measurement acquisition period is done in AUTO mode\n#"
         else:
             comment = f"{comment}Measurement stabilization period is {settings['sourcedelay'] / 1000} ms\n#"
-        comment = f"{comment}NPLC value {settings['sourcenplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['sourcenplc']})\n#"
+        comment = (
+            f"{comment}NPLC value {settings['sourcenplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['sourcenplc']})\n#"
+        )
         comment = f"{comment}\n#\n#"
         comment = f"{comment}Continuous operation of the source with step time settings['timestep'] \n#\n#\n#"
 
@@ -536,10 +536,10 @@ class FileManager:
             if settings["draindelaymode"] == "auto":
                 comment = f"{comment}Measurement acquisition period for drain is done in AUTO mode\n#"
             else:
-                comment = (
-                    f"{comment}Measurement stabilization period for drain is {settings['draindelay'] / 1000} ms\n#"
-                )
-            comment = f"{comment}NPLC value {settings['drainnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['drainnplc']})\n#"
+                comment = f"{comment}Measurement stabilization period for drain is {settings['draindelay'] / 1000} ms\n#"
+            comment = (
+                f"{comment}NPLC value {settings['drainnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['drainnplc']})\n#"
+            )
         else:
             comment = f"{comment}\n#\n#\n#\n#\n#"
 
@@ -678,9 +678,7 @@ class GuiMapper(QObject):
         self.plugin_name: str = plugin_name
         self.update_gui.connect(self.set_values)
 
-    def get_values(
-        self, field_mapping: Dict[str, str], validation_rules: Optional[Dict[str, Dict[str, Any]]] = None
-    ) -> PyIVLSReturn:
+    def get_values(self, field_mapping: Dict[str, str], validation_rules: Optional[Dict[str, Dict[str, Any]]] = None) -> PyIVLSReturn:
         """Extract values from GUI widgets with dynamic type detection.
 
         Args:
@@ -704,9 +702,7 @@ class GuiMapper(QObject):
                 value = self._extract_value_dynamic(widget_obj)
                 # Apply validation if specified
                 if setting_name in validation_rules:
-                    validation_result = self._validate_value_dynamic(
-                        setting_name, value, validation_rules[setting_name]
-                    )
+                    validation_result = self._validate_value_dynamic(setting_name, value, validation_rules[setting_name])
                     if validation_result.is_error:
                         return validation_result
                     value = validation_result.get_data_value("validated_value", value)
@@ -714,9 +710,7 @@ class GuiMapper(QObject):
                 result[setting_name] = value
 
             except AttributeError:
-                return PyIVLSReturn.value_error(
-                    f"Widget '{widget_name}' not found for {setting_name}", self.plugin_name
-                )
+                return PyIVLSReturn.value_error(f"Widget '{widget_name}' not found for {setting_name}", self.plugin_name)
             except Exception as e:
                 return PyIVLSReturn.value_error(f"Error processing {setting_name}: {str(e)}", self.plugin_name)
 
@@ -752,17 +746,13 @@ class GuiMapper(QObject):
                     try:
                         value = validation_rules[setting_name]["display_converter"](value)
                     except Exception as e:
-                        return PyIVLSReturn.value_error(
-                            f"Display conversion failed for {setting_name}: {str(e)}", self.plugin_name
-                        )
+                        return PyIVLSReturn.value_error(f"Display conversion failed for {setting_name}: {str(e)}", self.plugin_name)
 
                 # Dynamically set value based on widget type
                 self._set_value_dynamic(widget_obj, value)
 
             except AttributeError:
-                return PyIVLSReturn.value_error(
-                    f"Widget '{widget_name}' not found for {setting_name}", self.plugin_name
-                )
+                return PyIVLSReturn.value_error(f"Widget '{widget_name}' not found for {setting_name}", self.plugin_name)
             except Exception as e:
                 return PyIVLSReturn.value_error(f"Error processing {setting_name}: {str(e)}", self.plugin_name)
         return PyIVLSReturn.success()
@@ -1044,9 +1034,7 @@ class DependencyManager:
             PyIVLSReturn: Success with dependency settings or error with message
         """
         if not self._function_dict:
-            return PyIVLSReturn.missing_dependency(
-                f"Missing functions in {self.plugin_name} plugin. Check log", self.missing_functions
-            )
+            return PyIVLSReturn.missing_dependency(f"Missing functions in {self.plugin_name} plugin. Check log", self.missing_functions)
 
         # Get selected dependencies from GUI
         selected_deps = self.get_selected_dependencies()
@@ -1080,13 +1068,9 @@ class DependencyManager:
                 dependency_settings[settings_key] = settings
 
             except KeyError as e:
-                return PyIVLSReturn.missing_dependency(
-                    f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}"
-                )
+                return PyIVLSReturn.missing_dependency(f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}")
             except Exception as e:
-                return PyIVLSReturn.missing_dependency(
-                    f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}"
-                )
+                return PyIVLSReturn.missing_dependency(f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}")
         return PyIVLSReturn.success(dependency_settings)
 
 
@@ -1101,6 +1085,12 @@ class LoggingHelper(QObject):
 
     logger_signal = pyqtSignal(str)
     info_popup_signal = pyqtSignal(str)
+
+    def __str__(self):
+        return f"LoggingHelper for {self.plugin_name}"
+
+    def __repr__(self) -> str:
+        return f"<LoggingHelper plugin_name={self.plugin_name}>"
 
     def __init__(self, plugin_instance):
         self.plugin_name = plugin_instance.__class__.__name__
@@ -1198,37 +1188,21 @@ class SMUHelper:
         """Initialize the SMU with the provided settings."""
         s = {}
         s["pulse"] = False
-        s["source"] = plugin_settings_dict[
-            "channel"
-        ]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
+        s["source"] = plugin_settings_dict["channel"]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
         s["drain"] = plugin_settings_dict["drainchannel"]
-        s["type"] = (
-            "v" if plugin_settings_dict["inject"] == "voltage" else "i"
-        )  # source inject current or voltage: may take values [i ,v]
+        s["type"] = "v" if plugin_settings_dict["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
         s["single_ch"] = plugin_settings_dict["singlechannel"]  # single channel mode: may be True or False
 
         s["sourcenplc"] = plugin_settings_dict["sourcenplc"]  # drain NPLC (may not be used in single channel mode)
-        s["delay"] = (
-            True if plugin_settings_dict["sourcedelaymode"] == "auto" else False
-        )  # stabilization time mode for source: may take values [True - Auto, False - manual]
-        s["delayduration"] = plugin_settings_dict[
-            "sourcedelay"
-        ]  # stabilization time duration if manual (may not be used in single channel mode)
-        s["limit"] = plugin_settings_dict[
-            "sourcelimit"
-        ]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+        s["delay"] = True if plugin_settings_dict["sourcedelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["delayduration"] = plugin_settings_dict["sourcedelay"]  # stabilization time duration if manual (may not be used in single channel mode)
+        s["limit"] = plugin_settings_dict["sourcelimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["sourcehighc"] = smu_settings["sourcehighc"]
 
         s["drainnplc"] = plugin_settings_dict["drainnplc"]  # drain NPLC (may not be used in single channel mode)
-        s["draindelay"] = (
-            True if plugin_settings_dict["draindelaymode"] == "auto" else False
-        )  # stabilization time mode for source: may take values [True - Auto, False - manual]
-        s["draindelayduration"] = plugin_settings_dict[
-            "draindelay"
-        ]  # stabilization time duration if manual (may not be used in single channel mode)
-        s["drainlimit"] = plugin_settings_dict[
-            "drainlimit"
-        ]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+        s["draindelay"] = True if plugin_settings_dict["draindelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["draindelayduration"] = plugin_settings_dict["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
+        s["drainlimit"] = plugin_settings_dict["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["drainhighc"] = smu_settings["drainhighc"]
 
         if plugin_settings_dict["sourcesensemode"] == "4 wire":

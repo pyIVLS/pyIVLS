@@ -15,12 +15,11 @@ import os
 import time
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
-from PyQt6.QtCore import pyqtSignal
 from settingsWidget import Ui_Form
 import numpy as np
 import copy
 from typing import Optional
-import traceback
+from plugin_components import LoggingHelper
 
 
 class specSMU_GUI(QWidget):
@@ -34,16 +33,9 @@ class specSMU_GUI(QWidget):
         "set_gui_from_settings",
     ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ########Signals
-    log_message = pyqtSignal(str)
-    ##not needed for sequence implementation, may be added later only for standalone mode
-    # info_message = pyqtSignal(str)
 
     def _log_verbose(self, message):
-        """Logs a message if verbose mode is enabled."""
-        if self.verbose:
-            classname = self.__class__.__name__
-            #self.log_message.emit(classname + f" : VERBOSE : {message}")
-            print(classname + f" : VERBOSE : {message}")
+        self.logger.log_info(message)
 
     ########Functions
     def __init__(self):
@@ -75,11 +67,12 @@ class specSMU_GUI(QWidget):
         }
         self.settingsWidget = Ui_Form()
         self.settingsWidget.setupUi(self)
-        self.verbose = True  # FIXME
-        self._connect_signals()
         self.settings = {}
         self.function_dict = {}
         self.last_integration_time: Optional[float] = None  # s
+        self.logger = LoggingHelper(self)
+        self.logger.log_debug(f"specSMU GUI initialized with logger: {self.logger}")
+        self._connect_signals()
 
     def _connect_signals(self) -> None:
         """
@@ -100,6 +93,7 @@ class specSMU_GUI(QWidget):
         self.settingsWidget.spectrometerBox.currentIndexChanged.connect(self._spectrometer_plugin_changed)
         # Connect spectro pause checkbox
         self.settingsWidget.spectro_pause.stateChanged.connect(self._spectro_pause_changed)
+        self.logger.log_debug("Signals connected")
 
     def _smu_plugin_changed(self, index: Optional[int] = None) -> None:
         """
@@ -109,11 +103,7 @@ class specSMU_GUI(QWidget):
             index (Optional[int]): Index of the selected SMU plugin.
         """
         smu_selection = self.settingsWidget.smuBox.currentText()
-        if (
-            hasattr(self, "function_dict")
-            and "smu" in self.function_dict
-            and smu_selection in self.function_dict["smu"]
-        ):
+        if hasattr(self, "function_dict") and "smu" in self.function_dict and smu_selection in self.function_dict["smu"]:
             try:
                 channel_names = self.function_dict["smu"][smu_selection]["smu_channelNames"]()
                 self.settingsWidget.comboBox_channel.clear()
@@ -324,24 +314,10 @@ class specSMU_GUI(QWidget):
         methods = {
             method: getattr(self, method)
             for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-            and method in self.public_methods
+            if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods
         }
         return methods
 
-    def _getLogSignal(self):
-        return self.log_message
-
-    #
-    #    def _getInfoSignal(self):
-    #        return self.info_message
-    #
-    #    def _getCloseLockSignal(self):
-    #        return self.closeLock
-    #
     ########Functions to be used externally
     ###############get settings from GUI
     def parse_settings_widget(self):
@@ -392,9 +368,7 @@ class specSMU_GUI(QWidget):
             self.settings["nplc"] = float(raw_settings["nplc"])
             self.settings["delay"] = float(raw_settings["delay"])
             self.settings["pause"] = float(raw_settings["pause"])
-            self.settings["spectro_pause_time"] = float(
-                raw_settings["spectro_pause_time"]
-            )  # should already be float from double spin box
+            self.settings["spectro_pause_time"] = float(raw_settings["spectro_pause_time"])  # should already be float from double spin box
 
             self._log_verbose("Settings successfully parsed and validated")
         except ValueError as e:
@@ -415,9 +389,7 @@ class specSMU_GUI(QWidget):
         # Get selected spectrometer plugin
         spectro_selection = self.settings["spectrometer"]
         if spectro_selection:
-            [status, self.spectrometer_settings] = self.function_dict["spectrometer"][spectro_selection][
-                "parse_settings_widget"
-            ]()
+            [status, self.spectrometer_settings] = self.function_dict["spectrometer"][spectro_selection]["parse_settings_widget"]()
             if status:
                 self._log_verbose(f"Error in spectrometer plugin settings: {self.spectrometer_settings}")
                 return [2, self.spectrometer_settings]
@@ -468,8 +440,7 @@ class specSMU_GUI(QWidget):
             self._log_verbose("SpecSMU action finished successfully")
             return [0, "specSMU action finished"]
         except Exception as e:
-            detailed_error = traceback.format_exc()
-            self.log_message.emit(f"Error in SpecSMU implementation: {str(e)}\n{detailed_error}")
+            self.logger.log_error("")  # log error includes traceback already
             return [1, {"Error message": "SpecSMU plugin: error in seq implementation", "Exception": str(e)}]
         finally:
             self.function_dict["smu"][smu_name]["smu_disconnect"]()
@@ -480,25 +451,15 @@ class specSMU_GUI(QWidget):
         s = {}
 
         s["pulse"] = self.settings["mode"] == "pulsed"  # pulsed mode: may be True or False
-        s["source"] = self.settings[
-            "channel"
-        ]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
+        s["source"] = self.settings["channel"]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
         s["drain"] = self.settings["drainchannel"]
-        s["type"] = (
-            "v" if self.settings["inject"] == "voltage" else "i"
-        )  # source inject current or voltage: may take values [i ,v]
+        s["type"] = "v" if self.settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
         s["single_ch"] = self.settings["singlechannel"]  # single channel mode: may be True or False
 
         s["sourcenplc"] = self.settings["nplc"]  # drain NPLC (may not be used in single channel mode)
-        s["delay"] = (
-            True if self.settings["delaymode"] == "auto" else False
-        )  # stabilization time mode for source: may take values [True - Auto, False - manual]
-        s["delayduration"] = self.settings[
-            "delay"
-        ]  # stabilization time duration if manual (may not be used in single channel mode)
-        s["limit"] = self.settings[
-            "limit"
-        ]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
+        s["delay"] = True if self.settings["delaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["delayduration"] = self.settings["delay"]  # stabilization time duration if manual (may not be used in single channel mode)
+        s["limit"] = self.settings["limit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["sourcehighc"] = self.smu_settings["sourcehighc"]
 
         s["start"] = self.settings["start"]  # start value for source, added for current injection to work
@@ -538,20 +499,14 @@ class specSMU_GUI(QWidget):
             smuSetValue = self.settings["start"] + smuLoopStep * smuChange
             self._log_verbose(f"Setting SMU output to {smuSetValue}")
             # set output on SMU
-            self.function_dict["smu"][smu_name]["smu_setOutput"](
-                self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue
-            )
+            self.function_dict["smu"][smu_name]["smu_setOutput"](self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue)
             self._log_verbose("SMU output set")
             integration_time_setting = float(self.spectrometer_settings["integrationTime"])
-            status, integration_time_seconds = self.function_dict["spectrometer"][spectro_name][
-                "spectrometerGetIntegrationTime"
-            ]()
+            status, integration_time_seconds = self.function_dict["spectrometer"][spectro_name]["spectrometerGetIntegrationTime"]()
             integration_time = integration_time_seconds
             if status:
                 self._log_verbose(f"Error getting integration time: {integration_time}")
-                raise NotImplementedError(
-                    f"Error in getting integration time from spectrometer: {integration_time}, no handling provided"
-                )
+                raise NotImplementedError(f"Error in getting integration time from spectrometer: {integration_time}, no handling provided")
 
             # set filename
             self.spectrometer_settings["filename"] = specFilename + f"_{smuSetValue:.4f}" + " iv.csv"
@@ -565,9 +520,7 @@ class specSMU_GUI(QWidget):
                 last_integration_time = None
                 if self.settings["spectro_use_last_integ"]:
                     # no checks on wheter self.last_integration_time is set, since getAutoTime takes in Optional[float]
-                    self._log_verbose(
-                        f"Using last valid integration time as initial guess for AutoTime: {self.last_integration_time}"
-                    )
+                    self._log_verbose(f"Using last valid integration time as initial guess for AutoTime: {self.last_integration_time}")
                     last_integration_time = self.last_integration_time
 
                 # check mode, pulse or continuous
@@ -583,42 +536,38 @@ class specSMU_GUI(QWidget):
                 else:
                     # continuous mode, just set the output on and get the auto time
                     self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
-                    status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](
-                        last_integration_time=last_integration_time
-                    )
+                    status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](last_integration_time=last_integration_time)
 
                 # Depending on the branch, auto_time may be None if getAutoTime failed
                 if not status:
                     # Write integration time setting to be the one determined by auto time
                     integration_time_setting = float(auto_time)
                 # failure in autotime
+                elif status == 1:
+                    if auto_time["Error message"] == "Integration time too high":
+                        raise NotImplementedError(f"Error in getting auto integration time: {auto_time}, no handling provided")
+                    elif auto_time["Error message"] == "Integration time too low":
+                        # getAutoTime failed because it hit the lower limit of the auto range
+                        continue  # skip this point, do not measure
+                    else:
+                        raise NotImplementedError(f"Error in getting auto integration time: {auto_time}, no handling provided")
+                # some other error code than 0,1
                 else:
                     self._log_verbose(f"Error getting auto integration time: {auto_time}")
-                    raise NotImplementedError(
-                        f"Error in getting auto integration time: {auto_time}, no handling provided"
-                    )
+                    # autotime failed
+                    raise NotImplementedError(f"Error in getting auto integration time: {auto_time}, no handling provided")
 
             # integration time setting is determined based on autotime or from GUI, now check if it is different from the current one
             if not np.isclose(integration_time, integration_time_setting, atol=0, rtol=0.0001):
-                self._log_verbose(
-                    f"Setting integration time to {integration_time_setting}, current is {integration_time}"
-                )
-                self._log_verbose(
-                    f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}"
-                )
-                status, state = self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](
-                    integration_time_setting
-                )
+                self._log_verbose(f"Setting integration time to {integration_time_setting}, current is {integration_time}")
+                self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
+                status, state = self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](integration_time_setting)
                 if status:
                     self._log_verbose(f"Error setting integration time: {integration_time_setting}")
                     raise NotImplementedError(f"Error in setting integration time: {state}, no handling provided")
             else:
-                self._log_verbose(
-                    f"Not changing integration time, current {integration_time} is close to setting {integration_time_setting}"
-                )
-                self._log_verbose(
-                    f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}"
-                )
+                self._log_verbose(f"Not changing integration time, current {integration_time} is close to setting {integration_time_setting}")
+                self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
 
             # integration time set, smu ready, spectrometer ready:
             self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])  # output on
@@ -665,9 +614,7 @@ class specSMU_GUI(QWidget):
 
             varDict["comment"] = self.spectrometer_settings["comment"] + " " + readings
             address = self.spectrometer_settings["address"] + os.sep + self.spectrometer_settings["filename"]
-            self.function_dict["spectrometer"][spectro_name]["createFile"](
-                varDict=varDict, filedelimeter=";", address=address, data=spectrum
-            )
+            self.function_dict["spectrometer"][spectro_name]["createFile"](varDict=varDict, filedelimeter=";", address=address, data=spectrum)
 
             # updating the internal state of last integration time
             self.last_integration_time = integration_time_setting
