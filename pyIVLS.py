@@ -35,14 +35,13 @@ def update_settings_widget():
     for logSignal in pluginsContainer.getLogSignals():
         try:
             logSignal.connect(GUI_mainWindow.addDataLog, type=Qt.ConnectionType.UniqueConnection)
-            print(f"Connected log signal: {logSignal}")
         except TypeError:
-            print(f"Trying to reconnect, pass: {logSignal}")
+            pass
 
     for infoSignal in pluginsContainer.getInfoSignals():
         try:
             infoSignal.connect(GUI_mainWindow.show_message, type=Qt.ConnectionType.UniqueConnection)
-        except Exception:
+        except TypeError:
             pass
 
     # Connect close lock signals with plugin names
@@ -53,7 +52,7 @@ def update_settings_widget():
             signal = closeLockSignal_dict[plugin_name]
             # Use lambda to capture plugin_name
             signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name), type=Qt.ConnectionType.UniqueConnection)
-        except Exception:
+        except TypeError:
             pass
 
 
