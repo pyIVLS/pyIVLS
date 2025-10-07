@@ -35,7 +35,7 @@ class specSMU_GUI(QWidget):
     ########Signals
 
     def _log_verbose(self, message):
-        self.logger.log_info(message)
+        self.logger.log_debug(message)
 
     ########Functions
     def __init__(self):
@@ -545,23 +545,17 @@ class specSMU_GUI(QWidget):
                 # failure in autotime
                 elif status == 1:
                     if auto_time["Error message"] == "Integration time too high":
-                        raise NotImplementedError(
-                            f"Error in getting auto integration time: {auto_time}, no handling provided"
-                        )
+                        raise NotImplementedError(f"Error in getting auto integration time: {auto_time}, no handling provided")
                     elif auto_time["Error message"] == "Integration time too low":
                         # getAutoTime failed because it hit the lower limit of the auto range
                         continue  # skip this point, do not measure
-                    else: 
-                        raise NotImplementedError(
-                            f"Error in getting auto integration time: {auto_time}, no handling provided"
-                        )
+                    else:
+                        raise NotImplementedError(f"Error in getting auto integration time: {auto_time}, no handling provided")
                 # some other error code than 0,1
                 else:
                     self._log_verbose(f"Error getting auto integration time: {auto_time}")
                     # autotime failed
-                    raise NotImplementedError(
-                        f"Error in getting auto integration time: {auto_time}, no handling provided"
-                    )
+                    raise NotImplementedError(f"Error in getting auto integration time: {auto_time}, no handling provided")
 
             # integration time setting is determined based on autotime or from GUI, now check if it is different from the current one
             if not np.isclose(integration_time, integration_time_setting, atol=0, rtol=0.0001):
