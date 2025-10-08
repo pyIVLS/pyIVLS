@@ -157,6 +157,11 @@ class Keithley2612B:
         self.eth_address = eth_address
         self.port = port
         self.backend = backend
+        def _hello():
+            self.safewrite("display.clear()")
+            self.safewrite("display.settext('Connected to PyIVLS')")
+            time.sleep(2)
+            self.safewrite("display.clear()")
 
         if self.backend == BackendType.USB.value:
             if self.k is None:
@@ -164,7 +169,7 @@ class Keithley2612B:
                 self.k = usbtmc.Instrument(self.address)
                 con_test = self.k.ask("*IDN?")
                 assert "keithley" in con_test.lower(), f"Connected to wrong device: {con_test}"
-
+                _hello()
                 self.k.timeout = 25  # in seconds??
         elif self.backend == BackendType.ETHERNET.value:
             if self.ke is None:
@@ -175,6 +180,7 @@ class Keithley2612B:
                 self.ke.timeout = 25000  # in milliseconds
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
+                _hello()
         elif self.backend == BackendType.MOCK.value:
             self.mock_con = True
             [status, self.dataarray] = readIVLS(self.datafile_address)
@@ -183,11 +189,7 @@ class Keithley2612B:
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
         
-        if self.backend != BackendType.MOCK.value:
-            self.safewrite("display.clear()")
-            self.safewrite("display.settext('Connected to PyIVLS')")
-            time.sleep(2)
-            self.safewrite("display.clear()")
+
 
 
     def keithley_disconnect(self) -> None:
