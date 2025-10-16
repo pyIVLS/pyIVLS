@@ -157,6 +157,7 @@ class Keithley2612B:
         self.eth_address = eth_address
         self.port = port
         self.backend = backend
+
         def _hello():
             self.safewrite("display.clear()")
             self.safewrite("display.settext('Connected to PyIVLS')")
@@ -188,9 +189,6 @@ class Keithley2612B:
 
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
-        
-
-
 
     def keithley_disconnect(self) -> None:
         ##IRtodo#### move to log
@@ -437,6 +435,8 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['source']}.source.delay = 100e-6")
+                # autozero off turns off automatic ground and voltage reference measurements
+                # FIXME: This is never turned back on. Is that excpected behaviour?
                 self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
                 self.safewrite(f"{s['source']}.source.rangei = 10")
                 self.safewrite(f"{s['source']}.source.leveli = 0")
