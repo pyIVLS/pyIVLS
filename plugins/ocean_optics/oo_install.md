@@ -1,0 +1,1 @@
+Check the docs for https://python-seabreeze.readthedocs.io/
