@@ -53,7 +53,7 @@ class specSMU_GUI(QWidget):
                 "smu_channelNames",
             ],
             "spectrometer": [
-                "parse_settings_preview",
+                "parse_settings_widget",
                 "setSettings",
                 "spectrometerConnect",
                 "spectrometerDisconnect",
