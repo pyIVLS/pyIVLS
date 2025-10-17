@@ -37,6 +37,8 @@ class OODRV:
 
     def open(self) -> None:
         """Open the spectrometer and set the integration time limits. Also sets the integration time to the default value."""
+        if self._spectro is not None:
+            return  # already open
         self._spectro = sb.Spectrometer.from_serial_number(utils.SERIAL_NUMBER)
         self._integ_limits = self._spectro.integration_time_micros_limits
         self.set_integration_time(self.integration_time)
@@ -74,8 +76,21 @@ class OODRV:
         Returns:
             np.ndarray: The spectrum as a numpy array.
         """
-        spectrum = self.spectro.spectrum(correct_dark_counts=correct_dark_counts)
-        return spectrum
+        intensities = self.spectro.intensities(correct_dark_counts=correct_dark_counts)
+        max_intensity = self.spectro.max_intensity  # 4095.0
+
+        # normalize to range 0-1 based on max intensity
+        intensities = intensities / max_intensity
+        return intensities
+
+    def get_wavelengths(self) -> np.ndarray:
+        """Get the wavelengths from the spectrometer.
+
+        Returns:
+            np.ndarray: The wavelengths as a numpy array.
+        """
+        wavelengths = self.spectro.wavelengths()
+        return wavelengths
 
     def trigger_mode(self, mode: trigger_mode) -> None:
         """Set the trigger mode of the spectrometer. This can be implemented in the future if external triggering is needed.
