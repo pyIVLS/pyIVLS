@@ -3,14 +3,16 @@ import struct
 import time
 import seabreeze.spectrometers as sb
 import oo_utils as utils
-from oo_utils import ms_to_s, s_to_ms
+from oo_utils import micros_to_s, s_to_micros
 from typing import Optional
 from enum import Enum
 
 """
 Ocean Optics USB2000 spectrometer driver.
 Modified from TLCCS Drivers. 
-HOX: Integration times are in microseconds (µs) internally, but the user interface and API use seconds (s).
+HOX: Integration times are in microseconds (µs) internally, but the user interface uses milliseconds
+and the value is stored in seconds in the .ini and internal settings dict.
+Conversion functions are in oo_utils.py, and should be used to since they are clearer to the reader.
 """
 
 
@@ -21,7 +23,7 @@ class trigger_mode(Enum):
 
 
 class OODRV:
-    integration_time: int = s_to_ms(utils.DEFAULT_INTEGRATION_TIME)  # microseconds
+    integration_time: int = s_to_micros(utils.DEFAULT_INTEGRATION_TIME)  # microseconds
     _integ_limits: Optional[tuple[int, int]] = None  # (min, max) integration time in µs, set in open()
     _spectro: Optional[sb.Spectrometer] = None
 
