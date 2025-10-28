@@ -162,7 +162,8 @@ class Keithley2612B:
             self.safewrite("display.clear()")
             self.safewrite("display.settext('Connected to PyIVLS')")
             time.sleep(2)
-            self.safewrite("display.clear()")
+            self.safewrite("display.screen = display.SMUA_SMUB")
+
 
         if self.backend == BackendType.USB.value:
             if self.k is None:
