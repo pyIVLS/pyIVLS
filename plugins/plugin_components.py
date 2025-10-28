@@ -51,7 +51,7 @@ import sys
 import traceback
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QSpinBox, QWidget
@@ -224,110 +224,6 @@ class KeithleySettings:
         self.validate()
 
 
-#unused
-@dataclass
-class KeithleySettings:
-    source: str
-    drain: str
-    type: str
-    sourcesense: bool
-    drainsense: bool
-    single_ch: bool
-    pulse: bool
-    pulsepause: float
-    sourcenplc: float
-    drainnplc: float
-    delay: bool
-    delayduration: float
-    draindelay: bool
-    draindelayduration: float
-    steps: int
-    start: float
-    end: float
-    limit: float
-    sourcehighc: bool
-    drainhighc: bool
-    repeat: int
-    drainvoltage: float
-    drainlimit: float
-
-    def _check_types(self):
-        if not isinstance(self.source, str):
-            raise TypeError("Source must be a string")
-        if not isinstance(self.drain, str):
-            raise TypeError("Drain must be a string")
-        if not isinstance(self.type, str):
-            raise TypeError("Type must be a string")
-        if not isinstance(self.sourcesense, bool):
-            raise TypeError("Source sense must be a boolean")
-        if not isinstance(self.drainsense, bool):
-            raise TypeError("Drain sense must be a boolean")
-        if not isinstance(self.single_ch, bool):
-            raise TypeError("Single channel must be a boolean")
-        if not isinstance(self.pulse, bool):
-            raise TypeError("Pulse must be a boolean")
-        if not isinstance(self.pulsepause, (int, float)):
-            raise TypeError("Pulse pause must be a number")
-        if not isinstance(self.sourcenplc, (int, float)):
-            raise TypeError("Source NPLC must be a number")
-        if not isinstance(self.drainnplc, (int, float)):
-            raise TypeError("Drain NPLC must be a number")
-        if not isinstance(self.delay, bool):
-            raise TypeError("Delay must be a boolean")
-        if not isinstance(self.delayduration, (int, float)):
-            raise TypeError("Delay duration must be a number")
-        if not isinstance(self.draindelay, bool):
-            raise TypeError("Drain delay must be a boolean")
-        if not isinstance(self.draindelayduration, (int, float)):
-            raise TypeError("Drain delay duration must be a number")
-        if not isinstance(self.steps, int):
-            raise TypeError("Steps must be an integer")
-        if not isinstance(self.start, (int, float)):
-            raise TypeError("Start value must be a number")
-        if not isinstance(self.end, (int, float)):
-            raise TypeError("End value must be a number")
-        if not isinstance(self.limit, (int, float)):
-            raise TypeError("Limit must be a number")
-        if not isinstance(self.sourcehighc, bool):
-            raise TypeError("Source high C must be a boolean")
-        if not isinstance(self.drainhighc, bool):
-            raise TypeError("Drain high C must be a boolean")
-        if not isinstance(self.repeat, int):
-            raise TypeError("Repeat count must be an integer")
-        if not isinstance(self.drainvoltage, float):
-            raise TypeError("Drain voltage must be a number")
-        if not isinstance(self.drainlimit, float):
-            raise TypeError("Drain limit must be a number")
-
-    def validate(self):
-        self._check_types()
-        if self.source not in ["smua", "smub"]:
-            raise ValueError("Source must be 'smua' or 'smub'")
-        if self.drain not in ["smua", "smub"]:
-            raise ValueError("Drain must be 'smua' or 'smub'")
-        if self.type not in ["i", "v"]:
-            raise ValueError("Type must be 'i' or 'v'")
-        if self.steps <= 0:
-            raise ValueError("Steps must be a positive integer")
-        if self.limit <= 0:
-            raise ValueError("Limit must be a positive number")
-        if self.sourcenplc <= 0:
-            raise ValueError("Source NPLC must be a positive number")
-        if self.drainnplc <= 0:
-            raise ValueError("Drain NPLC must be a positive number")
-        if self.delay and self.delayduration < 0:
-            raise ValueError("Delay duration must be non-negative")
-        if self.draindelay and self.draindelayduration < 0:
-            raise ValueError("Drain delay duration must be non-negative")
-        if self.repeat <= 0:
-            raise ValueError("Repeat count must be a positive integer")
-        if self.pulse and self.pulsepause < 0:
-            raise ValueError("Pulse pause duration must be non-negative")
-        if self.single_ch and self.drain != "voltage":
-            raise ValueError("In single channel mode, drain must be set to 'voltage'")
-        
-    def __post_init__(self):
-        self.validate()
 class PyIVLSReturn:
     """
     This class provides a standardized way to handle returns across all plugin (GUIs, since the ll-implementation should be stand-alone) while
@@ -454,7 +350,8 @@ class PyIVLSReturn:
         """
         data = {"Error message": message}
         if missing_functions:
-            data["Missing functions"] = missing_functions
+            # keep list runtime type but silence static checker
+            data["Missing functions"] = cast(Any, missing_functions)
         data.update(extra_data)
         return cls(PyIVLSReturnCode.MISSING_DEPENDENCY, data)
 
@@ -782,17 +679,17 @@ class GuiMapper(QObject):
         self.plugin_name: str = plugin_name
         self.update_gui.connect(self.set_values)
 
-    def get_values(self, field_mapping: Dict[str, str], validation_rules: Optional[Dict[str, Dict[str, Any]]] = None) -> PyIVLSReturn:
+    def get_values(self, field_mapping: Dict[str, str], validation_rules: Optional[Dict[str, Dict[str, Any]]] = None) -> Tuple[int, Dict[str, Any]]:
         """Extract values from GUI widgets with dynamic type detection.
 
         Args:
             field_mapping: Dict mapping setting names to widget attribute names
                           {"setting_name": "widget_attribute_name"}
             validation_rules: Optional validation rules for each setting
-                            {"setting_name": {"required": True, "validator": lambda x: x > 0}}
+                            {"setting_name": {"validator": lambda x: x > 0}}
 
         Returns:
-            PyIVLSReturn: Success with data dict or error with message
+            Tuple[int, Dict[str, Any]]: (0, data) on success; (1, {"Error message": msg}) on error
         """
         result = {}
         validation_rules = validation_rules or {}
@@ -806,19 +703,19 @@ class GuiMapper(QObject):
                 value = self._extract_value_dynamic(widget_obj)
                 # Apply validation if specified
                 if setting_name in validation_rules:
-                    validation_result = self._validate_value_dynamic(setting_name, value, validation_rules[setting_name])
-                    if validation_result.is_error:
-                        return validation_result
-                    value = validation_result.get_data_value("validated_value", value)
+                    status, state = self._validate_value_dynamic(setting_name, value, validation_rules[setting_name])
+                    if status:
+                        return status, state
+                    value = state.get("validated_value", value)
 
                 result[setting_name] = value
 
             except AttributeError:
-                return PyIVLSReturn.value_error(f"Widget '{widget_name}' not found for {setting_name}", self.plugin_name)
+                return 1, {"Error message": f"Widget '{widget_name}' not found for {setting_name}"}
             except Exception as e:
-                return PyIVLSReturn.value_error(f"Error processing {setting_name}: {str(e)}", self.plugin_name)
+                return 1, {"Error message": f"Error processing {setting_name}: {str(e)}"}
 
-        return PyIVLSReturn.success(result)
+        return 0, result
 
     def schedule_gui_update(self, settings, field_mapping, validation_rules):
         """Schedule a GUI update. Callable from other threads to update the GUI safely?
@@ -831,7 +728,7 @@ class GuiMapper(QObject):
         self.update_gui.emit(settings, field_mapping, validation_rules)
 
     @pyqtSlot(dict, dict, dict)
-    def set_values(self, settings: dict, field_mapping: dict, validation_rules: dict) -> PyIVLSReturn:
+    def set_values(self, settings: dict, field_mapping: dict, validation_rules: dict) -> Tuple[int, Dict[str, Any]]:
         """Set GUI widget values from settings dictionary with dynamic type detection and conversion.
 
         Args:
@@ -850,16 +747,16 @@ class GuiMapper(QObject):
                     try:
                         value = validation_rules[setting_name]["display_converter"](value)
                     except Exception as e:
-                        return PyIVLSReturn.value_error(f"Display conversion failed for {setting_name}: {str(e)}", self.plugin_name)
+                        return 1, {"Error message": f"Display conversion failed for {setting_name}: {str(e)}"}
 
                 # Dynamically set value based on widget type
                 self._set_value_dynamic(widget_obj, value)
 
             except AttributeError:
-                return PyIVLSReturn.value_error(f"Widget '{widget_name}' not found for {setting_name}", self.plugin_name)
+                return 1, {"Error message": f"Widget '{widget_name}' not found for {setting_name}"}
             except Exception as e:
-                return PyIVLSReturn.value_error(f"Error processing {setting_name}: {str(e)}", self.plugin_name)
-        return PyIVLSReturn.success()
+                return 1, {"Error message": f"Error processing {setting_name}: {str(e)}"}
+        return 0, {}
 
     def _extract_value_dynamic(self, widget_obj) -> Any:
         """Dynamically extract value based on widget type.
@@ -888,13 +785,7 @@ class GuiMapper(QObject):
         elif isinstance(widget_obj, QDoubleSpinBox):
             return widget_obj.value()  # Already float
         else:
-            # For unknown widget types, try to get a value attribute or text
-            if hasattr(widget_obj, "value"):
-                return widget_obj.value()
-            elif hasattr(widget_obj, "text"):
-                return widget_obj.text()
-            else:
-                raise ValueError(f"Unsupported widget type: {type(widget_obj)}")
+            raise ValueError(f"Unsupported widget type: {type(widget_obj)}")
 
     def _set_value_dynamic(self, widget_obj, value: Any) -> None:
         """Dynamically set value based on widget type."""
@@ -907,7 +798,7 @@ class GuiMapper(QObject):
             elif isinstance(value, str):
                 widget_obj.setChecked(value.lower() in ["true", "1", "yes", "on"])
             else:
-                widget_obj.setChecked(bool(value))
+                raise ValueError(f"Cannot convert {value} to boolean for QCheckBox")
         elif isinstance(widget_obj, QComboBox):
             text_value = str(value)
             # Try to find exact match first
@@ -915,30 +806,27 @@ class GuiMapper(QObject):
             if index >= 0:
                 widget_obj.setCurrentIndex(index)
             else:
-                # If no exact match, set text anyway (might add new item depending on combo box settings)
-                widget_obj.setCurrentText(text_value)
+                raise ValueError(f"Value '{text_value}' not found in QComboBox options")
         elif isinstance(widget_obj, QSpinBox):
             widget_obj.setValue(int(float(value)))  # Convert to int, handling float strings
         elif isinstance(widget_obj, QDoubleSpinBox):
             widget_obj.setValue(float(value))
         else:
-            # For unknown widget types, try common patterns
-            if hasattr(widget_obj, "setValue"):
-                widget_obj.setValue(value)
-            elif hasattr(widget_obj, "setText"):
-                widget_obj.setText(str(value))
-            else:
-                raise ValueError(f"Unsupported widget type for setting value: {type(widget_obj)}")
+            raise ValueError(f"Unsupported widget type for setting value: {type(widget_obj)}")
 
-    def _validate_value_dynamic(self, setting_name: str, value: Any, validation_config: Dict[str, Any]) -> PyIVLSReturn:
-        """Validate a value using dynamic validation rules."""
+    def _validate_value_dynamic(self, setting_name: str, value: Any, validation_config: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+        """Validate a value using dynamic validation rules.
+
+        Returns:
+            Tuple[int, Dict[str, Any]]: (0, {"validated_value": value}) if OK; (1, {"Error message": msg}) if error
+        """
 
         # Apply conversion function if specified
         if "converter" in validation_config:
             try:
                 value = validation_config["converter"](value)
             except Exception as e:
-                return PyIVLSReturn.value_error(f"conversion failed for {setting_name}: {str(e)}", self.plugin_name)
+                return 1, {"Error message": f"conversion failed for {setting_name}: {str(e)}"}
 
         # Apply custom validator function
         if "validator" in validation_config:
@@ -946,11 +834,11 @@ class GuiMapper(QObject):
             try:
                 if not validator_func(value):
                     error_msg = validation_config.get("error_message", f"{setting_name} failed validation")
-                    return PyIVLSReturn.value_error(error_msg, self.plugin_name)
+                    return 1, {"Error message": error_msg}
             except Exception as e:
-                return PyIVLSReturn.value_error(f"validation failed for {setting_name}: {str(e)}", self.plugin_name)
+                return 1, {"Error message": f"validation failed for {setting_name}: {str(e)}"}
 
-        return PyIVLSReturn.success({"validated_value": value})
+        return 0, {"validated_value": value}
 
 
 class DataOrder(Enum):

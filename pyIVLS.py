@@ -1,5 +1,4 @@
 #!/home/ivls/git_pyIVLS/pyIVLS/.venv/bin/python3
-from asyncio.log import logger
 import sys
 from os.path import dirname, sep
 

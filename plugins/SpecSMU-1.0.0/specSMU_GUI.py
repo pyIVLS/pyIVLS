@@ -7,7 +7,6 @@ Standalone functionality may be added later.
 
 ivarad
 25.06.10
-
 """
 
 import os
@@ -54,7 +53,7 @@ class specSMU_GUI(QWidget):
                 "smu_channelNames",
             ],
             "spectrometer": [
-                "parse_settings_preview",
+                "parse_settings_widget",
                 "setSettings",
                 "spectrometerConnect",
                 "spectrometerDisconnect",
@@ -199,6 +198,8 @@ class specSMU_GUI(QWidget):
         Args:
             plugin_info (dict): Settings from plugin_data in pyIVLS_*_plugin.
         """
+        # no checks here, since the plugin_info comes from a trusted source,
+        # seqbuilder or .ini file
         self.settings.update(plugin_info)
         self.set_gui_from_settings()
 
@@ -578,7 +579,8 @@ class specSMU_GUI(QWidget):
                 time.sleep(self.settings["spectro_pause_time"])
 
             # if checkbox for before and after is set:
-            if self.settings["spectro_check_after"]:
+            after_flag = self.settings["spectro_check_after"]
+            if after_flag:
                 # IV before spectrum
                 status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
 
@@ -603,7 +605,7 @@ class specSMU_GUI(QWidget):
             varDict["integrationtime"] = integration_time_setting
             varDict["triggermode"] = 1 if self.spectrometer_settings["externalTrigger"] else 0
             varDict["name"] = self.spectrometer_settings["samplename"]
-            if self.settings["spectro_check_after"]:
+            if after_flag:
                 # sourceIV is returned as a tuple (i, v, readings)
                 i_before, v_before = sourceIV_before
                 i_after, v_after = sourceIV_after

@@ -168,6 +168,7 @@ class sweepGUI(QObject):
         self._delay_continuous_mode_changed(self.settingsWidget.comboBox_continuousDelayMode.currentIndex())
         self._delay_pulsed_mode_changed(self.settingsWidget.comboBox_pulsedDelayMode.currentIndex())
         self._delay_drain_mode_changed(self.settingsWidget.comboBox_drainDelayMode.currentIndex())
+        self._single_channel_changed()
         self._smu_plugin_changed()
 
     def _mode_changed(self, index):

@@ -36,6 +36,7 @@ dependencies = [
     "pyvisa==1.14.1",
     "pyvisa-py==0.7.2",
     "scikit-image>=0.25.2",
+    "seabreeze>=2.10.1",
     "setuptools>=78.1.1",
     "six==1.17.0",
     "typing-extensions==4.12.2",

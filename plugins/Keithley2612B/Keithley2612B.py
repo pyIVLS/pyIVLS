@@ -158,13 +158,19 @@ class Keithley2612B:
         self.port = port
         self.backend = backend
 
+        def _hello():
+            self.safewrite("display.clear()")
+            self.safewrite("display.settext('Connected to PyIVLS')")
+            time.sleep(2)
+            self.safewrite("display.clear()")
+
         if self.backend == BackendType.USB.value:
             if self.k is None:
                 #### connect with usbtmc
                 self.k = usbtmc.Instrument(self.address)
                 con_test = self.k.ask("*IDN?")
                 assert "keithley" in con_test.lower(), f"Connected to wrong device: {con_test}"
-
+                _hello()
                 self.k.timeout = 25  # in seconds??
         elif self.backend == BackendType.ETHERNET.value:
             if self.ke is None:
@@ -175,6 +181,7 @@ class Keithley2612B:
                 self.ke.timeout = 25000  # in milliseconds
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
+                _hello()
         elif self.backend == BackendType.MOCK.value:
             self.mock_con = True
             [status, self.dataarray] = readIVLS(self.datafile_address)
@@ -182,13 +189,6 @@ class Keithley2612B:
 
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
-        
-        if self.backend != BackendType.MOCK.value:
-            self.safewrite("display.clear()")
-            self.safewrite("display.settext('Connected to PyIVLS')")
-            time.sleep(2)
-            self.safewrite("display.clear()")
-
 
     def keithley_disconnect(self) -> None:
         ##IRtodo#### move to log
@@ -435,6 +435,8 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['source']}.source.delay = 100e-6")
+                # autozero off turns off automatic ground and voltage reference measurements
+                # FIXME: This is never turned back on. Is that excpected behaviour?
                 self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
                 self.safewrite(f"{s['source']}.source.rangei = 10")
                 self.safewrite(f"{s['source']}.source.leveli = 0")
