@@ -65,6 +65,7 @@ class OODRV:
         assert intg_time >= self.integ_limits[0], f"Integration time below minimum of {self.integ_limits[0]} µs"
         assert intg_time <= self.integ_limits[1], f"Integration time above maximum of {self.integ_limits[1]} µs"
         self.spectro.integration_time_micros(intg_time)
+        self.get_spectrum()  # take a spectrum to make sure the new time is applied.
         self.integration_time = intg_time
 
     def get_device_status(self):
