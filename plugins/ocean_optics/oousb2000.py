@@ -1,9 +1,7 @@
 import numpy as np
-import struct
-import time
 import seabreeze.spectrometers as sb
 import oo_utils as utils
-from oo_utils import micros_to_s, s_to_micros
+from oo_utils import s_to_micros
 from typing import Optional
 from enum import Enum
 

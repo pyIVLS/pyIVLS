@@ -30,7 +30,7 @@ added spectrometerGetScan as a safer way to start a scan and get a spectrum
 
 from typing import Optional
 import oo_utils as utils
-from oo_utils import micros_to_s, s_to_micros, s_to_millis, millis_to_s
+from oo_utils import s_to_micros, s_to_millis, millis_to_s
 
 import time
 import os
@@ -38,7 +38,7 @@ import numpy as np
 from datetime import datetime
 from pathvalidate import is_valid_filename
 from PyQt6 import uic
-from PyQt6.QtCore import QObject, pyqtSignal, Qt
+from PyQt6.QtCore import QObject, Qt
 from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
 from MplCanvas import MplCanvas
 from threadStopped import ThreadStopped, thread_with_exception
