@@ -228,33 +228,9 @@ class affineMoveGUI(QObject):
             if status == 1:
                 code, status = mm["mm_change_active_device"](i + 1)
                 self.logger.info_popup(f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)")
-                # calibrate
-                # status, state = mm["mm_calibrate"]()
-                # self.logger.log_debug(
-                #    f"Calibration status manipulator {i + 1}: {state.get('Error message', 'Success')}"
-                # )
-                """                
-                # move to "home"
-                status, state = mm["mm_move"](12500, 12500)
-                self.logger.log_debug(f"Moved manipulator {i + 1} to home position: {state.get('Error message', 'Success')}")
-                """
-
                 points = []
-                moves = [(0, 0), (3000, 0), (0, 3000)]
-                for move in moves:
-                    status, state = mm["mm_move_relative"](z_change=-1000)  # slightly up to avoid collisions
-                    if status:
-                        self.logger.log_info(f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}")
-                        return
-                    status, state = mm["mm_move_relative"](x_change=move[0], y_change=move[1])
-                    if status:
-                        self.logger.log_info(f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}")
-                        return
-                    status, state = mm["mm_move_relative"](z_change=1000)  # back down after move
-                    if status:
-                        self.logger.log_info(f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}")
-                        return
-                    # Update cached position after move
+                # get 3 different points
+                for i in range(3):
                     try:
                         current_pos = mm["mm_current_position"]()
                         if current_pos and len(current_pos) >= 3:
