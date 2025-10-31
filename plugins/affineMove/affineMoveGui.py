@@ -676,13 +676,28 @@ class affineMoveGUI(QObject):
     def _add_visual_overlays(self):
         """Adds visual overlays using the visualization class."""
         try:
+            draw_bounding_boxes = self.show_bounding_boxes_checkbox.isChecked()
+            draw_targets = self.settingsWidget.showTargetsCheckBox.isChecked()
+            draw_positions = self.settingsWidget.showPositionsCheckBox.isChecked()
+
             # Get current manipulator positions in camera coordinates
-            manipulator_positions = self._get_manipulator_positions_in_camera()
+            if draw_positions:
+                manipulator_positions = self._get_manipulator_positions_in_camera()
+            else:
+                manipulator_positions = None
 
             # Get target coordinates if measurement points are available
-            target_coords = self._get_target_coords_in_camera()
+            if draw_targets:
+                target_coords = self._get_target_coords_in_camera()
+            else:
+                target_coords = None
+
             # Prepare data for visualization
-            bounding_boxes = self.collision_detector.get_all_bounding_boxes()
+            if draw_bounding_boxes:
+                bounding_boxes = self.collision_detector.get_all_bounding_boxes()
+            else:
+                bounding_boxes = None
+
             # Use visualization class to draw overlays
             self.visualization.add_visual_overlays(
                 manipulator_positions=manipulator_positions,
