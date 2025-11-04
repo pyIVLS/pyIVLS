@@ -67,7 +67,7 @@ class OODRV:
         self.integration_time = intg_time
 
     def get_device_status(self):
-        raise NotImplementedError("get_device_status not implemented")
+        raise NotImplementedError("get_device_status not available for OO USB2000")
 
     def get_spectrum(self, correct_dark_counts=False) -> np.ndarray:
         """Get a spectrum from the spectrometer.

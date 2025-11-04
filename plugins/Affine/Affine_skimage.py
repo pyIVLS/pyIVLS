@@ -444,6 +444,8 @@ class Affine:
 
         inliers = np.asarray(inliers)
         return model, inliers
+    
+    
 
     def manual_transform(
         self,

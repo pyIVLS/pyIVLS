@@ -1,30 +1,5 @@
 """
-This is a GUI plugin for CCS175 spectrometer
-
-This file should provide
-- functions for interaction with other plugins (those that will be exported on get_functions hook call, these should not start with "_")
-- functions that will implement functionality of the hooks (see pyIVLS_TLCCS)
-- GUI functionality - code that interracts with Qt GUI elements from widgets
-
-This plugin should have double functionality
-(i) it may be independently used to run spectrometer preview and save individual spectra
-(ii) it provides functionality of getting spectra for other plugins
-
-Because of (i) it requires to send log and message signals, i.e. it is a child of QObject
-
-version 0.2
-2025.03.07
-ivarad
-
-version 0.3
-added spectrometerGetIntegrationTime
-added auto detection for integration time
-ivarad
-2025.06.11
-
-version 0.4
-added spectrometerGetScan as a safer way to start a scan and get a spectrum
-
+This is a GUI plugin for OceanOptics USB2000 spectrometer
 
 """
 
@@ -178,12 +153,12 @@ class OOUSB2000_GUI(QObject):
         [status, info] = self.parse_settings_widget()
         if status:
             self.logger.log_warn(f"Failed to parse settings: {info}")
-            self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+            self.logger.info_popup(f"{info['Error message']}")
             return [status, info]
         [status, info] = self.spectrometerConnect()
         if status:
             self.logger.log_error(f"Failed to connect to spectrometer: {info}")
-            self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+            self.logger.info_popup(f"{info['Error message']}")
             return [status, info]
         self._GUIchange_deviceConnected(True)  # see comment in _GUIchange_deviceConnected
 
@@ -196,8 +171,8 @@ class OOUSB2000_GUI(QObject):
             [status, info] = self.spectrometerDisconnect()
             if status:  ##IRtodo## some error handling is necessary, as connected devices will not allow to switch off the GUI
                 self._log_verbose(f"Failed to disconnect spectrometer: {info}")
-                self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-                self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+                self.logger.log_info(f"{info}, status = {status}")
+                self.logger.info_popup(f"{info['Error message']}")
             self._log_verbose("Spectrometer disconnected successfully.")
             self._GUIchange_deviceConnected(False)  # see comment in _GUIchange_deviceConnected
 
@@ -211,7 +186,7 @@ class OOUSB2000_GUI(QObject):
         self._log_verbose("Preview button clicked.")
         if self.preview_running:
             _previewAction_inner(self, False)
-            self.run_thread.join() # allow the current scan to finish in main thread
+            self.run_thread.join()  # allow the current scan to finish in main thread
             self.settingsWidget.previewButton.setText("Preview")
         else:
             self._log_verbose("Starting preview.")
@@ -241,16 +216,16 @@ class OOUSB2000_GUI(QObject):
                     else:
                         self.sleep_time = self.settings["integrationTime"]
                     if status:
-                        self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-                        self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+                        self.logger.log_info(f"{info}, status = {status}")
+                        self.logger.info_popup(f"{info['Error message']}")
                         self.preview_running = False
                         return [status, info]
                 time.sleep(self.sleep_time)
                 [status, info] = self._update_spectrum()
                 if status:
-                    self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+                    self.logger.log_info(f"{info}, status = {status}")
                     if not status == 1:
-                        self.logger.info_popup(f"TLCCS plugin : {info}")
+                        self.logger.info_popup(f"{info}")
                     self.preview_running = False
                     return [status, info]
             # If preview_running is set to False, finish the current scan and exit
@@ -262,8 +237,8 @@ class OOUSB2000_GUI(QObject):
         if self.preview_running:  # this function is useful only in preview mode
             [status, info] = self._parse_settings_integrationTime()
             if status:
-                self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-                self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+                self.logger.log_info(f"{info}, status = {status}")
+                self.logger.info_popup(f"{info['Error message']}")
                 return [status, info]
             self._log_verbose("Setting flag for new integration time for preview.")
             self.integrationTimeChanged = True
@@ -272,7 +247,7 @@ class OOUSB2000_GUI(QObject):
     def _saveAction(self):
         [status, info] = self._parseSaveData()
         if status:
-            self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+            self.logger.info_popup(f"{info['Error message']}")
             return [status, info]
         varDict = {}
         varDict["integrationtime"] = self.lastspectrum[1]["integrationTime"]
@@ -291,8 +266,8 @@ class OOUSB2000_GUI(QObject):
         preview_status = False
         [status, info] = self._parse_settings_autoTime()
         if status:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-            self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+            self.logger.log_info(f"{info}, status = {status}")
+            self.logger.info_popup(f"{info['Error message']}")
             return [status, info]
         if self.preview_running:
             preview_status = self.preview_running
@@ -546,7 +521,7 @@ class OOUSB2000_GUI(QObject):
         integ_millis = self.settingsWidget.integ_spinBox.value()
 
         self.settings["integrationTime"] = millis_to_s(integ_millis)
-        return [0, "OK"]
+        return (0, {"Error message": "OK"})
 
     def _parse_settings_autoTime(self) -> tuple[int, dict]:
         self.settings["integrationtimetype"] = self.settingsWidget.getIntegrationTime_combo.currentText()
@@ -569,13 +544,13 @@ class OOUSB2000_GUI(QObject):
     def _parseSaveData(self) -> tuple[int, dict]:
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : address string should point to a valid directory")
-            return [1, {"Error message": "TLCCS plugin : address string should point to a valid directory"}]
+            self.logger.log_info(f"address string should point to a valid directory")
+            return [1, {"Error message": "address string should point to a valid directory"}]
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : filename is not valid")
-            self.logger.info_popup("TLCCS plugin : filename is not valid")
-            return [1, {"Error message": "TLCCS plugin : filename is not valid"}]
+            self.logger.log_info(f"filename is not valid")
+            self.logger.info_popup(f"filename is not valid")
+            return [1, {"Error message": "filename is not valid"}]
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()

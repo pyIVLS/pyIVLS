@@ -227,42 +227,10 @@ class affineMoveGUI(QObject):
         for i, status in enumerate(dev_statuses):
             if status == 1:
                 code, status = mm["mm_change_active_device"](i + 1)
-                self.logger.info_popup(
-                    f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)"
-                )
-                # calibrate
-                #status, state = mm["mm_calibrate"]()
-                #self.logger.log_debug(
-                #    f"Calibration status manipulator {i + 1}: {state.get('Error message', 'Success')}"
-                #)
-                """                
-                # move to "home"
-                status, state = mm["mm_move"](12500, 12500)
-                self.logger.log_debug(f"Moved manipulator {i + 1} to home position: {state.get('Error message', 'Success')}")
-                """
-
+                self.logger.info_popup(f"AffineMove: calibrating manipulator {i + 1}.\nClick on the camera view to set calibration points (Esc to cancel)")
                 points = []
-                moves = [(0, 0), (3000, 0), (0, 3000)]
-                for move in moves:
-                    status, state = mm["mm_move_relative"](z_change=-1000)  # slightly up to avoid collisions
-                    if status:
-                        self.logger.log_info(
-                            f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}"
-                        )
-                        return
-                    status, state = mm["mm_move_relative"](x_change=move[0], y_change=move[1])
-                    if status:
-                        self.logger.log_info(
-                            f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}"
-                        )
-                        return
-                    status, state = mm["mm_move_relative"](z_change=1000) # back down after move
-                    if status:
-                        self.logger.log_info(
-                            f"Error moving manipulator {i + 1} to calibration position: {state.get('Error message', 'Unknown error')}"
-                        )
-                        return
-                    # Update cached position after move
+                # get 3 different points
+                for i in range(3):
                     try:
                         current_pos = mm["mm_current_position"]()
                         if current_pos and len(current_pos) >= 3:
@@ -320,6 +288,9 @@ class affineMoveGUI(QObject):
         """
         self.logger.log_debug("Initializing camera preview")
         _, cam, _ = self._fetch_dep_plugins()
+        if cam is None:
+            self.logger.log_warn("Camera plugin is None in _initialize_camera_preview")
+            return
         thread = cam["get_thread"]()
         if thread is None:
             self.logger.log_warn("No active camera thread found")
@@ -412,6 +383,9 @@ class affineMoveGUI(QObject):
 
         # calibrate all manipulators
         mm, _, _ = self._fetch_dep_plugins()
+        if mm is None:
+            self.logger.log_warn("Micromanipulator plugin not available")
+            return 1, {"Error message": "Micromanipulator plugin not available"}
         status, state = mm["mm_open"]()
         if status:
             self.logger.log_info(f"{state['Error message']} {state.get('Exception', '')}")
@@ -428,9 +402,7 @@ class affineMoveGUI(QObject):
                 code, status = mm["mm_change_active_device"](i + 1)
                 self.logger.log_info(f"{code} - Changing active device to {i + 1} {status}")
                 if code != 0:
-                    return 1, {
-                        "Error message": f"Error changing active device to {i + 1}: {status.get('Error message', 'Unknown error')}"
-                    }
+                    return 1, {"Error message": f"Error changing active device to {i + 1}: {status.get('Error message', 'Unknown error')}"}
                 status, state = mm["mm_calibrate"]()
 
         # Load the calibration data
@@ -501,9 +473,7 @@ class affineMoveGUI(QObject):
             tuple: (status, message)
         """
         try:
-            self.logger.info_popup(
-                f"Click 2 opposite corners to define axis-aligned bounding box for manipulator {manipulator_idx}. Press ESC to cancel."
-            )
+            self.logger.info_popup(f"Click 2 opposite corners to define axis-aligned bounding box for manipulator {manipulator_idx}. Press ESC to cancel.")
 
             corners = []
             for i in range(2):
@@ -535,9 +505,7 @@ class affineMoveGUI(QObject):
                         # Convert MM coordinates to camera coordinates
                         current_tip_pos = self.convert_mm_to_camera_coords((mm_pos[0], mm_pos[1]), manipulator_idx)
                         if current_tip_pos:
-                            self.logger.log_info(
-                                f"Current tip position for manipulator {manipulator_idx}: {current_tip_pos}"
-                            )
+                            self.logger.log_info(f"Current tip position for manipulator {manipulator_idx}: {current_tip_pos}")
                             # Update cached position
                             self.update_manipulator_position(manipulator_idx, mm_pos)
             except Exception as e:
@@ -557,9 +525,7 @@ class affineMoveGUI(QObject):
 
             # If we have tip position, update the collision detector with it
             if current_tip_pos and status == 0:
-                self.collision_detector.update_manipulator_tip_position(
-                    manipulator_idx, current_tip_pos[0], current_tip_pos[1]
-                )
+                self.collision_detector.update_manipulator_tip_position(manipulator_idx, current_tip_pos[0], current_tip_pos[1])
 
             if status == 0:
                 self._add_visual_overlays()  # Refresh visual overlays
@@ -570,9 +536,7 @@ class affineMoveGUI(QObject):
         except Exception as e:
             return 1, f"Error setting up bounding box: {e}"
 
-    def set_manipulator_bounding_box(
-        self, manipulator_idx: int, relative_coords: list[tuple[float, float]]
-    ) -> tuple[int, str]:
+    def set_manipulator_bounding_box(self, manipulator_idx: int, relative_coords: list[tuple[float, float]]) -> tuple[int, str]:
         """
         Set a manipulator's bounding box using two relative coordinates.
 
@@ -663,9 +627,7 @@ class affineMoveGUI(QObject):
                 if len(coords) == 2:
                     converted_coords = coords
                 else:
-                    self.logger.log_warn(
-                        f"Invalid bounding box format for manipulator {manipulator_idx}: {len(coords)} coordinates"
-                    )
+                    self.logger.log_warn(f"Invalid bounding box format for manipulator {manipulator_idx}: {len(coords)} coordinates")
                     continue
 
                 # Store in CollisionDetector
@@ -675,14 +637,13 @@ class affineMoveGUI(QObject):
                 # try to update the probe position if available
                 try:
                     mm, _, _ = self._fetch_dep_plugins()
+                    assert mm is not None, "Micromanipulator plugin not available"
                     code, status = mm["mm_change_active_device"](manipulator_idx)
                     if code == 0:
                         mm_pos = mm["mm_current_position"]()
                         if mm_pos and len(mm_pos) >= 2:
                             self.update_manipulator_position(manipulator_idx, mm_pos)
-                            self.collision_detector.update_manipulator_tip_position(
-                                manipulator_idx, mm_pos[0], mm_pos[1]
-                            )
+                            self.collision_detector.update_manipulator_tip_position(manipulator_idx, mm_pos[0], mm_pos[1])
                 except Exception as e:
                     self.logger.log_info(f"Could not update cached tip position for manipulator {manipulator_idx}: {e}")
 
@@ -715,13 +676,28 @@ class affineMoveGUI(QObject):
     def _add_visual_overlays(self):
         """Adds visual overlays using the visualization class."""
         try:
+            draw_bounding_boxes = self.show_bounding_boxes_checkbox.isChecked()
+            draw_targets = self.settingsWidget.showTargetsCheckBox.isChecked()
+            draw_positions = self.settingsWidget.showPositionsCheckBox.isChecked()
+
             # Get current manipulator positions in camera coordinates
-            manipulator_positions = self._get_manipulator_positions_in_camera()
+            if draw_positions:
+                manipulator_positions = self._get_manipulator_positions_in_camera()
+            else:
+                manipulator_positions = None
 
             # Get target coordinates if measurement points are available
-            target_coords = self._get_target_coords_in_camera()
+            if draw_targets:
+                target_coords = self._get_target_coords_in_camera()
+            else:
+                target_coords = None
+
             # Prepare data for visualization
-            bounding_boxes = self.collision_detector.get_all_bounding_boxes()
+            if draw_bounding_boxes:
+                bounding_boxes = self.collision_detector.get_all_bounding_boxes()
+            else:
+                bounding_boxes = None
+
             # Use visualization class to draw overlays
             self.visualization.add_visual_overlays(
                 manipulator_positions=manipulator_positions,
@@ -732,7 +708,6 @@ class affineMoveGUI(QObject):
 
         except Exception as e:
             self.logger.log_warn(f"Error adding visual overlays: {e}")
-
 
     def _get_manipulator_positions_in_camera(self):
         """
@@ -786,9 +761,7 @@ class affineMoveGUI(QObject):
             self.logger.log_info("Querying manipulator positions from hardware...")
             # get currently active manipulator
             status, active_manipulator = mm["mm_get_active_device"]()
-            assert status == 0, (
-                f"Failed to get active manipulator: {active_manipulator.get('Error message', 'Unknown error')}"
-            )
+            assert status == 0, f"Failed to get active manipulator: {active_manipulator.get('Error message', 'Unknown error')}"
             # Try to get positions for manipulators 1-4
             for manipulator_idx in range(1, 5):
                 try:
@@ -804,21 +777,13 @@ class affineMoveGUI(QObject):
                             if manipulator_idx in self.calibrations:
                                 try:
                                     # Convert MM coordinates to camera coordinates
-                                    cam_pos = self.convert_mm_to_camera_coords(
-                                        (position[0], position[1]), manipulator_idx
-                                    )
+                                    cam_pos = self.convert_mm_to_camera_coords((position[0], position[1]), manipulator_idx)
                                     if cam_pos:
                                         # Update collision detector with new tip position
-                                        self.collision_detector.update_manipulator_tip_position(
-                                            manipulator_idx, cam_pos[0], cam_pos[1]
-                                        )
-                                        self.logger.log_debug(
-                                            f"Updated bounding box tip for manipulator {manipulator_idx}: {cam_pos}"
-                                        )
+                                        self.collision_detector.update_manipulator_tip_position(manipulator_idx, cam_pos[0], cam_pos[1])
+                                        self.logger.log_debug(f"Updated bounding box tip for manipulator {manipulator_idx}: {cam_pos}")
                                 except Exception as e:
-                                    self.logger.log_debug(
-                                        f"Could not update bounding box tip for manipulator {manipulator_idx}: {e}"
-                                    )
+                                    self.logger.log_debug(f"Could not update bounding box tip for manipulator {manipulator_idx}: {e}")
 
                             success_count += 1
                             self.logger.log_debug(f"Updated position for manipulator {manipulator_idx}: {position}")
@@ -834,9 +799,7 @@ class affineMoveGUI(QObject):
         self.logger.log_info(f"Successfully updated {success_count} manipulator position(s)")
         return success_count
 
-    def move_manipulator_and_update_bounding_box(
-        self, manipulator_idx: int, x: float, y: float, z: float | None = None
-    ) -> tuple[int, dict]:
+    def move_manipulator_and_update_bounding_box(self, manipulator_idx: int, x: float, y: float, z: float | None = None) -> tuple[int, dict]:
         """
         Wrapper for moving a manipulator that also updates the bounding box tip position.
 
@@ -872,19 +835,12 @@ class affineMoveGUI(QObject):
                     cam_pos = self.convert_mm_to_camera_coords((final_pos[0], final_pos[1]), manipulator_idx)
                     if cam_pos:
                         # Update collision detector with new tip position
-                        self.collision_detector.update_manipulator_tip_position(
-                            manipulator_idx, cam_pos[0], cam_pos[1]
-                        )
-                        self.logger.log_debug(
-                            f"Updated bounding box tip for manipulator {manipulator_idx} to camera coords: {cam_pos}"
-                        )
-
+                        self.collision_detector.update_manipulator_tip_position(manipulator_idx, cam_pos[0], cam_pos[1])
+                        self.logger.log_debug(f"Updated bounding box tip for manipulator {manipulator_idx} to camera coords: {cam_pos}")
 
             self.logger.log_debug(f"Successfully moved manipulator {manipulator_idx} to ({x}, {y})")
 
         return status, state
-
-
 
     def _get_target_coords_in_camera(self):
         """
@@ -915,9 +871,7 @@ class affineMoveGUI(QObject):
                             camera_x, camera_y = pos["positioning_coords"](point)
                             target_coords[point_idx][device_idx] = (float(camera_x), float(camera_y))
                         except Exception as e:
-                            self.logger.log_debug(
-                                f"Error converting mask coordinates {point} to camera coordinates: {e}"
-                            )
+                            self.logger.log_debug(f"Error converting mask coordinates {point} to camera coordinates: {e}")
 
         except Exception as e:
             self.logger.log_warn(f"Error getting target coordinates: {e}")
@@ -1031,9 +985,7 @@ class affineMoveGUI(QObject):
 
             # check if currentIteration is valid
             if currentIteration >= len(self.measurement_points):
-                self.logger.log_info(
-                    f"Invalid iteration {currentIteration}, only {len(self.measurement_points)} points available"
-                )
+                self.logger.log_info(f"Invalid iteration {currentIteration}, only {len(self.measurement_points)} points available")
                 return [3, f"Invalid iteration {currentIteration}"]
 
             points = self.measurement_points[currentIteration]  # these are stored as mask coordinates
@@ -1047,9 +999,7 @@ class affineMoveGUI(QObject):
                 # Convert mask coordinates to camera coordinates
                 camera_coords = pos["positioning_coords"](mask_point)
                 if camera_coords == (-1, -1):
-                    self.logger.log_warn(
-                        f"Failed to convert mask coordinates {mask_point} for manipulator {device_idx}"
-                    )
+                    self.logger.log_warn(f"Failed to convert mask coordinates {mask_point} for manipulator {device_idx}")
                     continue
                 camera_target_points.append((device_idx, camera_coords))
 
@@ -1076,9 +1026,7 @@ class affineMoveGUI(QObject):
                 # Convert current MM position to camera coordinates
                 current_camera_coords = self.convert_mm_to_camera_coords(current_mm_pos[:2], manip_idx)
                 if current_camera_coords is None:
-                    self.logger.log_warn(
-                        f"Failed to convert current position to camera coordinates for manipulator {manip_idx}"
-                    )
+                    self.logger.log_warn(f"Failed to convert current position to camera coordinates for manipulator {manip_idx}")
                     continue
 
                 # Store for collision detection
@@ -1174,9 +1122,7 @@ class affineMoveGUI(QObject):
 
             target_mm_x, target_mm_y = target_mm_coords
 
-            self.logger.log_info(
-                f"Moving manipulator {manip_idx}: Camera ({target_cam_x:.1f}, {target_cam_y:.1f}) -> MM ({target_mm_x:.3f}, {target_mm_y:.3f})"
-            )
+            self.logger.log_info(f"Moving manipulator {manip_idx}: Camera ({target_cam_x:.1f}, {target_cam_y:.1f}) -> MM ({target_mm_x:.3f}, {target_mm_y:.3f})")
 
             # Execute the move using the wrapper that updates bounding box
             status, state = self.move_manipulator_and_update_bounding_box(manip_idx, target_mm_x, target_mm_y, z=0)
@@ -1202,7 +1148,6 @@ class affineMoveGUI(QObject):
             return 0, f"Successfully completed {successful_moves}/{total_moves} moves"
         else:
             return 1, f"Only {successful_moves}/{total_moves} moves completed successfully"
-
 
     def _update_planned_moves_visualization(self, current_move_idx: int):
         """
@@ -1232,7 +1177,6 @@ class affineMoveGUI(QObject):
                 self.update_planned_moves_signal.emit(planned_moves)
                 return
 
-
         # If we couldn't get current position, clear visualization
         self.clear_planned_moves_signal.emit()
 
@@ -1253,7 +1197,6 @@ class affineMoveGUI(QObject):
                 current_cam_pos = self.convert_mm_to_camera_coords((cached_pos[0], cached_pos[1]), manip_idx)
                 if current_cam_pos:
                     preview_moves.append((manip_idx, current_cam_pos, (target_cam_x, target_cam_y)))
-
 
         if preview_moves:
             # Emit signal to show preview
