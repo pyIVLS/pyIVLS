@@ -264,7 +264,7 @@ class affineMoveGUI(QObject):
                 return
             x, y, z = ret
 
-            self.logger.log_debug(f"Clicked point: {point}, current position: ({x}, {y}, {z})")
+            self.logger.log_info(f"Clicked point: {point}, current position: ({x}, {y}, {z})")
             mm_point = (x, y)
             points.append((mm_point, point))
 
@@ -273,7 +273,11 @@ class affineMoveGUI(QObject):
         view_points = np.array([pt[1] for pt in points], dtype=np.float32)
         affine_transform = cv2.getAffineTransform(view_points, mm_points)
         self.calibrations[idx] = affine_transform
-        print(f"stored calibration for manipulator {idx}: {affine_transform}")
+        self.logger.info_popup(f"Calibration for manipulator {idx} completed.")
+
+        # send call to update status which checks whether all manipulators are calibrated
+        self.update_status()
+
 
     def _find_sutter_functionality(self):
         """Functionality for the find sutter button.
@@ -395,10 +399,6 @@ class affineMoveGUI(QObject):
         """Handle the Recalibrate Manipulator button click"""
         # Get currently selected manipulator
         current_text = self.manipulator_combo_box.currentText()
-        if not current_text:
-            self.logger.info_popup("Please select a manipulator first")
-            return
-
         # Extract manipulator number from text like "Manipulator 1", "Manipulator 2", etc.
         try:
             manipulator_id = int(current_text.split()[-1])
