@@ -121,6 +121,7 @@ class affineMoveGUI(QObject):
         self.settingsWidget.clearBoundingBoxButton.clicked.connect(self._on_clear_bounding_box_clicked)
         self.settingsWidget.showBoundingBoxesCheckBox.toggled.connect(self._on_show_bounding_boxes_toggled)
         self.settingsWidget.refreshPositionsButton.clicked.connect(self._on_refresh_positions_clicked)
+        self.settingsWidget.recalibrateManipulatorButton.clicked.connect(self._on_recalibrate_manipulator_clicked)
 
         # Initialize the combo boxes for dependencies
         self.camera_box: QComboBox = self.settingsWidget.cameraBox
@@ -389,6 +390,23 @@ class affineMoveGUI(QObject):
             self._add_visual_overlays()  # Redraw overlays with updated positions
         else:
             self.logger.info_popup("No manipulator positions updated")
+
+    def _on_recalibrate_manipulator_clicked(self):
+        """Handle the Recalibrate Manipulator button click"""
+        # Get currently selected manipulator
+        current_text = self.manipulator_combo_box.currentText()
+        if not current_text:
+            self.logger.info_popup("Please select a manipulator first")
+            return
+
+        # Extract manipulator number from text like "Manipulator 1", "Manipulator 2", etc.
+        try:
+            manipulator_id = int(current_text.split()[-1])
+        except (ValueError, IndexError):
+            self.logger.info_popup("Invalid manipulator selection")
+            return
+
+        self.calibrate_manipulator(manipulator_id)
 
     def _save_calibration(self):
         """Write the current calibration data to a file. This implemetation keeps a single calibration file
@@ -785,16 +803,15 @@ class affineMoveGUI(QObject):
         Returns count of successfully updated positions.
         """
         success_count = 0
+        mm, _, _ = self._fetch_dep_plugins()
+        if mm is None:
+            self.logger.log_warn("Micromanipulator plugin not available")
+            return 0
+        self.logger.log_info("Querying manipulator positions from hardware...")
+        # get currently active manipulator
+        status, active_manipulator = mm["mm_get_active_device"]()
+        assert status == 0, f"Failed to get active manipulator: {active_manipulator.get('Error message', 'Unknown error')}"
         try:
-            mm, _, _ = self._fetch_dep_plugins()
-            if mm is None:
-                self.logger.log_warn("Micromanipulator plugin not available")
-                return 0
-
-            self.logger.log_info("Querying manipulator positions from hardware...")
-            # get currently active manipulator
-            status, active_manipulator = mm["mm_get_active_device"]()
-            assert status == 0, f"Failed to get active manipulator: {active_manipulator.get('Error message', 'Unknown error')}"
             # Try to get positions for manipulators 1-4
             for manipulator_idx in range(1, 5):
                 try:
