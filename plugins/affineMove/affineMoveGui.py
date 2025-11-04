@@ -919,12 +919,14 @@ class affineMoveGUI(QObject):
         mm, cam, pos = self._fetch_dep_plugins()
         assert pos is not None, "Positioning plugin not available"
         assert mm is not None, "Micromanipulator plugin not available"
-        self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
+        self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
 
         num_manipulators = mm["mm_get_num_manipulators"]() 
-        if self.calibrations == {}:
-        else:
-            self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
+        for i in range(1, num_manipulators + 1):
+            if i not in self.calibrations.keys():
+                self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
+                self.logger.log_info(f"Manipulator {i} not calibrated")
+                break
 
         if pos["positioning_coords"]((0, 0)) == (-1, -1):
             self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
