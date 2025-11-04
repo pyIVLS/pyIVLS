@@ -209,6 +209,7 @@ class conDetectGUI(QObject):
 
     @public
     def deviceDisconnect(self):
+        return (0, "OK")
         self.logger.log_debug("deviceDisconnect called.")
         try:
             self.functionality.setDefault()
