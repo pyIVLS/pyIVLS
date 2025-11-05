@@ -13,3 +13,6 @@ pyIVLS.log
 pyIVLS.ini
 !ivls_data.dat
 !plugins/Keithley2612B/ivls_data.dat
+calibration_data.npy
+plugins\affineMove\calibration_data.npy
+plugins/AffineMove/calibration_data.npy

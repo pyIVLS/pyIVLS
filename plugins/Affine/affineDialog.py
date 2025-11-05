@@ -44,12 +44,12 @@ class dialog(QDialog):
             img: Input image (numpy array).
             mask: Mask image (numpy array).
             settings: Settings dictionary for preprocessing and matching.
-            pointslist: Optional list of points for manual mode.
+            pointslist: Optional list of points on the mask that represent the targets.
         """
         super().__init__(None, Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint)
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
-        self.info_msg.connect(self.show_message)
+        self.info_msg.connect(self.show_message)  # TODO: this is in fact completely BORKED, no messages are getting through.
         # Connect UI elements to settings change handler
         for child in self.ui.groupBox.children():
             if isinstance(child, QCheckBox):
@@ -328,9 +328,6 @@ class dialog(QDialog):
             if mask_pixmap is not None and mask_scene is not None:
                 mask_scene.addItem(QGraphicsPixmapItem(mask_pixmap))
 
-    def minimize_preprocess_images(self):
-        """Minimize the preprocess"""
-
     def info_message(self, msg: str) -> None:
         self.info_msg.emit(msg)
 
@@ -350,7 +347,7 @@ class dialog(QDialog):
         Draws the result of matching or manual transformation in the resultView.
         Args:
             result (dict): Result dictionary from Affine.
-            pointslist (list, optional): List of points to highlight.
+            pointslist (list, optional): List of points on the mask that represent the targets.
             show_points (bool): Whether to show points.
             draw_matches (bool): Whether to draw matches.
         """
@@ -373,6 +370,7 @@ class dialog(QDialog):
                 matched_indices_1 = set()
                 matched_indices_2 = set()
 
+                # draw the matches with points and lines connecting them
                 for m in matches:
                     idx1, idx2 = m
                     matched_indices_1.add(idx1)
@@ -386,17 +384,16 @@ class dialog(QDialog):
                 # Draw unmatched keypoints in mask (left side)
                 for idx, (y, x) in enumerate(kp1):
                     if idx not in matched_indices_1:
-                        ax.plot(x, y, "co", markersize=1.5, alpha=0.7)  # cyan circles for unmatched mask keypoints
+                        ax.plot(x, y, "co", markersize=1.5, alpha=0.6)  # cyan circles for unmatched mask keypoints
 
                 # Draw unmatched keypoints in image (right side)
                 for idx, (y, x) in enumerate(kp2):
                     if idx not in matched_indices_2:
-                        ax.plot(
-                            x + w1, y, "mo", markersize=1.5, alpha=0.7
-                        )  # magenta circles for unmatched image keypoints
+                        ax.plot(x + w1, y, "mo", markersize=1.5, alpha=0.6)  # magenta circles for unmatched image keypoints
             # Draw defined points
             if show_points and pointslist is not None:
                 for pt in pointslist:
+                    # draw on mask
                     x_mask, y_mask = pt
                     ax.plot(
                         x_mask,
@@ -406,6 +403,7 @@ class dialog(QDialog):
                         markeredgewidth=2,
                         markeredgecolor="k",
                     )
+                    # convert the mask points to image coords and draw
                     x_img, y_img = self.affine.coords((x_mask, y_mask))
                     ax.plot(
                         x_img + w1,
@@ -522,9 +520,9 @@ class dialog(QDialog):
         self.mask_points = []
         self.img_points = []
         self._draw_manual_points()
-        self.info_message(
-            f"Manual mode enabled. Click {self.num_needed} points on the mask (left), then {self.num_needed} on the image (right). Colors indicate matching order."
-        )
+        self.info_message(f"Manual mode enabled. Click {self.num_needed} points on the mask (left), then {self.num_needed} on the image (right). Colors indicate matching order.")
+        self.ui.groupBox.setEnabled(False)  # disable preprocessing settings during manual mode
+        self.ui.groupBox_2.setEnabled(False)  # disable backend selection during manual mode
 
     def _draw_manual_points(self):
         """
@@ -613,14 +611,18 @@ class dialog(QDialog):
                     self.affine.manual_transform(self.mask_points, self.img_points, self.img, self.mask)
                     self.draw_result(
                         self.affine.result,
-                        self.mask_points,
-                        draw_matches=False,
+                        self.pointslist,
+                        draw_matches=True,
                     )
                 except Exception as e:
                     self.info_message(f"Manual transformation failed: {e}")
+                    self.ui.groupBox.setEnabled(True)  # manual mode over, re-enable preprocessing settings
+                    self.ui.groupBox_2.setEnabled(True)  # manual mode over, re-enable backend selection
                 self.manual_mode = False
                 self.mask_points = []
                 self.img_points = []
                 self._draw_manual_points()
         else:
             self.info_message("All image points selected. If you want to retry, re-enter manual mode.")
+            self.ui.groupBox.setEnabled(True)  # manual mode over, re-enable preprocessing settings
+            self.ui.groupBox_2.setEnabled(True)  # manual mode over, re-enable backend selection

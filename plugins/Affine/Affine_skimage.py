@@ -417,9 +417,7 @@ class Affine:
         self.result["transform"] = model
         return True
 
-    def get_transformation(
-        self, src: np.ndarray, dst: np.ndarray, residual_threshold: int = 10
-    ) -> Tuple[Any, np.ndarray]:
+    def get_transformation(self, src: np.ndarray, dst: np.ndarray, residual_threshold: int = 10) -> Tuple[Any, np.ndarray]:
         """
         Estimate the affine transformation using RANSAC.
         Args:
@@ -444,8 +442,6 @@ class Affine:
 
         inliers = np.asarray(inliers)
         return model, inliers
-    
-    
 
     def manual_transform(
         self,
@@ -467,6 +463,7 @@ class Affine:
         try:
             src = np.array(src, dtype=np.float32)
             dst = np.array(dst, dtype=np.float32)
+
             model, inliers = self.get_transformation(
                 src,
                 dst,
@@ -474,8 +471,9 @@ class Affine:
             self.A = model.params
             self.result["img"] = img
             self.result["mask"] = mask
-            self.result["kp1"] = dst
-            self.result["kp2"] = src
+            # Store keypoints in (y, x) to match convention from automatic matching
+            self.result["kp1"] = src[:, ::-1]  
+            self.result["kp2"] = dst[:, ::-1]  
             self.result["matches"] = np.array(
                 [[i, i] for i in range(len(src))]  # dummy matches to retain the structure
             )
