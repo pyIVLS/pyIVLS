@@ -248,7 +248,7 @@ class affineMoveGUI(QObject):
                         return
                     x, y, z = ret
 
-                    self.logger.log_debug(f"Clicked point: {point}, current position: ({x}, {y}, {z})")
+                    self.logger.log_info(f"Clicked point: {point}, current position: ({x}, {y}, {z})")
                     mm_point = (x, y)
                     points.append((mm_point, point))
 
@@ -257,6 +257,7 @@ class affineMoveGUI(QObject):
                 view_points = np.array([pt[1] for pt in points], dtype=np.float32)
                 affine_transform = cv2.getAffineTransform(view_points, mm_points)
                 self.calibrations[i + 1] = affine_transform
+                self.logger.log_info(f"Calibration for manipulator {i + 1} completed and stored. ({affine_transform})")
 
                 """
                 # back to home
