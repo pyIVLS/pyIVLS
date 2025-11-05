@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1008</width>
-    <height>775</height>
+    <height>896</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -31,7 +31,7 @@
         <x>0</x>
         <y>0</y>
         <width>988</width>
-        <height>755</height>
+        <height>876</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout_3">
@@ -290,6 +290,13 @@ min-width: 20px;</string>
               </property>
               <property name="text">
                <string>Refresh Positions</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QPushButton" name="recalibrateManipulatorButton">
+              <property name="text">
+               <string>Recalibrate manipulator</string>
               </property>
              </widget>
             </item>

@@ -3,6 +3,7 @@ import os
 
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject
+from numpy import float64
 from Sutter import Mpc325
 from plugin_components import (
     LoggingHelper,
@@ -347,12 +348,13 @@ class SutterGUI(QObject):
                 print(f"moved with speed {i}: {np.mean(move_times)} seconds")
                 self.hal.quick_move = initial
                 self.hal.speed = initial_speed
-            
+
         def check_fast_moves():
             import time
             import numpy as np
+
             # Running this shows that speeds up to 12 work when using spesified wait time between command1 and 2. When using wait time * 4 modes up to 13 work.
-            for i in range(12,16):
+            for i in range(12, 16):
                 n = 1000
                 pos = self.hal.get_current_position()
                 move_times = []
@@ -373,7 +375,7 @@ class SutterGUI(QObject):
                 """
                 print(f"moved with speed {i}: {np.mean(move_times)} seconds")
                 self.hal.quick_move = initial
-                self.hal.speed = initial_speed   
+                self.hal.speed = initial_speed
 
         def check_working_slow_moves_multi_axis():
             import time
@@ -587,6 +589,7 @@ class SutterGUI(QObject):
         Returns:
             tuple: (x, y, z) position in microns
         """
+        # FIXME: nonstandard return type.
         if manipulator_name is not None:
             old_device = self.hal.get_active_device()
             success = self.hal.change_active_device(manipulator_name)
