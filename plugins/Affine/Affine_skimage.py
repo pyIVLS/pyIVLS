@@ -221,6 +221,7 @@ class Affine_IO:
             w = int(1080 * aspect_ratio)
 
         it = view.begin_layers()
+        i = 0
         # colorlist, encoded as 32bit values in the following way:
         # The color is a 32bit value encoding the blue value in the lower 8 bits, the green value in the next 8 bits and the red value in the 8 bits above that.
         """             
@@ -246,6 +247,10 @@ class Affine_IO:
             """
             view.set_layer_properties(it, new_layer)
             it.next()
+            i += 1
+
+        print(f"Layers made visible: {i}")
+
         view.set_config("grid-show-ruler", "false")
         view.commit_config()
         view.set_config("background-color", "#00000000")
@@ -382,6 +387,9 @@ class Affine:
         self.result["img"] = img
         self.result["mask"] = mask
         try:
+            # TODO: since adding support for larger images, it would be good to add resizing here for processing speed
+            # Need to also consider scaling the keypoints back to original size afterwards.
+
             detector = self._create_feature_detector()
             detector.detect_and_extract(img)
             kp_img, desc_img = detector.keypoints, detector.descriptors
@@ -409,8 +417,8 @@ class Affine:
         model, inliers = self.get_transformation(src, dst, residual_threshold=residual_threshold)
         self.A = model.params
         matches = matches[inliers]
-        self.result["img"] = img
-        self.result["mask"] = mask
+        self.result["img"] = img  # redundant?
+        self.result["mask"] = mask  # redundant?
         self.result["kp1"] = kp_mask
         self.result["kp2"] = kp_img
         self.result["matches"] = matches
@@ -472,8 +480,8 @@ class Affine:
             self.result["img"] = img
             self.result["mask"] = mask
             # Store keypoints in (y, x) to match convention from automatic matching
-            self.result["kp1"] = src[:, ::-1]  
-            self.result["kp2"] = dst[:, ::-1]  
+            self.result["kp1"] = src[:, ::-1]
+            self.result["kp2"] = dst[:, ::-1]
             self.result["matches"] = np.array(
                 [[i, i] for i in range(len(src))]  # dummy matches to retain the structure
             )
@@ -517,6 +525,25 @@ class Affine:
             return mask
         except Exception as e:
             raise AffineError(f"Error loading mask from {path}: {e}", 2) from e
+
+    def update_internal_mask_preprocessing(self, path: str, mask: np.ndarray) -> np.ndarray:
+        """to be used with the gdsLoadDialog when loading masks with user input
+
+        Args:
+            path (str): Path to the mask file.
+            mask (np.ndarray): Loaded mask image.
+
+        Returns:
+            np.ndarray: Loaded mask image.
+        """
+
+        filename = os.path.basename(path)
+        filename = filename.split(".")[0]
+        self.mask_filename = filename
+        self.mask_path = path
+        self.internal_mask = mask
+        self.result.clear()
+        return mask
 
     def center_on_component(self, x: int, y: int) -> Tuple[int, int]:
         """
