@@ -109,6 +109,13 @@
           </item>
          </layout>
         </item>
+        <item>
+         <widget class="QPushButton" name="applyResize">
+          <property name="text">
+           <string>apply</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
       <item>

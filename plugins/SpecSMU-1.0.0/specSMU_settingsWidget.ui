@@ -338,7 +338,7 @@
             <property name="title">
              <string>Control</string>
             </property>
-            <layout class="QVBoxLayout" name="verticalLayout_9">
+            <layout class="QVBoxLayout" name="verticalLayout_5">
              <item>
               <layout class="QHBoxLayout" name="HBoxLayout_pulsedLine1" stretch="0,10,10,10,10,10">
                <item>
@@ -697,7 +697,7 @@
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="HBoxLayout_pulsedDelay" stretch="0,0,0">
+                <layout class="QHBoxLayout" name="HBoxLayout_pulsedDelay" stretch="0,0,0,0">
                  <item>
                   <widget class="QLabel" name="label_Delay">
                    <property name="sizePolicy">
@@ -743,6 +743,24 @@
                    </property>
                   </widget>
                  </item>
+                 <item>
+                  <layout class="QHBoxLayout" name="horizontalLayout_3">
+                   <item>
+                    <widget class="QLabel" name="label_3">
+                     <property name="text">
+                      <string>Repeat</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QSpinBox" name="repeat_spinbox">
+                     <property name="minimum">
+                      <number>1</number>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </item>
                 </layout>
                </item>
               </layout>
@@ -787,7 +805,7 @@
              <item>
               <widget class="QCheckBox" name="spectroUseLastInteg">
                <property name="text">
-                <string>mysterycheck</string>
+                <string>getAutoTime initial guess from last integration time</string>
                </property>
               </widget>
              </item>

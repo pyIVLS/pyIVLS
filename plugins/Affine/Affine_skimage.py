@@ -249,7 +249,6 @@ class Affine_IO:
             it.next()
             i += 1
 
-        print(f"Layers made visible: {i}")
 
         view.set_config("grid-show-ruler", "false")
         view.commit_config()
