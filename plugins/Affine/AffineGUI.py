@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
 import csv
 from affineDialog import dialog
 from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods
+from gdsLoadFunctionality import gdsLoadDialog
 
 
 class AffineGUI:
@@ -164,9 +165,9 @@ class AffineGUI:
                 if file.endswith(".ui"):
                     try:
                         if file.split("_")[1].lower() == "settingswidget.ui":
-                            settingsWidget = uic.loadUi(self.path + file) # type: ignore
+                            settingsWidget = uic.loadUi(self.path + file)  # type: ignore
                         elif file.split("_")[1].lower() == "mdiwidget.ui":
-                            MDIWidget = uic.loadUi(self.path + file) # type: ignore
+                            MDIWidget = uic.loadUi(self.path + file)  # type: ignore
                     except IndexError:
                         continue
         assert settingsWidget is not None, "Settings widget not found in the plugin directory."
@@ -312,8 +313,20 @@ class AffineGUI:
                 self.path + os.sep + "masks",
                 "Mask Files (*.gds);;Images (*.png *.jpg)",
             )
+            # we now have a filename, try to load the mask
             if fileName:
-                mask = self.affine.update_internal_mask(fileName)
+                if fileName.endswith(".gds"):
+                    self.dialog = gdsLoadDialog(fileName)
+                    result = self.dialog.exec()
+                    if result == QtWidgets.QDialog.DialogCode.Rejected:
+                        return
+                    mask = self.dialog.get_mask()
+                    if mask is None:
+                        return
+                    mask = self.affine.update_internal_mask_preprocessing(fileName, mask)
+                # image file, use old pathway
+                else:
+                    mask = self.affine.update_internal_mask(fileName)
                 self.settingsWidget.label.setText(f"Mask loaded: {os.path.basename(fileName)}")
                 self._update_MDI(mask, None)
                 self._gui_change_mask_uploaded(mask_loaded=True)
