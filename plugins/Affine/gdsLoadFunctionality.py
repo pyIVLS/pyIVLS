@@ -154,15 +154,6 @@ class gdsLoadDialog(QDialog):
     request_new_image = pyqtSignal()
 
     def __init__(self, path):
-        """
-        Initialize the dialog.
-        Args:
-            affine: Affine object for registration.
-            img: Input image (numpy array).
-            mask: Mask image (numpy array).
-            settings: Settings dictionary for preprocessing and matching.
-            pointslist: Optional list of points on the mask that represent the targets.
-        """
         super().__init__(None, Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint)
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
@@ -172,7 +163,7 @@ class gdsLoadDialog(QDialog):
         self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self.ui.graphicsView.viewport())
         self._rb_origin = None
         self._img = None  # keep latest rendered/cropped image
-        self._crop_px = None  # persistent crop rectangle in pixel coords: (x1, y1, x2, y2)
+        self._crop_px = None  # crop rectangle in pixel coords: (x1, y1, x2, y2)
         # Install event filter to capture mouse events on the viewport for cropping
         if self.ui.graphicsView and hasattr(self.ui.graphicsView, "viewport"):
             vp = self.ui.graphicsView.viewport()
