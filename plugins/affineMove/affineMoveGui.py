@@ -105,7 +105,7 @@ class manipulatorHandler:
         status, ret = mm["mm_change_active_device"](self.idx)
         if status != 0:
             return status, ret
-        status, ret = mm["mm_move_to_position"](target_mm_pos)
+        status, ret = mm["mm_move"](target_mm_pos)
         if status != 0:
             return status, ret
         self.current_position = target_mm_pos
@@ -383,6 +383,10 @@ class affineMoveGUI(QObject):
             affine_transform = cv2.getAffineTransform(view_points, mm_points)
             self.calibrations[idx] = affine_transform
             self.logger.info_popup(f"Calibration for manipulator {idx} completed.")
+
+            # finally, refresh all manipulator positions
+            self.update_manipulator_position(idx, mm["mm_current_position"]())
+
         except AssertionError as e:
             self.logger.log_warn(f"Calibration failed: {e}")
         finally:
@@ -685,7 +689,6 @@ class affineMoveGUI(QObject):
             if status == 1:
                 self.calibrate_manipulator(i + 1)  # + 1 since sutter manipulators are 1-indexed
 
-        self.update_status()
 
     def _fetch_mask_functionality(self):
         self.logger.log_debug("Fetching mask functionality from positioning plugin...")
@@ -758,8 +761,10 @@ class affineMoveGUI(QObject):
             target_mm_coords = self.convert_to_mm_coords(click_pos_cam_coords, manipulator_idx)
             assert target_mm_coords is not None, f"Manipulator {manipulator_idx} is not calibrated."
             self.logger.log_info(f"Moving manipulator {manipulator_idx} to camera coords {click_pos_cam_coords}, mm coords {target_mm_coords}")
-            mm["mm_change_active_device"](manipulator_idx)
-            mm["mm_move_to_position"]((target_mm_coords[0], target_mm_coords[1], 0.0))
+            self.move_manipulator_and_update_bounding_box(manipulator_idx, x=target_mm_coords[0], y=target_mm_coords[1], z=0)
+ 
+            # visual update of cached position
+            self._add_visual_overlays()
             return
 
         except AssertionError as e:
@@ -934,6 +939,15 @@ class affineMoveGUI(QObject):
     def update_manipulator_position(self, manipulator_idx: int, position: tuple) -> None:
         """Update cached position for a manipulator"""
         self.cached_manipulator_positions[manipulator_idx] = position
+        # also update collision detector tip position if calibration exists
+        if manipulator_idx in self.calibrations:
+            try:
+                cam_pos = self.convert_mm_to_camera_coords((position[0], position[1]), manipulator_idx)
+                if cam_pos:
+                    self.collision_detector.update_manipulator_tip_position(manipulator_idx, cam_pos[0], cam_pos[1])
+                    self.logger.log_debug(f"Updated bounding box tip for manipulator {manipulator_idx}: {cam_pos}")
+            except Exception as e:
+                self.logger.log_debug(f"Could not update bounding box tip for manipulator {manipulator_idx}: {e}")
 
     def get_cached_manipulator_position(self, manipulator_idx: int) -> tuple | None:
         """Get cached position for a manipulator"""
