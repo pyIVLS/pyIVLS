@@ -13,3 +13,4 @@ pyIVLS.log
 pyIVLS.ini
 !ivls_data.dat
 !plugins/Keithley2612B/ivls_data.dat
+*.gds
