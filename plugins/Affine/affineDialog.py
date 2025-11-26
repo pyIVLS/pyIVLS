@@ -50,21 +50,6 @@ class dialog(QDialog):
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
         self.info_msg.connect(self.show_message)  # TODO: this is in fact completely BORKED, no messages are getting through.
-        # Connect UI elements to settings change handler
-        for child in self.ui.groupBox.children():
-            if isinstance(child, QCheckBox):
-                child.stateChanged.connect(self._preprocessing_settings_changed)
-            elif isinstance(child, QComboBox):
-                child.currentTextChanged.connect(self._preprocessing_settings_changed)
-            elif isinstance(child, QSpinBox):
-                child.valueChanged.connect(self._preprocessing_settings_changed)
-            elif isinstance(child, QLineEdit):
-                child.textChanged.connect(self._preprocessing_settings_changed)
-
-        # Connect backend combobox to settings change handler
-        for child in self.ui.groupBox_2.children():
-            if isinstance(child, QComboBox):
-                child.currentTextChanged.connect(self._preprocessing_settings_changed)
 
         self.affine = affine
         self.pointslist = pointslist
@@ -84,17 +69,12 @@ class dialog(QDialog):
         # Connect mouse events for manual mode
         self.ui.imgView.mousePressEvent = self._img_view_clicked
         self.ui.maskView.mousePressEvent = self._mask_view_clicked
-        self._preprocessing_settings_changed()
         self.ui.matchButton.clicked.connect(self._on_match_button_clicked)
         self.ui.manualButton.clicked.connect(self._on_manual_button_clicked)
         # Fill comboboxes
         for sigma in self.sigma_list:
             self.ui.sigmaImage.addItem(str(sigma))
             self.ui.sigmaMask.addItem(str(sigma))
-        for ratio in self.ratio_list:
-            self.ui.ratioCombo.addItem(str(ratio))
-        for residual in self.residual_list:
-            self.ui.residualCombo.addItem(str(residual))
 
         # Fill morphology type comboboxes
         for morph_type in self.morphology_types:
@@ -105,6 +85,7 @@ class dialog(QDialog):
         backends = ["SIFT", "ORB"]
         for backend in backends:
             self.ui.backendCombo.addItem(backend)
+
 
         # Set initial values from settings
         self.ui.blurMask.setChecked(settings["blurmask"])
@@ -117,21 +98,23 @@ class dialog(QDialog):
         self.ui.cannyImage.setChecked(settings["cannyimage"])
         self.ui.otsuMask.setChecked(settings["otsumask"])
         self.ui.otsuImage.setChecked(settings["otsuimage"])
-        self.ui.manualThresholdMask.setChecked(settings.get("manualthresholdmask", False))
-        self.ui.manualThresholdImage.setChecked(settings.get("manualthresholdimage", False))
-        self.ui.morphologyMask.setChecked(settings.get("morphologymask", False))
-        self.ui.morphologyImage.setChecked(settings.get("morphologyimage", False))
+        self.ui.manualThresholdMask.setChecked(settings["manualthresholdmask"])
+        self.ui.manualThresholdImage.setChecked(settings["manualthresholdimage"])
+        self.ui.morphologyMask.setChecked(settings["morphologymask"])
+        self.ui.morphologyImage.setChecked(settings["morphologyimage"])
         self.ui.sigmaImage.setCurrentText(str(settings["sigmaimage"]))
         self.ui.sigmaMask.setCurrentText(str(settings["sigmamask"]))
-        self.ui.thresholdImage.setValue(settings.get("thresholdimage", 128))
-        self.ui.thresholdMask.setValue(settings.get("thresholdmask", 128))
-        self.ui.morphologyTypeMask.setCurrentText(settings.get("morphologytypemask", "erosion"))
-        self.ui.morphologyTypeImage.setCurrentText(settings.get("morphologytypeimage", "erosion"))
-        self.ui.morphologyStrengthMask.setValue(settings.get("morphologystrengthmask", 3))
-        self.ui.morphologyStrengthImage.setValue(settings.get("morphologystrengthimage", 3))
+        self.ui.thresholdImage.setValue(settings["thresholdimage"])
+        self.ui.thresholdMask.setValue(settings["thresholdmask"])
+        self.ui.morphologyTypeMask.setCurrentText(settings["morphologytypemask"])
+        self.ui.morphologyTypeImage.setCurrentText(settings["morphologytypeimage"])
+        self.ui.morphologyStrengthMask.setValue(settings["morphologystrengthmask"])
+        self.ui.morphologyStrengthImage.setValue(settings["morphologystrengthimage"])
         self.ui.crossCheck.setChecked(settings["crosscheck"])
-        self.ui.ratioCombo.setCurrentText(str(settings["ratiotest"]))
-        self.ui.residualCombo.setCurrentText(str(settings["residualthreshold"]))
+        self.ui.ratioTestSpinBox.setValue(settings["ratiotest"])
+        self.ui.residualTestSpinBox.setValue(settings["residualthreshold"])
+        self.ui.backendCombo.setCurrentText(settings["backend"])
+        self.ui.scalingSpinBox.setValue(settings["scalingfactor"])
 
         # Set up conditional enabling connections
         self.ui.manualThresholdMask.stateChanged.connect(self._update_threshold_mask_state)
@@ -151,13 +134,29 @@ class dialog(QDialog):
         self._update_sigma_mask_state()
         self._update_sigma_image_state()
 
-        # Set backend if provided in settings, otherwise default to SIFT
-        backend = settings.get("backend", "SIFT")
-        self.ui.backendCombo.setCurrentText(backend)
         if self.affine.A is not None:
             result = self.affine.result
             self.draw_result(result, self.pointslist)
             self.info_message("Showing saved result")
+
+        # Connect UI elements to settings change handler at the end to prevent unncessary signaling during setup
+        for child in self.ui.groupBox.children():
+            if isinstance(child, QCheckBox):
+                child.stateChanged.connect(self._preprocessing_settings_changed)
+            elif isinstance(child, QComboBox):
+                child.currentTextChanged.connect(self._preprocessing_settings_changed)
+            elif isinstance(child, QSpinBox):
+                child.valueChanged.connect(self._preprocessing_settings_changed)
+            elif isinstance(child, QLineEdit):
+                child.textChanged.connect(self._preprocessing_settings_changed)
+
+        # Connect backend combobox to settings change handler
+        for child in self.ui.groupBox_2.children():
+            if isinstance(child, QComboBox):
+                child.currentTextChanged.connect(self._preprocessing_settings_changed)
+
+        # draw initial images
+        self._preprocessing_settings_changed()
 
     def _preprocessing_settings_changed(self):
         """
@@ -187,7 +186,6 @@ class dialog(QDialog):
             sigmaMask = float(self.ui.sigmaMask.currentText())
         except ValueError:
             sigmaMask = 1.0
-        # Get threshold values directly from spinboxes (no need for try-catch since they enforce valid integers)
         thresholdImage = self.ui.thresholdImage.value()
         thresholdMask = self.ui.thresholdMask.value()
         # Get morphology settings
@@ -195,14 +193,9 @@ class dialog(QDialog):
         morphologyTypeImage = self.ui.morphologyTypeImage.currentText()
         morphologyStrengthMask = self.ui.morphologyStrengthMask.value()
         morphologyStrengthImage = self.ui.morphologyStrengthImage.value()
-        try:
-            settings["ratiotest"] = float(self.ui.ratioCombo.currentText())
-        except ValueError:
-            pass
-        try:
-            settings["residualthreshold"] = int(self.ui.residualCombo.currentText())
-        except ValueError:
-            pass
+        settings["ratiotest"] = self.ui.ratioTestSpinBox.value()
+        settings["residualthreshold"] = self.ui.residualTestSpinBox.value()
+        settings["scalingfactor"] = self.ui.scalingSpinBox.value()
 
         # Get backend setting
         settings["backend"] = self.ui.backendCombo.currentText()
@@ -334,7 +327,7 @@ class dialog(QDialog):
     @pyqtSlot(str)
     def show_message(self, str):
         timestamp = time.strftime("%H:%M:%S", time.localtime())
-        self.ui.matchResultLabel.setText(f"{timestamp}: {str}")
+        self.ui.statusText.setText(f"{timestamp}: {str}")
 
     def draw_result(
         self,

@@ -793,10 +793,17 @@
                <item>
                 <widget class="QDoubleSpinBox" name="spectroPauseSpinBox">
                  <property name="maximum">
-                  <double>15.000000000000000</double>
+                  <double>60.000000000000000</double>
                  </property>
                  <property name="singleStep">
                   <double>0.500000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_4">
+                 <property name="text">
+                  <string>s</string>
                  </property>
                 </widget>
                </item>

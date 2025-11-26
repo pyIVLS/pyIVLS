@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import QFileDialog, QMenu
 from PyQt6.QtCore import QModelIndex
 
 from components.threadStopped import thread_with_exception
+from components.threadStopped import ThreadStopped
 from pathvalidate import is_valid_filename
 import json
 
@@ -144,6 +145,10 @@ class pyIVLS_seqBuilder(QObject):
             item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
             self._updateInstructionSettings(item)
 
+        def to_gui_settings_for_selected_item(row, idx_parent):
+            item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
+            self.update_item_gui(item)
+
         idx: QModelIndex = self.widget.treeView.indexAt(position)
         # get parent index
         idx_parent = idx.parent()
@@ -157,10 +162,13 @@ class pyIVLS_seqBuilder(QObject):
         menu = QMenu()
         delete_action = QAction("Delete", self.widget.treeView)
         update_action = QAction("Update Settings", self.widget.treeView)
+        to_gui_action = QAction("Update GUI from Settings", self.widget.treeView)
         update_action.triggered.connect(lambda: update_settings_for_selected_item(row, idx_parent))
         delete_action.triggered.connect(lambda: remove_item(row, idx_parent))
+        to_gui_action.triggered.connect(lambda: to_gui_settings_for_selected_item(row, idx_parent))
         menu.addAction(update_action)
         menu.addAction(delete_action)
+        menu.addAction(to_gui_action)
         menu.exec(self.widget.treeView.mapToGlobal(position))
 
     def _root_item_changed(self, idx):
@@ -374,6 +382,8 @@ class pyIVLS_seqBuilder(QObject):
             data = self.extract_data(self.model.invisibleRootItem().child(0))
             stackData = copy.deepcopy(data)  #### it is necessary to make sure that we did not modify original data
             looping = []  # this will keep track of the steps inside the loop, every element is a dict[{looping -the steps to repeat, loopFunction - looping Function, totalSteps - number of steps in loop, currentStep, totalIterations, currentIteration}]
+            # stackData has the extracted data from the model
+            # looping has the current loop
             while (not stackData == []) or (not looping == []):
                 if not looping == []:
                     if looping[-1]["currentStep"] == 0:
@@ -418,16 +428,27 @@ class pyIVLS_seqBuilder(QObject):
                         break
                 if nextStepClass == "loop":
                     iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
-                    looping.append({"looping": stackItem["looping"], "loopFunction": nextStepFunction, "totalSteps": len(stackItem["looping"]), "currentStep": 0, "totalIterations": iter, "currentIteration": 0, "namePostfix": ""})
+                    looping.append(
+                        {
+                            "looping": stackItem["looping"],
+                            "loopFunction": nextStepFunction,
+                            "totalSteps": len(stackItem["looping"]),
+                            "currentStep": 0,
+                            "totalIterations": iter,
+                            "currentIteration": 0,
+                            "namePostfix": "",
+                        }
+                    )
                     stackData = stackItem["looping"] + stackData
             self.log_message.emit("pyIVLS_seqBuilder: Sequence parser finished")
             self._sigSeqEnd.emit()
+        except ThreadStopped as ts:
+            print(f"Sequence stopped: {ts}")
         except Exception as e:
             print(f"Error occurred: {e}")
         finally:
             self._setNotRunning()
-            self._sigSeqEnd.emit()  
-
+            self._sigSeqEnd.emit()
 
     def _runAction(self):
         # disable controls
@@ -519,32 +540,32 @@ class pyIVLS_seqBuilder(QObject):
         else:
             self.info_message.emit("No changes were made.")
 
+    def update_item_gui(self, item):
+        instruction_func = item.text()
+        if instruction_func not in self.available_instructions:
+            self.info_message.emit(f"Instruction {instruction_func} is not available.")
+            return
+
+        # Get the plugin's set_gui_from_settings function
+        plugin_functions = self.available_instructions[instruction_func]["functions"]
+        if "set_gui_from_settings" in plugin_functions:
+            try:
+                plugin_functions["set_gui_from_settings"]()
+            except Exception as e:
+                self.info_message.emit(f"Error while updating GUI for {instruction_func}: {str(e)}")
+        else:
+            self.info_message.emit(f"set_gui_from_settings is not implemented for {instruction_func}.")
+
     def update_all_instruction_guis(self):
         """
         Iterates through all instructions in the sequence and calls `set_gui_from_settings` for each instruction plugin.
         Logs a message if `set_gui_from_settings` is not implemented for a plugin.
         """
 
-        def update_item_gui(item):
-            instruction_func = item.text()
-            if instruction_func not in self.available_instructions:
-                self.info_message.emit(f"Instruction {instruction_func} is not available.")
-                return
-
-            # Get the plugin's set_gui_from_settings function
-            plugin_functions = self.available_instructions[instruction_func]["functions"]
-            if "set_gui_from_settings" in plugin_functions:
-                try:
-                    plugin_functions["set_gui_from_settings"]()
-                except Exception as e:
-                    self.info_message.emit(f"Error while updating GUI for {instruction_func}: {str(e)}")
-            else:
-                self.info_message.emit(f"set_gui_from_settings is not implemented for {instruction_func}.")
-
         def traverse_and_update(item):
             for row in range(item.rowCount()):
                 child = item.child(row, 0)
-                update_item_gui(child)
+                self.update_item_gui(child)
                 traverse_and_update(child)
 
         root_item = self.model.invisibleRootItem()
