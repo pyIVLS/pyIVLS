@@ -1300,6 +1300,11 @@ class affineMoveGUI(QObject):
             self.logger.log_info(f"Error in loopingIteration: {str(e)}")
             return [2, f"Error in looping iteration: {str(e)}"]
 
+    @public
+    def set_gui_from_settings(self, settings: dict) -> None:
+        # placeholder since drawing of points is done straight from the settings, so all updates are automatic.
+        pass
+
     # endregion public API
     def execute_move_list(self, move_sequence: list[tuple[int, tuple[float, float]]]) -> tuple[int, str]:
         """
