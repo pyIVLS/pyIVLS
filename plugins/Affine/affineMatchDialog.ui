@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>851</width>
-    <height>769</height>
+    <width>845</width>
+    <height>763</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,188 +19,250 @@
      <property name="title">
       <string>Preprocessing settings</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout_3">
-      <item row="1" column="2">
-       <widget class="QCheckBox" name="equalizeImage">
-        <property name="text">
-         <string>equalize img</string>
-        </property>
-       </widget>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_12">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_11">
+          <item>
+           <widget class="QCheckBox" name="otsuMask">
+            <property name="text">
+             <string>otsu mask</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="cannyMask">
+            <property name="text">
+             <string>edge detect mask</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="invertMask">
+            <property name="text">
+             <string>invert mask</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="equalizeMask">
+            <property name="text">
+             <string>equalize mask</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="blurMask">
+            <property name="text">
+             <string>blur mask</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_9">
+          <item>
+           <widget class="QLabel" name="label_5">
+            <property name="text">
+             <string>sigma Mask</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="sigmaMask"/>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </item>
-      <item row="0" column="3">
-       <widget class="QCheckBox" name="cannyMask">
-        <property name="text">
-         <string>edge detect mask</string>
-        </property>
-       </widget>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_14">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_13">
+          <item>
+           <widget class="QCheckBox" name="otsuImage">
+            <property name="text">
+             <string>otsu img</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="cannyImage">
+            <property name="text">
+             <string>edge detect image</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="invertImage">
+            <property name="text">
+             <string>invert img</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="equalizeImage">
+            <property name="text">
+             <string>equalize img</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="blurImage">
+            <property name="text">
+             <string>blur image</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_10">
+          <item>
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string>Sigma Image</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="sigmaImage"/>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </item>
-      <item row="1" column="0">
-       <widget class="QCheckBox" name="blurImage">
-        <property name="text">
-         <string>blur image</string>
-        </property>
-       </widget>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_15">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QCheckBox" name="morphologyImage">
+            <property name="text">
+             <string>morphology img</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="morphologyTypeImage">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="morphologyStrengthImage">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>15</number>
+            </property>
+            <property name="value">
+             <number>3</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <item>
+           <widget class="QCheckBox" name="manualThresholdImage">
+            <property name="text">
+             <string>manual threshold img</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="thresholdImage">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>255</number>
+            </property>
+            <property name="value">
+             <number>128</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </item>
-      <item row="1" column="1">
-       <widget class="QCheckBox" name="invertImage">
-        <property name="text">
-         <string>invert img</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QCheckBox" name="blurMask">
-        <property name="text">
-         <string>blur mask</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QCheckBox" name="invertMask">
-        <property name="text">
-         <string>invert mask</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="2">
-       <widget class="QCheckBox" name="equalizeMask">
-        <property name="text">
-         <string>equalize mask</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="3">
-       <widget class="QCheckBox" name="cannyImage">
-        <property name="text">
-         <string>edge detect image</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="4">
-       <widget class="QComboBox" name="sigmaImage"/>
-      </item>
-      <item row="0" column="4">
-       <widget class="QComboBox" name="sigmaMask"/>
-      </item>
-      <item row="0" column="5">
-       <widget class="QCheckBox" name="otsuMask">
-        <property name="text">
-         <string>otsu mask</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="5">
-       <widget class="QCheckBox" name="otsuImage">
-        <property name="text">
-         <string>otsu img</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QCheckBox" name="manualThresholdMask">
-        <property name="text">
-         <string>manual threshold mask</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="QSpinBox" name="thresholdMask">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="minimum">
-         <number>0</number>
-        </property>
-        <property name="maximum">
-         <number>255</number>
-        </property>
-        <property name="value">
-         <number>128</number>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="0">
-       <widget class="QCheckBox" name="manualThresholdImage">
-        <property name="text">
-         <string>manual threshold img</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="1">
-       <widget class="QSpinBox" name="thresholdImage">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="minimum">
-         <number>0</number>
-        </property>
-        <property name="maximum">
-         <number>255</number>
-        </property>
-        <property name="value">
-         <number>128</number>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="0">
-       <widget class="QCheckBox" name="morphologyMask">
-        <property name="text">
-         <string>morphology mask</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="1">
-       <widget class="QComboBox" name="morphologyTypeMask">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="2">
-       <widget class="QSpinBox" name="morphologyStrengthMask">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="minimum">
-         <number>1</number>
-        </property>
-        <property name="maximum">
-         <number>15</number>
-        </property>
-        <property name="value">
-         <number>3</number>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="0">
-       <widget class="QCheckBox" name="morphologyImage">
-        <property name="text">
-         <string>morphology img</string>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="1">
-       <widget class="QComboBox" name="morphologyTypeImage">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="2">
-       <widget class="QSpinBox" name="morphologyStrengthImage">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="minimum">
-         <number>1</number>
-        </property>
-        <property name="maximum">
-         <number>15</number>
-        </property>
-        <property name="value">
-         <number>3</number>
-        </property>
-       </widget>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_16">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QCheckBox" name="morphologyMask">
+            <property name="text">
+             <string>morphology mask</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="morphologyTypeMask">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="morphologyStrengthMask">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>15</number>
+            </property>
+            <property name="value">
+             <number>3</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="QCheckBox" name="manualThresholdMask">
+            <property name="text">
+             <string>manual threshold mask</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="thresholdMask">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>255</number>
+            </property>
+            <property name="value">
+             <number>128</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>
@@ -208,35 +270,103 @@
    <item row="1" column="0" colspan="2">
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>SIFT settings</string>
+      <string>Feature detection settings</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout_4">
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="text">
-         <string>Residual threshold</string>
-        </property>
-       </widget>
+     <layout class="QVBoxLayout" name="verticalLayout_3">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_17">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_6">
+          <item>
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>Residual threshold</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="residualTestSpinBox"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_5">
+          <item>
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>ratio test </string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QDoubleSpinBox" name="ratioTestSpinBox">
+            <property name="maximum">
+             <double>1.000000000000000</double>
+            </property>
+            <property name="singleStep">
+             <double>0.100000000000000</double>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_7">
+          <item>
+           <widget class="QLabel" name="label_3">
+            <property name="text">
+             <string>Backend</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="backendCombo"/>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </item>
-      <item row="0" column="1">
-       <widget class="QComboBox" name="ratioCombo"/>
-      </item>
-      <item row="1" column="1">
-       <widget class="QComboBox" name="residualCombo"/>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>ratio test (larger ratio, less matches) </string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QCheckBox" name="crossCheck">
-        <property name="text">
-         <string>Crosscheck</string>
-        </property>
-       </widget>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_18">
+        <item>
+         <widget class="QCheckBox" name="crossCheck">
+          <property name="text">
+           <string>Crosscheck</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="statusText">
+          <property name="text">
+           <string>Status</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_8">
+          <item>
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>Scaling</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QDoubleSpinBox" name="scalingSpinBox">
+            <property name="minimum">
+             <double>0.100000000000000</double>
+            </property>
+            <property name="maximum">
+             <double>1.000000000000000</double>
+            </property>
+            <property name="singleStep">
+             <double>0.100000000000000</double>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>

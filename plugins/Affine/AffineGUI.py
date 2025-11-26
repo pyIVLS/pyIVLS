@@ -610,6 +610,7 @@ class AffineGUI:
             settings["residualthreshold"] = int(self.affine.residual_threshold)
             settings["crosscheck"] = True if self.affine.cross_check else False
             settings["backend"] = self.affine.backend
+            settings["scalingfactor"] = self.affine.scalingfactor
             settings.update(s)
 
             assert settings["sigmaimage"] >= 0, "sigmaImage must be non-negative"

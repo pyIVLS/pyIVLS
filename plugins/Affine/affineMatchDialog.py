@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'affineMatchDialogUVdsJa.ui'
+## Form generated from reading UI file 'affineMatchDialogeoiHbA.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.9.0
 ##
@@ -9,138 +9,128 @@
 ################################################################################
 
 from PyQt6.QtCore import QCoreApplication, QMetaObject, Qt
-from PyQt6.QtWidgets import QCheckBox, QComboBox, QGraphicsView, QGridLayout, QGroupBox, QLabel, QPushButton, QSplitter, QVBoxLayout, QSpinBox
+from PyQt6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QGraphicsView, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QPushButton, QSpinBox, QSplitter, QVBoxLayout
 
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         if not Dialog.objectName():
             Dialog.setObjectName("Dialog")
-        Dialog.resize(1600, 1200)
+        Dialog.resize(845, 763)
         self.gridLayout = QGridLayout(Dialog)
         self.gridLayout.setObjectName("gridLayout")
         self.groupBox = QGroupBox(Dialog)
         self.groupBox.setObjectName("groupBox")
-        self.gridLayout_3 = QGridLayout(self.groupBox)
-        self.gridLayout_3.setObjectName("gridLayout_3")
-        self.equalizeImage = QCheckBox(self.groupBox)
-        self.equalizeImage.setObjectName("equalizeImage")
+        self.verticalLayout_2 = QVBoxLayout(self.groupBox)
+        self.verticalLayout_2.setObjectName("verticalLayout_2")
+        self.horizontalLayout_12 = QHBoxLayout()
+        self.horizontalLayout_12.setObjectName("horizontalLayout_12")
+        self.horizontalLayout_11 = QHBoxLayout()
+        self.horizontalLayout_11.setObjectName("horizontalLayout_11")
+        self.otsuMask = QCheckBox(self.groupBox)
+        self.otsuMask.setObjectName("otsuMask")
 
-        self.gridLayout_3.addWidget(self.equalizeImage, 1, 2, 1, 1)
+        self.horizontalLayout_11.addWidget(self.otsuMask)
 
         self.cannyMask = QCheckBox(self.groupBox)
         self.cannyMask.setObjectName("cannyMask")
 
-        self.gridLayout_3.addWidget(self.cannyMask, 0, 3, 1, 1)
-
-        self.blurImage = QCheckBox(self.groupBox)
-        self.blurImage.setObjectName("blurImage")
-
-        self.gridLayout_3.addWidget(self.blurImage, 1, 0, 1, 1)
-
-        self.invertImage = QCheckBox(self.groupBox)
-        self.invertImage.setObjectName("invertImage")
-
-        self.gridLayout_3.addWidget(self.invertImage, 1, 1, 1, 1)
-
-        self.blurMask = QCheckBox(self.groupBox)
-        self.blurMask.setObjectName("blurMask")
-
-        self.gridLayout_3.addWidget(self.blurMask, 0, 0, 1, 1)
+        self.horizontalLayout_11.addWidget(self.cannyMask)
 
         self.invertMask = QCheckBox(self.groupBox)
         self.invertMask.setObjectName("invertMask")
 
-        self.gridLayout_3.addWidget(self.invertMask, 0, 1, 1, 1)
+        self.horizontalLayout_11.addWidget(self.invertMask)
 
         self.equalizeMask = QCheckBox(self.groupBox)
         self.equalizeMask.setObjectName("equalizeMask")
 
-        self.gridLayout_3.addWidget(self.equalizeMask, 0, 2, 1, 1)
+        self.horizontalLayout_11.addWidget(self.equalizeMask)
 
-        self.cannyImage = QCheckBox(self.groupBox)
-        self.cannyImage.setObjectName("cannyImage")
+        self.blurMask = QCheckBox(self.groupBox)
+        self.blurMask.setObjectName("blurMask")
 
-        self.gridLayout_3.addWidget(self.cannyImage, 1, 3, 1, 1)
+        self.horizontalLayout_11.addWidget(self.blurMask)
 
-        self.sigmaImage = QComboBox(self.groupBox)
-        self.sigmaImage.setObjectName("sigmaImage")
+        self.horizontalLayout_12.addLayout(self.horizontalLayout_11)
 
-        self.gridLayout_3.addWidget(self.sigmaImage, 1, 4, 1, 1)
+        self.horizontalLayout_9 = QHBoxLayout()
+        self.horizontalLayout_9.setObjectName("horizontalLayout_9")
+        self.label_5 = QLabel(self.groupBox)
+        self.label_5.setObjectName("label_5")
+
+        self.horizontalLayout_9.addWidget(self.label_5)
 
         self.sigmaMask = QComboBox(self.groupBox)
         self.sigmaMask.setObjectName("sigmaMask")
 
-        self.gridLayout_3.addWidget(self.sigmaMask, 0, 4, 1, 1)
+        self.horizontalLayout_9.addWidget(self.sigmaMask)
 
-        self.otsuMask = QCheckBox(self.groupBox)
-        self.otsuMask.setObjectName("otsuMask")
+        self.horizontalLayout_12.addLayout(self.horizontalLayout_9)
 
-        self.gridLayout_3.addWidget(self.otsuMask, 0, 5, 1, 1)
+        self.verticalLayout_2.addLayout(self.horizontalLayout_12)
 
+        self.horizontalLayout_14 = QHBoxLayout()
+        self.horizontalLayout_14.setObjectName("horizontalLayout_14")
+        self.horizontalLayout_13 = QHBoxLayout()
+        self.horizontalLayout_13.setObjectName("horizontalLayout_13")
         self.otsuImage = QCheckBox(self.groupBox)
         self.otsuImage.setObjectName("otsuImage")
 
-        self.gridLayout_3.addWidget(self.otsuImage, 1, 5, 1, 1)
+        self.horizontalLayout_13.addWidget(self.otsuImage)
 
-        self.manualThresholdMask = QCheckBox(self.groupBox)
-        self.manualThresholdMask.setObjectName("manualThresholdMask")
+        self.cannyImage = QCheckBox(self.groupBox)
+        self.cannyImage.setObjectName("cannyImage")
 
-        self.gridLayout_3.addWidget(self.manualThresholdMask, 2, 0, 1, 1)
+        self.horizontalLayout_13.addWidget(self.cannyImage)
 
-        self.thresholdMask = QSpinBox(self.groupBox)
-        self.thresholdMask.setObjectName("thresholdMask")
-        self.thresholdMask.setEnabled(False)
-        self.thresholdMask.setMinimum(0)
-        self.thresholdMask.setMaximum(255)
-        self.thresholdMask.setValue(128)
+        self.invertImage = QCheckBox(self.groupBox)
+        self.invertImage.setObjectName("invertImage")
 
-        self.gridLayout_3.addWidget(self.thresholdMask, 2, 1, 1, 1)
+        self.horizontalLayout_13.addWidget(self.invertImage)
 
-        self.manualThresholdImage = QCheckBox(self.groupBox)
-        self.manualThresholdImage.setObjectName("manualThresholdImage")
+        self.equalizeImage = QCheckBox(self.groupBox)
+        self.equalizeImage.setObjectName("equalizeImage")
 
-        self.gridLayout_3.addWidget(self.manualThresholdImage, 3, 0, 1, 1)
+        self.horizontalLayout_13.addWidget(self.equalizeImage)
 
-        self.thresholdImage = QSpinBox(self.groupBox)
-        self.thresholdImage.setObjectName("thresholdImage")
-        self.thresholdImage.setEnabled(False)
-        self.thresholdImage.setMinimum(0)
-        self.thresholdImage.setMaximum(255)
-        self.thresholdImage.setValue(128)
+        self.blurImage = QCheckBox(self.groupBox)
+        self.blurImage.setObjectName("blurImage")
 
-        self.gridLayout_3.addWidget(self.thresholdImage, 3, 1, 1, 1)
+        self.horizontalLayout_13.addWidget(self.blurImage)
 
-        self.morphologyMask = QCheckBox(self.groupBox)
-        self.morphologyMask.setObjectName("morphologyMask")
+        self.horizontalLayout_14.addLayout(self.horizontalLayout_13)
 
-        self.gridLayout_3.addWidget(self.morphologyMask, 4, 0, 1, 1)
+        self.horizontalLayout_10 = QHBoxLayout()
+        self.horizontalLayout_10.setObjectName("horizontalLayout_10")
+        self.label_4 = QLabel(self.groupBox)
+        self.label_4.setObjectName("label_4")
 
-        self.morphologyTypeMask = QComboBox(self.groupBox)
-        self.morphologyTypeMask.setObjectName("morphologyTypeMask")
-        self.morphologyTypeMask.setEnabled(False)
+        self.horizontalLayout_10.addWidget(self.label_4)
 
-        self.gridLayout_3.addWidget(self.morphologyTypeMask, 4, 1, 1, 1)
+        self.sigmaImage = QComboBox(self.groupBox)
+        self.sigmaImage.setObjectName("sigmaImage")
 
-        self.morphologyStrengthMask = QSpinBox(self.groupBox)
-        self.morphologyStrengthMask.setObjectName("morphologyStrengthMask")
-        self.morphologyStrengthMask.setEnabled(False)
-        self.morphologyStrengthMask.setMinimum(1)
-        self.morphologyStrengthMask.setMaximum(15)
-        self.morphologyStrengthMask.setValue(3)
+        self.horizontalLayout_10.addWidget(self.sigmaImage)
 
-        self.gridLayout_3.addWidget(self.morphologyStrengthMask, 4, 2, 1, 1)
+        self.horizontalLayout_14.addLayout(self.horizontalLayout_10)
 
+        self.verticalLayout_2.addLayout(self.horizontalLayout_14)
+
+        self.horizontalLayout_15 = QHBoxLayout()
+        self.horizontalLayout_15.setObjectName("horizontalLayout_15")
+        self.horizontalLayout_2 = QHBoxLayout()
+        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.morphologyImage = QCheckBox(self.groupBox)
         self.morphologyImage.setObjectName("morphologyImage")
 
-        self.gridLayout_3.addWidget(self.morphologyImage, 5, 0, 1, 1)
+        self.horizontalLayout_2.addWidget(self.morphologyImage)
 
         self.morphologyTypeImage = QComboBox(self.groupBox)
         self.morphologyTypeImage.setObjectName("morphologyTypeImage")
         self.morphologyTypeImage.setEnabled(False)
 
-        self.gridLayout_3.addWidget(self.morphologyTypeImage, 5, 1, 1, 1)
+        self.horizontalLayout_2.addWidget(self.morphologyTypeImage)
 
         self.morphologyStrengthImage = QSpinBox(self.groupBox)
         self.morphologyStrengthImage.setObjectName("morphologyStrengthImage")
@@ -149,56 +139,162 @@ class Ui_Dialog(object):
         self.morphologyStrengthImage.setMaximum(15)
         self.morphologyStrengthImage.setValue(3)
 
-        self.gridLayout_3.addWidget(self.morphologyStrengthImage, 5, 2, 1, 1)
+        self.horizontalLayout_2.addWidget(self.morphologyStrengthImage)
+
+        self.horizontalLayout_15.addLayout(self.horizontalLayout_2)
+
+        self.horizontalLayout_3 = QHBoxLayout()
+        self.horizontalLayout_3.setObjectName("horizontalLayout_3")
+        self.manualThresholdImage = QCheckBox(self.groupBox)
+        self.manualThresholdImage.setObjectName("manualThresholdImage")
+
+        self.horizontalLayout_3.addWidget(self.manualThresholdImage)
+
+        self.thresholdImage = QSpinBox(self.groupBox)
+        self.thresholdImage.setObjectName("thresholdImage")
+        self.thresholdImage.setEnabled(False)
+        self.thresholdImage.setMinimum(0)
+        self.thresholdImage.setMaximum(255)
+        self.thresholdImage.setValue(128)
+
+        self.horizontalLayout_3.addWidget(self.thresholdImage)
+
+        self.horizontalLayout_15.addLayout(self.horizontalLayout_3)
+
+        self.verticalLayout_2.addLayout(self.horizontalLayout_15)
+
+        self.horizontalLayout_16 = QHBoxLayout()
+        self.horizontalLayout_16.setObjectName("horizontalLayout_16")
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.morphologyMask = QCheckBox(self.groupBox)
+        self.morphologyMask.setObjectName("morphologyMask")
+
+        self.horizontalLayout.addWidget(self.morphologyMask)
+
+        self.morphologyTypeMask = QComboBox(self.groupBox)
+        self.morphologyTypeMask.setObjectName("morphologyTypeMask")
+        self.morphologyTypeMask.setEnabled(False)
+
+        self.horizontalLayout.addWidget(self.morphologyTypeMask)
+
+        self.morphologyStrengthMask = QSpinBox(self.groupBox)
+        self.morphologyStrengthMask.setObjectName("morphologyStrengthMask")
+        self.morphologyStrengthMask.setEnabled(False)
+        self.morphologyStrengthMask.setMinimum(1)
+        self.morphologyStrengthMask.setMaximum(15)
+        self.morphologyStrengthMask.setValue(3)
+
+        self.horizontalLayout.addWidget(self.morphologyStrengthMask)
+
+        self.horizontalLayout_16.addLayout(self.horizontalLayout)
+
+        self.horizontalLayout_4 = QHBoxLayout()
+        self.horizontalLayout_4.setObjectName("horizontalLayout_4")
+        self.manualThresholdMask = QCheckBox(self.groupBox)
+        self.manualThresholdMask.setObjectName("manualThresholdMask")
+
+        self.horizontalLayout_4.addWidget(self.manualThresholdMask)
+
+        self.thresholdMask = QSpinBox(self.groupBox)
+        self.thresholdMask.setObjectName("thresholdMask")
+        self.thresholdMask.setEnabled(False)
+        self.thresholdMask.setMinimum(0)
+        self.thresholdMask.setMaximum(255)
+        self.thresholdMask.setValue(128)
+
+        self.horizontalLayout_4.addWidget(self.thresholdMask)
+
+        self.horizontalLayout_16.addLayout(self.horizontalLayout_4)
+
+        self.verticalLayout_2.addLayout(self.horizontalLayout_16)
 
         self.gridLayout.addWidget(self.groupBox, 0, 0, 1, 2)
 
         self.groupBox_2 = QGroupBox(Dialog)
         self.groupBox_2.setObjectName("groupBox_2")
-        self.gridLayout_4 = QGridLayout(self.groupBox_2)
-        self.gridLayout_4.setObjectName("gridLayout_4")
+        self.verticalLayout_3 = QVBoxLayout(self.groupBox_2)
+        self.verticalLayout_3.setObjectName("verticalLayout_3")
+        self.horizontalLayout_17 = QHBoxLayout()
+        self.horizontalLayout_17.setObjectName("horizontalLayout_17")
+        self.horizontalLayout_6 = QHBoxLayout()
+        self.horizontalLayout_6.setObjectName("horizontalLayout_6")
         self.label_2 = QLabel(self.groupBox_2)
         self.label_2.setObjectName("label_2")
 
-        self.gridLayout_4.addWidget(self.label_2, 1, 0, 1, 1)
+        self.horizontalLayout_6.addWidget(self.label_2)
 
-        self.ratioCombo = QComboBox(self.groupBox_2)
-        self.ratioCombo.setObjectName("ratioCombo")
+        self.residualTestSpinBox = QSpinBox(self.groupBox_2)
+        self.residualTestSpinBox.setObjectName("residualTestSpinBox")
 
-        self.gridLayout_4.addWidget(self.ratioCombo, 0, 1, 1, 1)
+        self.horizontalLayout_6.addWidget(self.residualTestSpinBox)
 
-        self.residualCombo = QComboBox(self.groupBox_2)
-        self.residualCombo.setObjectName("residualCombo")
+        self.horizontalLayout_17.addLayout(self.horizontalLayout_6)
 
-        self.gridLayout_4.addWidget(self.residualCombo, 1, 1, 1, 1)
-
+        self.horizontalLayout_5 = QHBoxLayout()
+        self.horizontalLayout_5.setObjectName("horizontalLayout_5")
         self.label = QLabel(self.groupBox_2)
         self.label.setObjectName("label")
 
-        self.gridLayout_4.addWidget(self.label, 0, 0, 1, 1)
+        self.horizontalLayout_5.addWidget(self.label)
 
-        self.crossCheck = QCheckBox(self.groupBox_2)
-        self.crossCheck.setObjectName("crossCheck")
+        self.ratioTestSpinBox = QDoubleSpinBox(self.groupBox_2)
+        self.ratioTestSpinBox.setObjectName("ratioTestSpinBox")
+        self.ratioTestSpinBox.setMaximum(1.000000000000000)
+        self.ratioTestSpinBox.setSingleStep(0.100000000000000)
 
-        self.gridLayout_4.addWidget(self.crossCheck, 2, 0, 1, 1)
+        self.horizontalLayout_5.addWidget(self.ratioTestSpinBox)
 
+        self.horizontalLayout_17.addLayout(self.horizontalLayout_5)
+
+        self.horizontalLayout_7 = QHBoxLayout()
+        self.horizontalLayout_7.setObjectName("horizontalLayout_7")
         self.label_3 = QLabel(self.groupBox_2)
         self.label_3.setObjectName("label_3")
 
-        self.gridLayout_4.addWidget(self.label_3, 3, 0, 1, 1)
+        self.horizontalLayout_7.addWidget(self.label_3)
 
         self.backendCombo = QComboBox(self.groupBox_2)
         self.backendCombo.setObjectName("backendCombo")
 
-        self.gridLayout_4.addWidget(self.backendCombo, 3, 1, 1, 1)
+        self.horizontalLayout_7.addWidget(self.backendCombo)
+
+        self.horizontalLayout_17.addLayout(self.horizontalLayout_7)
+
+        self.verticalLayout_3.addLayout(self.horizontalLayout_17)
+
+        self.horizontalLayout_18 = QHBoxLayout()
+        self.horizontalLayout_18.setObjectName("horizontalLayout_18")
+        self.crossCheck = QCheckBox(self.groupBox_2)
+        self.crossCheck.setObjectName("crossCheck")
+
+        self.horizontalLayout_18.addWidget(self.crossCheck)
+
+        self.statusText = QLabel(self.groupBox_2)
+        self.statusText.setObjectName("statusText")
+
+        self.horizontalLayout_18.addWidget(self.statusText)
+
+        self.horizontalLayout_8 = QHBoxLayout()
+        self.horizontalLayout_8.setObjectName("horizontalLayout_8")
+        self.label_6 = QLabel(self.groupBox_2)
+        self.label_6.setObjectName("label_6")
+
+        self.horizontalLayout_8.addWidget(self.label_6)
+
+        self.scalingSpinBox = QDoubleSpinBox(self.groupBox_2)
+        self.scalingSpinBox.setObjectName("scalingSpinBox")
+        self.scalingSpinBox.setMinimum(0.100000000000000)
+        self.scalingSpinBox.setMaximum(1.000000000000000)
+        self.scalingSpinBox.setSingleStep(0.100000000000000)
+
+        self.horizontalLayout_8.addWidget(self.scalingSpinBox)
+
+        self.horizontalLayout_18.addLayout(self.horizontalLayout_8)
+
+        self.verticalLayout_3.addLayout(self.horizontalLayout_18)
 
         self.gridLayout.addWidget(self.groupBox_2, 1, 0, 1, 2)
-
-        # add a label displaying the match result
-        self.matchResultLabel = QLabel(self.groupBox_2)
-        self.matchResultLabel.setObjectName("matchResultLabel")
-        self.gridLayout_4.addWidget(self.matchResultLabel, 4, 0, 1, 2)
-        self.matchResultLabel.setText("Not matched yet")
 
         self.groupBox_4 = QGroupBox(Dialog)
         self.groupBox_4.setObjectName("groupBox_4")
@@ -250,25 +346,29 @@ class Ui_Dialog(object):
     def retranslateUi(self, Dialog):
         Dialog.setWindowTitle(QCoreApplication.translate("Dialog", "Affine conversion", None))
         self.groupBox.setTitle(QCoreApplication.translate("Dialog", "Preprocessing settings", None))
-        self.equalizeImage.setText(QCoreApplication.translate("Dialog", "equalize img", None))
+        self.otsuMask.setText(QCoreApplication.translate("Dialog", "otsu mask", None))
         self.cannyMask.setText(QCoreApplication.translate("Dialog", "edge detect mask", None))
-        self.blurImage.setText(QCoreApplication.translate("Dialog", "blur image", None))
-        self.invertImage.setText(QCoreApplication.translate("Dialog", "invert img", None))
-        self.blurMask.setText(QCoreApplication.translate("Dialog", "blur mask", None))
         self.invertMask.setText(QCoreApplication.translate("Dialog", "invert mask", None))
         self.equalizeMask.setText(QCoreApplication.translate("Dialog", "equalize mask", None))
-        self.cannyImage.setText(QCoreApplication.translate("Dialog", "edge detect image", None))
-        self.otsuMask.setText(QCoreApplication.translate("Dialog", "otsu mask", None))
+        self.blurMask.setText(QCoreApplication.translate("Dialog", "blur mask", None))
+        self.label_5.setText(QCoreApplication.translate("Dialog", "sigma Mask", None))
         self.otsuImage.setText(QCoreApplication.translate("Dialog", "otsu img", None))
-        self.manualThresholdMask.setText(QCoreApplication.translate("Dialog", "manual threshold mask", None))
+        self.cannyImage.setText(QCoreApplication.translate("Dialog", "edge detect image", None))
+        self.invertImage.setText(QCoreApplication.translate("Dialog", "invert img", None))
+        self.equalizeImage.setText(QCoreApplication.translate("Dialog", "equalize img", None))
+        self.blurImage.setText(QCoreApplication.translate("Dialog", "blur image", None))
+        self.label_4.setText(QCoreApplication.translate("Dialog", "Sigma Image", None))
+        self.morphologyImage.setText(QCoreApplication.translate("Dialog", "morphology img", None))
         self.manualThresholdImage.setText(QCoreApplication.translate("Dialog", "manual threshold img", None))
         self.morphologyMask.setText(QCoreApplication.translate("Dialog", "morphology mask", None))
-        self.morphologyImage.setText(QCoreApplication.translate("Dialog", "morphology img", None))
-        self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", "Feature detector settings", None))
-        self.label_2.setText(QCoreApplication.translate("Dialog", "Residual threshold (larger -> more matches but less accurate)", None))
-        self.label.setText(QCoreApplication.translate("Dialog", "ratio test) ", None))
+        self.manualThresholdMask.setText(QCoreApplication.translate("Dialog", "manual threshold mask", None))
+        self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", "Feature detection settings", None))
+        self.label_2.setText(QCoreApplication.translate("Dialog", "Residual threshold", None))
+        self.label.setText(QCoreApplication.translate("Dialog", "ratio test ", None))
+        self.label_3.setText(QCoreApplication.translate("Dialog", "Backend", None))
         self.crossCheck.setText(QCoreApplication.translate("Dialog", "Crosscheck", None))
-        self.label_3.setText(QCoreApplication.translate("Dialog", "Feature detector backend", None))
+        self.statusText.setText(QCoreApplication.translate("Dialog", "Status", None))
+        self.label_6.setText(QCoreApplication.translate("Dialog", "Scaling", None))
         self.groupBox_4.setTitle("")
         self.groupBox_3.setTitle("")
         self.matchButton.setText(QCoreApplication.translate("Dialog", "Match", None))
