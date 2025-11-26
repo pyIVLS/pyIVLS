@@ -336,13 +336,6 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="statusText">
-          <property name="text">
-           <string>Status</string>
-          </property>
-         </widget>
-        </item>
-        <item>
          <layout class="QHBoxLayout" name="horizontalLayout_8">
           <item>
            <widget class="QLabel" name="label_6">
@@ -367,6 +360,13 @@
          </layout>
         </item>
        </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="statusText">
+        <property name="text">
+         <string>Status</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

@@ -1,15 +1,50 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'affineMatchDialogeoiHbA.ui'
+## Form generated from reading UI file 'affineMatchDialogHUXkMY.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.9.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PyQt6.QtCore import QCoreApplication, QMetaObject, Qt
-from PyQt6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QGraphicsView, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QPushButton, QSpinBox, QSplitter, QVBoxLayout
+from PyQt6.QtCore import QCoreApplication, QDate, QDateTime, QLocale, QMetaObject, QObject, QPoint, QRect, QSize, QTime, QUrl, Qt
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QConicalGradient,
+    QCursor,
+    QFont,
+    QFontDatabase,
+    QGradient,
+    QIcon,
+    QImage,
+    QKeySequence,
+    QLinearGradient,
+    QPainter,
+    QPalette,
+    QPixmap,
+    QRadialGradient,
+    QTransform,
+)
+from PyQt6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDoubleSpinBox,
+    QGraphicsView,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QSpinBox,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class Ui_Dialog(object):
@@ -270,11 +305,6 @@ class Ui_Dialog(object):
 
         self.horizontalLayout_18.addWidget(self.crossCheck)
 
-        self.statusText = QLabel(self.groupBox_2)
-        self.statusText.setObjectName("statusText")
-
-        self.horizontalLayout_18.addWidget(self.statusText)
-
         self.horizontalLayout_8 = QHBoxLayout()
         self.horizontalLayout_8.setObjectName("horizontalLayout_8")
         self.label_6 = QLabel(self.groupBox_2)
@@ -293,6 +323,11 @@ class Ui_Dialog(object):
         self.horizontalLayout_18.addLayout(self.horizontalLayout_8)
 
         self.verticalLayout_3.addLayout(self.horizontalLayout_18)
+
+        self.statusText = QLabel(self.groupBox_2)
+        self.statusText.setObjectName("statusText")
+
+        self.verticalLayout_3.addWidget(self.statusText)
 
         self.gridLayout.addWidget(self.groupBox_2, 1, 0, 1, 2)
 
@@ -367,8 +402,8 @@ class Ui_Dialog(object):
         self.label.setText(QCoreApplication.translate("Dialog", "ratio test ", None))
         self.label_3.setText(QCoreApplication.translate("Dialog", "Backend", None))
         self.crossCheck.setText(QCoreApplication.translate("Dialog", "Crosscheck", None))
-        self.statusText.setText(QCoreApplication.translate("Dialog", "Status", None))
         self.label_6.setText(QCoreApplication.translate("Dialog", "Scaling", None))
+        self.statusText.setText(QCoreApplication.translate("Dialog", "Status", None))
         self.groupBox_4.setTitle("")
         self.groupBox_3.setTitle("")
         self.matchButton.setText(QCoreApplication.translate("Dialog", "Match", None))

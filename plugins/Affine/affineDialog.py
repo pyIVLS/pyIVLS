@@ -86,7 +86,6 @@ class dialog(QDialog):
         for backend in backends:
             self.ui.backendCombo.addItem(backend)
 
-        print("Settings on init:", settings)  # FIXME debug print
 
         # Set initial values from settings
         self.ui.blurMask.setChecked(settings["blurmask"])
