@@ -1,127 +1,21 @@
-#### Changelog
-# 1. MDI area added to MainWindow (will be used for vizualization)
-# 2. Device plugins are separated into the GUI and core parts. The main idea of separation is to be able to use core without the GUI
-# 3. pyIVLS are not any more descendents of plugin class. Mainly it is done because the public functions should be provided by GUI classes, but not by the plugin itself. As a benefit, requirements to the plugin names are removed
-# 4. Some GUI clases may now be descendents of QObject as they may need to emit signals for logging (see note on logging and error messaging)
-# 5. Changed the structure of ini file, now it allows to save plugin settings
-# 6. class option is added to the plugin descriptor in the ini file. This is related to suggested implementation of the built-in functionality of run and address selection. (class = step for measurement, class = loop for looping the steps, class = none for support plugins not directly used in recipe)
-# 7. Sequence buoilder implmented. This required some changes to pyIVLS and pluginContainer.
-# 7. Execution flow is modified to allow to add messages from pluginContainer to log. Message slot from pluginloader is removed, info signal from plugin container is connected to the message slot in pyIVLS_GUI, as for all the other information windows.
+# pyIVLS
 
-#### TODO list
-# ~~1. add settings validation to GUI (partially done)~~
-# ~~2. add settings locking/unlocking to GUI (partially done)~~
-# ~~3. implement logging (at the moment log signals are collected from plugins and in pyIVLS.py connected to a addDataLog slot in pyIVLS_GUI.py)~~
-# ~~4. implement warning messaging (implemented not tested)~~
-# ~~5. implement saving of settings to configuration file~~
-# ~~6. implement reopening of docking window and MDI windows~~
-# 7. implement autosave for long measurements
-# 8. implement loading/saving of *.ini file this should allow to save/load certain measurement configurations
-# 9. implement measurement run and address selection for data saving as a built-in functionality. A temporary workaround is the use of plugings with function = sequence. 
-##      For the final realization the main window may have another docking window (recipe editor), where measurement recipies may be created. A reciepe will replace sequence plugins. A reciepe may be a combination of measurement (e.g. sweep, TLCCS) and loop scripts (e.g. Affine, peltier),
-##      this may require introduction of new/replacement of plugin type/function classification, as the recipe editor should know what plugins allow looping, and what are just direct measurements. Also looping interface should be thought through.
-# 10. to do list to make sequence builder usable
-####        a)connecting and disconnecting device should be implemented in a similar way, most probably at the beginning at ending of the sequence. Devices should have thread locks.
-####        b)implement proper messaging, logging and error handling for running sequencies
-####        c)implement recipe checks in sequence (should look for devices to connect/disconnect, make sure that the same plugin is not used in step mode within its own loop mode)
-####        d)implement closelock and GUI disable
-####        e)in itc503:
-####                     -allow T monitor (timer may not work as it is run in different thread)
-####                     -allow continuous T save to file
-####        f)in sweepGUI:
-####                     -implement setSettings for SMU
+**pyIVLS** is a Python-based **Versatile Lab System** designed for modular scientific measurement and control.
 
-#### install (Ubuntu 24.04.1 LTS)
-# 1. python3 -m venv .venv
-# 2. source .venv/bin/activate
-# 3. python3 -m pip install pyqt6
-# 4. python3 -m pip install pluggy
-## if pyvisa needed, e.g. Keithley via eth
-# 5. python3 -m pip install pyvisa
-# 5a. python3 -m pip install pyvisa_py
-# 5b. python3 -m pip install psutil # required to supress some warnings
-# 5c. python3 -m pip install zeroconf  # required to supress some warnings
-## if usbtmc is needed, e.g. Keithley via USB
-# 6. python3 -m pip install pyhton-usbtmc
-# 6a. python3 -m pip install PyUSB # required for usbtmc
-# 7. python3 -m pip install numpy
-## if cameras are needed
-# 8. python3 -m pip install opencv-python
-# 9. python3 -m pip install matplotlib
-#10. python3 -m pip install datetime
-# deactivate
+But what does “IVLS” really mean?
 
-#### or install (OS agnostic using UV package manager, recommended)
-# 1. install UV package manager: pipx install uv (or pip install uv)
-# 2. run program with uv run pyIVLS.py, uv automatically creates venv and installs the requirements.
-# 3. if dependencies need to be added, uv add {package_name} adds the package to the requirements and checks for conflicts.
+It depends on what you need:
 
+- **Instrumented Versatile Lab System** – supports modular hardware plugins and precise control of instruments
+- **Intelligent Versatile Lab System** – includes AI-driven probe positioning and real-time data fitting
+- **Interactive Versatile Lab System** – GUI-driven workflows and user-friendly plugin design
+- **IV/Light/Spectra** – originally built for current-voltage and optical measurements, but easily extended
 
+**You decide what pyIVLS means for your lab.**
 
+## Running 
+The entry point for the software is pyIVLS.py. Package requirements are provided in pyproject.toml and requirements.txt.
 
-# change the first line of pyIVLS.py to address the virual environment 
-## e.g.#!/home/ivls/git_pyIVLS/pyIVLS/.venv/bin/python3
-#run with
-## ./pyIVLS.py
-
-#### settings for hardware discovery
-# to avoid running the script as superused some rules needs to be created
-# check https://github.com/python-ivi/python-usbtmc for details
-# example of /etc/udev/rules.d for Ubuntu 24.04.1 LTS to run Keithley 2612B
-#begin of /etc/udev/rules.d
-## USBTMC instruments
-#
-## Keithley2612B
-#SUBSYSTEMS=="usb", ACTION=="add", ATTRS{idVendor}=="05e6", ATTRS{idProduct}=="2612", GROUP="usbtmc", MODE="0660"
-#end of of /etc/udev/rules.d
-# In case of using this approach: the group must exist, the user running the script should be member of the group. 
-# Example for creating the group and adding the user
-##sudo groupadd usbtmc
-##sudo usermod -a -G usbtmc ivls
-
-#### plugin conventions
-# 1. Every plugin  consists of a couple of files. 
-#	pyIVLS_name.py - implementation of the pluggy interface
-#	nameGUI.py - a GUI widget for setting and controlling the core. Together with core implementation may be reused in another GUI software
-#	name.py - core implementation. May be reused without GUI
-# 2. The plugins should be registered in pyIVLS_container
-#	if a plugin should be loaded, it is done in pyIVLS_container:_register. This creates an instance of pyIVLS_*.py class
-#	pyIVLS_*.py in its initialization creates an instance of *GUI.py
-#	*GUI.py in its initialization creates an instanse of the core class and loads GUI
-
-#### logging and error messaging
-# Logs messages and info messages for user should be sent only by the plugin that directly interracts with the user, i.e.
-# in case of sweep only run sweep plugin should save to the log and show messages to the user. All other plugins communicate to the sweep plugin, e.g. with returned status of the functions.
-# This is necessary to avoid multiple messaging
-## standard error codes
-#0 = no error, 1 = Value error, 2 = Any error reported by dependent plugin, 3 = missing functions or plugins, 4 = Hardware error
-##plugins return errors in form of list [number, {"Error message":"Error text"}], e.g. [1, {"Error message":"Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
-#error text will be shown in the dialog message in the interaction plugin, so the error text should contain the plugin name, e.g. return [1, {"Error message":"Value error in Keithley plugin: drain nplc field should be numeric"}]
-##intermidiate plugins should pass the error to the plugins that interract with users as is, just changing the error code
-#e.g.return [2, self.smu_settings]
-##the plugin interracting with user adds to the log it's own name, and name of the plugin that transmitted this error 
-#(not the name of original plugin, that's why the message should contain the original plugin name, as if there will be multiple intermediate plugins some of the plugin names may be dropped)
-#e.g. self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f' : runsweep : the sweep plugin reported an error: {self.sweep_settings["Error message"]}')
-
-#### execution flow
-#1. When pyIVLS.py is run it creates an instance of the pyIVLS_container.py (handles all the plugins) and the main window
-##2. In the initialization the pyIVLS_container.py 
-##	reads plugin data from ini
-##	registers the plugins marked for loading in ini (_register function)
-#3. pyIVLS.py makes initialization of main slots and signals between plugin container and GUI. This includes connecting signals from plugins to the main window
-##      log signals from plugins is connected to slot addDataLog in pyIVLS_GUI.py
-##      info signals from plugins are connectend to slot show_message in pyIVLS_GUI.py
-#4. pyIVLS.py calls a public_function_exchange() from pyIVLS_container.py to provide functions from dependency plugins to the plugins that require them
-#5. pyIVLS.py calls get_plugin_info_for_settingsGUI() for adding settings widgets to main GUI window
-##6. get_plugin_info_for_settingsGUI() is implemented in pyIVLS_container.py  
-##		it initializes plugin dictionaries with data from ini file in get_plugin_dict()
-##		it requests the settings widgets get_setup_interface() hook implementation
-###7.	get_setup_interface() is implementsd in pyIVLS_*.py plugin file
-###		it initilizes the plugin_info variable of pyIVLS_*.py (the variable is initialized in setup of parent plugin.py class)
-###		it calls the initGUI function of the *GUI.py class, that initializes the GUI with values obtained from ini (the data from ini is not checked, checking will happen at execution of plugin functionality)		
-###		it returns the dictionary containg settingsWidget property of the *GUI.py class
-#8. pyIVLS.py transfers the obtained dictionary to the main window class for setting up the settings widgets
-#9. pyIVLS.py calls get_plugin_info_for_MDIarea() for adding MDI windows to main GUI window MDI area
-##10. get_plugin_info_for_MDIarea() is implemented in pyIVLS_container.py
-##	it requests the MDI windows with get_MDI_interface() hook implementation
-###11. with get_MDI_interface() is implemented in pyIVLS_*.py plugin file
+## Basic operation
+Add the plugins you need from tools->plugins. If the plugin you need isn't visible in the list, click "upload new plugin" and select the folder containing the plugin code and .ini file with plugin metadata and default settings.
+Then load in the necessary plugins and click "Apply". Then, set the settings as you need them and create the measurement sequence (See [docs](./docs/sweep_tutorial.md) for a detailed example.)
