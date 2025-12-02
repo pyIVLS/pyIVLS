@@ -80,7 +80,7 @@ class AffineMoveVisualization:
         if planned_moves:
             self._draw_planned_moves(planned_moves)
 
-        # Always draw bounding boxes when available
+        # draw bounding boxes 
         if bounding_boxes:
             self._draw_manipulator_bounding_boxes(bounding_boxes)
 

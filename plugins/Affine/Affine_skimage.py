@@ -221,6 +221,7 @@ class Affine_IO:
             w = int(1080 * aspect_ratio)
 
         it = view.begin_layers()
+        i = 0
         # colorlist, encoded as 32bit values in the following way:
         # The color is a 32bit value encoding the blue value in the lower 8 bits, the green value in the next 8 bits and the red value in the 8 bits above that.
         """             
@@ -246,6 +247,8 @@ class Affine_IO:
             """
             view.set_layer_properties(it, new_layer)
             it.next()
+            i += 1
+
         view.set_config("grid-show-ruler", "false")
         view.commit_config()
         view.set_config("background-color", "#00000000")
@@ -299,6 +302,7 @@ class Affine:
     residual_threshold: int
     cross_check: bool
     backend: str
+    scalingfactor: float
 
     def __init__(self, settings: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -318,6 +322,7 @@ class Affine:
         self.residual_threshold = 10
         self.cross_check = True
         self.backend = "SIFT"  # Default backend
+        self.scalingfactor = 1.0
         if settings is not None:
             self.update_settings(settings)
 
@@ -340,6 +345,9 @@ class Affine:
                 self.cross_check = bool(val)
         if "backend" in settings:
             self.backend = settings["backend"]
+
+        if "scalingfactor" in settings:
+            self.scalingfactor = float(settings["scalingfactor"])
         self.preprocessor.update_settings(settings)
 
     def _create_feature_detector(self):
@@ -379,23 +387,31 @@ class Affine:
             raise AffineError("No mask loaded.", 2)
         img = self.preprocessor.preprocess_img(img)
         mask = self.preprocessor.preprocess_mask(mask)
-        self.result["img"] = img
-        self.result["mask"] = mask
+
+        # Store original preprocessed images for visualization
+        original_img = img
+        original_mask = mask
+
         try:
+            # scale according to scaling factor
+            if self.scalingfactor != 1.0:
+                img = ski.transform.rescale(img, self.scalingfactor, anti_aliasing=True)
+                img = (img * 255).astype("uint8")
+                mask = ski.transform.rescale(mask, self.scalingfactor, anti_aliasing=True)
+                mask = (mask * 255).astype("uint8")
+
             detector = self._create_feature_detector()
             detector.detect_and_extract(img)
             kp_img, desc_img = detector.keypoints, detector.descriptors
             detector.detect_and_extract(mask)
             kp_mask, desc_mask = detector.keypoints, detector.descriptors
+
         except RuntimeError as e:
             raise AffineError(f"Runtime error during {self.backend} detection: {e}", 3) from e
 
         self.result["kp1"] = kp_mask
         self.result["kp2"] = kp_img
-        print("Keypoints in mask:", len(kp_mask))
-        print("Keypoints in image:", len(kp_img))
         matches = match_descriptors(desc_mask, desc_img, max_ratio=max_ratio, cross_check=cross_check)
-        print("Matches found:", len(matches))
         if len(matches) < self.MIN_MATCHES:
             raise AffineError(f"Not enough matches found: {len(matches)} < {self.MIN_MATCHES}", 3)
         if kp_mask is None or kp_img is None:
@@ -403,23 +419,34 @@ class Affine:
         src = kp_mask[matches[:, 0]][:, ::-1].astype(np.float32)  # mask keypoints masked with matches
         dst = kp_img[matches[:, 1]][:, ::-1].astype(np.float32)  # image keypoints masked with matches
 
-        print("Source points (mask) matched: ", len(src))
-        print("Destination points (image) matched:", len(dst))
-        print("Example mask point: ", src[0])
+        # scale back to original size if scaling was applied
+        if self.scalingfactor != 1.0:
+            src /= self.scalingfactor
+            dst /= self.scalingfactor
+
         model, inliers = self.get_transformation(src, dst, residual_threshold=residual_threshold)
         self.A = model.params
         matches = matches[inliers]
-        self.result["img"] = img
-        self.result["mask"] = mask
-        self.result["kp1"] = kp_mask
-        self.result["kp2"] = kp_img
+
+        # Store original preprocessed images (not scaled) for visualization
+        self.result["img"] = original_img
+        self.result["mask"] = original_mask
+
+        # Scale keypoints back to original image size if scaling was applied
+        if self.scalingfactor != 1.0:
+            kp_mask_scaled = kp_mask / self.scalingfactor
+            kp_img_scaled = kp_img / self.scalingfactor
+            self.result["kp1"] = kp_mask_scaled
+            self.result["kp2"] = kp_img_scaled
+        else:
+            self.result["kp1"] = kp_mask
+            self.result["kp2"] = kp_img
+
         self.result["matches"] = matches
         self.result["transform"] = model
         return True
 
-    def get_transformation(
-        self, src: np.ndarray, dst: np.ndarray, residual_threshold: int = 10
-    ) -> Tuple[Any, np.ndarray]:
+    def get_transformation(self, src: np.ndarray, dst: np.ndarray, residual_threshold: int = 10) -> Tuple[Any, np.ndarray]:
         """
         Estimate the affine transformation using RANSAC.
         Args:
@@ -465,6 +492,7 @@ class Affine:
         try:
             src = np.array(src, dtype=np.float32)
             dst = np.array(dst, dtype=np.float32)
+
             model, inliers = self.get_transformation(
                 src,
                 dst,
@@ -472,8 +500,9 @@ class Affine:
             self.A = model.params
             self.result["img"] = img
             self.result["mask"] = mask
-            self.result["kp1"] = dst
-            self.result["kp2"] = src
+            # Store keypoints in (y, x) to match convention from automatic matching
+            self.result["kp1"] = src[:, ::-1]
+            self.result["kp2"] = dst[:, ::-1]
             self.result["matches"] = np.array(
                 [[i, i] for i in range(len(src))]  # dummy matches to retain the structure
             )
@@ -517,6 +546,25 @@ class Affine:
             return mask
         except Exception as e:
             raise AffineError(f"Error loading mask from {path}: {e}", 2) from e
+
+    def update_internal_mask_preprocessing(self, path: str, mask: np.ndarray) -> np.ndarray:
+        """to be used with the gdsLoadDialog when loading masks with user input
+
+        Args:
+            path (str): Path to the mask file.
+            mask (np.ndarray): Loaded mask image.
+
+        Returns:
+            np.ndarray: Loaded mask image.
+        """
+
+        filename = os.path.basename(path)
+        filename = filename.split(".")[0]
+        self.mask_filename = filename
+        self.mask_path = path
+        self.internal_mask = mask
+        self.result.clear()
+        return mask
 
     def center_on_component(self, x: int, y: int) -> Tuple[int, int]:
         """

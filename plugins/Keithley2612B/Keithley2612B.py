@@ -158,6 +158,7 @@ class Keithley2612B:
         self.port = port
         self.backend = backend
 
+
         def _hello():
             self.safewrite("display.clear()")
             self.safewrite("display.settext('Connected to PyIVLS')")

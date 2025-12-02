@@ -132,9 +132,6 @@ class Mpc325:
         Returns:
            Tuple : unpacked data based on format, without the end marker. If end marker is invalid, throws assertion error.
         """
-        print(len(output))
-        print(output)
-        print(f"I'm expecting size {struct.calcsize(format_str)}")
         unpacked_data = struct.unpack(format_str, output)
         # Check last byte for simple validation.
         assert unpacked_data[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {unpacked_data[-1]}"
@@ -261,9 +258,7 @@ class Mpc325:
                 raise InterruptedError("Move interrupted by stop command")
             # read if something is waiting
             if self.ser.in_waiting > 0:
-                print(f"read {self.ser.in_waiting} bytes")
                 byte = self.ser.read(self.ser.in_waiting)
-                print(f"Read bytes: {byte}")
                 if byte:
                     data.extend(byte)
                     # return if the end marker is found
@@ -349,7 +344,6 @@ class Mpc325:
                 byt = self._read_with_stop_check(until_marker=self.end_marker_bytes)
                 assert byt[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {byt[-1]}"
             except InterruptedError:
-                print("Quick move interrupted by stop command")
                 # The stop command was already sent in the stop() method
                 # Just read any remaining data to clear the buffer
                 self._flush()
@@ -398,7 +392,6 @@ class Mpc325:
                 byt = self._read_with_stop_check(until_marker=self.end_marker_bytes)
                 assert byt[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {byt[-1]}"
             except InterruptedError:
-                print("Slow move interrupted by stop command")
                 # The stop command was already sent in the stop() method
                 # Just read any remaining data to clear the buffer
                 self._flush()

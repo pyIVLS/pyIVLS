@@ -212,6 +212,7 @@ class conDetectGUI(QObject):
         return (0, "OK")
         self.logger.log_debug("deviceDisconnect called.")
         try:
+            
             self.functionality.setDefault()
             self.settingsWidget.hiConnectionIndicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
             self.settingsWidget.loConnectionIndicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)

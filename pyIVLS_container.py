@@ -435,12 +435,6 @@ class pyIVLS_container(QObject):
         self.pm.hook.set_function(function_dict=function_map)
         self.seqComponents_signal.emit(self.get_plugin_dict(), plugin_public_functions)
 
-        # pass plugin references around
-        plugin_list = self.pm.hook.get_plugin()
-        if self.debug:
-            print("Available plugin objects in public_function_exchange: ", plugin_list)
-        self.pm.hook.set_plugin(plugin_list=plugin_list)
-
     def getLogSignals(self):
         plugin_logSignals = self.pm.hook.get_log()
         logSignals = []
