@@ -14,7 +14,7 @@ def get_MDI_interface(self, args=None) -> dict:
 This returns an MDI widget to be inserted into the MDIWindow of the mainwindow. Return type as a single element dictionary of the name of the plugin as key and the MDIWidget as a value.
 
 ```python 
-def get_function(self, args=None):
+def get_functions(self, args=None):
 ```
 This hook returns a list of publicly available functions to be used by other plugins and the sequenceBuilder. This is the core functionality that enables plugin-plugin communication. Returns a nested dictionary in the format dict["name_of_plugin" : dict["name_of_method" : callable()]]. The [plugin_components](../plugins/plugin_components.py) file provides a function get_public_methods() that parses all available methods decorated with the @public decorated provided in the same file.
 
