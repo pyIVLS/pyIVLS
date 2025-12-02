@@ -5,7 +5,7 @@ import copy
 
 from PyQt6.QtCore import QObject, QEventLoop, QEvent, pyqtSignal
 from PyQt6 import uic
-from PyQt6.QtWidgets import QWidget, QComboBox, QGraphicsScene, QGraphicsView
+from PyQt6.QtWidgets import QComboBox, QGraphicsScene, QGraphicsView
 from PyQt6.QtCore import Qt
 
 from plugin_components import (

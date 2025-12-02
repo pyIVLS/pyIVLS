@@ -544,12 +544,12 @@ class OOUSB2000_GUI(QObject):
     def _parseSaveData(self) -> tuple[int, dict]:
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            self.logger.log_info(f"address string should point to a valid directory")
+            self.logger.log_info("address string should point to a valid directory")
             return [1, {"Error message": "address string should point to a valid directory"}]
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
-            self.logger.log_info(f"filename is not valid")
-            self.logger.info_popup(f"filename is not valid")
+            self.logger.log_info("filename is not valid")
+            self.logger.info_popup("filename is not valid")
             return [1, {"Error message": "filename is not valid"}]
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
