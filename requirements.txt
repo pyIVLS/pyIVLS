@@ -13,7 +13,7 @@ cycler==0.12.1
     #   matplotlib
 datetime==5.5
     # via pyivls (pyproject.toml)
-fonttools==4.55.3
+fonttools==4.61.0
     # via
     #   pyivls (pyproject.toml)
     #   matplotlib
