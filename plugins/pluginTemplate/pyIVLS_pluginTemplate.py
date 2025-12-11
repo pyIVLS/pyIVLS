@@ -88,28 +88,6 @@ class pyIVLS_pluginTemplate_plugin:
         """
         raise NotImplementedError()
 
-    @hookimpl
-    def get_plugin(self, args=None):
-        """Returns the plugin as a reference to itself.
-        NOTE: when writing implmentations of this, the plugin should contain its own metadata, such as name, type, version, etc.
-
-        Args:
-            args (_type_, optional): can be used to specify which plugin is needed based on
-            type, function, etc.
-
-        Returns:
-            tuple[object, metadata]: reference to the plugin itself along with its properties such as name, type, version, etc.
-        """
-        raise NotImplementedError()
-
-    @hookimpl
-    def set_plugin(self, plugin_list, args=None):
-        """gets a list of plugins available, fetches the ones it needs.
-
-        Args:
-            plugin_list (list): list of plugins in the form of [plugin1, plugin2, ...]
-        """
-        raise NotImplementedError()
 
     @hookimpl
     def get_log(self, args=None):

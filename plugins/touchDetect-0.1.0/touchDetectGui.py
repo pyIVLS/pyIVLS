@@ -130,12 +130,19 @@ class touchDetectGUI:
         # Update SMU status
         if smu is not None:
             self.channel_names = smu["smu_channelNames"]()  # new
-            if self.channel_names is not None:
+            smu_status, smu_state = smu["smu_connect"]()
+            if self.channel_names is not None and smu_status == 0:
                 self.smu_indicator.setStyleSheet(self.green_style)
                 self.logger.log_debug(f"SMU channels available: {self.channel_names}")
             else:
+                if smu_status != 0:
+                    self.logger.log_warn(f"SMU connection error: {smu_state}")
+                elif self.channel_names is None:
+                    self.logger.log_warn("SMU channel names retrieval failed")
+                else:
+                    self.logger.log_warn("Unexpected SMU connection error")
                 self.smu_indicator.setStyleSheet(self.red_style)
-                self.logger.log_debug("SMU channels not available")
+
         else:
             self.smu_indicator.setStyleSheet(self.red_style)
             self.logger.log_debug("SMU plugin not available")
@@ -321,6 +328,8 @@ class touchDetectGUI:
             self.monitoring_thread.start()
         else:
             self.logger.log_info("Stopping monitoring thread")
+            self.is_monitoring = False
+            self.settingsWidget.pushButton_2.setText("Start Monitoring")
             if self.monitoring_thread:
                 self.monitoring_thread.stop()
 
@@ -443,9 +452,7 @@ class touchDetectGUI:
                     try:
                         res_spin.setValue(int(self.settings[res_key]))
                     except (ValueError, TypeError):
-                        self.logger.log_warn(
-                            f"Invalid resistance threshold for manipulator {i + 1}: {self.settings[res_key]}"
-                        )
+                        self.logger.log_warn(f"Invalid resistance threshold for manipulator {i + 1}: {self.settings[res_key]}")
 
             self.logger.log_debug("GUI updated from internal settings successfully")
             return (0, {"Error message": "GUI updated from settings"})

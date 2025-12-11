@@ -1,7 +1,7 @@
 # from pyftdi.ftdi import Ftdi
 import serial
 from threading import Lock
-
+import time
 CONDETECT_PORT = "ftdi://ftdi:232:UUT1/1"
 
 
@@ -44,12 +44,14 @@ class conDetect:
         with self.lock:
             self.device.dtr = not status
             assert self.device.dtr == (not status), "Failed to set DTR state"
+            time.sleep(1)  # time for the state to settle
 
     def hiCheck(self, status):
         # for ftdi            self.device.set_rts(not status)
         with self.lock:
             self.device.rts = not status
             assert self.device.rts == (not status), "Failed to set RTS state"
+            time.sleep(1) # time for the state to settle
 
     def connected(self):
         with self.lock:
