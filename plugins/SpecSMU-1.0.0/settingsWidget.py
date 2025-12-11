@@ -1,23 +1,42 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'specSMU_settingsWidgetKXkfLk.ui'
+## Form generated from reading UI file 'specSMU_settingsWidgetnjLhmF.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.9.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PyQt6.QtCore import QCoreApplication, QMetaObject, QRect, QSize
+from PyQt6.QtCore import QCoreApplication, QDate, QDateTime, QLocale, QMetaObject, QObject, QPoint, QRect, QSize, QTime, QUrl, Qt
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QConicalGradient,
+    QCursor,
+    QFont,
+    QFontDatabase,
+    QGradient,
+    QIcon,
+    QImage,
+    QKeySequence,
+    QLinearGradient,
+    QPainter,
+    QPalette,
+    QPixmap,
+    QRadialGradient,
+    QTransform,
+)
 from PyQt6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QScrollArea,
     QSizePolicy,
     QSpacerItem,
@@ -47,36 +66,94 @@ class Ui_Form(object):
         self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 1546, 1030))
         self.verticalLayout_4 = QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
-        self.groupBox_general = QGroupBox(self.scrollAreaWidgetContents)
-        self.groupBox_general.setObjectName("groupBox_general")
-        self.verticalLayout = QVBoxLayout(self.groupBox_general)
-        self.verticalLayout.setObjectName("verticalLayout")
-        self.groupBox_dependency = QGroupBox(self.groupBox_general)
+        self.groupBox_dependency = QGroupBox(self.scrollAreaWidgetContents)
         self.groupBox_dependency.setObjectName("groupBox_dependency")
-        self.gridLayout_2 = QGridLayout(self.groupBox_dependency)
-        self.gridLayout_2.setObjectName("gridLayout_2")
-        self.smuBox = QComboBox(self.groupBox_dependency)
-        self.smuBox.setObjectName("smuBox")
-
-        self.gridLayout_2.addWidget(self.smuBox, 0, 1, 1, 1)
-
+        self.verticalLayout_6 = QVBoxLayout(self.groupBox_dependency)
+        self.verticalLayout_6.setObjectName("verticalLayout_6")
+        self.horizontalLayout_4 = QHBoxLayout()
+        self.horizontalLayout_4.setObjectName("horizontalLayout_4")
         self.label = QLabel(self.groupBox_dependency)
         self.label.setObjectName("label")
 
-        self.gridLayout_2.addWidget(self.label, 0, 0, 1, 1)
+        self.horizontalLayout_4.addWidget(self.label)
 
+        self.smuBox = QComboBox(self.groupBox_dependency)
+        self.smuBox.setObjectName("smuBox")
+
+        self.horizontalLayout_4.addWidget(self.smuBox)
+
+        self.verticalLayout_6.addLayout(self.horizontalLayout_4)
+
+        self.horizontalLayout_5 = QHBoxLayout()
+        self.horizontalLayout_5.setObjectName("horizontalLayout_5")
         self.label_2 = QLabel(self.groupBox_dependency)
         self.label_2.setObjectName("label_2")
 
-        self.gridLayout_2.addWidget(self.label_2, 1, 0, 1, 1)
+        self.horizontalLayout_5.addWidget(self.label_2)
 
         self.spectrometerBox = QComboBox(self.groupBox_dependency)
         self.spectrometerBox.setObjectName("spectrometerBox")
 
-        self.gridLayout_2.addWidget(self.spectrometerBox, 1, 1, 1, 1)
+        self.horizontalLayout_5.addWidget(self.spectrometerBox)
 
-        self.verticalLayout.addWidget(self.groupBox_dependency)
+        self.verticalLayout_6.addLayout(self.horizontalLayout_5)
 
+        self.horizontalLayout_6 = QHBoxLayout()
+        self.horizontalLayout_6.setObjectName("horizontalLayout_6")
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_6.addItem(self.horizontalSpacer)
+
+        self.applyDependencies = QPushButton(self.groupBox_dependency)
+        self.applyDependencies.setObjectName("applyDependencies")
+
+        self.horizontalLayout_6.addWidget(self.applyDependencies)
+
+        self.verticalLayout_6.addLayout(self.horizontalLayout_6)
+
+        self.verticalLayout_4.addWidget(self.groupBox_dependency)
+
+        self.groupBox = QGroupBox(self.scrollAreaWidgetContents)
+        self.groupBox.setObjectName("groupBox")
+        self.horizontalLayout_2 = QHBoxLayout(self.groupBox)
+        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+        self.spectroCheckAfter = QCheckBox(self.groupBox)
+        self.spectroCheckAfter.setObjectName("spectroCheckAfter")
+
+        self.horizontalLayout_2.addWidget(self.spectroCheckAfter)
+
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.spectroPause = QCheckBox(self.groupBox)
+        self.spectroPause.setObjectName("spectroPause")
+
+        self.horizontalLayout.addWidget(self.spectroPause)
+
+        self.spectroPauseSpinBox = QDoubleSpinBox(self.groupBox)
+        self.spectroPauseSpinBox.setObjectName("spectroPauseSpinBox")
+        self.spectroPauseSpinBox.setMaximum(60.000000000000000)
+        self.spectroPauseSpinBox.setSingleStep(0.500000000000000)
+
+        self.horizontalLayout.addWidget(self.spectroPauseSpinBox)
+
+        self.label_4 = QLabel(self.groupBox)
+        self.label_4.setObjectName("label_4")
+
+        self.horizontalLayout.addWidget(self.label_4)
+
+        self.horizontalLayout_2.addLayout(self.horizontalLayout)
+
+        self.spectroUseLastInteg = QCheckBox(self.groupBox)
+        self.spectroUseLastInteg.setObjectName("spectroUseLastInteg")
+
+        self.horizontalLayout_2.addWidget(self.spectroUseLastInteg)
+
+        self.verticalLayout_4.addWidget(self.groupBox)
+
+        self.groupBox_general = QGroupBox(self.scrollAreaWidgetContents)
+        self.groupBox_general.setObjectName("groupBox_general")
+        self.verticalLayout = QVBoxLayout(self.groupBox_general)
+        self.verticalLayout.setObjectName("verticalLayout")
         self.groupBox_general_2 = QGroupBox(self.groupBox_general)
         self.groupBox_general_2.setObjectName("groupBox_general_2")
         self.groupBox_general_2.setMinimumSize(QSize(0, 0))
@@ -430,38 +507,6 @@ class Ui_Form(object):
 
         self.verticalLayout.addWidget(self.groupBox_control)
 
-        self.groupBox = QGroupBox(self.groupBox_general)
-        self.groupBox.setObjectName("groupBox")
-        self.horizontalLayout_2 = QHBoxLayout(self.groupBox)
-        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        self.spectroCheckAfter = QCheckBox(self.groupBox)
-        self.spectroCheckAfter.setObjectName("spectroCheckAfter")
-
-        self.horizontalLayout_2.addWidget(self.spectroCheckAfter)
-
-        self.horizontalLayout = QHBoxLayout()
-        self.horizontalLayout.setObjectName("horizontalLayout")
-        self.spectroPause = QCheckBox(self.groupBox)
-        self.spectroPause.setObjectName("spectroPause")
-
-        self.horizontalLayout.addWidget(self.spectroPause)
-
-        self.spectroPauseSpinBox = QDoubleSpinBox(self.groupBox)
-        self.spectroPauseSpinBox.setObjectName("spectroPauseSpinBox")
-        self.spectroPauseSpinBox.setMaximum(15.000000000000000)
-        self.spectroPauseSpinBox.setSingleStep(0.500000000000000)
-
-        self.horizontalLayout.addWidget(self.spectroPauseSpinBox)
-
-        self.horizontalLayout_2.addLayout(self.horizontalLayout)
-
-        self.spectroUseLastInteg = QCheckBox(self.groupBox)
-        self.spectroUseLastInteg.setObjectName("spectroUseLastInteg")
-
-        self.horizontalLayout_2.addWidget(self.spectroUseLastInteg)
-
-        self.verticalLayout.addWidget(self.groupBox)
-
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout.addItem(self.verticalSpacer)
@@ -486,10 +531,16 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", "SpecSMU_settings", None))
-        self.groupBox_general.setTitle(QCoreApplication.translate("Form", "SMU settings", None))
         self.groupBox_dependency.setTitle(QCoreApplication.translate("Form", "Dependencies", None))
         self.label.setText(QCoreApplication.translate("Form", "SMU Plugin", None))
         self.label_2.setText(QCoreApplication.translate("Form", "Spectrometer Plugin", None))
+        self.applyDependencies.setText(QCoreApplication.translate("Form", "Apply dependencies", None))
+        self.groupBox.setTitle(QCoreApplication.translate("Form", "Spectrometer", None))
+        self.spectroCheckAfter.setText(QCoreApplication.translate("Form", "Measure IV before and after", None))
+        self.spectroPause.setText(QCoreApplication.translate("Form", "pause", None))
+        self.label_4.setText(QCoreApplication.translate("Form", "s", None))
+        self.spectroUseLastInteg.setText(QCoreApplication.translate("Form", "getAutoTime initial guess from last integration time", None))
+        self.groupBox_general.setTitle(QCoreApplication.translate("Form", "SMU settings", None))
         self.groupBox_general_2.setTitle(QCoreApplication.translate("Form", "General", None))
         self.label_Channel.setText(QCoreApplication.translate("Form", "Source channel", None))
         self.comboBox_channel.setItemText(0, QCoreApplication.translate("Form", "smuA", None))
@@ -536,9 +587,5 @@ class Ui_Form(object):
         self.lineEdit_Delay.setText(QCoreApplication.translate("Form", "10", None))
         self.label_DelayUnits.setText(QCoreApplication.translate("Form", "ms", None))
         self.label_3.setText(QCoreApplication.translate("Form", "Repeat", None))
-        self.groupBox.setTitle(QCoreApplication.translate("Form", "Spectrometer", None))
-        self.spectroCheckAfter.setText(QCoreApplication.translate("Form", "Measure IV before and after", None))
-        self.spectroPause.setText(QCoreApplication.translate("Form", "pause", None))
-        self.spectroUseLastInteg.setText(QCoreApplication.translate("Form", "getAutoTime initial guess from last integration time", None))
 
     # retranslateUi

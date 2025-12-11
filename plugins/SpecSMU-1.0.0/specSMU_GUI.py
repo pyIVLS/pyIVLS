@@ -87,12 +87,19 @@ class specSMU_GUI(QWidget):
         delayComboBox = self.settingsWidget.comboBox_DelayMode
 
         delayComboBox.currentIndexChanged.connect(self._delay_mode_changed)
-        # Connect SMU selection box
-        self.settingsWidget.smuBox.currentIndexChanged.connect(self._smu_plugin_changed)
-        self.settingsWidget.spectrometerBox.currentIndexChanged.connect(self._spectrometer_plugin_changed)
         # Connect spectro pause checkbox
         self.settingsWidget.spectroPause.stateChanged.connect(self._spectro_pause_changed)
+
+        # connect settings apply
+        self.settingsWidget.applyDependencies.clicked.connect(self.dependencies_changed)
         self.logger.log_debug("Signals connected")
+
+    def dependencies_changed(self) -> None:
+        # Update SMU selection
+        self._smu_plugin_changed()
+
+        # Update spectrometer selection
+        self._spectrometer_plugin_changed()
 
     def _smu_plugin_changed(self, index: Optional[int] = None) -> None:
         """
