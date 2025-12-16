@@ -209,18 +209,8 @@
                     </size>
                    </property>
                    <property name="currentIndex">
-                    <number>0</number>
+                    <number>-1</number>
                    </property>
-                   <item>
-                    <property name="text">
-                     <string>smuA</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>smuB</string>
-                    </property>
-                   </item>
                   </widget>
                  </item>
                 </layout>
@@ -394,13 +384,44 @@
               </layout>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="HBoxLayout_singleChannel">
+              <layout class="QHBoxLayout" name="horizontalLayout_8">
                <item>
-                <widget class="QCheckBox" name="checkBox_singleChannel">
-                 <property name="text">
-                  <string>Use single channel</string>
-                 </property>
-                </widget>
+                <layout class="QHBoxLayout" name="HBoxLayout_singleChannel">
+                 <item>
+                  <widget class="QCheckBox" name="checkBox_singleChannel">
+                   <property name="text">
+                    <string>Use single channel</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_7">
+                 <item>
+                  <widget class="QLabel" name="label_5">
+                   <property name="text">
+                    <string>Limit prescaler</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QDoubleSpinBox" name="prescaler_spinbox">
+                   <property name="minimum">
+                    <double>0.000000000000000</double>
+                   </property>
+                   <property name="maximum">
+                    <double>1.000000000000000</double>
+                   </property>
+                   <property name="singleStep">
+                    <double>0.100000000000000</double>
+                   </property>
+                   <property name="stepType">
+                    <enum>QAbstractSpinBox::StepType::DefaultStepType</enum>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
                </item>
               </layout>
              </item>

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'specSMU_settingsWidgetnjLhmF.ui'
+## Form generated from reading UI file 'specSMU_settingsWidgetUvBGDf.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.9.0
 ##
@@ -28,6 +28,7 @@ from PyQt6.QtGui import (
     QTransform,
 )
 from PyQt6.QtWidgets import (
+    QAbstractSpinBox,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -176,8 +177,6 @@ class Ui_Form(object):
         self.HBoxLayout_channel.addWidget(self.label_Channel)
 
         self.comboBox_channel = QComboBox(self.groupBox_general_2)
-        self.comboBox_channel.addItem("")
-        self.comboBox_channel.addItem("")
         self.comboBox_channel.setObjectName("comboBox_channel")
         sizePolicy1.setHeightForWidth(self.comboBox_channel.sizePolicy().hasHeightForWidth())
         self.comboBox_channel.setSizePolicy(sizePolicy1)
@@ -262,6 +261,8 @@ class Ui_Form(object):
 
         self.verticalLayout_2.addLayout(self.HBoxLayout_general)
 
+        self.horizontalLayout_8 = QHBoxLayout()
+        self.horizontalLayout_8.setObjectName("horizontalLayout_8")
         self.HBoxLayout_singleChannel = QHBoxLayout()
         self.HBoxLayout_singleChannel.setObjectName("HBoxLayout_singleChannel")
         self.checkBox_singleChannel = QCheckBox(self.groupBox_general_2)
@@ -269,7 +270,27 @@ class Ui_Form(object):
 
         self.HBoxLayout_singleChannel.addWidget(self.checkBox_singleChannel)
 
-        self.verticalLayout_2.addLayout(self.HBoxLayout_singleChannel)
+        self.horizontalLayout_8.addLayout(self.HBoxLayout_singleChannel)
+
+        self.horizontalLayout_7 = QHBoxLayout()
+        self.horizontalLayout_7.setObjectName("horizontalLayout_7")
+        self.label_5 = QLabel(self.groupBox_general_2)
+        self.label_5.setObjectName("label_5")
+
+        self.horizontalLayout_7.addWidget(self.label_5)
+
+        self.prescaler_spinbox = QDoubleSpinBox(self.groupBox_general_2)
+        self.prescaler_spinbox.setObjectName("prescaler_spinbox")
+        self.prescaler_spinbox.setMinimum(0.000000000000000)
+        self.prescaler_spinbox.setMaximum(1.000000000000000)
+        self.prescaler_spinbox.setSingleStep(0.0500000000000000)
+        self.prescaler_spinbox.setStepType(QAbstractSpinBox.StepType.DefaultStepType)
+
+        self.horizontalLayout_7.addWidget(self.prescaler_spinbox)
+
+        self.horizontalLayout_8.addLayout(self.horizontalLayout_7)
+
+        self.verticalLayout_2.addLayout(self.horizontalLayout_8)
 
         self.verticalLayout.addWidget(self.groupBox_general_2)
 
@@ -519,7 +540,7 @@ class Ui_Form(object):
 
         self.retranslateUi(Form)
 
-        self.comboBox_channel.setCurrentIndex(0)
+        self.comboBox_channel.setCurrentIndex(-1)
         self.comboBox_inject.setCurrentIndex(0)
         self.comboBox_mode.setCurrentIndex(0)
         self.comboBox_sourceSenseMode.setCurrentIndex(0)
@@ -543,9 +564,6 @@ class Ui_Form(object):
         self.groupBox_general.setTitle(QCoreApplication.translate("Form", "SMU settings", None))
         self.groupBox_general_2.setTitle(QCoreApplication.translate("Form", "General", None))
         self.label_Channel.setText(QCoreApplication.translate("Form", "Source channel", None))
-        self.comboBox_channel.setItemText(0, QCoreApplication.translate("Form", "smuA", None))
-        self.comboBox_channel.setItemText(1, QCoreApplication.translate("Form", "smuB", None))
-
         self.label_inject.setText(QCoreApplication.translate("Form", "Inject", None))
         self.comboBox_inject.setItemText(0, QCoreApplication.translate("Form", "Current", None))
         self.comboBox_inject.setItemText(1, QCoreApplication.translate("Form", "Voltage", None))
@@ -561,6 +579,7 @@ class Ui_Form(object):
         self.comboBox_sourceSenseMode.setItemText(2, QCoreApplication.translate("Form", "2 & 4 wire", None))
 
         self.checkBox_singleChannel.setText(QCoreApplication.translate("Form", "Use single channel", None))
+        self.label_5.setText(QCoreApplication.translate("Form", "Limit prescaler", None))
         self.groupBox_control.setTitle(QCoreApplication.translate("Form", "Control", None))
         self.label_Start.setText(QCoreApplication.translate("Form", "Start", None))
         self.lineEdit_Start.setText(QCoreApplication.translate("Form", "0", None))
