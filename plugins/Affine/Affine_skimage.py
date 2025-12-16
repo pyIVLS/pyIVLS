@@ -462,9 +462,8 @@ class Affine:
         model, inliers = ski.measure.ransac(
             (src, dst),
             ski.transform.SimilarityTransform,
-            min_samples=4,
+            min_samples=2,
             residual_threshold=residual_threshold,
-            max_trials=5000,
         )
         if inliers is None:
             raise AffineError("Ransac filtered out all points", 3)
