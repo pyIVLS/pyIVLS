@@ -54,9 +54,16 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QSpinBox, QWidget
 from dataclasses import dataclass
 
+MANIPULATOR_COLORS = [
+    QColor(255, 0, 0),  # Red
+    QColor(0, 255, 0),  # Green
+    QColor(0, 0, 255),  # Blue
+    QColor(255, 255, 0),  # Yellow
+]
 
 class ConnectionIndicatorStyle(Enum):
     """Enum for connection indicator styles."""
