@@ -190,3 +190,20 @@ def create_sweep_reciepe(settings, settings_smu):
                 recipe.append(copy.deepcopy(s))
 
     return [recipe, loopdrain, len(loopsensesource), 2 if settings["mode"] == "mixed" else 1]
+
+
+def prescaler_stop_check(recipe: dict, settings: dict, lastV: float, lastI: float)-> bool:
+    """
+    A function that checks if the prescaler stop flag is set
+    returns True if stop flag is set, False otherwise
+    """
+    assert isinstance(recipe, dict)
+    assert isinstance(settings, dict)
+    if recipe["type"] == "v":
+        return abs(lastI) > settings["prescaler"] * abs(recipe["limit"])
+    elif recipe["type"] == "i":
+        return abs(lastV) > settings["prescaler"] * abs(recipe["limit"])
+    else:
+        raise ValueError("Unknown source type in prescaler stop check")
+
+                
