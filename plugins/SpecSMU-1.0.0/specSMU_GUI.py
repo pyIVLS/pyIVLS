@@ -21,6 +21,22 @@ from typing import Optional
 from plugin_components import LoggingHelper
 
 
+def prescaler_stop_check(settings: dict, lastV: float, lastI: float) -> bool:
+    """
+    A function that checks if the prescaler stop flag is set
+    returns True if stop flag is set, False otherwise
+    """
+    assert isinstance(settings, dict), f"settings must be dict, was {type(settings)}: {settings}"
+    assert isinstance(lastV, (float, int)), f"lastV must be float or int, was {type(lastV)}: {lastV}"
+    assert isinstance(lastI, (float, int)), f"lastI must be float or int, was {type(lastI)}: {lastI}"
+    if settings["type"] == "v":
+        return abs(lastI) > settings["prescaler"] * abs(settings["limit"])
+    elif settings["type"] == "i":
+        return abs(lastV) > settings["prescaler"] * abs(settings["limit"])
+    else:
+        raise ValueError("Unknown source type in prescaler stop check")
+
+
 class specSMU_GUI(QWidget):
     """GUI implementation"""
 
@@ -140,7 +156,6 @@ class specSMU_GUI(QWidget):
 
     def _mode_changed(self, index):
         """Handles the visibility of the mode input fields based on the selected mode."""
-
         mode = self.settingsWidget.comboBox_mode.currentText()
         if mode == "Continuous":
             self.settingsWidget.label_pulsedPause.setEnabled(False)
@@ -237,6 +252,9 @@ class specSMU_GUI(QWidget):
             if idx > -1:
                 self.settingsWidget.spectrometerBox.setCurrentIndex(idx)
 
+        # now that deps are set, update relevant fields
+        self.dependencies_changed()
+
         # Set combo boxes
         combo_map = {
             "comboBox_channel": "channel",
@@ -283,9 +301,11 @@ class specSMU_GUI(QWidget):
         set_checkbox("spectro_pause", "spectro_pause")
         set_checkbox("checkBox_singleChannel", "singlechannel")
 
-        # set spinbox
-        spectro_pause_time = settings.get("spectro_pause_time", 1.0)
+        # set spinboxes
+        spectro_pause_time = settings["spectro_pause_time"]
+        prescaler = settings["prescaler"]
         self.settingsWidget.spectroPauseSpinBox.setValue(float(spectro_pause_time))
+        self.settingsWidget.prescaler_spinbox.setValue(float(prescaler))
 
         # Update GUI state
         self._update_GUI_state()
@@ -378,6 +398,10 @@ class specSMU_GUI(QWidget):
             self.settings["pause"] = float(raw_settings["pause"])
             self.settings["spectro_pause_time"] = float(raw_settings["spectro_pause_time"])  # should already be float from double spin box
             self.settings["repeat"] = int(raw_settings["repeat"])  # will already be an int from spin box
+            self.settings["prescaler"] = raw_settings["prescaler"]  # will already be float from double spin box
+
+            # add a field for type of source
+            self.settings["type"] = "v" if raw_settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
 
             self._log_verbose("Settings successfully parsed and validated")
         except ValueError as e:
@@ -522,6 +546,20 @@ class specSMU_GUI(QWidget):
 
                 # set filename
                 self.spectrometer_settings["filename"] = specFilename + f"_{smuSetValue:.4f}" + f"_{rep}" + " iv.csv"
+                # before we do anything, check for limits
+                status, testIV = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
+                if status:
+                    self._log_verbose(f"Error getting IV for limit check: {testIV}")
+                    raise NotImplementedError(f"Error in getting IV for limit check: {testIV}, no handling provided")
+                testV, testI = testIV
+                if prescaler_stop_check(self.settings, testV, testI):
+                    if self.settings["type"] == "v":
+                        message = f"Prescaler stop condition met: |I|={abs(testI):.4e} A exceeds limit {self.settings['prescaler'] * abs(self.settings['limit']):.4e} A"
+                    else:
+                        message = f"Prescaler stop condition met: |V|={abs(testV):.4e} V exceeds limit {self.settings['prescaler'] * abs(self.settings['limit']):.4e} V"
+
+                    self.logger.log_info(f"{message}, stopping measurement")
+                    break  # exit the smuLoop
 
                 # automatic integration time handling
                 if self.spectrometer_settings["integrationtimetype"] == "auto":
@@ -677,4 +715,5 @@ class specSMU_GUI(QWidget):
         settings["spectro_pause_time"] = self.settingsWidget.spectroPauseSpinBox.value()
         settings["spectro_use_last_integ"] = self.settingsWidget.spectroUseLastInteg.isChecked()
         settings["repeat"] = self.settingsWidget.repeat_spinbox.value()
+        settings["prescaler"] = self.settingsWidget.prescaler_spinbox.value()
         return settings
