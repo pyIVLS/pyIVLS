@@ -29,8 +29,6 @@ class dialog(QDialog):
 
     # good sigmas:
     sigma_list = [1.0, 2.0, 3.0, 4.0, 5.0]
-    ratio_list = [0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]
-    residual_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30]
     # morphological operation types
     morphology_types = ["erosion", "dilation", "opening", "closing"]
 
