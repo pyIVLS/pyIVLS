@@ -15,11 +15,12 @@ from PyQt6.QtWidgets import (
     QSplitter,
 )
 from PyQt6 import QtGui
-
+from plugin_components import MANIPULATOR_COLORS
 
 class GraphicsView(QGraphicsView):
     # signal for added points
     point_clicked = pyqtSignal(QPointF)
+    drawn_points: list[QGraphicsItem] = []
 
     def __init__(self, scene: QGraphicsScene, parent: Optional[QWidget] = None) -> None:
         super().__init__(scene, parent)
@@ -56,6 +57,29 @@ class GraphicsView(QGraphicsView):
             # default behaviour when mode is not "points"
             super().mousePressEvent(event)
 
+    def draw_point_list(self, points: list[list[QPointF]], colors=MANIPULATOR_COLORS, size=6) -> None:
+        # Takes in a list of point lists and draws them all
+        skene = self.scene()
+        if skene:
+            # Clear previous points
+            for item in self.drawn_points:
+                skene.removeItem(item)
+            self.drawn_points.clear()
+
+            # Draw new points
+            for point_list in points:
+                for i, point in enumerate(point_list):
+                    color = colors[i % len(colors)] # just in case someone modifies this to use more than 4 manipulators
+                    ellipse = QGraphicsEllipseItem(
+                        point.x() - size / 2,
+                        point.y() - size / 2,
+                        size,
+                        size,
+                    )
+                    ellipse.setBrush(color)
+                    ellipse.setPen(QtGui.QPen(Qt.GlobalColor.black))
+                    skene.addItem(ellipse)
+                    self.drawn_points.append(ellipse)
 
 class DualGraphicsWidget(QWidget):
     """Two QGraphicsViews with a shared toolbar of common tools."""
@@ -122,6 +146,9 @@ class DualGraphicsWidget(QWidget):
         root.addWidget(views, 1)
         self.setLayout(root)
 
+
+
+
     def _apply(self, fn):
         fn(self._view_left)
         fn(self._view_right)
@@ -153,3 +180,11 @@ class DualGraphicsWidget(QWidget):
             self._view_right.setScene(scene)
         else:
             raise ValueError(f"Invalid side: {side}, must be 'left' or 'right'")
+        
+    @pyqtSlot()
+    def draw_points_on_left(self, points: list[list[QPointF]]) -> None:
+        self._view_left.draw_point_list(points)
+
+    @pyqtSlot()
+    def draw_points_on_right(self, points: list[list[QPointF]]) -> None:
+        self._view_right.draw_point_list(points)
