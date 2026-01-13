@@ -275,6 +275,7 @@ class specSMU_GUI(QWidget):
         set_checkbox("spectro_check_after", "spectro_check_after")
         set_checkbox("spectro_pause", "spectro_pause")
         set_checkbox("checkBox_singleChannel", "singlechannel")
+        set_checkbox("externalTriggerCheckBox", "external_trigger")
 
         # set spinbox
         spectro_pause_time = settings.get("spectro_pause_time", 1.0)
@@ -359,6 +360,7 @@ class specSMU_GUI(QWidget):
             self.settings["spectro_check_after"] = raw_settings["spectro_check_after"]  # bool
             self.settings["spectro_pause"] = raw_settings["spectro_pause"]  # bool
             self.settings["spectro_use_last_integ"] = raw_settings["spectro_use_last_integ"]  # bool
+            self.settings["external_trigger"] = raw_settings["external_trigger"]  # bool
             self.settings["drainchannel"] = ""  # PLACEHOLDER FIXME:
 
             # Parse numeric fields
@@ -485,6 +487,37 @@ class specSMU_GUI(QWidget):
         return (0, "OK")
 
     def _SpecSMUImplementation(self):
+        def get_spectro_scan():
+            spectro_name = self.settings["spectrometer"]
+            smu_name = self.settings["smu"]
+            external_triggering = self.settings["external_trigger"]
+            # keithley control over triggering
+            if external_triggering:
+                # move spectrometer to ready state
+                status, state = self.function_dict["spectrometer"][spectro_name]["spectrometerStartScanExternal"]()
+                if status:
+                    self._log_verbose(f"Error starting spectrometer scan: {state}")
+                    raise NotImplementedError(f"Error in starting spectrometer scan: {state}, no handling provided")
+                # digio pulse to trigger spectrometer
+                self.function_dict["smu"][smu_name]["smu_digio_pulse"](1)
+
+                # read spectrometer data
+                status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetSpectrum"]()
+                if status:
+                    self._log_verbose(f"Error getting spectrum: {spectrum}")
+                    raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
+
+                # all is well
+                return spectrum
+
+            # pyIVLS control over triggering
+            else:
+                status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
+                if status:
+                    self._log_verbose(f"Error getting spectrum: {spectrum}")
+                    raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
+                return spectrum
+
         self._log_verbose("Entering _SpecSMUImplementation")
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
@@ -590,10 +623,7 @@ class specSMU_GUI(QWidget):
                     status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
 
                 # spectrum
-                status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
-                if status:
-                    self._log_verbose(f"Error getting spectrum: {spectrum}")
-                    raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
+                spectrum = get_spectro_scan()
 
                 # IV after spectrum
                 status, sourceIV_after = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
@@ -670,4 +700,5 @@ class specSMU_GUI(QWidget):
         settings["spectro_pause_time"] = self.settingsWidget.spectroPauseSpinBox.value()
         settings["spectro_use_last_integ"] = self.settingsWidget.spectroUseLastInteg.isChecked()
         settings["repeat"] = self.settingsWidget.repeat_spinbox.value()
+        settings["external_trigger"] = self.settingsWidget.externalTriggerCheckBox.isChecked()
         return settings
