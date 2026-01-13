@@ -3,7 +3,7 @@ from typing import Optional
 
 # from Keithley2612B_test import Keithley2612B
 from Keithley2612B import Keithley2612B
-
+import time
 from PyQt6 import uic
 
 
@@ -101,10 +101,7 @@ class Keithley2612BGUI:
         methods = {
             method: getattr(self, method)
             for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
+            if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods
         }
         return methods
 
@@ -164,9 +161,7 @@ class Keithley2612BGUI:
         """
         self._parse_settings_address()
         try:
-            self.smu.keithley_connect(
-                self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"]
-            )
+            self.smu.keithley_connect(self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"])
             return (0, {"Error message": self.smu.keithley_IDN()})
         except Exception as e:
             return (
@@ -292,15 +287,35 @@ class Keithley2612BGUI:
         resistance = self.smu.resistance_measurement(channel)
         return (0, resistance)
 
-    def smu_set_digio(self, channel, value):
+    def smu_set_digio(self, id, value):
         """Sets digital output on the specified channel.
-
         Args:
-            channel (str): The channel to set ('smua' or 'smub').
-            value (int): The value to set (0 or 1).
+            line_id (int): digio id. see keithley 2600b reference manual p.4-41 for details.
+            value (bool): The value to set the line to (True for HIGH, False for LOW) low=0v, high=5v. See 2600b reference manual p.4-39 for details.
 
         Returns:
             tuple: (status, message) where status is 0 for success, non-zero for error.
         """
-        self.smu.set_digio(channel, value)
+        self.smu.set_digio(id, value)
         return (0, {"Error message": "Digital output set successfully"})
+
+    def smu_digio_pulse(self, id, width_s=0.00001):
+        """Generates a digital pulse on the specified channel.
+        Args:
+            line_id (int): digio id. see keithley 2600b reference manual p.4-41 for details.
+            width_ms (float): pulse width in milliseconds.
+
+        Returns:
+            tuple: (status, message) where status is 0 for success, non-zero for error.
+        """
+        # sanity check of line state
+        last_value = self.smu.read_digio(id)
+        if int(last_value) != 0:
+            raise ValueError(f"Cannot generate pulse on digio line {id} because its current value is HIGH.")
+        # rising edge
+        self.smu.set_digio(id, True)
+        # wait for pulse width
+        time.sleep(width_s)
+        # falling edge
+        self.smu.set_digio(id, False)
+        return (0, {"Error Message": "OK"})
