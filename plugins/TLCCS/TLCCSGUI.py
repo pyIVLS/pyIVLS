@@ -829,6 +829,30 @@ class TLCCS_GUI(QObject):
             self._log_verbose(f"Exception during scan start: {e}")
             return [4, {"Error message": "Can not start scan"}]
 
+    def spectrometerStartScanExternal(self):
+        """
+        Starts an external trigger spectro scan
+        returns:
+            tuple: (status, info) where status is 0 on success, non-zero on error
+        """
+        self._log_verbose("Starting external trigger monitoring")
+        try:
+            if self.scanRunning:
+                self._log_verbose("Scan is already running.")
+                self._log_verbose(f"Device status: {self.drv.get_device_status()}")
+                return [1, {"Error message": "Scan is already running"}]
+
+            self.drv.start_scan_ext_trigger()
+            self.scanRunning = True
+            self._log_verbose("external trigger monitoring started successfully.")
+            self._log_verbose(f"Device status: {self.drv.get_device_status()}")
+            return [0, "OK"]
+        except ThreadStopped:
+            return [0, "ThreadStopped"]
+        except Exception as e:
+            self._log_verbose(f"Exception during scan start: {e}")
+            return [4, {"Error message": "Can not start scan"}]
+        
     def spectrometerGetSpectrum(self):
         """Reads the spectrum from the spectrometer, waits for the scan to finish if necessary.
 
