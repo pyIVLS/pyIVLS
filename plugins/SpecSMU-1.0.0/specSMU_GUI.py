@@ -276,7 +276,6 @@ class specSMU_GUI(QWidget):
         set_checkbox("spectro_check_after", "spectro_check_after")
         set_checkbox("spectro_pause", "spectro_pause")
         set_checkbox("checkBox_singleChannel", "singlechannel")
-        set_checkbox("externalTriggerCheckBox", "external_trigger")
 
         # set spinbox
         spectro_pause_time = settings.get("spectro_pause_time", 1.0)
@@ -361,7 +360,6 @@ class specSMU_GUI(QWidget):
             self.settings["spectro_check_after"] = raw_settings["spectro_check_after"]  # bool
             self.settings["spectro_pause"] = raw_settings["spectro_pause"]  # bool
             self.settings["spectro_use_last_integ"] = raw_settings["spectro_use_last_integ"]  # bool
-            self.settings["external_trigger"] = raw_settings["external_trigger"]  # bool
             self.settings["drainchannel"] = ""  # PLACEHOLDER FIXME:
 
             # Parse numeric fields
@@ -702,5 +700,4 @@ class specSMU_GUI(QWidget):
         settings["spectro_pause_time"] = self.settingsWidget.spectroPauseSpinBox.value()
         settings["spectro_use_last_integ"] = self.settingsWidget.spectroUseLastInteg.isChecked()
         settings["repeat"] = self.settingsWidget.repeat_spinbox.value()
-        settings["external_trigger"] = self.settingsWidget.externalTriggerCheckBox.isChecked()
         return settings
