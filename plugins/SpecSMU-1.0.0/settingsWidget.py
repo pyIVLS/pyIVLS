@@ -460,11 +460,6 @@ class Ui_Form(object):
 
         self.horizontalLayout_2.addWidget(self.spectroUseLastInteg)
 
-        self.externalTriggerCheckBox = QCheckBox(self.groupBox)
-        self.externalTriggerCheckBox.setObjectName("externalTriggerCheckBox")
-        self.externalTriggerCheckBox.setText("Use external trigger")
-        self.horizontalLayout_2.addWidget(self.externalTriggerCheckBox)
-
         self.verticalLayout.addWidget(self.groupBox)
 
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
