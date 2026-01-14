@@ -60,6 +60,7 @@ class TLCCS_GUI(QObject):
         "spectrometerSetIntegrationTime",
         "spectrometerGetIntegrationTime",
         "spectrometerStartScan",
+        "spectrometerStartScanExternal",
         "spectrometerGetScan",
         "spectrometerGetSpectrum",
         "createFile",
