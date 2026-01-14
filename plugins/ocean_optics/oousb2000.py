@@ -27,12 +27,14 @@ class OODRV:
 
     @property
     def spectro(self) -> sb.Spectrometer:
-        assert self._spectro is not None, "Device not open"
+        if self._spectro is None:
+            raise RuntimeError("Device not open")
         return self._spectro
 
     @property
     def integ_limits(self) -> tuple[int, int]:
-        assert self._integ_limits is not None, "Device not open"
+        if self._integ_limits is None:
+            raise RuntimeError("Device not open")
         return self._integ_limits
 
     def open(self) -> None:
@@ -60,14 +62,11 @@ class OODRV:
         Returns:
             bool: True if successful, False otherwise
         """
-        assert intg_time >= self.integ_limits[0], f"Integration time below minimum of {self.integ_limits[0]} µs"
-        assert intg_time <= self.integ_limits[1], f"Integration time above maximum of {self.integ_limits[1]} µs"
+        if intg_time > self.integ_limits[1] or intg_time < self.integ_limits[0]:
+            raise ValueError(f"Integration time {intg_time} µs out of bounds {self.integ_limits} µs")
         self.spectro.integration_time_micros(intg_time)
         self.get_spectrum()  # take a spectrum to make sure the new time is applied.
         self.integration_time = intg_time
-
-    def get_device_status(self):
-        raise NotImplementedError("get_device_status not available for OO USB2000")
 
     def get_spectrum(self, correct_dark_counts=False) -> np.ndarray:
         """Get a spectrum from the spectrometer.
