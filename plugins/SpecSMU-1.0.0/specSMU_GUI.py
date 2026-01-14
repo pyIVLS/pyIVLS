@@ -492,15 +492,12 @@ class specSMU_GUI(QWidget):
             spectro_name = self.settings["spectrometer"]
             smu_name = self.settings["smu"]
             external_triggering = self.spectrometer_settings["externalTrigger"]
-            print("DEBUG: external_triggering: ", external_triggering)
             # keithley control over triggering
             if external_triggering:
                 # move spectrometer to ready state
                 _, status = self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
-                print("DEBUG: spectrometer status before starting scan: ", status)
                 scan_status, state = self.function_dict["spectrometer"][spectro_name]["spectrometerStartScanExternal"]()
                 _, status = self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
-                print("DEBUG: spectrometer status after starting scan: ", status)
                 if scan_status:
                     self._log_verbose(f"Error starting spectrometer scan: {state}")
                     raise NotImplementedError(f"Error in starting spectrometer scan: {state}, no handling provided")
@@ -508,7 +505,6 @@ class specSMU_GUI(QWidget):
                 self.function_dict["smu"][smu_name]["smu_digio_pulse"](1)
 
                 _, status = self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
-                print("DEBUG: spectrometer status after pulse: ", status)
 
                 # read spectrometer data
                 status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetSpectrum"]()
@@ -517,7 +513,6 @@ class specSMU_GUI(QWidget):
                     raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
 
                 _, status = self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
-                print("DEBUG: spectrometer status after reading scan: ", status)
                 # all is well
                 return spectrum
 
