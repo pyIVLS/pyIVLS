@@ -491,7 +491,7 @@ class specSMU_GUI(QWidget):
         def get_spectro_scan():
             spectro_name = self.settings["spectrometer"]
             smu_name = self.settings["smu"]
-            external_triggering = self.spectrometer_settings["externaltrigger"]
+            external_triggering = self.spectrometer_settings["externalTrigger"]
             print("DEBUG: external_triggering: ", external_triggering)
             # keithley control over triggering
             if external_triggering:
