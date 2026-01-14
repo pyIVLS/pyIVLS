@@ -299,11 +299,11 @@ class Keithley2612BGUI:
         self.smu.set_digio(id, value)
         return (0, {"Error message": "Digital output set successfully"})
 
-    def smu_digio_pulse(self, id, width_s=0.00001):
+    def smu_digio_pulse(self, id, width_s=1):
         """Generates a digital pulse on the specified channel.
         Args:
             line_id (int): digio id. see keithley 2600b reference manual p.4-41 for details.
-            width_ms (float): pulse width in milliseconds.
+            width_s (float): pulse width in seconds. Default is 0.00001s
 
         Returns:
             tuple: (status, message) where status is 0 for success, non-zero for error.
