@@ -60,6 +60,7 @@ class specSMU_GUI(QWidget):
                 "spectrometerSetIntegrationTime",
                 "spectrometerGetIntegrationTime",
                 "spectrometerStartScan",
+                "spectrometerStartScanExternal",
                 "spectrometerGetSpectrum",
                 "spectrometerGetScan",
             ],
