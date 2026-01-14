@@ -483,23 +483,28 @@ class specSMU_GUI(QWidget):
             return [2, {"Error message": "SpecSMU plugin: error in SMU plugin can not initialize"}]
 
         self._log_verbose("Leaving smuInit")
-        return (0, "OK")
+        return (0, s)
 
     def _SpecSMUImplementation(self):
-        def get_spectro_scan():
+        def get_spectro_scan(smu_settings: dict, integration_time: float, voltage: float):
+            # HOX: Placeholder parameter for voltage
             spectro_name = self.settings["spectrometer"]
             smu_name = self.settings["smu"]
             external_triggering = self.spectrometer_settings["externalTrigger"]
             # keithley control over triggering
             if external_triggering:
+                if self.spectrometer_settings["type"].lower() == "i":
+                    raise NotImplementedError("Current mode with external triggering not implemented")
                 # move spectrometer to ready state
                 scan_status, state = self.function_dict["spectrometer"][spectro_name]["spectrometerStartScanExternal"]()
                 if scan_status:
                     self._log_verbose(f"Error starting spectrometer scan: {state}")
                     raise NotImplementedError(f"Error in starting spectrometer scan: {state}, no handling provided")
-                # digio pulse to trigger spectrometer
-                self.function_dict["smu"][smu_name]["smu_digio_pulse"](1)
-
+                
+                # digio pulse to trigger spectrometer and SMU measurement
+                status, state = self.function_dict["smu"][smu_name]["smu_trigger_measurement"](integration_time, voltage, smu_settings)
+                if status:
+                    raise NotImplementedError(f"Error in triggering measurement: {state}, no handling provided")
 
                 # read spectrometer data
                 status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetSpectrum"]()
@@ -521,8 +526,10 @@ class specSMU_GUI(QWidget):
         self._log_verbose("Entering _SpecSMUImplementation")
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
-        status, state = self.smuInit()
-        assert status == 0, f"Error in initializing SMU: {state}"
+        status, smu_settings_dict = self.smuInit()
+        if status:
+            raise NotImplementedError(f"Error in SMU initialization: {smu_settings_dict}, no handling provided")
+        
         smuLoop = self.settings["points"]
         if smuLoop > 1:
             smuChange = (self.settings["end"] - self.settings["start"]) / (smuLoop - 1)
