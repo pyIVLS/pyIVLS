@@ -633,9 +633,7 @@ class Keithley2612B:
             bool: value of the line (True for HIGH, False for LOW).
         """
         curr_value_str: str = self.safequery(f"print(digio.readbit({line_id}))")
-        print(curr_value_str, type(curr_value_str))
         curr_value = curr_value_str[0]  # strip weird formatting
-        print(curr_value, type(curr_value))
 
         return True if int(curr_value) == 1 else False
 
