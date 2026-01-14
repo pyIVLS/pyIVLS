@@ -319,3 +319,44 @@ class Keithley2612BGUI:
         # falling edge
         self.smu.set_digio(id, False)
         return (0, {"Error Message": "OK"})
+
+    def smu_trigger_measurement(self,integration_time_seconds, voltage) -> list[float]: 
+        #clear buffers
+        self.smu.safewrite(f"{s['source']}.nvbuffer1.clear()")
+        self.smu.safewrite(f"{s['source']}.nvbuffer2.clear()")
+
+        #set voltage range
+        self.smu.safewrite(f"{s['source']}.trigger.source.listv({voltage})")
+
+        #set timer
+        self.smu.safewrite("trigger.timer[1].count = 1")
+        self.smu.safewrite("trigger.timer[1].passthrough = false")
+
+        #start timer when source ready
+        self.smu.safewrite(f"trigger.timer[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+
+        #trigger digio when ready
+        self.smu.safewrite(f"digio.trigger[1].stimulus = digio.TRIG_RISINGM")
+        self.smu.safewrite(f"digio.trigger[1].pulsewidth = {integration_time_seconds}")
+        self.smu.safewrite(f"digio.trigger[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+
+        #initialize measurement action
+        self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
+        self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE")
+        self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")
+        self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+        
+
+        #set endpulse actions and stimulus 
+        self.smu.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
+        self.smu.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
+        self.smu.safewrite(f"pulse_timer.delay = {integration_time_seconds + 0.001}")
+        self.smu.safewrite("digio.trigger[1].mode = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
+        
+
+        # Turn on the source and trigger the sweep.
+        self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_ON")
+        self.safewrite(f"{s['drain']}.trigger.initiate()")
+
+        time.sleep(integration_time_seconds+0.001)
+        return smu_getIV[1](s['source'])
