@@ -828,6 +828,7 @@ class TLCCS_GUI(QObject):
                 return [1, {"Error message": "Scan stopped"}]
             else:
                 self._log_verbose("Spectrum retrieved successfully.")
+                self.scanRunning = False
                 return [0, self.drv.get_scan_data()]
         except ThreadStopped:
             pass
