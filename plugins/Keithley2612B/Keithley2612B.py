@@ -170,6 +170,7 @@ class Keithley2612B:
                 self.k = usbtmc.Instrument(self.address)
                 con_test = self.k.ask("*IDN?")
                 assert "keithley" in con_test.lower(), f"Connected to wrong device: {con_test}"
+                self.set_digio(1, False)  # set digital line 1 to LOW
                 _hello()
                 self.k.timeout = 25  # in seconds??
         elif self.backend == BackendType.ETHERNET.value:
@@ -181,6 +182,7 @@ class Keithley2612B:
                 self.ke.timeout = 25000  # in milliseconds
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
+                self.set_digio(1, False)  # set digital line 1 to LOW
                 _hello()
         elif self.backend == BackendType.MOCK.value:
             self.mock_con = True
