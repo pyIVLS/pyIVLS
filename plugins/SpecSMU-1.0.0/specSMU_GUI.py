@@ -495,16 +495,13 @@ class specSMU_GUI(QWidget):
             # keithley control over triggering
             if external_triggering:
                 # move spectrometer to ready state
-                _, status = self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
                 scan_status, state = self.function_dict["spectrometer"][spectro_name]["spectrometerStartScanExternal"]()
-                _, status = self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
                 if scan_status:
                     self._log_verbose(f"Error starting spectrometer scan: {state}")
                     raise NotImplementedError(f"Error in starting spectrometer scan: {state}, no handling provided")
                 # digio pulse to trigger spectrometer
                 self.function_dict["smu"][smu_name]["smu_digio_pulse"](1)
 
-                _, status = self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
 
                 # read spectrometer data
                 status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetSpectrum"]()
@@ -512,7 +509,6 @@ class specSMU_GUI(QWidget):
                     self._log_verbose(f"Error getting spectrum: {spectrum}")
                     raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
 
-                _, status = self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
                 # all is well
                 return spectrum
 
