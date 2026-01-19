@@ -20,3 +20,4 @@ plugins/affineMove/bounding_boxes_data.npy
 plugins\AffineMove\bounding_boxes_data.npy
 bounding_boxes_data.npy
 *.gds
+.github\copilot-instructions.md
