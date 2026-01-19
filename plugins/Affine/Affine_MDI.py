@@ -4,15 +4,12 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsEllipseItem,
-    QGraphicsRectItem,
     QGraphicsScene,
     QGraphicsView,
     QHBoxLayout,
-    QSizePolicy,
     QToolBar,
     QVBoxLayout,
     QWidget,
-    QSplitter,
 )
 from PyQt6 import QtGui
 from plugin_components import MANIPULATOR_COLORS

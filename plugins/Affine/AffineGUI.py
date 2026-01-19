@@ -4,7 +4,7 @@ import os
 from Affine_skimage import Affine, AffineError
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import Qt, pyqtSlot, QPointF
-from PyQt6.QtGui import QAction, QBrush, QImage, QPen, QPixmap
+from PyQt6.QtGui import QAction, QImage, QPixmap
 from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
 import csv
 from affineDialog import dialog
