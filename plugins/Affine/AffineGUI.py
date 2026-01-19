@@ -199,8 +199,9 @@ class AffineGUI(QObject):
         # add a custom context menu in the list widget to allow point deletion
         self.definedPoints.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.definedPoints.customContextMenuRequested.connect(self._list_widget_context_menu)
-        # connect item click to draw the points on the mask and image.
+        # connect item click and selection change to draw points on the mask image
         self.definedPoints.itemClicked.connect(self._list_item_clicked_action)
+        self.definedPoints.itemSelectionChanged.connect(self._refresh_left_points_display)
 
         # connect the buttons to their actions
         settingsWidget.maskButton.clicked.connect(self._mask_button_action)
@@ -220,11 +221,15 @@ class AffineGUI(QObject):
     def _on_mask_point_clicked(self, point: QPointF):
         print(f"Mask point clicked: {point}")
         self.temp_points.append(point)
+        # live-render points while inputting
+        self._refresh_left_points_display()
         if len(self.temp_points) == self.pointCount.value():
             # add points to list widget
             name = self.pointName.text() if self.pointName.text() != "" else f"Point set {self.definedPoints.count() + 1}"
             self.update_list_widget(self.temp_points, name)
             self.temp_points = []
+            # refresh display to show only selected sets (no temp points)
+            self._refresh_left_points_display()
 
     @pyqtSlot(QPointF)
     def _on_image_point_clicked(self, point: QPointF):
@@ -266,8 +271,13 @@ class AffineGUI(QObject):
                 for i in range(self.definedPoints.count()):
                     item = self.definedPoints.item(i)
                     name = item.text()
-                    points = item.data(self.COORD_DATA)
-                    for x_mask, y_mask in points:
+                    points = item.data(self.COORD_DATA) or []
+                    for pt in points:
+                        # support both QPointF and (x, y) tuples
+                        if isinstance(pt, QPointF):
+                            x_mask, y_mask = pt.x(), pt.y()
+                        else:
+                            x_mask, y_mask = float(pt[0]), float(pt[1])
                         if self.affine.A is not None:
                             img_x, img_y = self.affine.coords((x_mask, y_mask))
                         else:
@@ -286,27 +296,59 @@ class AffineGUI(QObject):
             point_dict = {}
             with open(fileName, "r") as csvfile:
                 csreader = csv.reader(csvfile, delimiter=",")
-                next(csreader)
+                next(csreader, None)  # skip header if present
                 for row in csreader:
+                    if not row or len(row) < 3:
+                        continue
                     # extract the name and coordinates
                     name = row[0]
-                    x_mask = float(row[1])
-                    y_mask = float(row[2])
-                    point_dict.setdefault(name, []).append((x_mask, y_mask))
+                    try:
+                        x_mask = float(row[1])
+                        y_mask = float(row[2])
+                    except ValueError:
+                        continue
+                    # store as QPointF for consistent rendering
+                    point_dict.setdefault(name, []).append(QPointF(x_mask, y_mask))
             for name, points in point_dict.items():
                 self.update_list_widget(points, name)
 
     def _list_item_clicked_action(self, item):
-        # Draw all points from all selected items
+        # Redraw based on current selection whenever an item is clicked
+        self._refresh_left_points_display()
+
+    def _normalize_points(self, points_list):
+        """Ensure a list of points is List[QPointF]."""
+        norm = []
+        if not points_list:
+            return norm
+        for pt in points_list:
+            if isinstance(pt, QPointF):
+                norm.append(pt)
+            else:
+                try:
+                    x, y = float(pt[0]), float(pt[1])
+                    norm.append(QPointF(x, y))
+                except Exception:
+                    continue
+        return norm
+
+    def _refresh_left_points_display(self):
+        """Draw selected measurement sets on the left view; include temp points if any."""
         selected_items = self.definedPoints.selectedItems()
-        all_points = []
+        point_sets: list[list[QPointF]] = []
         for sel_item in selected_items:
-            points = sel_item.data(self.COORD_DATA)
-            if points:
-                all_points.extend(points)
-        if not all_points:
-            return
-        self.draw_points_mdi(all_points, Qt.GlobalColor.red, clear_scene=True)
+            pts = self._normalize_points(sel_item.data(self.COORD_DATA))
+            if pts:
+                point_sets.append(pts)
+        # show live input points as an extra set if present
+        if len(self.temp_points) > 0:
+            point_sets.append(self._normalize_points(self.temp_points))
+        # draw or clear if nothing selected and no temp points
+        if point_sets:
+            self.MDIWidget.draw_points_on_left(point_sets)
+        else:
+            # clear any previously drawn points by drawing empty sets
+            self.MDIWidget.draw_points_on_left([])
 
     def _mask_button_action(self):
         """Interface for the gds mask loading button."""
@@ -369,6 +411,18 @@ class AffineGUI(QObject):
                 pointslist.extend(pts)
         if not pointslist:
             pointslist = None
+        else:
+            # convert any QPointF to plain (x, y) tuples for dialog compatibility
+            tmp = []
+            for pt in pointslist:
+                if isinstance(pt, QPointF):
+                    tmp.append((pt.x(), pt.y()))
+                else:
+                    try:
+                        tmp.append((float(pt[0]), float(pt[1])))
+                    except Exception:
+                        continue
+            pointslist = tmp
         status, settings = self.parse_settings_widget()
         if status == 0:
             # Pass the settings dict to the dialog
@@ -385,7 +439,8 @@ class AffineGUI(QObject):
         """
         item = QtWidgets.QListWidgetItem(name)
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-        item.setData(self.COORD_DATA, points)
+        # normalize to QPointF for consistent rendering/storage
+        item.setData(self.COORD_DATA, self._normalize_points(points))
         self.definedPoints.addItem(item)
 
     # hook implementations
