@@ -527,6 +527,8 @@ class specSMU_GUI(QWidget):
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
         status, smu_settings_dict = self.smuInit()
+        external_triggering = self.spectrometer_settings["externalTrigger"]
+
         if status:
             raise NotImplementedError(f"Error in SMU initialization: {smu_settings_dict}, no handling provided")
 
@@ -615,7 +617,8 @@ class specSMU_GUI(QWidget):
                     self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
 
                 # integration time set, smu ready, spectrometer ready:
-                self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])  # output on
+                if not external_triggering:
+                    self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])  # output on
 
                 # pause before any measurements if spectro_pause is set
                 if self.settings["spectro_pause"]:
