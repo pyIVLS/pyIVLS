@@ -332,6 +332,8 @@ class Keithley2612BGUI:
             tuple(int, list): return code, IV 
         """
 
+        # TODO: sync nplc for triggered measurement with integration time?
+
         #clear buffers
         self.smu.safewrite(f"{s['source']}.nvbuffer1.clear()")
         self.smu.safewrite(f"{s['source']}.nvbuffer2.clear()")
@@ -362,7 +364,7 @@ class Keithley2612BGUI:
         self.smu.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
         self.smu.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
         self.smu.safewrite(f"trigger.timer[1].delay = {integration_time_seconds + 0.001}")
-        self.smu.safewrite("digio.trigger[1].mode = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
+        #self.smu.safewrite("digio.trigger[1].mode = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
         
         self.smu.safewrite(f"{s['source']}.trigger.count = 1")
         self.smu.safewrite(f"{s['source']}.trigger.arm.count = 1")
@@ -370,6 +372,10 @@ class Keithley2612BGUI:
         # Turn on the source and trigger the sweep.
         self.smu.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
         self.smu.safewrite(f"{s['source']}.trigger.initiate()")
+        self.smu.safewrite(f"waitcomplete()")
 
-        time.sleep(integration_time_seconds+0.001)
-        return self.smu_getIV(s['source'])
+        # commented out since waitcomplete should ensure that the integration time has passed, since the digio pulse has a width equal to integration time
+        # time.sleep(integration_time_seconds+0.001)
+
+        i, v, _ = self.smu.get_last_buffer_value(s['source'])
+        return (0, [i, v])

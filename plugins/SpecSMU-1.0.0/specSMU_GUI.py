@@ -278,7 +278,7 @@ class specSMU_GUI(QWidget):
         set_checkbox("checkBox_singleChannel", "singlechannel")
 
         # set spinbox
-        spectro_pause_time = settings.get("spectro_pause_time", 1.0)
+        spectro_pause_time = settings["spectro_pause_time"]
         self.settingsWidget.spectroPauseSpinBox.setValue(float(spectro_pause_time))
 
         # Update GUI state
@@ -500,15 +500,15 @@ class specSMU_GUI(QWidget):
                 if scan_status:
                     self._log_verbose(f"Error starting spectrometer scan: {state}")
                     raise NotImplementedError(f"Error in starting spectrometer scan: {state}, no handling provided")
-                status, spectro_state =  self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
-                print(f"spectrometer in state: {spectro_state} ")
+                
                 # digio pulse to trigger spectrometer and SMU measurement
-                status, state = self.function_dict["smu"][smu_name]["smu_trigger_measurement"](integration_time, voltage, smu_settings)
+                status, IV = self.function_dict["smu"][smu_name]["smu_trigger_measurement"](integration_time, voltage, smu_settings)
                 if status:
                     raise NotImplementedError(f"Error in triggering measurement: {state}, no handling provided")
-                print(f"Triggered measurement with integration time {integration_time} and voltage {voltage}")
-                print(f"status: {status}, state: {state}")
+                
                 # read spectrometer data
+                status, spectro_state =  self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
+                print(f"spectrometer in state: {spectro_state} ")
                 status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetSpectrum"]()
                 if status:
                     self._log_verbose(f"Error getting spectrum: {spectrum}")
@@ -517,7 +517,7 @@ class specSMU_GUI(QWidget):
                 status, spectro_state =  self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
                 print(f"spectrometer in state: {spectro_state} ")
                 # all is well
-                return spectrum
+                return spectrum, IV
 
             # pyIVLS control over triggering
             else:
@@ -525,7 +525,10 @@ class specSMU_GUI(QWidget):
                 if status:
                     self._log_verbose(f"Error getting spectrum: {spectrum}")
                     raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
-                return spectrum
+                
+                # IV after spectrum
+                status, IV = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
+                return spectrum, IV
 
         self._log_verbose("Entering _SpecSMUImplementation")
         smu_name = self.settings["smu"]
@@ -637,10 +640,8 @@ class specSMU_GUI(QWidget):
                     status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
 
                 # spectrum
-                spectrum = get_spectro_scan(smu_settings_dict, integration_time_setting, smuSetValue)
+                spectrum, sourceIV_after = get_spectro_scan(smu_settings_dict, integration_time_setting, smuSetValue)
 
-                # IV after spectrum
-                status, sourceIV_after = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
                 time.sleep(0.02)
                 self.function_dict["smu"][smu_name]["smu_outputOFF"]()
 
