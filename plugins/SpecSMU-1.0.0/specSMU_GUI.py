@@ -493,7 +493,7 @@ class specSMU_GUI(QWidget):
             external_triggering = self.spectrometer_settings["externalTrigger"]
             # keithley control over triggering
             if external_triggering:
-                if self.smu_settings["type"].lower() == "i":
+                if smu_settings["type"] == "i":
                     raise NotImplementedError("Current mode with external triggering not implemented")
                 # move spectrometer to ready state
                 scan_status, state = self.function_dict["spectrometer"][spectro_name]["spectrometerStartScanExternal"]()
