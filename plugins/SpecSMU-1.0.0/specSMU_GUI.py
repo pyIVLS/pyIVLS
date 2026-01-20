@@ -500,7 +500,7 @@ class specSMU_GUI(QWidget):
                 if scan_status:
                     self._log_verbose(f"Error starting spectrometer scan: {state}")
                     raise NotImplementedError(f"Error in starting spectrometer scan: {state}, no handling provided")
-                
+
                 # digio pulse to trigger spectrometer and SMU measurement
                 status, state = self.function_dict["smu"][smu_name]["smu_trigger_measurement"](integration_time, voltage, smu_settings)
                 if status:
@@ -529,7 +529,7 @@ class specSMU_GUI(QWidget):
         status, smu_settings_dict = self.smuInit()
         if status:
             raise NotImplementedError(f"Error in SMU initialization: {smu_settings_dict}, no handling provided")
-        
+
         smuLoop = self.settings["points"]
         if smuLoop > 1:
             smuChange = (self.settings["end"] - self.settings["start"]) / (smuLoop - 1)
@@ -630,7 +630,7 @@ class specSMU_GUI(QWidget):
                     status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
 
                 # spectrum
-                spectrum = get_spectro_scan()
+                spectrum = get_spectro_scan(smu_settings_dict, integration_time_setting, smuSetValue)
 
                 # IV after spectrum
                 status, sourceIV_after = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
