@@ -500,18 +500,22 @@ class specSMU_GUI(QWidget):
                 if scan_status:
                     self._log_verbose(f"Error starting spectrometer scan: {state}")
                     raise NotImplementedError(f"Error in starting spectrometer scan: {state}, no handling provided")
-
+                status, spectro_state =  self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
+                print(f"spectrometer in state: {spectro_state} ")
                 # digio pulse to trigger spectrometer and SMU measurement
                 status, state = self.function_dict["smu"][smu_name]["smu_trigger_measurement"](integration_time, voltage, smu_settings)
                 if status:
                     raise NotImplementedError(f"Error in triggering measurement: {state}, no handling provided")
-
+                print(f"Triggered measurement with integration time {integration_time} and voltage {voltage}")
+                print(f"status: {status}, state: {state}")
                 # read spectrometer data
                 status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetSpectrum"]()
                 if status:
                     self._log_verbose(f"Error getting spectrum: {spectrum}")
                     raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
-
+                print(f"Spectrum received: {status}")
+                status, spectro_state =  self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
+                print(f"spectrometer in state: {spectro_state} ")
                 # all is well
                 return spectrum
 
