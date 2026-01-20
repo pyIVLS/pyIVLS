@@ -165,6 +165,7 @@ class Keithley2612B:
                 # source code shows that ask returns a string when message is str, list when message is list or tuple
                 con_test = str(self.k.ask("*IDN?"))
                 assert "keithley" in con_test.lower(), f"Connected to wrong device: {con_test}"
+                self.set_digio(1, False)  # set digital line 1 to LOW
                 _hello()
                 # https://github.com/python-ivi/python-usbtmc/blob/master/usbtmc/usbtmc.py#L347 
                 # shows that timeout is in seconds, and converted to ms internally
@@ -178,6 +179,7 @@ class Keithley2612B:
                 self.ke.timeout = 25000  # in milliseconds
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
+                self.set_digio(1, False)  # set digital line 1 to LOW
                 _hello()
         elif self.backend == BackendType.MOCK.value:
             self.mock_con = True
@@ -608,17 +610,29 @@ class Keithley2612B:
         self.safewrite(f"digio.trigger[{line_id}].mode = digio.TRIG_BYPASS")
 
         # fetch return
-        last_value = self.safequery(f"print(digio.readbit({line_id}))")
+        last_value: bool = self.read_digio(line_id)
 
         # write to the line
         self.safewrite(f"digio.writebit({line_id}, {int(value)})")
         # get set value for validation
-        curr_value = self.safequery(f"print(digio.readbit({line_id}))")
-        curr_value = True if int(curr_value) == 1 else False
+        curr_value = self.read_digio(line_id)
         if curr_value != value:
             raise ValueError(f"Failed to set digio line {line_id} to {value}. Current value is {curr_value}.")
 
-        return True if int(last_value) == 1 else False
+        return last_value
+
+    def read_digio(self, line_id: int) -> bool:
+        """Read a digital I/O line value.
+
+        Args:
+            line_id (int): digio id. see keithley 2600b reference manual p.4-41 for details.
+        Returns:
+            bool: value of the line (True for HIGH, False for LOW).
+        """
+        curr_value_str: str = self.safequery(f"print(digio.readbit({line_id}))")
+        curr_value = curr_value_str[0]  # strip weird formatting
+
+        return True if int(curr_value) == 1 else False
 
     def channel_names(self, backend) -> list:
         """Returns the channel names available in the instrument.

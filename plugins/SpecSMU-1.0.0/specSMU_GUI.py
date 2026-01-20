@@ -76,6 +76,7 @@ class specSMU_GUI(QWidget):
                 "spectrometerSetIntegrationTime",
                 "spectrometerGetIntegrationTime",
                 "spectrometerStartScan",
+                "spectrometerStartScanExternal",
                 "spectrometerGetSpectrum",
                 "spectrometerGetScan",
             ],
@@ -513,14 +514,62 @@ class specSMU_GUI(QWidget):
             return [2, {"Error message": "SpecSMU plugin: error in SMU plugin can not initialize"}]
 
         self._log_verbose("Leaving smuInit")
-        return (0, "OK")
+        return (0, s)
 
     def _SpecSMUImplementation(self):
+        def get_spectro_scan(smu_settings: dict, integration_time: float, voltage: float):
+            # HOX: Placeholder parameter for voltage
+            spectro_name = self.settings["spectrometer"]
+            smu_name = self.settings["smu"]
+            external_triggering = self.spectrometer_settings["externalTrigger"]
+            # keithley control over triggering
+            if external_triggering:
+                if smu_settings["type"] == "i":
+                    raise NotImplementedError("Current mode with external triggering not implemented")
+                # move spectrometer to ready state
+                scan_status, state = self.function_dict["spectrometer"][spectro_name]["spectrometerStartScanExternal"]()
+                if scan_status:
+                    self._log_verbose(f"Error starting spectrometer scan: {state}")
+                    raise NotImplementedError(f"Error in starting spectrometer scan: {state}, no handling provided")
+                
+                # digio pulse to trigger spectrometer and SMU measurement
+                status, IV = self.function_dict["smu"][smu_name]["smu_trigger_measurement"](integration_time, voltage, smu_settings)
+                if status:
+                    raise NotImplementedError(f"Error in triggering measurement: {state}, no handling provided")
+                
+                # read spectrometer data
+                status, spectro_state =  self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
+                print(f"spectrometer in state: {spectro_state} ")
+                status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetSpectrum"]()
+                if status:
+                    self._log_verbose(f"Error getting spectrum: {spectrum}")
+                    raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
+                print(f"Spectrum received: {status}")
+                status, spectro_state =  self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
+                print(f"spectrometer in state: {spectro_state} ")
+                # all is well
+                return spectrum, IV
+
+            # pyIVLS control over triggering
+            else:
+                status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
+                if status:
+                    self._log_verbose(f"Error getting spectrum: {spectrum}")
+                    raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
+                
+                # IV after spectrum
+                status, IV = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
+                return spectrum, IV
+
         self._log_verbose("Entering _SpecSMUImplementation")
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
-        status, state = self.smuInit()
-        assert status == 0, f"Error in initializing SMU: {state}"
+        status, smu_settings_dict = self.smuInit()
+        external_triggering = self.spectrometer_settings["externalTrigger"]
+
+        if status:
+            raise NotImplementedError(f"Error in SMU initialization: {smu_settings_dict}, no handling provided")
+
         smuLoop = self.settings["points"]
         if smuLoop > 1:
             smuChange = (self.settings["end"] - self.settings["start"]) / (smuLoop - 1)
@@ -620,7 +669,8 @@ class specSMU_GUI(QWidget):
                     self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
 
                 # integration time set, smu ready, spectrometer ready:
-                self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])  # output on
+                if not external_triggering:
+                    self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])  # output on
 
                 # pause before any measurements if spectro_pause is set
                 if self.settings["spectro_pause"]:
@@ -635,13 +685,8 @@ class specSMU_GUI(QWidget):
                     status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
 
                 # spectrum
-                status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
-                if status:
-                    self._log_verbose(f"Error getting spectrum: {spectrum}")
-                    raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
+                spectrum, sourceIV_after = get_spectro_scan(smu_settings_dict, integration_time_setting, smuSetValue)
 
-                # IV after spectrum
-                status, sourceIV_after = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
                 time.sleep(0.02)
                 self.function_dict["smu"][smu_name]["smu_outputOFF"]()
 

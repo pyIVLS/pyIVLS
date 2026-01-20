@@ -3,7 +3,7 @@ from typing import Optional
 
 # from Keithley2612B_test import Keithley2612B
 from Keithley2612B import Keithley2612B
-
+import time
 from PyQt6 import uic
 
 
@@ -101,10 +101,7 @@ class Keithley2612BGUI:
         methods = {
             method: getattr(self, method)
             for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
+            if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods
         }
         return methods
 
@@ -164,9 +161,7 @@ class Keithley2612BGUI:
         """
         self._parse_settings_address()
         try:
-            self.smu.keithley_connect(
-                self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"]
-            )
+            self.smu.keithley_connect(self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"])
             return (0, {"Error message": self.smu.keithley_IDN()})
         except Exception as e:
             return (
@@ -292,15 +287,95 @@ class Keithley2612BGUI:
         resistance = self.smu.resistance_measurement(channel)
         return (0, resistance)
 
-    def smu_set_digio(self, channel, value):
+    def smu_set_digio(self, id, value):
         """Sets digital output on the specified channel.
-
         Args:
-            channel (str): The channel to set ('smua' or 'smub').
-            value (int): The value to set (0 or 1).
+            line_id (int): digio id. see keithley 2600b reference manual p.4-41 for details.
+            value (bool): The value to set the line to (True for HIGH, False for LOW) low=0v, high=5v. See 2600b reference manual p.4-39 for details.
 
         Returns:
             tuple: (status, message) where status is 0 for success, non-zero for error.
         """
-        self.smu.set_digio(channel, value)
+        self.smu.set_digio(id, value)
         return (0, {"Error message": "Digital output set successfully"})
+
+    def smu_digio_pulse(self, id, width_s=0.00001):
+        """Generates a digital pulse on the specified channel.
+        Args:
+            line_id (int): digio id. see keithley 2600b reference manual p.4-41 for details.
+            width_s (float): pulse width in seconds. Default is 0.00001s
+
+        Returns:
+            tuple: (status, message) where status is 0 for success, non-zero for error.
+        """
+        # sanity check of line state
+        last_value = self.smu.read_digio(id)
+        if int(last_value) != 0:
+            raise ValueError(f"Cannot generate pulse on digio line {id} because its current value is HIGH.")
+        # rising edge
+        self.smu.set_digio(id, True)
+        # wait for pulse width
+        time.sleep(width_s)
+        # falling edge
+        self.smu.set_digio(id, False)
+        return (0, {"Error Message": "OK"})
+
+    def smu_trigger_measurement(self,integration_time_seconds: float, voltage: float, s: dict) -> tuple[int, list]:
+        """Performs a measurement with an additional triggered opertation on line 1. 
+
+        Args:
+            integration_time_seconds (float): 
+            voltage (float): 
+            s (dict): standard keithley dict as in other functions
+
+        Returns:
+            tuple(int, list): return code, IV 
+        """
+
+        # TODO: sync nplc for triggered measurement with integration time?
+
+        #clear buffers
+        self.smu.safewrite(f"{s['source']}.nvbuffer1.clear()")
+        self.smu.safewrite(f"{s['source']}.nvbuffer2.clear()")
+
+        #set voltage range
+        self.smu.safewrite(f"{s['source']}.trigger.source.listv({{{voltage}}})") # should we also enable current measurement?
+
+        #set timer
+        self.smu.safewrite("trigger.timer[1].count = 1")
+        self.smu.safewrite("trigger.timer[1].passthrough = false")
+
+        #start timer when source ready
+        self.smu.safewrite(f"trigger.timer[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+
+        #trigger digio when ready
+        self.smu.safewrite("digio.trigger[1].mode = digio.TRIG_RISINGM")
+        self.smu.safewrite(f"digio.trigger[1].pulsewidth = {integration_time_seconds}")
+        self.smu.safewrite(f"digio.trigger[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+
+        #initialize measurement action
+        self.smu.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
+        self.smu.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE")
+        self.smu.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")
+        self.smu.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+        
+
+        #set endpulse actions and stimulus 
+        self.smu.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
+        self.smu.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
+        self.smu.safewrite(f"trigger.timer[1].delay = {integration_time_seconds + 0.001}")
+        #self.smu.safewrite("digio.trigger[1].mode = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
+        
+        self.smu.safewrite(f"{s['source']}.trigger.count = 1")
+        self.smu.safewrite(f"{s['source']}.trigger.arm.count = 1")
+
+        # Turn on the source and trigger the sweep.
+        self.smu.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
+        self.smu.safewrite(f"{s['source']}.trigger.initiate()")
+        self.smu.safewrite(f"waitcomplete()")
+
+        # commented out since waitcomplete should ensure that the integration time has passed, since the digio pulse has a width equal to integration time
+        # time.sleep(integration_time_seconds+0.001)
+
+        i, v, _ = self.smu.get_last_buffer_value(s['source'])
+        return (0, [i, v])
