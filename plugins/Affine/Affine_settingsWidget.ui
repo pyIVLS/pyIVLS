@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>742</width>
-    <height>511</height>
+    <width>1231</width>
+    <height>758</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -30,8 +30,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>728</width>
-        <height>479</height>
+        <width>1211</width>
+        <height>738</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -90,19 +90,6 @@
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout_3">
              <item>
-              <widget class="QCheckBox" name="addPointsCheck">
-               <property name="text">
-                <string>Add new points</string>
-               </property>
-               <property name="checked">
-                <bool>false</bool>
-               </property>
-               <property name="tristate">
-                <bool>false</bool>
-               </property>
-              </widget>
-             </item>
-             <item>
               <widget class="QCheckBox" name="centerClicks">
                <property name="text">
                 <string>Center clicks on patch</string>
@@ -113,22 +100,13 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="pointCount">
-               <item>
-                <property name="text">
-                 <string>1</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>2</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>3</string>
-                </property>
-               </item>
+              <widget class="QSpinBox" name="pointCount">
+               <property name="minimum">
+                <number>1</number>
+               </property>
+               <property name="maximum">
+                <number>4</number>
+               </property>
               </widget>
              </item>
              <item>

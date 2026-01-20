@@ -64,13 +64,6 @@ class BackendType(Enum):
 """
 
 
-##IRtothink#### currently usbtmc is used for communication with Keithley via USB, however it may also be connected via eth with pyvisa
-# In principle it may make some sence to allow user to select way to connect, or to create two different plugins one for USB connection and another one with eth connection
-# It is obvious, but it is still worth to mention that not all the methods of self.rm.open_resource are the same as for usbtmc.Instrument, eventhought write and read methods are presented in both
-# For implementing both connections simultaneously some abstractions for module specific commands should be implemented e.g query in pyvisa and ask in usbtmc
-# At the moment all the pyvisa methods are commented
-
-
 class Keithley2612B:
     ke: Optional[MessageBasedResource] = None
     k: Optional[usbtmc.Instrument] = None
@@ -151,7 +144,7 @@ class Keithley2612B:
 
     def keithley_connect(self, address, eth_address, backend, port) -> None:
         """Connect to the Keithley 2612B.
-        Returns nothing, throws error
+        Returns nothing, throws errors on failure.
         """
         self.address = address
         self.eth_address = eth_address
@@ -168,11 +161,15 @@ class Keithley2612B:
             if self.k is None:
                 #### connect with usbtmc
                 self.k = usbtmc.Instrument(self.address)
-                con_test = self.k.ask("*IDN?")
+                # https://github.com/python-ivi/python-usbtmc/blob/master/usbtmc/usbtmc.py#L756C10-L756C22
+                # source code shows that ask returns a string when message is str, list when message is list or tuple
+                con_test = str(self.k.ask("*IDN?"))
                 assert "keithley" in con_test.lower(), f"Connected to wrong device: {con_test}"
                 self.set_digio(1, False)  # set digital line 1 to LOW
                 _hello()
-                self.k.timeout = 25  # in seconds??
+                # https://github.com/python-ivi/python-usbtmc/blob/master/usbtmc/usbtmc.py#L347 
+                # shows that timeout is in seconds, and converted to ms internally
+                self.k.timeout = 25 # seconds
         elif self.backend == BackendType.ETHERNET.value:
             if self.ke is None:
                 #### connect with pyvisa resource manager

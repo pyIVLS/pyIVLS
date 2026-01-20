@@ -25,7 +25,7 @@ from specSMU_GUI import specSMU_GUI
 
 
 class pyIVLS_SpecSMU_plugin:
-    """Hooks for SpecSMU plugin (now closely following sweep plugin pattern)"""
+    """Hooks for SpecSMU plugin"""
 
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
@@ -81,11 +81,7 @@ class pyIVLS_SpecSMU_plugin:
     def get_plugin_settings(self, args=None):
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
         if args is None or args.get("function") == self.function:
-            # Use the raw getter for saving settings
             settings = self.specsmu.get_settings_dict_raw()
-            # Optionally, you can still parse/validate if needed:
-            # status, parsed_settings = self.specsmu.parse_settings_widget()
-            # return (self.name, status, parsed_settings)
             return (self.name, 0, settings)
 
     @hookimpl

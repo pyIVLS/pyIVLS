@@ -36,40 +36,123 @@
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_4">
        <item>
+        <widget class="QGroupBox" name="groupBox_dependency">
+         <property name="title">
+          <string>Dependencies</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_6">
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_4">
+            <item>
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>SMU Plugin</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="smuBox"/>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_5">
+            <item>
+             <widget class="QLabel" name="label_2">
+              <property name="text">
+               <string>Spectrometer Plugin</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="spectrometerBox"/>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_6">
+            <item>
+             <spacer name="horizontalSpacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QPushButton" name="applyDependencies">
+              <property name="text">
+               <string>Apply dependencies</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBox">
+         <property name="title">
+          <string>Spectrometer</string>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QCheckBox" name="spectroCheckAfter">
+            <property name="text">
+             <string>Measure IV before and after</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout">
+            <item>
+             <widget class="QCheckBox" name="spectroPause">
+              <property name="text">
+               <string>pause</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QDoubleSpinBox" name="spectroPauseSpinBox">
+              <property name="maximum">
+               <double>60.000000000000000</double>
+              </property>
+              <property name="singleStep">
+               <double>0.500000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_4">
+              <property name="text">
+               <string>s</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="spectroUseLastInteg">
+            <property name="text">
+             <string>getAutoTime initial guess from last integration time</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <widget class="QGroupBox" name="groupBox_general">
          <property name="title">
           <string>SMU settings</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout">
-          <item>
-           <widget class="QGroupBox" name="groupBox_dependency">
-            <property name="title">
-             <string>Dependencies</string>
-            </property>
-            <layout class="QGridLayout" name="gridLayout_2">
-             <item row="0" column="1">
-              <widget class="QComboBox" name="smuBox"/>
-             </item>
-             <item row="0" column="0">
-              <widget class="QLabel" name="label">
-               <property name="text">
-                <string>SMU Plugin</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="label_2">
-               <property name="text">
-                <string>Spectrometer Plugin</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QComboBox" name="spectrometerBox"/>
-             </item>
-            </layout>
-           </widget>
-          </item>
           <item>
            <widget class="QGroupBox" name="groupBox_general_2">
             <property name="minimumSize">
@@ -126,18 +209,8 @@
                     </size>
                    </property>
                    <property name="currentIndex">
-                    <number>0</number>
+                    <number>-1</number>
                    </property>
-                   <item>
-                    <property name="text">
-                     <string>smuA</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>smuB</string>
-                    </property>
-                   </item>
                   </widget>
                  </item>
                 </layout>
@@ -324,13 +397,44 @@
               </layout>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="HBoxLayout_singleChannel">
+              <layout class="QHBoxLayout" name="horizontalLayout_8">
                <item>
-                <widget class="QCheckBox" name="checkBox_singleChannel">
-                 <property name="text">
-                  <string>Use single channel</string>
-                 </property>
-                </widget>
+                <layout class="QHBoxLayout" name="HBoxLayout_singleChannel">
+                 <item>
+                  <widget class="QCheckBox" name="checkBox_singleChannel">
+                   <property name="text">
+                    <string>Use single channel</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_7">
+                 <item>
+                  <widget class="QLabel" name="label_5">
+                   <property name="text">
+                    <string>Limit prescaler</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QDoubleSpinBox" name="prescaler_spinbox">
+                   <property name="minimum">
+                    <double>0.000000000000000</double>
+                   </property>
+                   <property name="maximum">
+                    <double>1.000000000000000</double>
+                   </property>
+                   <property name="singleStep">
+                    <double>0.100000000000000</double>
+                   </property>
+                   <property name="stepType">
+                    <enum>QAbstractSpinBox::StepType::DefaultStepType</enum>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
                </item>
                <item>
                 <spacer name="horizontalSpacer_2">
@@ -816,64 +920,6 @@
                 </spacer>
                </item>
               </layout>
-             </item>
-            </layout>
-           </widget>
-          </item>
-          <item>
-           <widget class="QGroupBox" name="groupBox">
-            <property name="title">
-             <string>Spectrometer</string>
-            </property>
-            <layout class="QHBoxLayout" name="horizontalLayout_2">
-             <item>
-              <widget class="QCheckBox" name="spectroCheckAfter">
-               <property name="text">
-                <string>Measure IV before and after</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <layout class="QHBoxLayout" name="horizontalLayout">
-               <item>
-                <widget class="QCheckBox" name="spectroPause">
-                 <property name="text">
-                  <string>pause</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QDoubleSpinBox" name="spectroPauseSpinBox">
-                 <property name="maximum">
-                  <double>60.000000000000000</double>
-                 </property>
-                 <property name="singleStep">
-                  <double>0.500000000000000</double>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="label_4">
-                 <property name="text">
-                  <string>s</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="spectroUseLastInteg">
-               <property name="text">
-                <string>getAutoTime initial guess from last integration time</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="extTriggerCheck">
-               <property name="text">
-                <string>Use external triggering</string>
-               </property>
-              </widget>
              </item>
             </layout>
            </widget>

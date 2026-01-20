@@ -372,7 +372,7 @@ class Keithley2612BGUI:
         # Turn on the source and trigger the sweep.
         self.smu.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
         self.smu.safewrite(f"{s['source']}.trigger.initiate()")
-        self.smu.safewrite(f"waitcomplete()")
+        self.smu.safewrite("waitcomplete()")
 
         # commented out since waitcomplete should ensure that the integration time has passed, since the digio pulse has a width equal to integration time
         # time.sleep(integration_time_seconds+0.001)
