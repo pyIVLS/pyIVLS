@@ -107,6 +107,12 @@ class Keithley2612B:
                 if self.ke is None:
                     raise ValueError("Keithley 2612B is not connected. Please connect first.")
                 self.ke.write(command)
+                
+                # Start debg
+                error_code = self.ke.query("print(errorqueue.next())")
+                if "Queue Is Empty" not in error_code:
+                    print(f"Error sending command: {command}\nError code: {error_code}")
+                # End debug
             elif self.backend == BackendType.MOCK.value:
                 if not self.mock_con:
                     raise ValueError("Keithley 2612B mock is not connected. Please connect first.")
