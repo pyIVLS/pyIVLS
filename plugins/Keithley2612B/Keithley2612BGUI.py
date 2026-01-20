@@ -337,7 +337,7 @@ class Keithley2612BGUI:
         self.smu.safewrite(f"{s['source']}.nvbuffer2.clear()")
 
         #set voltage range
-        self.smu.safewrite(f"{s['source']}.trigger.source.listv({voltage})") # should we also enable current measurement?
+        self.smu.safewrite(f"{s['source']}.trigger.source.listv({{{voltage}}})") # should we also enable current measurement?
 
         #set timer
         self.smu.safewrite("trigger.timer[1].count = 1")
@@ -347,7 +347,7 @@ class Keithley2612BGUI:
         self.smu.safewrite(f"trigger.timer[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
 
         #trigger digio when ready
-        self.smu.safewrite("digio.trigger[1].stimulus = digio.TRIG_RISINGM")
+        self.smu.safewrite("digio.trigger[1].mode = digio.TRIG_RISINGM")
         self.smu.safewrite(f"digio.trigger[1].pulsewidth = {integration_time_seconds}")
         self.smu.safewrite(f"digio.trigger[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
 
@@ -361,9 +361,11 @@ class Keithley2612BGUI:
         #set endpulse actions and stimulus 
         self.smu.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
         self.smu.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
-        self.smu.safewrite(f"pulse_timer.delay = {integration_time_seconds + 0.001}")
+        self.smu.safewrite(f"trigger.timer[1].delay = {integration_time_seconds + 0.001}")
         self.smu.safewrite("digio.trigger[1].mode = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
         
+        self.smu.safewrite(f"{s['source']}.trigger.count = 1")
+        self.smu.safewrite(f"{s['source']}.trigger.arm.count = 1")
 
         # Turn on the source and trigger the sweep.
         self.smu.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
