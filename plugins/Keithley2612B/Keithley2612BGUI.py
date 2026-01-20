@@ -366,8 +366,8 @@ class Keithley2612BGUI:
         
 
         # Turn on the source and trigger the sweep.
-        self.smu.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_ON")
-        self.smu.safewrite(f"{s['drain']}.trigger.initiate()")
+        self.smu.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
+        self.smu.safewrite(f"{s['source']}.trigger.initiate()")
 
         time.sleep(integration_time_seconds+0.001)
         return self.smu_getIV(s['source'])
