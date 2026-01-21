@@ -1,4 +1,5 @@
 from array import array
+from typing import Literal
 import usb.core
 import usb.util
 import TLCCS_const as const
@@ -13,10 +14,16 @@ class LLIO:
     def __init__(self, THORSPEC_VID, THORSPEC_PID):
         self.vid = THORSPEC_VID
         self.pid = THORSPEC_PID
-        self.bulk_in_pipe = None
-        self.timeout = None
-        self.dev = None
+        self.bulk_in_pipe = const.LL_DEFAULT_BULK_IN_PIPE
+        self.timeout = 0  # for no timeout
+        self._dev = None
         self.connected = False
+
+    @property
+    def dev(self):
+        if self._dev is None:
+            raise RuntimeError("Device not connected. Call open() first.")
+        return self._dev
 
     def _connect(self) -> bool:
         """private function to connect to the device.
@@ -24,12 +31,18 @@ class LLIO:
         Raises:
             ValueError: device not found with the given vid and pid
             ConnectionError: usb error when connecting to the device
+        Returns:
+            bool: True if something new was connected, False otherwise.
         """
         try:
             if not self.connected:
-                self.dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
-                if self.dev is None:
+                devices = usb.core.find(idVendor=self.vid, idProduct=self.pid)
+                if devices is None:
                     raise ValueError("Device not found")
+                elif isinstance(devices, usb.core.Device):
+                    self._dev = devices
+                else:
+                    raise ValueError("Unexpected error")
                 self.dev.set_configuration()
                 self.connected = True
                 return True
@@ -37,26 +50,25 @@ class LLIO:
         except usb.core.USBError as e:
             raise ConnectionError(f"Failed to connect to device: {e}") from e
 
-    def __del__(self):
-        if self.dev is not None:
-            self.close()
-
     def open(self) -> bool:
-        """interface to open the connection and set default values for
-        bulk_in_pipe and timeout."""
-        if self._connect():
-            self.bulk_in_pipe = const.LL_DEFAULT_BULK_IN_PIPE
-            self.timeout = 0 # for no timeout
-            self.flush()
+        """interface to open the connection.
+        Returns:
+            bool: True if connection was successful, False otherwise. Also returns True if already connected."""
+        created = self._connect()
+        if self.connected:
+            # On first connect, flush to clear stale data
+            if created:
+                self.flush()
             return True
         return False
 
     def close(self) -> None:
         """Closes the connection to the device. Disposes resources and
         sets dev to None."""
-        usb.util.dispose_resources(self.dev)
-        self.dev = None
-        self.connected = False
+        if self.connected:
+            usb.util.dispose_resources(self.dev)
+            self._dev = None
+            self.connected = False
 
     def get_bulk_in_status(self) -> str:
         """Send a standard control transfer to the device to get the status of the bulk_in_pipe. NOTE: Unused and only briefly tested.
@@ -88,7 +100,7 @@ class LLIO:
 
         return attr_value
 
-    def flush(self):
+    def flush(self) -> Literal[True]:
         """Reads the bulk_in_pipe until timeout and throws out the result."""
         try:
             full_flush_size = const.CCS_SERIES_NUM_RAW_PIXELS * 2
@@ -98,15 +110,12 @@ class LLIO:
             return True
 
     def read_raw(self, readTo: array):
-        """Bulk read from default bulk_in_pipe. Note: Reading is done in bytes. Catches errors with try-except
+        """Bulk read from default bulk_in_pipe. Note: Reading is done in bytes. 
 
         Args:
             readTo (array): data is read into this. The size of the array specifies the size of the read.
         """
-        try:
-            self.dev.read(self.bulk_in_pipe, readTo, timeout=self.timeout)
-        except usb.core.USBError as e:
-            print(f"USB error in TLCCS read_raw: {e}")
+        self.dev.read(self.bulk_in_pipe, readTo, timeout=self.timeout)
 
     def control_out(self, bRequest, payload, bmRequestType=0x40, wValue=0, wIndex=0):
         """Sends a control OUT transfer to the device. (usually) For setting data.
@@ -118,10 +127,7 @@ class LLIO:
             wValue (int, optional): Defaults to 0.
             wIndex (int, optional): Defaults to 0.
         """
-        try:
-            self.dev.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, payload, timeout=self.timeout)
-        except usb.core.USBError as e:
-            print(f"USB error in TLCCS control_out: {e}")
+        self.dev.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, payload, timeout=self.timeout)
 
     def control_in(self, bRequest, readTo: array, bmRequestType=0xC0, wValue=0, wIndex=0):
         """Sends a control IN transfer and reads data. (usually) For reading data.
@@ -134,7 +140,4 @@ class LLIO:
             wIndex (int, optional): Defaults to 0.
 
         """
-        try:
-            self.dev.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, readTo, timeout=self.timeout)
-        except usb.core.USBError as e:
-            print(f"USB error in TLCCS control_in: {e}")
+        self.dev.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, readTo, timeout=self.timeout)
