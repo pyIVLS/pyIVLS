@@ -430,7 +430,7 @@ class AffineGUI(QObject):
             self.dialog.finished.connect(_on_close)
             self.dialog.show()
         else:
-            self.logger.log_warn(f"Affine: Error parsing settings widget: {settings['error message']} {settings['exception']}")
+            self.logger.log_warn(f"Affine: Error parsing settings widget: {settings['Error message']} {settings['exception']}")
 
     def update_list_widget(self, points: list[QPointF], name: str):
         """
@@ -535,9 +535,9 @@ class AffineGUI(QObject):
             assert 1 <= settings["morphologystrengthmask"] <= 15, "morphologyStrengthMask must be between 1 and 15"
         except AttributeError as e:
             return 2, {
-                "error message": f"settings widget not initialized : {str(e)}",
+                "Error message": f"settings widget not initialized : {str(e)}",
                 "exception": str(e),
             }
         except (ValueError, AssertionError) as e:
-            return 1, {"error message": f"Affine value error: {str(e)}", "exception": str(e)}
+            return 1, {"Error message": f"Affine value error: {str(e)}", "exception": str(e)}
         return 0, settings

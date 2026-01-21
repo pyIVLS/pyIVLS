@@ -318,7 +318,7 @@ class Keithley2612BGUI:
         time.sleep(width_s)
         # falling edge
         self.smu.set_digio(id, False)
-        return (0, {"Error Message": "OK"})
+        return (0, {"Error message": "OK"})
 
     def smu_trigger_measurement(self,integration_time_seconds: float, voltage: float, s: dict) -> tuple[int, list]:
         """Performs a measurement with an additional triggered opertation on line 1. 
