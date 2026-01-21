@@ -57,7 +57,7 @@ class dialog(QDialog):
         self.expecting_img_click = False
         self.mask_points = []
         self.img_points = []
-        self.num_needed = 4
+        self.num_needed = 2
         self.img_scene = QGraphicsScene()
         self.mask_scene = QGraphicsScene()
 
@@ -83,7 +83,6 @@ class dialog(QDialog):
         backends = ["SIFT", "ORB"]
         for backend in backends:
             self.ui.backendCombo.addItem(backend)
-
 
         # Set initial values from settings
         self.ui.blurMask.setChecked(settings["blurmask"])
