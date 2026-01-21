@@ -531,21 +531,21 @@ class specSMU_GUI(QWidget):
                 if scan_status:
                     self._log_verbose(f"Error starting spectrometer scan: {state}")
                     raise NotImplementedError(f"Error in starting spectrometer scan: {state}, no handling provided")
-                
+
                 # digio pulse to trigger spectrometer and SMU measurement
                 status, IV = self.function_dict["smu"][smu_name]["smu_trigger_measurement"](integration_time, voltage, smu_settings)
                 if status:
                     raise NotImplementedError(f"Error in triggering measurement: {state}, no handling provided")
-                
+
                 # read spectrometer data
-                status, spectro_state =  self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
+                status, spectro_state = self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
                 print(f"spectrometer in state: {spectro_state} ")
                 status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetSpectrum"]()
                 if status:
                     self._log_verbose(f"Error getting spectrum: {spectrum}")
                     raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
                 print(f"Spectrum received: {status}")
-                status, spectro_state =  self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
+                status, spectro_state = self.function_dict["spectrometer"][spectro_name]["spectrometerGetStatus"]()
                 print(f"spectrometer in state: {spectro_state} ")
                 # all is well
                 return spectrum, IV
@@ -556,7 +556,7 @@ class specSMU_GUI(QWidget):
                 if status:
                     self._log_verbose(f"Error getting spectrum: {spectrum}")
                     raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
-                
+
                 # IV after spectrum
                 status, IV = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
                 return spectrum, IV
@@ -606,8 +606,8 @@ class specSMU_GUI(QWidget):
                         message = f"Prescaler stop condition met: |I|={abs(testI):.4e} A exceeds limit {self.settings['prescaler'] * abs(self.settings['limit']):.4e} A"
                     else:
                         message = f"Prescaler stop condition met: |V|={abs(testV):.4e} V exceeds limit {self.settings['prescaler'] * abs(self.settings['limit']):.4e} V"
-
                     self.logger.log_info(f"{message}, stopping measurement")
+                    self.logger.info_popup(f"{message}, stopping measurement")
                     break  # exit the smuLoop
 
                 # automatic integration time handling

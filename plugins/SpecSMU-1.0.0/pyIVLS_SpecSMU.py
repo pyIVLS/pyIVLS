@@ -92,3 +92,13 @@ class pyIVLS_SpecSMU_plugin:
         """
         if args is None or args.get("function") == self.function:
             return {self.name: self.specsmu.logger.logger_signal}
+
+    @hookimpl
+    def get_info(self, args=None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.specsmu.logger.info_popup_signal}
