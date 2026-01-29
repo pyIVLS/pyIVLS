@@ -222,6 +222,7 @@ class pyIVLS_seqBuilder(QObject):
         if not is_valid_filename(filename):
             self.info_message.emit("Can not save sequence. Filename is invalid.")
             return 1
+        print("Saving recipe to " + self.widget.lineEdit_path.text() + sep + filename)
         with open(self.widget.lineEdit_path.text() + sep + filename, "w") as file:
             json.dump(
                 self.extract_data(self.model.invisibleRootItem().child(0)),

@@ -89,5 +89,6 @@ class pyIVLS_affineMove_plugin:
     def get_plugin_settings(self, args=None):
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
         if args is None or args.get("function") == self.function:
+            print("Getting plugin settings for affineMove")
             status, settings = self.plg.parse_settings_widget()
             return (self.name, status, settings)

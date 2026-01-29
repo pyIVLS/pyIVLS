@@ -3,6 +3,7 @@ import os
 
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QObject
+import importlib.util
 from Sutter import Mpc325
 from plugin_components import (
     LoggingHelper,
@@ -101,6 +102,8 @@ class SutterGUI(QObject):
         self.logger = LoggingHelper(self)
         self.cl = CloseLockSignalProvider()
         self.settings = {}
+        # Optional: allow switching to mock via env var
+        self._switch_hal_if_mock_requested()
 
     def setup(self, settings):
         """
@@ -111,6 +114,9 @@ class SutterGUI(QObject):
 
         # Store settings internally in .ini format
         self.settings = copy.deepcopy(settings)
+
+        # Optional: allow switching to mock via settings (e.g., plugin.ini)
+        self._switch_hal_if_mock_requested(self.settings)
 
         # connect buttons to functions
         self.settingsWidget.connectButton.clicked.connect(self._connect_button)
@@ -138,6 +144,37 @@ class SutterGUI(QObject):
         self._gui_change_device_connected(self.hal.is_connected())
 
         return self.settingsWidget
+
+    def _switch_hal_if_mock_requested(self, settings: dict | None = None):
+        """Switch HAL to mock backend when requested via env or settings.
+
+        Triggers when env `PYIVLS_SUTTER_BACKEND` is 'mock'/'virtual' or
+        settings contains key `use_mock` truthy.
+        """
+        try:
+            use_mock_env = os.getenv("PYIVLS_SUTTER_BACKEND", "").lower() in ("mock", "virtual", "software")
+            use_mock_setting = False
+            if settings is not None:
+                val = settings.get("use_mock", False)
+                use_mock_setting = (str(val).lower() in ("true", "1", "yes")) if isinstance(val, str) else bool(val)
+            if use_mock_env or use_mock_setting:
+                # Load mock class directly from sibling file to avoid package import issues
+                mock_path = os.path.join(os.path.dirname(__file__), "mock.py")
+                spec = importlib.util.spec_from_file_location("SutterMock", mock_path)
+                if spec and spec.loader:
+                    mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(mod)
+                    self.hal = mod.Mpc325Mock()
+                else:
+                    raise ImportError("Unable to load Sutter mock backend module")
+                # carry over existing settings into the mock
+                q = self.settings.get("quickmove")
+                s = self.settings.get("speed")
+                a = self.settings.get("address")
+                self.hal.update_internal_state(q, s, a)
+        except Exception as e:
+            # Non-fatal; default to real HAL
+            self.logger.log_warn(f"Failed to switch to Sutter mock backend: {e}")
 
     # GUI interactions
     def _apply_settings_to_gui(self):

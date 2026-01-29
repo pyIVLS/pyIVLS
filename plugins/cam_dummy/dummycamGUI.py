@@ -77,6 +77,7 @@ class DummyCameraGUI(QObject):
         "camera_open",
         "camera_close",
         "camera_capture_image",
+        "parse_settings_widget",
     ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
     ########Signals
@@ -163,6 +164,12 @@ class DummyCameraGUI(QObject):
             self.emit_log(status, msg)
         return status, msg
 
+    def parse_settings_widget(self):
+        """Parse settings from the GUI widget."""
+        image_path = self.settingsWidget.lineEdit.text()
+        self.settings["image_path"] = image_path
+        return (0, self.settings)
+
     def camera_close(self):
         self.camera.close()
 
@@ -190,5 +197,7 @@ class DummyCameraGUI(QObject):
         """
         Returns a nested dictionary of public methods for the plugin
         """
-        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method in self.public_methods}
+        methods = {
+            method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method in self.public_methods
+        }
         return methods
