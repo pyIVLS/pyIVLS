@@ -79,9 +79,9 @@ class affineMoveGUI(QObject):
 
         # Initialize dependency manager
         dependencies = {
-            "micromanipulator": ["parse_settings_widget", "mm_get_num_manipulators"],
-            "camera": ["parse_settings_widget"],
-            "positioning": ["parse_settings_widget"],
+            "micromanipulator": ["parse_settings_widget", "mm_get_num_manipulators", "setSettings"],
+            "camera": ["parse_settings_widget", "setSettings"],
+            "positioning": ["parse_settings_widget", "setSettings"],
         }
         dependency_map = {
             "micromanipulator": "micromanipulatorBox",
@@ -1011,6 +1011,20 @@ class affineMoveGUI(QObject):
         # store targets in settings
         settings["measurement_points"] = self.measurement_points
         settings["measurement_point_names"] = self.measurement_point_names
+        mm, cam, pos = self._fetch_dep_plugins()
+
+        mm_settings = mm["parse_settings_widget"]()
+        pos_settings = pos["parse_settings_widget"]()
+        cam_settings = cam["parse_settings_widget"]()
+
+        print(f"mm_settings: {mm_settings}")
+        print(f"pos_settings: {pos_settings}")
+        print(f"cam_settings: {cam_settings}")
+
+        # extend settings with dep plugin settings
+        settings["mm_settings"] = mm_settings[1]
+        settings["pos_settings"] = pos_settings[1]
+        settings["cam_settings"] = cam_settings[1]
 
         # extend self settings with settings
         self.settings.update(settings)
@@ -1029,6 +1043,12 @@ class affineMoveGUI(QObject):
         self.logger.log_info(f"AffineMove settings updated: {settings}")
         self.measurement_points = settings["measurement_points"]
         self.measurement_point_names = settings["measurement_point_names"]
+        # update to deps
+        mm, cam, pos = self._fetch_dep_plugins()
+        mm["setSettings"](settings["mm_settings"])
+        pos["setSettings"](settings["pos_settings"])
+        cam["setSettings"](settings["cam_settings"])
+
         self.update_status()  # segfault?
 
     @public
