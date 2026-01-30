@@ -78,7 +78,7 @@ class conDetectGUI(QObject):
     ########GUI Slots
 
     def _connectAction(self):
-        self.logger.log_info("Attempting to connect device.")
+        self.logger.log_debug("Attempting to connect device.")
         self.parse_settings_widget()
         status, info = self.deviceConnect()
         if status:
@@ -88,10 +88,10 @@ class conDetectGUI(QObject):
         self.connected = True
         self._GUIchange_deviceConnected(self.connected)
         self.closelock.emit_close_lock(self.connected)
-        self.logger.log_info("Device connected successfully.")
+        self.logger.log_debug("Device connected successfully.")
 
     def _disconnectAction(self):
-        self.logger.log_info("Attempting to disconnect device.")
+        self.logger.log_debug("Attempting to disconnect device.")
         status, info = self.deviceDisconnect()
         self.connected = False
         self._GUIchange_deviceConnected(self.connected)
@@ -101,7 +101,7 @@ class conDetectGUI(QObject):
             self.logger.info_popup(f"conDetect plugin : {info['Error message']}")
             self.settingsWidget.connectButton.setEnabled(self.connected)
         else:
-            self.logger.log_info("Device disconnected successfully.")
+            self.logger.log_debug("Device disconnected successfully.")
 
     def _hiConnectionCheck(self):
         if self.loCheck:
@@ -116,7 +116,7 @@ class conDetectGUI(QObject):
                 return (status, info)
             else:
                 self.hiCheck = not self.hiCheck
-                self.logger.log_info("Hi connection toggled.")
+                self.logger.log_debug("Hi connection toggled.")
                 return (0, "OK")
 
     def _loConnectionCheck(self):
@@ -132,7 +132,7 @@ class conDetectGUI(QObject):
                 return (status, info)
             else:
                 self.loCheck = not self.loCheck
-                self.logger.log_info("Lo connection toggled.")
+                self.logger.log_debug("Lo connection toggled.")
                 return (0, "OK")
 
     ########Functions
@@ -201,7 +201,7 @@ class conDetectGUI(QObject):
             self.functionality.setDefault()
             self.connected = True
             self._GUIchange_deviceConnected(self.connected)
-            self.logger.log_info("Device connected in deviceConnect.")
+            self.logger.log_debug("Device connected in deviceConnect.")
             return (0, "OK")
         except Exception as e:
             self.logger.log_warn(f"Exception in deviceConnect: {e}")
