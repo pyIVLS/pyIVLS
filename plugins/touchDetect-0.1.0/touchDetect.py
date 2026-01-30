@@ -529,7 +529,7 @@ class touchDetect:
         contacting, r = self._contacting(smu, manipulator_info)
         while not contacting:
             if total_distance > max_distance_to_move:
-                error_msg = f"Maximum distance {max_distance_to_move} exceeded for manipulator {manipulator_info.mm_number} (moved {total_distance})"
+                error_msg = f"Maximum distance {max_distance_to_move} exceeded for manipulator {manipulator_info.mm_number}. This means that the resistance threshold ({manipulator_info.threshold} Ohms) was not reached within the allowed distance. Causes could be: too high threshold, wrong positioning for probe, tilted sample, disconnected probe."
                 return (3, {"Error message": error_msg})
 
             # Calculate adaptive stride based on proximity to last known position
