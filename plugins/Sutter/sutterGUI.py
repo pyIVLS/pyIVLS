@@ -702,3 +702,12 @@ class SutterGUI(QObject):
             z = self.hal.get_current_position()[2]
         self.hal.slow_move_to(x, y, z, 7)
         return [0, {"Error message": "Sutter moved"}]
+    
+    @public
+    def set_settings(self, settings: dict) -> None:
+        """Sets the plugin settings from a dictionary.
+
+        Args:
+            settings (dict): A dictionary containing plugin settings.
+        """
+        self.settings = settings

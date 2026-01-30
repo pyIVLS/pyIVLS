@@ -1,9 +1,9 @@
 """
-This is a GUI plugin for DummyCamera for pyIVLS
+This is a GUI plugin for VenusUSB2 camera for pyIVLS
 
 This file should provide
 - functions for interaction with other plugins (those that will be exported on get_functions hook call, these should not start with "_")
-- functions that will implement functionality of the hooks (see pyIVLS_DummyCamera)
+- functions that will implement functionality of the hooks (see pyIVLS_VenusUSB2)
 - GUI functionality - code that interracts with Qt GUI elements from widgets
 
 This plugin should have double functionality
@@ -17,10 +17,6 @@ public API:
 - camera_close() -> None
 - camera_capture_image() -> image / None
 
-public API:
-- camera_open() -> "error"
-- camera_close() -> None
-- camera_capture_image() -> image / None
 
 version 0.6
 2025.05.12
@@ -32,12 +28,19 @@ otsoha
 
 import numpy as np
 import os
-from datetime import datetime
-
-from PyQt6 import uic
+from pathvalidate import is_valid_filename
+from plugin_components import (
+    public,
+    get_public_methods,
+    LoggingHelper,
+    CloseLockSignalProvider,
+    ConnectionIndicatorStyle,
+)
+from PyQt6 import uic, QtWidgets
 from PyQt6.QtWidgets import QFileDialog
-from PyQt6.QtCore import QObject, pyqtSignal, QThread
-from dummycam import DummyCamera
+from PyQt6.QtCore import QObject, pyqtSignal, Qt, QThread
+from PyQt6.QtGui import QImage, QPixmap
+from dummycam import DummyCamera as VenusUSB2
 
 ##IRtothink#### should some kind of zoom to the image part be added for the preview?
 
@@ -55,6 +58,7 @@ class CameraThread(QThread):
         self.camera = camera
         self.interval_ms = interval_ms
         self._running = False
+        self.finished.connect(self.deleteLater)
 
     def run(self):
         self._running = True
@@ -63,6 +67,7 @@ class CameraThread(QThread):
             if status == 0:
                 self.new_frame.emit(frame)
             self.msleep(self.interval_ms)
+        # finished when running flag set to false via .stop()
 
     def stop(self):
         self._running = False
@@ -70,134 +75,298 @@ class CameraThread(QThread):
 
 
 class DummyCameraGUI(QObject):
-    """GUI for the DummyCamera plugin (minimal, only image path selection)"""
+    """GUI for the mock camera with VenusUSB2-compatible GUI."""
 
-    non_public_methods = []
+    # Signal emitted when a new camera thread is created
+    new_camera_thread = pyqtSignal(object)  # Emits the new camera thread
+
+    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
     public_methods = [
         "camera_open",
         "camera_close",
         "camera_capture_image",
-        "parse_settings_widget",
+        "get_thread",
+        "connect_to_new_frame_signal",
     ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
-
-    ########Signals
-
-    # used to send messages to the main app
-    log_message = pyqtSignal(str)
-    info_message = pyqtSignal(str)
-    closeLock = pyqtSignal(bool)
-
-    def emit_log(self, status: int, state: dict) -> None:
-        """
-        Emits a standardized log message for status dicts or error lists.
-        Args:
-            status (int): status code, 0 for success, non-zero for error.
-            state (dict): dictionary in the standard pyIVLS format
-
-        """
-        plugin_name = self.__class__.__name__
-        # only emit if error occurred
-        if status != 0:
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")
-            msg = state.get("Error message", "Unknown error")
-            exception = state.get("Exception", "Not provided")
-
-            log = f"{timestamp} : {plugin_name} : {status} : {msg} : Exception: {exception}"
-
-            self.log_message.emit(log)
+    default_timerInterval = 42  # ms, it is close to 24 fps that is standard for movies and TV
 
     ########Functions
 
     def __init__(self):
-        super(DummyCameraGUI, self).__init__()
+        super().__init__()
+        # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "dummycam_settingsWidget.ui")
-        self.previewWidget = uic.loadUi(self.path + "dummycam_previewWidget.ui")
+        ##IRtothink#### I do not like have filename hardly coded,
+        ############### but in any case the refrences to the GUI elements will be hardly coded, so it may be OK
 
-        self.settings = {"image_path": ""}
+        """Changes here:
+        - widgets are loaded from the same directory, and assume to have relevant suffixes. 
+        I thinks this is easier than to just hardcode the names, now they just have to be in 
+        the same directory and have the correct suffixes. This can be copied to other plugins.
+        """
+        # Use dummy UI files that mirror VenusUSB2 layout
+        self.settingsWidget = uic.loadUi(self.path + os.path.sep + "dummycam_settingsWidget.ui")
+        self.previewWidget = uic.loadUi(self.path + os.path.sep + "dummycam_previewWidget.ui")
+
+        self.settings = {"source": None, "exposure": None}
+        self.q_img = None
 
         # Initialize cap as empty capture
-        self.camera = DummyCamera()
+        self.camera = VenusUSB2()
 
-        # Fill lineEdit from saved path if available
-        saved_path = self._load_saved_path()
-        self.settings["image_path"] = saved_path
-        self.settingsWidget.lineEdit.setPlaceholderText("Select an image file")
+        # Camera thread will be created per session, not in init
+        self.camera_thread = None
+        self.preview_running = False
 
-        self.settingsWidget.lineEdit.setText(saved_path)
+        # Exposure combobox (present in VenusUSB2-style UI)
+        self.exposure = self.settingsWidget.findChild(QtWidgets.QComboBox, "exposure")
+        assert self.exposure is not None, "Exposure combobox not found in settingsWidget"
+        # Populate exposures from camera
+        for exposure in self.camera.exposures:
+            self.exposure.addItem(str(exposure))
 
-        self.settingsWidget.pushButton.clicked.connect(self._select_image)
+        self._exp_slider_change()
 
-    def _select_image(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            None,
-            "Select Image",
-            self.settings["image_path"],
-            "Images (*.png *.jpg *.jpeg *.bmp)",
-        )
-        if file_path:
-            self.settings["image_path"] = file_path
-            self.settingsWidget.lineEdit.setText(file_path)
-            self._save_path(file_path)
+        self._connect_signals()
 
-    def _load_saved_path(self):
-        # Optionally load from a config or file, here just return empty or last used
-        config_path = os.path.join(self.path, "dummycam_last_path.txt")
-        if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as f:
-                return f.read().strip()
-        return ""
+        self.preview_label = self.previewWidget.previewLabel
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_label.setScaledContents(False)
 
-    def _save_path(self, path):
-        config_path = os.path.join(self.path, "dummycam_last_path.txt")
-        with open(config_path, "w", encoding="utf-8") as f:
-            f.write(path)
+        self.logger = LoggingHelper(self)
+        self.cl = CloseLockSignalProvider()
 
     ########Functions
-    ########API methods
+    ################################### internal
 
-    def camera_open(self):
-        """Open the dummy camera (load the image path)."""
-        image_path = self.settingsWidget.lineEdit.text()
-        status, msg = self.camera.open(source=image_path)
-        if status:
-            self.emit_log(status, msg)
-        return status, msg
+    def _connect_signals(self):
+        # Connect widget buttons to functions
+        self.settingsWidget.cameraPreview.clicked.connect(self._previewAction)
+        self.settingsWidget.saveButton.clicked.connect(self._saveAction)
+        self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
+        self.settingsWidget.exposure.currentIndexChanged.connect(self._exp_slider_change)
+        # Camera thread connection will be made when thread is created
 
-    def parse_settings_widget(self):
-        """Parse settings from the GUI widget."""
-        image_path = self.settingsWidget.lineEdit.text()
-        self.settings["image_path"] = image_path
+    def _update_frame(self, frame: np.ndarray):
+        label = self.preview_label
+        h, w, ch = frame.shape
+        bytes_per_line = ch * w
+        qt_image = QImage(frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+
+        pixmap = QPixmap.fromImage(qt_image)
+        scaled_pixmap = pixmap.scaled(
+            label.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        label.setPixmap(scaled_pixmap)
+        self.q_img = qt_image  # Store the QImage for saving later
+
+    @public
+    def parse_settings_widget(self) -> tuple[int, dict]:
+        """Parses the settings widget for the camera. Extracts current values
+
+        Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+        """
+        self.settings["exposure"] = int(self.exposure.currentText())
+        # Source is interpreted as file path for mock camera
+        self.settings["source"] = self.settingsWidget.cameraSource.text()
+        self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
+        self.settings["address"] = self.settingsWidget.lineEdit_path.text()
+        ##no value checks are possible here as the source should be just address and exposure is given by a set of values
         return (0, self.settings)
 
-    def camera_close(self):
-        self.camera.close()
+    ########Functions
+    ########GUI Slots
 
-    def camera_capture_image(self):
-        image_path = self.settingsWidget.lineEdit.text()
-        if image_path == "":
-            image_path = self._load_saved_path()
-        status, img = self.camera.capture_image(source=image_path)
-        return status, img
+    def _create_new_camera_thread(self):
+        """Create a new camera thread for this preview session"""
+        # Stop and clean up any existing thread
+        if self.camera_thread is not None:
+            self.camera_thread.stop()
+            self.camera_thread = None
+
+        # Create new thread
+        self.camera_thread = CameraThread(self.camera, interval_ms=self.default_timerInterval)
+        # Connect the new thread to the local update method
+        self.camera_thread.new_frame.connect(self._update_frame)
+
+        # Emit signal to notify other plugins about the new thread
+        self.new_camera_thread.emit(self.camera_thread)
+
+        return self.camera_thread
+
+    def _previewAction(self):
+        """interface for the preview button. Opens the camera, sets the exposure and previews the feed"""
+        if self.preview_running:
+            self._GUIchange_deviceConnected(self.preview_running)
+            self.cl.closeLock.emit(not self.preview_running)
+            self.preview_running = False
+            self._enableSaveButton()
+            if self.camera_thread is not None:
+                self.camera_thread.stop()
+                self.camera_thread = None
+            self.camera.close()
+        else:
+            self.camera.close()  # close any existing connection
+            self.parse_settings_widget()
+            [status, message] = self.camera.open(source=self.settings["source"], exposure=self.settings["exposure"])
+            if status:
+                self.logger.log_error(message)
+                self.logger.info_popup(f"DummyCamera plugin : {message}")
+            else:
+                self.settingsWidget.saveButton.setEnabled(False)
+                self._GUIchange_deviceConnected(self.preview_running)
+                self.cl.closeLock.emit(not self.preview_running)
+                # Create new thread for this session
+                self._create_new_camera_thread()
+                self.camera_thread.start()
+                self.preview_running = True
+
+    def _saveAction(self):
+        [status, info] = self._parseSaveData()
+        if status:
+            self.logger.info_popup(f"VenusUSB2 plugin : {info['Error message']}")
+            return [status, info]
+        self.q_img.save(
+            self.settings["address"] + os.sep + self.settings["filename"] + ".jpeg",
+            format="jpeg",
+        )
+
+    ########Functions
+    ###############GUI setting up
+
+    def _initGUI(
+        self,
+        plugin_info: dict,
+    ):
+        """Initialize the GUI with the provided plugin information.
+
+        Args:
+            plugin_info (dict): A dictionary containing plugin settings.
+        """
+        ##settings are not initialized here, only GUI
+        ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
+
+        self.settingsWidget.cameraSource.setText(plugin_info.get("source", ""))
+        self.settingsWidget.saveButton.setEnabled(False)
+        self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
+        self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
+        self.settingsWidget.exposure.setCurrentText(str(plugin_info["exposure"]))
+
+    def _getAddress(self):
+        address = self.settingsWidget.lineEdit_path.text()
+        if not (os.path.exists(address)):
+            address = self.path
+        address = QFileDialog.getExistingDirectory(
+            None,
+            "Select directory for saving",
+            address,
+            options=QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
+        )
+        if address:
+            self.settingsWidget.lineEdit_path.setText(address)
+
+    ########Functions
+    ###############GUI react to change
+
+    def _GUIchange_deviceConnected(self, status):
+        # NOTE: status is inverted, i.e. when preview is started received status should False, when preview is stopped status should be True
+        if status:
+            self.settingsWidget.connectionIndicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
+        else:
+            self.settingsWidget.connectionIndicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
+        self.settingsWidget.sourceBox.setEnabled(status)
+
+    def _enableSaveButton(self):
+        if not self.q_img:
+            self.settingsWidget.saveButton.setEnabled(False)
+        else:
+            self.settingsWidget.saveButton.setEnabled(True)
+
+    def _exp_slider_change(self):
+        self.parse_settings_widget()
+        self.camera.set_exposure(self.settings["exposure"])
 
     ########Functions
     ########plugins interraction
     # These are hooked to the plugin container and sent to the main app. Then they are connected to the msg slots.
 
-    def _getLogSignal(self):
-        return self.log_message
-
-    def _getInfoSignal(self):
-        return self.info_message
-
-    def _getCloseLockSignal(self):
-        return self.closeLock
-
     def _get_public_methods(self, function: str) -> dict:
         """
         Returns a nested dictionary of public methods for the plugin
         """
-        methods = {
-            method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method in self.public_methods
-        }
-        return methods
+
+        return get_public_methods(self)
+
+    @public
+    def camera_open(self):
+        """Opens the camera using current settings.
+        Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+        """
+        self.parse_settings_widget()
+        source = self.settings["source"]
+        exposure = self.settings["exposure"]
+        status, message = self.camera.open(source=source, exposure=exposure)
+        if status:
+            return status, message
+        else:
+            self._GUIchange_deviceConnected(False)
+            return [0, "DummyCamera ok"]
+
+    @public
+    def camera_close(self):
+        self.camera.close()
+        self._GUIchange_deviceConnected(True)
+
+    @public
+    def camera_capture_image(self):
+        parse_status, settings = self.parse_settings_widget()
+        if parse_status == 0:
+            source = settings["source"]
+            exposure = settings["exposure"]
+            try:
+                status, img = self.camera.capture_image(source, exposure)
+                if status != 0:
+                    img = {"Error message": f"DummyCamera plugin : {img}"}
+            except Exception as e:
+                status = 4
+                img = {"Error message": f"DummyCamera plugin : exception in capturing image: {str(e)}"}
+        else:
+            status = 1
+            img = {"Error message": "value error in parsing settings"}
+
+        return status, img
+
+    @public
+    def get_thread(self):
+        return self.camera_thread
+
+    def _parseSaveData(self) -> tuple[int, dict]:
+        self.settings["address"] = self.settingsWidget.lineEdit_path.text()
+        if not os.path.isdir(self.settings["address"] + os.sep):
+            self.logger.log_error("address string should point to a valid directory")
+            return (
+                1,
+                {"Error message": "DummyCamera plugin : address string should point to a valid directory"},
+            )
+        self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
+        if not is_valid_filename(self.settings["filename"]):
+            self.logger.log_error("filename is not valid")
+            self.logger.info_popup("DummyCamera plugin : filename is not valid")
+            return (1, {"Error message": "DummyCamera plugin : filename is not valid"})
+        return (0, {"Error message": "OK"})
+
+    @public
+    def setSettings(self, settings: dict):
+        """Sets the plugin settings from a dictionary.
+
+        Args:
+            settings (dict): A dictionary containing plugin settings.
+        """
+        self.settings = settings
+        self._initGUI(settings)
