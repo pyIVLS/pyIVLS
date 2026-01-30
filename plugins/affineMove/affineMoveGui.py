@@ -1017,10 +1017,6 @@ class affineMoveGUI(QObject):
         pos_settings = pos["parse_settings_widget"]()
         cam_settings = cam["parse_settings_widget"]()
 
-        print(f"mm_settings: {mm_settings}")
-        print(f"pos_settings: {pos_settings}")
-        print(f"cam_settings: {cam_settings}")
-
         # extend settings with dep plugin settings
         settings["mm_settings"] = mm_settings[1]
         settings["pos_settings"] = pos_settings[1]
@@ -1028,7 +1024,6 @@ class affineMoveGUI(QObject):
 
         # extend self settings with settings
         self.settings.update(settings)
-        self.logger.log_info(f"AffineMove settings parsed: {self.settings}")
         return 0, self.settings
 
     @public
@@ -1040,7 +1035,6 @@ class affineMoveGUI(QObject):
             settings (dict): A dictionary containing the settings for the affineMove plugin.
         """
         self.settings = settings
-        self.logger.log_info(f"AffineMove settings updated: {settings}")
         self.measurement_points = settings["measurement_points"]
         self.measurement_point_names = settings["measurement_point_names"]
         # update to deps

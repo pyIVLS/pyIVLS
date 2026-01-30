@@ -591,8 +591,6 @@ class AffineGUI:
                 points.append(item.data(self.COORD_DATA))
                 names.append(item.text())
         return points, names
-    
-    
 
     @public
     def parse_settings_widget(self):
@@ -600,10 +598,10 @@ class AffineGUI:
         try:
             settings = {
                 "pointcount": int(self.settingsWidget.pointCount.currentText()),
-                "cameraComboBox": self.settingsWidget.cameraComboBox.currentText(),
-                "addPointsCheck": self.settingsWidget.addPointsCheck.isChecked(),
+                "cameracombobox": self.settingsWidget.cameraComboBox.currentText(),
+                "addpointscheck": self.settingsWidget.addPointsCheck.isChecked(),
                 "default_mask_path": self.last_mask_path,
-                "centerClicks": self.centerCheckbox.isChecked(),
+                "centerclicks": self.centerCheckbox.isChecked(),
             }
             # extend the settings with the preprprocessing settings
             s = self.affine.preprocessor.settings
@@ -629,7 +627,7 @@ class AffineGUI:
         except (ValueError, AssertionError) as e:
             return 1, {"Error message": "Affine value error", "exception": str(e)}
         return 0, settings
-    
+
     @public
     def setSettings(self, settings: dict):
         """Sets the plugin settings from a dictionary.

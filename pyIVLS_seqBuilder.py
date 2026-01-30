@@ -38,6 +38,11 @@ class pyIVLS_seqBuilder(QObject):
         else:
             raise TypeError("seqBuilder: Tried to assign a non-QStandardItem")
 
+    # flags
+
+    skip_iteration = False
+    # should be set when a skippable exceptions occurs in the sequence
+
     #### Signals for communication
 
     info_message = pyqtSignal(str)
@@ -400,6 +405,8 @@ class pyIVLS_seqBuilder(QObject):
                         looping[-1]["namePostfix"] = iterText
                         looping[-1]["currentIteration"] = looping[-1]["currentIteration"] + 1
                         looping[-1]["currentStep"] = looping[-1]["currentStep"] + 1
+                        # Reset skip flag at the start of each new iteration
+                        self.skip_iteration = False
                     elif looping[-1]["currentStep"] == looping[-1]["totalSteps"]:
                         if looping[-1]["currentIteration"] < looping[-1]["totalIterations"]:
                             looping[-1]["currentStep"] = 0
@@ -415,18 +422,19 @@ class pyIVLS_seqBuilder(QObject):
                 nextStepClass = stackItem["class"]
                 self.available_instructions[nextStepFunction]["functions"]["setSettings"](nextStepSettings)
                 if nextStepClass == "step":
+                    # If skip flag is set, skip all steps until next iteration boundary
+                    if self.skip_iteration:
+                        continue
                     namePostfix = ""
                     for loopItem in looping:
                         namePostfix = namePostfix + loopItem["namePostfix"]
                     [status, message] = self.available_instructions[nextStepFunction]["functions"]["sequenceStep"](namePostfix)
                     if status:
-                        raise ValueError(message)
-                        """
-                        print(f"Error: {message}")
-                        self._sigSeqEnd.emit()  # Added
-                        self._setNotRunning()  # Added
-                        """
-                        break
+                        # Set skip flag and continue skipping steps until next iteration
+                        self.skip_iteration = True
+                        # Inform user and continue to process control flow
+                        self.log_message.emit(f"Skipping iteration due to step error: {message}")
+                        continue
                 if nextStepClass == "loop":
                     iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
                     looping.append(
@@ -445,8 +453,8 @@ class pyIVLS_seqBuilder(QObject):
             self._sigSeqEnd.emit()
         except ThreadStopped as ts:
             print(f"Sequence stopped: {ts}")
-        except Exception as e:
-            print(f"Error occurred: {e}")
+        except Exception:
+            print(traceback.format_exc())
         finally:
             self._setNotRunning()
             self._sigSeqEnd.emit()
