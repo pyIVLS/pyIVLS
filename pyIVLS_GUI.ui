@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1034</width>
-    <height>851</height>
+    <height>899</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -26,7 +26,7 @@
      <x>0</x>
      <y>0</y>
      <width>1034</width>
-     <height>23</height>
+     <height>33</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -35,6 +35,7 @@
     </property>
     <addaction name="actionWrite_settings_to_file"/>
     <addaction name="actionRead_config_file"/>
+    <addaction name="actionExport_config_file"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -144,7 +145,12 @@
   </action>
   <action name="actionRead_config_file">
    <property name="text">
-    <string>Read config file</string>
+    <string>Import config file</string>
+   </property>
+  </action>
+  <action name="actionExport_config_file">
+   <property name="text">
+    <string>Export config file</string>
    </property>
   </action>
  </widget>
