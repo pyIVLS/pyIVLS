@@ -320,6 +320,7 @@ class affineMoveGUI(QObject):
 
         if mm_funcs is not None:
             dev_count = mm_funcs["mm_get_num_manipulators"]()
+            
             n = dev_count + 1  # +1 to make it 1-indexed
         else:
             n = 5  # Default to 4 manipulators if no micromanipulator plugin is provided
@@ -1172,7 +1173,7 @@ class affineMoveGUI(QObject):
 
             if status == 0:
                 self.logger.log_info(f"Successfully completed iteration {currentIteration}: {point_name}")
-                return [0, f"_iter{currentIteration}_{point_name}"]
+                return [0, f"_{point_name}"]
             else:
                 self.logger.log_warn(f"Movement execution failed: {message}")
                 return [1, "Error in movement execution"]
