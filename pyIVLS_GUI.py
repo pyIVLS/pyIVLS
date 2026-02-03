@@ -41,7 +41,7 @@ class pyIVLS_GUI(QObject):
     ############################### Slots
     @pyqtSlot(str)
     def show_message(self, str):
-        msg = QtWidgets.QMessageBox()
+        msg = QtWidgets.QMessageBox()  # cannot use parent = self.window, because the message simply does not work then ????
         msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
