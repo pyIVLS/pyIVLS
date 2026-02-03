@@ -492,6 +492,20 @@ class pyIVLS_seqBuilder(QObject):
         """
 
         def update_item_settings(item):
+            def compare_dicts(old, new):
+                changes = []
+                for key, newValue in new.items():
+                    # if nested dict, compare recursively
+                    if isinstance(newValue, dict):
+                        oldValue = old.get(key, None) if old else None
+                        nested_changes = compare_dicts(oldValue, newValue)
+                        changes.extend([f"{key}.{change}" for change in nested_changes])
+                        continue
+                    oldValue = old.get(key, None) if old else None
+                    if oldValue != newValue:
+                        changes.append(f"{key}: {oldValue} -> {newValue}")
+                return changes
+
             instructionFunc = item.text()
             if instructionFunc not in self.available_instructions:
                 return [f"Instruction {instructionFunc} is not available."]
@@ -503,24 +517,20 @@ class pyIVLS_seqBuilder(QObject):
 
             # Compare old and new settings
             oldSettings = item.data(Qt.ItemDataRole.UserRole)
-            changes = []
-            for key, newValue in newSettings.items():
-                oldValue = oldSettings.get(key, None) if oldSettings else None
-                if oldValue != newValue:
-                    changes.append(f"{key}: {oldValue} -> {newValue}")
+            changes = compare_dicts(oldSettings, newSettings)
 
             # Update the item's settings
             item.setData(newSettings, Qt.ItemDataRole.UserRole)
 
             return changes
 
-        all_changes = []
+        all_changes = {}
 
         if item:
             # Update a single item
             changes = update_item_settings(item)
             if changes:
-                all_changes.extend(changes)
+                all_changes[item.text()] = changes
         else:
             # Update all items in the sequence
             def traverse_and_update(item):
@@ -528,7 +538,7 @@ class pyIVLS_seqBuilder(QObject):
                     child = item.child(row, 0)
                     changes = update_item_settings(child)
                     if changes:
-                        all_changes.extend(changes)
+                        all_changes[child.text()] = changes
                     traverse_and_update(child)
 
             root_item = self.model.invisibleRootItem()
@@ -545,7 +555,12 @@ class pyIVLS_seqBuilder(QObject):
 
         # Emit a single aggregated message
         if all_changes:
-            self.info_message.emit("Settings updated with the following changes:\n" + "\n".join(all_changes))
+            message = "Settings updated with the following changes:\n"
+            for child_name, changes in all_changes.items():
+                message += f"\n{child_name}:\n"
+                for change in changes:
+                    message += f"  - {change}\n"
+            self.info_message.emit(message)
         else:
             self.info_message.emit("No changes were made.")
 

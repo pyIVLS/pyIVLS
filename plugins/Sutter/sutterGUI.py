@@ -158,6 +158,7 @@ class SutterGUI(QObject):
                 val = settings.get("use_mock", False)
                 use_mock_setting = (str(val).lower() in ("true", "1", "yes")) if isinstance(val, str) else bool(val)
             if use_mock_env or use_mock_setting:
+                print("Switching Sutter HAL to mock backend as requested")
                 # Load mock class directly from sibling file to avoid package import issues
                 mock_path = os.path.join(os.path.dirname(__file__), "mock.py")
                 spec = importlib.util.spec_from_file_location("SutterMock", mock_path)
@@ -702,7 +703,7 @@ class SutterGUI(QObject):
             z = self.hal.get_current_position()[2]
         self.hal.slow_move_to(x, y, z, 7)
         return [0, {"Error message": "Sutter moved"}]
-    
+
     @public
     def set_settings(self, settings: dict) -> None:
         """Sets the plugin settings from a dictionary.

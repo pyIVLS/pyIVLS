@@ -212,8 +212,22 @@ class touchDetectGUI:
         self.dm.setup(settings)
 
         # Hide all manipulator boxes initially
-        for box, _, _, _ in self.manipulator_boxes:
+        for box, smu_box, con_box, res_spin in self.manipulator_boxes:
             box.setVisible(False)
+
+        # Apply settings from internal state
+        for manipulator_index, (box, smu_box, con_box, res_spin) in enumerate(self.manipulator_boxes):
+            manipulator_key = str(manipulator_index + 1)
+            smu_key = f"{manipulator_key}_smu"
+            con_key = f"{manipulator_key}_con"
+            res_key = f"{manipulator_key}_res"
+
+            if smu_key in self.settings:
+                smu_box.setCurrentText(self.settings[smu_key])
+            if con_key in self.settings:
+                con_box.setCurrentText(self.settings[con_key])
+            if res_key in self.settings:
+                res_spin.setValue(int(self.settings[res_key]))
 
         # Store settings internally (maintain .ini format)
         self.settings = copy.deepcopy(settings)
