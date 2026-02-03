@@ -94,7 +94,6 @@ class affineMoveGUI(QObject):
         self.settingsWidget.findSutter.clicked.connect(self._find_sutter_functionality)
         self.settingsWidget.fetchMaskButton.clicked.connect(self._fetch_mask_functionality)
         self.settingsWidget.previewButton.clicked.connect(self._initialize_camera_preview_functionality)
-        self.settingsWidget.saveCalibrationButton.clicked.connect(self._save_calibration_functionality)
         self.settingsWidget.goToClickButton.clicked.connect(self._go_to_click_functionality)
         self.settingsWidget.updateManipulatorsButton.clicked.connect(self._update_manipulators_functionality)
 
@@ -144,9 +143,6 @@ class affineMoveGUI(QObject):
         self.update_planned_moves_signal.connect(self._update_planned_moves_slot)
         self.clear_planned_moves_signal.connect(self._clear_planned_moves_slot)
         self.sequence_completed_signal.connect(self._sequence_completed_slot)
-
-        # Load bounding boxes from file on startup
-        self._load_bounding_boxes_from_file()
 
         # find status labels and indicators
         self.mm_status = self.settingsWidget.mmStatus
@@ -218,6 +214,36 @@ class affineMoveGUI(QObject):
             print(f"No calibration found for manipulator {manipulator_idx} in settings.")
             return None
 
+    def write_bounding_box_to_settings(self, manipulator_idx: int, bounding_box: list[tuple[float, float]]) -> None:
+        """Write bounding box to plugin.ini settings as a string."""
+        key = f"man{manipulator_idx}_bbox"
+        # store as string that can be parsed by get_bounding_box_from_settings
+        buffer = ""
+        for coord_tuple in bounding_box:
+            for value in coord_tuple:
+                buffer += f"{value}, "
+        self.settings[key] = buffer.strip(", ")
+
+    def get_bounding_box_from_settings(self, manipulator_idx: int) -> list[tuple[float, float]] | None:
+        """Load bounding box for a specific manipulator from plugin.ini settings."""
+        if manipulator_idx < 1 or manipulator_idx > 4:
+            raise ValueError(f"Manipulator index {manipulator_idx} is out of range. Must be between 1 and 4.")
+        key = f"man{manipulator_idx}_bbox"
+        if key in self.settings:
+            try:
+                # Parse the string back to a list of tuples
+                bbox_str = self.settings[key]
+                bbox_parts = bbox_str.strip("[]").split(", ")
+                bbox_values = [float(val) for val in bbox_parts]
+                # Convert flat list back to list of tuples: [x1, y1, x2, y2] -> [(x1, y1), (x2, y2)]
+                bounding_box = [(bbox_values[i], bbox_values[i + 1]) for i in range(0, len(bbox_values), 2)]
+                return bounding_box
+            except (ValueError, IndexError) as e:
+                self.logger.log_debug(f"Error parsing bounding box for manipulator {manipulator_idx}: {e}")
+                return None
+        else:
+            return None
+
     def _wait_for_input(self) -> tuple[float, float] | None:
         """
         Waits for a mouse click on the camera graphics view and returns the (x, y)
@@ -246,8 +272,6 @@ class affineMoveGUI(QObject):
         camera_functions = camera_functions[self.settings["camera"]]
         positioning_functions = positioning_functions[self.settings["positioning"]]
 
-        self._populate_manipulator_combo_box(mm_functions)
-
         return mm_functions, camera_functions, positioning_functions
 
     def calibrate_manipulator(self, idx: int):
@@ -265,7 +289,7 @@ class affineMoveGUI(QObject):
             assert not status, f"Error getting micromanipulator devices: {ret}"
             status, state = mm["mm_change_active_device"](idx)
             assert not status, f"Error changing active micromanipulator device: {state}"
-            self.logger.info_popup(f"AffineMove: calibrating manipulator {idx}.\nClick on the camera view to set calibration points (Esc to cancel)")
+            self.logger.info_popup(f"AffineMove: calibrating manipulator {idx}.\nClick on the camera view to set 3 calibration points (Esc to cancel)")
             points = []
             # get 3 different points
             for i in range(3):
@@ -279,22 +303,31 @@ class affineMoveGUI(QObject):
                 point = self._wait_for_input()
                 if point is None:
                     self.logger.info_popup("Calibration cancelled by user.")
+                    self.visualization.set_calibration_points([])
                     return
                 ret = mm["mm_current_position"]()
                 if len(ret) < 3:
                     self.logger.log_warn(f"Could not retrieve current position for manipulator {idx}: {ret}")
+                    self.visualization.set_calibration_points([])
                     return
                 x, y, z = ret
 
-                self.logger.log_info(f"Clicked point: {point}, current position: ({x}, {y}, {z})")
+                self.logger.log_info(f"Clicked point {i + 1}/3: {point}, current position: ({x}, {y}, {z})")
                 mm_point = (x, y)
                 points.append((mm_point, point))
+                # Draw progress indicator from unzipped points extended to num points needed (3)
+                extended_points = [p[1] for p in points] + [None] * (3 - len(points))
+                self.visualization.set_calibration_points(extended_points)
 
             # Compute the affine transformation
             mm_points = np.array([pt[0] for pt in points], dtype=np.float32)
             view_points = np.array([pt[1] for pt in points], dtype=np.float32)
             affine_transform = cv2.getAffineTransform(view_points, mm_points)
             self.write_calibrations_to_settings(idx, affine_transform)
+
+            # Clear calibration indicators and redraw normal overlays
+            self.visualization.set_calibration_points([])
+
             self.logger.info_popup(f"Calibration for manipulator {idx} completed.")
 
             # finally, refresh all manipulator positions
@@ -313,15 +346,17 @@ class affineMoveGUI(QObject):
             self._add_visual_overlays()
 
     def _populate_manipulator_combo_box(self, mm_funcs=None):
+        print("Populating manipulator combo box...")
         """Populate the manipulator combo box with available manipulators"""
-        # fetch current idx to preserve selection
         self.manipulator_combo_box.blockSignals(True)
-        current_idx = self.manipulator_combo_box.currentIndex()
 
         if mm_funcs is not None:
             dev_count = mm_funcs["mm_get_num_manipulators"]()
-            
-            n = dev_count + 1  # +1 to make it 1-indexed
+            # check if dev_count is valid integer
+            if isinstance(dev_count, int) and dev_count > 0:
+                n = dev_count + 1  # +1 to make it 1-indexed
+            else:
+                n = 5  # Default to 4 manipulators if no micromanipulator plugin is provided
         else:
             n = 5  # Default to 4 manipulators if no micromanipulator plugin is provided
 
@@ -330,8 +365,6 @@ class affineMoveGUI(QObject):
         for i in range(1, n):
             self.manipulator_combo_box.addItem(f"Manipulator {i}", i)  # userdata contains the idx
 
-        # Restore previous selection if possible
-        self.manipulator_combo_box.setCurrentIndex(min(current_idx, self.manipulator_combo_box.count() - 1))  # if previously selected idx is out of range, select last available
         self.manipulator_combo_box.blockSignals(False)
 
     def convert_to_mm_coords(self, point: tuple[float, float], mm_dev: int) -> tuple[float, float] | None:
@@ -431,7 +464,6 @@ class affineMoveGUI(QObject):
                         # Convert MM coordinates to camera coordinates
                         current_tip_pos = self.convert_mm_to_camera_coords((mm_pos[0], mm_pos[1]), manipulator_idx)
                         if current_tip_pos:
-                            self.logger.log_info(f"Current tip position for manipulator {manipulator_idx}: {current_tip_pos}")
                             # Update cached position
                             self.update_manipulator_position(manipulator_idx, mm_pos)
             except Exception as e:
@@ -441,7 +473,6 @@ class affineMoveGUI(QObject):
                 # Calculate relative coordinates from tip position
                 tip_x, tip_y = current_tip_pos
                 relative_coords = [(min_x - tip_x, min_y - tip_y), (max_x - tip_x, max_y - tip_y)]
-                self.logger.log_info(f"Storing relative coordinates: {relative_coords}")
             else:
                 raise ValueError("Current manipulator position not available, cannot set relative bounding box")
 
@@ -485,8 +516,8 @@ class affineMoveGUI(QObject):
             success = self.collision_detector.set_manipulator_bounding_box(manipulator_idx, relative_coords)
 
             if success:
-                # Save to file
-                self._save_bounding_boxes_to_file()
+                # Write to settings dictionary
+                self.write_bounding_box_to_settings(manipulator_idx, relative_coords)
                 return 0, f"Bounding box set for manipulator {manipulator_idx}"
             else:
                 return 1, f"Failed to set bounding box for manipulator {manipulator_idx}"
@@ -508,73 +539,31 @@ class affineMoveGUI(QObject):
         success = self.collision_detector.clear_manipulator_bounding_box(manipulator_idx)
 
         if success:
-            self._save_bounding_boxes_to_file()  # Save updated bounding boxes to file
+            # Remove from settings dictionary
+            key = f"man{manipulator_idx}_bbox"
+            if key in self.settings:
+                del self.settings[key]
             self._add_visual_overlays()  # Refresh visual overlays
             return 0, f"Bounding box cleared for manipulator {manipulator_idx}"
         else:
             return 1, f"No bounding box found for manipulator {manipulator_idx}"
 
-    def _save_bounding_boxes_to_file(self):
-        """Save the current bounding box data to a file."""
-        try:
-            # Get current bounding boxes from CollisionDetector (source of truth)
-            current_boxes = self.collision_detector.get_all_bounding_boxes()
-
-            if not current_boxes:
-                self.logger.log_debug("No bounding boxes to save")
-                return
-
-            # Convert AABB objects to serializable format
-            serializable_boxes = {}
-            for manipulator_idx, aabb in current_boxes.items():
-                serializable_boxes[manipulator_idx] = aabb.get_corners()
-
-            # Save to file
-            np.save(self.bounding_boxes_path, serializable_boxes, allow_pickle=True)
-            self.logger.log_info(f"Saved {len(current_boxes)} bounding box(es) to {self.bounding_boxes_path}")
-        except Exception as e:
-            self.logger.log_warn(f"Failed to save bounding box data: {e}")
-
     def _load_bounding_boxes_from_file(self):
-        """Load bounding box data from file on startup and sync with CollisionDetector."""
-        file_path = self.bounding_boxes_path
-
-        if not os.path.exists(file_path):
-            self.logger.log_debug(f"No bounding box data found at {file_path}")
-            return
+        """Load bounding box data from settings on startup and sync with CollisionDetector."""
+        self.logger.log_debug("Loading bounding boxes from settings...")
 
         try:
-            loaded_boxes = np.load(file_path, allow_pickle=True).item()
-
-            # Load bounding boxes into CollisionDetector
+            # Load bounding boxes from settings for all possible manipulator indices
             loaded_count = 0
-            for manipulator_idx, coords in loaded_boxes.items():
-                if len(coords) == 2:
-                    converted_coords = coords
-                else:
-                    self.logger.log_warn(f"Invalid bounding box format for manipulator {manipulator_idx}: {len(coords)} coordinates")
-                    continue
-
-                # Store in CollisionDetector
-                if self.collision_detector.set_manipulator_bounding_box(manipulator_idx, converted_coords):
-                    loaded_count += 1
-
-                # try to update the probe position if available
-                try:
-                    mm, _, _ = self._fetch_dep_plugins()
-                    assert mm is not None, "Micromanipulator plugin not available"
-                    code, status = mm["mm_change_active_device"](manipulator_idx)
-                    if code == 0:
-                        mm_pos = mm["mm_current_position"]()
-                        if mm_pos and len(mm_pos) >= 2:
-                            self.update_manipulator_position(manipulator_idx, mm_pos)
-                            self.collision_detector.update_manipulator_tip_position(manipulator_idx, mm_pos[0], mm_pos[1])
-                except Exception as e:
-                    self.logger.log_info(f"Could not update cached tip position for manipulator {manipulator_idx}: {e}")
-
-            self.logger.log_info(f"Loaded {loaded_count} bounding box(es) from {file_path}")
+            for manipulator_idx in range(1, 5):  # Indices 1-4
+                bbox = self.get_bounding_box_from_settings(manipulator_idx)
+                if bbox is not None:
+                    # Store in CollisionDetector
+                    if self.collision_detector.set_manipulator_bounding_box(manipulator_idx, bbox):
+                        loaded_count += 1
+                        self.logger.log_debug(f"Loaded bounding box for manipulator {manipulator_idx}")
         except Exception as e:
-            self.logger.log_warn(f"Failed to load bounding box data: {e}")
+            self.logger.log_warn(f"Failed to load bounding boxes from settings: {e}")
 
     # endregion internal functions
 
@@ -640,12 +629,6 @@ class affineMoveGUI(QObject):
         self.logger.log_info("Camera preview started")
         self.cam_preview_running = True
 
-    def _save_calibration_functionality(self):
-        """Write the current calibration data to a file. This implemetation keeps a single calibration file
-        for all manipulators instead of multiple files to choose from. TODO: implement a way to choose where to save and with what name (if really necessary)
-        """
-        self.logger.info_popup(f"Saving calibration data is now done when saving all plugin settings to ini file.")
-
     def _go_to_click_functionality(self):
         """Handles the 'Go to Click' button functionality."""
         self.logger.log_debug("Go to Click button pressed")
@@ -689,6 +672,7 @@ class affineMoveGUI(QObject):
             self.logger.log_warn("Micromanipulator plugin not available")
             return
         self._populate_manipulator_combo_box(mm_funcs=mm)
+        self.update_status()
 
     def _on_set_bounding_box_clicked(self):
         """Handle the Set Bounding Box button click"""
@@ -726,6 +710,9 @@ class affineMoveGUI(QObject):
 
         # Store settings internally (maintain .ini format)
         self.settings = copy.deepcopy(settings)
+
+        # Load bounding boxes from settings now that they're initialized
+        self._load_bounding_boxes_from_file()
 
         self.logger.log_debug("AffineMove GUI setup completed")
         return self.settingsWidget
@@ -829,7 +816,6 @@ class affineMoveGUI(QObject):
         if mm is None:
             self.logger.log_warn("Micromanipulator plugin not available")
             return 0
-        self.logger.log_info("Querying manipulator positions from hardware...")
         # get currently active manipulator
         status, active_manipulator = mm["mm_get_active_device"]()
         assert status == 0, f"Failed to get active manipulator: {active_manipulator.get('Error message', 'Unknown error')}"
@@ -866,7 +852,6 @@ class affineMoveGUI(QObject):
         # reset back to original manipulator
         if mm is not None:
             mm["mm_change_active_device"](active_manipulator)
-        self.logger.log_info(f"Successfully updated {success_count} manipulator position(s)")
         return success_count
 
     def move_manipulator_and_update_bounding_box(self, manipulator_idx: int, x: float, y: float, z: float | None = None) -> tuple[int, dict]:
@@ -1087,13 +1072,10 @@ class affineMoveGUI(QObject):
 
             # check if currentIteration is valid
             if currentIteration >= len(self.measurement_points):
-                self.logger.log_info(f"Invalid iteration {currentIteration}, only {len(self.measurement_points)} points available")
                 return [3, f"Invalid iteration {currentIteration}"]
 
             points = self.measurement_points[currentIteration]  # these are stored as mask coordinates
             point_name = self.measurement_point_names[currentIteration]
-
-            self.logger.log_info(f"Processing iteration {currentIteration}: {point_name}")
 
             # Convert mask coordinates to camera coordinates
             camera_target_points = []
@@ -1135,16 +1117,11 @@ class affineMoveGUI(QObject):
                 current_positions[manip_idx] = current_camera_coords
                 moves_dict[manip_idx] = (current_camera_coords, target_camera_coords)
 
-                self.logger.log_info(
-                    f"Manipulator {manip_idx}: Current camera ({current_camera_coords[0]:.1f}, {current_camera_coords[1]:.1f}) -> Target ({target_camera_coords[0]:.1f}, {target_camera_coords[1]:.1f})"
-                )
-
             if not moves_dict:
                 self.logger.log_warn("No valid moves to execute after position validation")
                 return [3, f"Invalid iteration {currentIteration}"]
 
             # Use collision detection to determine safe movement sequence
-            self.logger.log_info("Starting collision detection analysis...")
 
             # Log bounding box information
             bbox_info = []
@@ -1155,15 +1132,12 @@ class affineMoveGUI(QObject):
                     bbox_info.append(f"M{manip_idx}: tip=({bbox.tip_x:.1f},{bbox.tip_y:.1f}), bbox={corners}")
                 else:
                     bbox_info.append(f"M{manip_idx}: no bounding box")
-            self.logger.log_info(f"Bounding boxes: {bbox_info}")
 
             safe_sequence = self.collision_detector.generate_safe_movement_sequence(moves_dict)
 
             if not safe_sequence:
                 self.logger.log_warn("No safe movement sequence found - potential collision risk")
                 return [1, f"Invalid iteration {currentIteration} - no safe sequence"]
-
-            self.logger.log_info(f"Safe movement sequence found with {len(safe_sequence)} moves: {safe_sequence}")
 
             # Preview the planned sequence before execution
             self._preview_planned_sequence(safe_sequence)
@@ -1172,7 +1146,6 @@ class affineMoveGUI(QObject):
             status, message = self.execute_move_list(safe_sequence)
 
             if status == 0:
-                self.logger.log_info(f"Successfully completed iteration {currentIteration}: {point_name}")
                 return [0, f"_{point_name}"]
             else:
                 self.logger.log_warn(f"Movement execution failed: {message}")
@@ -1216,8 +1189,6 @@ class affineMoveGUI(QObject):
         successful_moves = 0
         total_moves = len(move_sequence)
 
-        self.logger.log_info(f"Executing {total_moves} manipulator moves in sequence")
-
         for move_idx, (manip_idx, (target_cam_x, target_cam_y)) in enumerate(move_sequence):
             # Update planned moves visualization for the NEXT move
             self._update_planned_moves_visualization(move_idx)
@@ -1230,15 +1201,12 @@ class affineMoveGUI(QObject):
 
             target_mm_x, target_mm_y = target_mm_coords
 
-            self.logger.log_info(f"Moving manipulator {manip_idx}: Camera ({target_cam_x:.1f}, {target_cam_y:.1f}) -> MM ({target_mm_x:.3f}, {target_mm_y:.3f})")
-
             # Execute the move using the wrapper that updates bounding box
             status, state = self.move_manipulator_and_update_bounding_box(manip_idx, target_mm_x, target_mm_y, z=0)
 
             if status == 0:  # Success
                 successful_moves += 1
                 self.sequence_iter += 1
-                self.logger.log_info(f"Successfully moved manipulator {manip_idx}")
 
                 # Update collision detector with new position
                 if manip_idx in self.collision_detector.bounding_boxes:
@@ -1252,7 +1220,6 @@ class affineMoveGUI(QObject):
         self.sequence_completed_signal.emit()
 
         if successful_moves == total_moves:
-            self.logger.log_info(f"All {total_moves} manipulator movements completed successfully")
             return 0, f"Successfully completed {successful_moves}/{total_moves} moves"
         else:
             return 1, f"Only {successful_moves}/{total_moves} moves completed successfully"
@@ -1309,4 +1276,3 @@ class affineMoveGUI(QObject):
         if preview_moves:
             # Emit signal to show preview
             self.update_planned_moves_signal.emit(preview_moves)
-            self.logger.log_info(f"Previewing planned sequence with {len(preview_moves)} moves")
