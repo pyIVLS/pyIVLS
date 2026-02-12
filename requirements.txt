@@ -63,7 +63,7 @@ pandas==2.3.2
     # via pyivls (pyproject.toml)
 pathvalidate==3.2.3
     # via pyivls (pyproject.toml)
-pillow==11.1.0
+pillow==12.1.1
     # via
     #   pyivls (pyproject.toml)
     #   imageio

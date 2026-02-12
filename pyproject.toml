@@ -19,7 +19,7 @@ dependencies = [
     "packaging==24.2",
     "pandas>=2.3.0",
     "pathvalidate==3.2.3",
-    "pillow==11.1.0",
+    "pillow>=12.1.1",
     "pluggy==1.5.0",
     "psutil==7.0.0",
     "pyftdi>=0.56.0",
