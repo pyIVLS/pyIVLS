@@ -621,7 +621,10 @@ class specSMU_GUI(QWidget):
 
                 varDict["comment"] = self.spectrometer_settings["comment"] + " " + readings
                 address = self.spectrometer_settings["address"] + os.sep + self.spectrometer_settings["filename"]
-                self.function_dict["spectrometer"][spectro_name]["createFile"](varDict=varDict, filedelimeter=";", address=address, data=spectrum)
+                status, state = self.function_dict["spectrometer"][spectro_name]["createFile"](varDict=varDict, filedelimeter=";", address=address, data=spectrum)
+                if status:
+                    self.logger.log_error(f"Error writing to file: {state}")
+                    raise NotImplementedError(f"Error in writing spectrum to file: {state}, no handling provided")
 
                 # updating the internal state of last integration time
                 self.last_integration_time = integration_time_setting

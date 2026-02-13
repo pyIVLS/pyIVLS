@@ -188,9 +188,7 @@ class dummy_spectro_GUI:
             self.logger.info_popup("Stop preview before disconnecting")
         else:
             [status, info] = self.spectrometerDisconnect()
-            if (
-                status
-            ):  ##IRtodo## some error handling is necessary, as connected devices will not allow to switch off the GUI
+            if status:  ##IRtodo## some error handling is necessary, as connected devices will not allow to switch off the GUI
                 self.logger.log_debug(f"Failed to disconnect spectrometer: {info}")
                 self.logger.log_warn(f" : TLCCS plugin : {info}, status = {status}")
                 self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
@@ -233,18 +231,14 @@ class dummy_spectro_GUI:
                     else:
                         self.sleep_time = self.settings["integrationTime"]
                     if status:
-                        self.logger.log_info(
-                            datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}"
-                        )
+                        self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                         self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
                         self.preview_running = False
                         return [status, info]
                 time.sleep(self.sleep_time)
                 [status, info] = self._update_spectrum()
                 if status:
-                    self.logger.log_info(
-                        datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}"
-                    )
+                    self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                     if not status == 1:
                         self.logger.info_popup(f"TLCCS plugin : {info}")
                     self.preview_running = False
@@ -259,9 +253,7 @@ class dummy_spectro_GUI:
         if self.preview_running:  # this function is useful only in preview mode
             [status, info] = self._parse_settings_integrationTime()
             if status:
-                self.logger.log_info(
-                    datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}"
-                )
+                self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
                 self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
                 return [status, info]
             self.integrationTimeChanged = True
@@ -277,21 +269,23 @@ class dummy_spectro_GUI:
         varDict["triggermode"] = 1 if self.lastspectrum[1]["externalTrigger"] else 0
         varDict["name"] = self.settings["samplename"]
         varDict["comment"] = self.settings["comment"]
-        self.createFile(
+        status, state = self.createFile(
             varDict,
             self.filedelimeter,
             address=self.settings["address"] + os.sep + self.settings["filename"] + ".csv",
             data=self.lastspectrum[0],
         )
+        if status:
+            self.logger.log_error(f"Error writing to file: {state}")
+            self.logger.info_popup(f"Error writing to file: {state}")
+            return [status, state]
         return [0, "OK"]
 
     def _getTimeAction(self):
         preview_status = False
         [status, info] = self._parse_settings_autoTime()
         if status:
-            self.logger.log_info(
-                datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}"
-            )
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
             self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
             return [status, info]
         if self.preview_running:
@@ -363,9 +357,7 @@ class dummy_spectro_GUI:
             # start iterating through integration times using guessIntTime as initial guess
             for iter in range(self.intTimeMaxIterations):
                 self.logger.log_debug(f"Iteration {iter + 1}: Current guess = {guessIntTime} ms.")
-                self.settings["integrationTime"] = (
-                    guessIntTime / 1000.0
-                )  # needed for keeping self.lastspectrum in order
+                self.settings["integrationTime"] = guessIntTime / 1000.0  # needed for keeping self.lastspectrum in order
                 [status, info] = self.spectrometerSetIntegrationTime(guessIntTime / 1000.0)  # s
                 if status:
                     self.logger.log_debug(f"getAutoTime: Failed to set integration time. {status}, {info}")
@@ -385,9 +377,7 @@ class dummy_spectro_GUI:
                         self.logger.log_debug("getAutoTime: External action completed without standard return value")
 
                 [status, info] = self._update_spectrum()
-                self.logger.log_debug(
-                    f"getAutoTime: Retrieved spectrum with shape {info[1].shape} and max value {max(info[1])}."
-                )
+                self.logger.log_debug(f"getAutoTime: Retrieved spectrum with shape {info[1].shape} and max value {max(info[1])}.")
                 if status:
                     self.logger.log_debug(f"getAutoTime: Failed to update spectrum. {status}, {info}")
                     return [status, info]
@@ -398,15 +388,15 @@ class dummy_spectro_GUI:
                     varDict["triggermode"] = 1 if self.settings["externalTrigger"] else 0
                     varDict["name"] = self.settings["samplename"]
                     varDict["comment"] = self.settings["comment"] + " Auto adjust of integration time."
-                    self.createFile(
+                    status, state = self.createFile(
                         varDict=varDict,
                         filedelimeter=self.filedelimeter,
-                        address=self.settings["address"]
-                        + os.sep
-                        + self.settings["filename"]
-                        + f"_{int(guessIntTime)}ms.csv",
+                        address=self.settings["address"] + os.sep + self.settings["filename"] + f"_{int(guessIntTime)}ms.csv",
                         data=info[1],
                     )
+                    if status:
+                        self.logger.log_error(f"Error writing to file: {state}")
+                        return [status, state]
                 # external cleanup if needed
                 if external_cleanup:
                     self.logger.log_debug("getAutoTime: Executing external cleanup.")
@@ -431,24 +421,16 @@ class dummy_spectro_GUI:
                     return [0, guessIntTime / 1000.0]  # return in seconds
                 # if spectrum is below the range, increase integration time
                 if target < low_spectrum:
-                    self.logger.log_debug(
-                        f"Spectrum value {target} is below the range ({low_spectrum}), increasing integration time."
-                    )
+                    self.logger.log_debug(f"Spectrum value {target} is below the range ({low_spectrum}), increasing integration time.")
                     if guessIntTime >= high:
-                        self.logger.log_debug(
-                            f"Integration time is too high, returning: {guessIntTime / 1000.0} seconds."
-                        )
+                        self.logger.log_debug(f"Integration time is too high, returning: {guessIntTime / 1000.0} seconds.")
                         return [1, {"Error message": "Integration time too high"}]
                     low = guessIntTime
                 # if spectrum is above the range, decrease integration time
                 else:
-                    self.logger.log_debug(
-                        f"Spectrum value {target} is above the range ({high_spectrum}), decreasing integration time."
-                    )
+                    self.logger.log_debug(f"Spectrum value {target} is above the range ({high_spectrum}), decreasing integration time.")
                     if guessIntTime <= low:
-                        self.logger.log_debug(
-                            f"Integration time is too low, returning: {guessIntTime / 1000.0} seconds."
-                        )
+                        self.logger.log_debug(f"Integration time is too low, returning: {guessIntTime / 1000.0} seconds.")
                         return [1, {"Error message": "Integration time too low"}]
                     high = guessIntTime
                 # Compute new guess in milliseconds, rounded to nearest millisecond
@@ -480,9 +462,7 @@ class dummy_spectro_GUI:
             self.settingsWidget.extTriggerCheck.setChecked(True)
         if plugin_info["usecorrection"] == "True":
             self.settingsWidget.correctionCheck.setChecked(True)
-        currentIndex = self.settingsWidget.getIntegrationTime_combo.findText(
-            plugin_info["integrationtimetype"], Qt.MatchFlag.MatchFixedString
-        )
+        currentIndex = self.settingsWidget.getIntegrationTime_combo.findText(plugin_info["integrationtimetype"], Qt.MatchFlag.MatchFixedString)
         if currentIndex > -1:
             self.settingsWidget.getIntegrationTime_combo.setCurrentIndex(currentIndex)
         if plugin_info["useintegrationtimeguess"] == "True":
@@ -515,13 +495,9 @@ class dummy_spectro_GUI:
     def _GUIchange_deviceConnected(self, status):
         # NOTE: status is direct, i.e. when spectrometer is connected received status should True, when disconnected status should be False
         if status:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(38, 162, 105); min-height: 20px; min-width: 20px;")
         else:
-            self.settingsWidget.connectionIndicator.setStyleSheet(
-                "border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;"
-            )
+            self.settingsWidget.connectionIndicator.setStyleSheet("border-radius: 10px; background-color: rgb(165, 29, 45); min-height: 20px; min-width: 20px;")
         self.settingsWidget.setIntegrationTimeButton.setEnabled(status)
         self.settingsWidget.previewBox.setEnabled(status)
         if status:
@@ -587,9 +563,7 @@ class dummy_spectro_GUI:
         if self.settings["integrationTime"] > const.CCS_SERIES_MAX_INT_TIME * 1000:
             return [
                 1,
-                {
-                    "Error message": "Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"
-                },
+                {"Error message": "Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"},
             ]
         if self.settings["integrationTime"] < 1:
             return [
@@ -623,10 +597,7 @@ class dummy_spectro_GUI:
     def _parseSaveData(self) -> list:
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            self.logger.log_info(
-                datetime.now().strftime("%H:%M:%S.%f")
-                + " : TLCCS plugin : address string should point to a valid directory"
-            )
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : address string should point to a valid directory")
             return [1, {"Error message": "TLCCS plugin : address string should point to a valid directory"}]
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
@@ -636,9 +607,7 @@ class dummy_spectro_GUI:
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-        self.settings["externalTrigger"] = (
-            self.settingsWidget.extTriggerCheck.isChecked()
-        )  # this is here since this is written into the header
+        self.settings["externalTrigger"] = self.settingsWidget.extTriggerCheck.isChecked()  # this is here since this is written into the header
 
         return [0, "Ok"]
 
@@ -731,9 +700,7 @@ class dummy_spectro_GUI:
             status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationTime"])
             if not status:
                 self.logger.log_debug("Connection to spectrometer failed.")
-                self.logger.log_info(
-                    datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : can not connect to spectrometer"
-                )
+                self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : can not connect to spectrometer")
                 self.logger.info_popup("TLCCS plugin : can not connect to spectrometer")
                 return [4, {"Error message": "Can not connect to spectrometer"}]
             self.logger.log_debug("Spectrometer connected successfully.")
@@ -854,6 +821,11 @@ class dummy_spectro_GUI:
         fileheader = self.fm.create_spectrometer_header(varDict, separator=filedelimeter)
         self.logger.log_debug(f"Creating file at {address} with data shape {data.shape}")
         self.logger.log_debug(f"Correction data has shape {self.correction.shape}")
+        if os.path.exists(address):
+            self.logger.log_warn(f"File {address} already exists, I will fail now")
+            self.logger.info_popup(f"File {address} already exists, choose a different name or address. This popup brought to you by dummy spectro plugin")
+            return [1, {"Error message": f"File {address} already exists"}]
+
         np.savetxt(
             address,
             list(zip(self.correction[:, 0], data)),
@@ -864,4 +836,4 @@ class dummy_spectro_GUI:
             footer="#[EndOfFile]",
             comments="#",
         )
-        return PyIVLSReturn.success()
+        return (0, {})
