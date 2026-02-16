@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>787</width>
-    <height>509</height>
+    <height>494</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -30,8 +30,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>767</width>
-        <height>489</height>
+        <width>753</width>
+        <height>526</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_10">
@@ -219,6 +219,85 @@
                </item>
               </layout>
              </item>
+             <item>
+              <layout class="QHBoxLayout" name="HBoxLayout_sourceFilter" stretch="1,1,1,2">
+               <item>
+                <widget class="QLabel" name="label_sourceFilter">
+                 <property name="text">
+                  <string>Filter</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QComboBox" name="comboBox_sourceFilter">
+                 <item>
+                  <property name="text">
+                   <string>Off</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Repeat average</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="lineEdit_sourceFilter">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="text">
+                  <string>1</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_4">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="HBoxLayout_delayFactor" stretch="1,1,3">
+               <item>
+                <widget class="QLabel" name="label_sourceDelayFactor">
+                 <property name="text">
+                  <string>Delay factor</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="lineEdit_sourceDelayFactor">
+                 <property name="text">
+                  <string>1</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_7">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </item>
             </layout>
            </widget>
           </item>
@@ -256,11 +335,114 @@
                </item>
               </layout>
              </item>
+             <item>
+              <layout class="QHBoxLayout" name="HBoxLayout_drainFilter" stretch="1,1,1,2">
+               <item>
+                <widget class="QLabel" name="label_drainFilter">
+                 <property name="text">
+                  <string>Filter</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QComboBox" name="comboBox_drainFilter">
+                 <item>
+                  <property name="text">
+                   <string>Off</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Repeat average</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="lineEdit_drainFilter">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="text">
+                  <string>1</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_5">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="HBoxLayout_drainDelayFactor" stretch="1,1,3">
+               <item>
+                <widget class="QLabel" name="label_drainDelayFactor">
+                 <property name="text">
+                  <string>Delay factor</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="lineEdit_drainDelayFactor">
+                 <property name="text">
+                  <string>1</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_8">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </item>
             </layout>
            </widget>
           </item>
          </layout>
         </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="HBoxLayout_Initialize">
+         <item>
+          <spacer name="horizontalSpacer_6">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_Init">
+           <property name="text">
+            <string>Reset</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
         <spacer name="verticalSpacer">
@@ -270,7 +452,7 @@
          <property name="sizeHint" stdset="0">
           <size>
            <width>20</width>
-           <height>66</height>
+           <height>40</height>
           </size>
          </property>
         </spacer>

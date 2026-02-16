@@ -295,7 +295,7 @@ class VenusUSB2GUI(QObject):
     ########plugins interraction
     # These are hooked to the plugin container and sent to the main app. Then they are connected to the msg slots.
 
-    def _get_public_methods(self, function: str) -> dict:
+    def _get_public_methods(self) -> dict:
         """
         Returns a nested dictionary of public methods for the plugin
         """

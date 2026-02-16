@@ -100,7 +100,7 @@ class pyIVLS_sweep_plugin:
 
     @hookimpl
     def get_closeLock(self, args=None):
-        """provides the signal for logging to main app
+        """provides the signal for locking the GUIs
 
         :return: dict that includes the log signal
         """

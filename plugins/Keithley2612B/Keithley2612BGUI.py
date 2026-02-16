@@ -5,7 +5,9 @@ from typing import Optional
 from Keithley2612B import Keithley2612B
 
 from PyQt6 import uic
-
+from PyQt6.QtCore import QObject, pyqtSlot
+from PyQt6.QtWidgets import QComboBox
+from plugins.plugin_components import LoggingHelper, public, get_public_methods
 
 """
             settings dictionary for class
@@ -17,11 +19,14 @@ from PyQt6 import uic
 		# settings["continuousdelaymode"] stabilization time before measurement for continuous sweep: may take values [auto, manual]
 		# settings["pulseddelaymode"] stabilization time before measurement for pulsed sweep: may take values [auto, manual]
 		# settings["draindelaymode"] stabilization time before measurement for drain channel: may take values [auto, manual]
-		# settings["sourcesensemode"] source sence mode: may take values [2 wire, 4 wire, 2 & 4 wire]		
+		# settings["sourcesensemode"] source sence mode: may take values [2 wire, 4 wire, 2 & 4 wire]
 		# settings["drainsensemode"] drain sence mode: may take values [2 wire, 4 wire, 2 & 4 wire]
 		# settings["singlechannel"] single channel mode: may be True or False
-		# settings["sourcehighc"] HighC mode for source: may be True or False        
+		# settings["sourcehighc"] HighC mode for source: may be True or False
 		# settings["repeat"] repeat count: should be int >0
+		# settings[sourcefiltertype] filter type for source: 'Off' - no filter
+		# settings[sourcefiltervalue] value, e.g. number of points to use with filter if not 'Off'
+		# settings["sourcedelayfator"] multiplier for delay (may be float)
 		# settings for continuous mode
 		## settings["continuousstart"] start point
 		## settings["continuousend"] end point
@@ -44,16 +49,40 @@ from PyQt6 import uic
 		## settings["drainlimit"] limit for current in voltage mode or for voltage in current mode
 		## settings["drainnplc"] integration time in nplc units
 		## settings["draindelay"] stabilization time before the measurement
+		# settings[drainfiltertype] filter type for drain: 'Off' - no filter
+		# settings[drainfiltervalue] value, e.g. number of points to use with filter if not 'Off'
+		# settings["draindelayfator"] multiplier for delay (may be float)
 		## settings["drainhighc"] HighC mode for drain: may be True or False  
 
 
 """
 
 
-class Keithley2612BGUI:
+class Keithley2612BGUI(QObject):
     """GUI for Keithley2612B"""
 
     non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
+    public_methods = [
+        "set_running",
+        "set_settings",
+        "set_gui_from_settings",
+        "parse_settings_widget",
+        "smu_set_digio",
+        "smu_resmes",
+        "smu_setup_resmes",
+        "smu_setOutput",
+        "smu_getIV",
+        "smu_bufferRead",
+        "smu_getLastBufferValue",
+        "smu_runSweep",
+        "smu_init",
+        "smu_outputOFF",
+        "smu_outputON",
+        "smu_abort",
+        "smu_disconnect",
+        "smu_connect",
+        "smu_channelNames",
+    ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
     ####################################  threads
 
@@ -65,6 +94,9 @@ class Keithley2612BGUI:
 
     ########Functions
     def __init__(self):
+        super(Keithley2612BGUI, self).__init__()
+        self.verbose = True  # Enable verbose logging
+        self.logger = LoggingHelper(self)
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
         self.settingsWidget = uic.loadUi(self.path + "Keithley2612B_settingsWidget.ui")
@@ -72,7 +104,17 @@ class Keithley2612BGUI:
         # Initialize Keithley module
         ##IRtodo#### move Keithley address to GUI
         self.smu = Keithley2612B()
+        self._connect_signals()
         self.settings = {}
+
+    ########Functions
+    def _connect_signals(self):
+
+        # use _update_GUI_state instead of the smaller updates similar to the other plugins
+        self.settingsWidget.comboBox_sourceFilter.currentIndexChanged.connect(self._update_GUI_state)
+        self.settingsWidget.comboBox_drainFilter.currentIndexChanged.connect(self._update_GUI_state)
+        
+        self.settingsWidget.pushButton_Init.clicked.connect(self._initAction)
 
     ########Functions
     ###############GUI setting up
@@ -81,36 +123,43 @@ class Keithley2612BGUI:
         self,
         plugin_info,
     ) -> None:
-        if plugin_info["sourcehighc"] == "True":
-            self.settingsWidget.checkBox_sourceHighC.setChecked(True)
-        if plugin_info["drainhighc"] == "True":
-            self.settingsWidget.checkBox_drainHighC.setChecked(True)
-        self.settingsWidget.lineEditAddress.setText(plugin_info["address"])
-        self.settingsWidget.lineEditETH.setText(plugin_info["eth_address"])
-        self.settingsWidget.backendCombobox.setCurrentText(plugin_info["backend"])
-        self.settingsWidget.lineEditPort.setText(plugin_info["port"])
+        self.settings.update(plugin_info)
+        self.logger.log_debug(f"Settings after update: {self.settings}")
+        self.set_gui_from_settings()
+        return 0
+
+    ########Functions
+    ###############GUI react to change
+    def _update_GUI_state(self):
+        self.logger.log_debug("Updating GUI state.")
+        self._sourceFilter_changed(self.settingsWidget.comboBox_sourceFilter.currentIndex())
+        self._drainFilter_changed(self.settingsWidget.comboBox_drainFilter.currentIndex())
+        self.settingsWidget.update()
+
+    def _sourceFilter_changed(self, index):
+         """Handles the enable property of input fields based on the selected filter."""
+        mode = self.settingsWidget.comboBox_sourceFilter.currentText()
+        if mode == "Off":
+            self.settingsWidget.lineEdit_sourceFilter.setEnabled(False)
+        elif mode == "Repeat average":
+            self.settingsWidget.lineEdit_sourceFilter.setEnabled(True)
+
+    def _drainFilter_changed(self, index):
+         """Handles the enable property of input fields based on the selected filter."""
+        mode = self.settingsWidget.comboBox_drainFilter.currentText()
+        if mode == "Off":
+            self.settingsWidget.lineEdit_drainFilter.setEnabled(False)
+        elif mode == "Repeat average":
+            self.settingsWidget.lineEdit_drainFilter.setEnabled(True)
 
     ########Functions
     ########plugins interraction
     def _get_public_methods(self) -> dict:
-        """
-        Returns a nested dictionary of public methods for the plugin
-        """
-        # if the plugin type matches the requested type, return the functions
-
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-        }
-        return methods
+        return get_public_methods(self)
 
     ########Functions to be used externally
     ###############get settings from GUI
-
+    @public
     def parse_settings_widget(self) -> tuple[int, dict]:
         """Parses the settings widget for the Keithley. Extracts current values
 
@@ -118,9 +167,81 @@ class Keithley2612BGUI:
             status: 0 - no error, ~0 - error (add error code later on if needed)
             self.settings
         """
-
+        self.settings = {}
+        #Get source settings
+        self.settings["sourcefiltertype"] = self.settingsWidget.comboBox_sourceFilter.currentText()
+        # Determine if a filter is used
+        if self.settings["sourcefiltertype"] == 'Off':
+            self.settings["sourcefiltervalue"] = 1
+        else:
+            # number of averages should be int >0
+            try:
+                self.settings["sourcefiltervalue"] = int(self.settingsWidget.lineEdit_sourceFilter.text())
+        except ValueError:
+            return [
+                1,
+                {"Error message": "Value error in Keithley2612B plugin: number in source filter value field should be integer"},
+            ]
+        if self.settings["sourcefiltervalue"] < 1:
+            return [
+                1,
+                {
+                    "Error message": "Value error in Keithley2612B plugin: number in source filter value field can not be less than 1"
+                },
+            ]
+        #source dealy factor
+        try:
+                self.settings["sourcedelayfator"] = float(self.settingsWidget.lineEdit_sourceDelayFactor.text())
+        except ValueError:
+            return [
+                1,
+                {"Error message": "Value error in Keithley2612B plugin: source delay factor field should be a number"},
+            ]
+        if self.settings["sourcedelayfactor"] < 0:
+            return [
+                1,
+                {
+                    "Error message": "Value error in Keithley2612B plugin: number in source delay factor field can not be negative"
+                },
+            ]
         # Determine a HighC mode for source: may be True or False
         self.settings["sourcehighc"] = self.settingsWidget.checkBox_sourceHighC.isChecked()
+        #Get drain settings
+        self.settings["drainfiltertype"] = self.settingsWidget.comboBox_drainFilter.currentText()
+        # Determine if a filter is used
+        if self.settings["drainfiltertype"] == 'Off':
+            self.settings["drainfiltervalue"] = 1
+        else:
+            # number of averages should be int >0
+            try:
+                self.settings["drainfiltervalue"] = int(self.settingsWidget.lineEdit_drainFilter.text())
+        except ValueError:
+            return [
+                1,
+                {"Error message": "Value error in Keithley2612B plugin: number in drain filter value field should be integer"},
+            ]
+        if self.settings["drainfiltervalue"] < 1:
+            return [
+                1,
+                {
+                    "Error message": "Value error in Keithley2612B plugin: number in drain filter value field can not be less than 1"
+                },
+            ]
+        #drain dealy factor
+        try:
+                self.settings["draindelayfator"] = float(self.settingsWidget.lineEdit_drainDelayFactor.text())
+        except ValueError:
+            return [
+                1,
+                {"Error message": "Value error in Keithley2612B plugin: drain delay factor field should be a number"},
+            ]
+        if self.settings["draindelayfactor"] < 0:
+            return [
+                1,
+                {
+                    "Error message": "Value error in Keithley2612B plugin: number in drain delay factor field can not be negative"
+                },
+            ]
 
         # Determine a HighC mode for drain: may be True or False
         self.settings["drainhighc"] = self.settingsWidget.checkBox_drainHighC.isChecked()
@@ -137,7 +258,58 @@ class Keithley2612BGUI:
         self.settings["backend"] = self.settingsWidget.backendCombobox.currentText()
         self.settings["port"] = self.settingsWidget.lineEditPort.text()
 
+    @public
+    def set_gui_from_settings(self):
+        """
+        Updates the GUI fields based on the internal settings dictionary.
+        This function assumes that the settings have already been set using the `setSettings` function.
+        """
+
+        def set_combobox_value(combobox, value):
+            """
+            Helper function to set the value of a QComboBox in a case-insensitive manner.
+
+            Args:
+                combobox (QComboBox): The combobox to set the value for.
+                value (str): The value to set.
+
+            Returns:
+                bool: True if the value was found and set, False otherwise.
+            """
+            self.logger.log_debug(f"Setting combobox {combobox.objectName()} to value: {value}")
+            index = combobox.findText(value, Qt.MatchFlag.MatchFixedString)
+            if index != -1:
+                combobox.setCurrentIndex(index)
+                return True
+            return False
+
+        self.logger.log_debug("Setting GUI from internal settings")
+        if self.settings["sourcehighc"] == "True":
+            self.settingsWidget.checkBox_sourceHighC.setChecked(True)
+        if pself.settings["drainhighc"] == "True":
+            self.settingsWidget.checkBox_drainHighC.setChecked(True)
+        self.settingsWidget.lineEditAddress.setText(self.settings["address"])
+        self.settingsWidget.lineEditETH.setText(self.settings["eth_address"])
+        self.settingsWidget.backendCombobox.setCurrentText(self.settings["backend"])
+        self.settingsWidget.lineEditPort.setText(self.settings["port"])
+        set_combobox_value((self.settingsWidget.comboBox_sourceFilter, self.settings["sourcefiltertype"])
+        set_combobox_value((self.settingsWidget.comboBox_drainFilter, self.settings["drainfiltertype"])
+        self.settingsWidget.lineEdit_sourceFilter.setText(str(self.settings["sourcefiltervalue"]))
+        self.settingsWidget.lineEdit_drainFilter.setText(str(self.settings["drainfiltervalue"]))
+        self.settingsWidget.lineEdit_sourceDelayFactor.setText(f"{self.settings['sourcedelayfactor']:.2f}")
+        self.settingsWidget.lineEdit_drainDelayFactor.setText(f"{self.settings['draindelayfactor']:.2f}")
+        self.logger.log_debug("GUI settings set from internal settings")
+        self._update_GUI_state()
+
+    @public
+    def setSettings(self, ext_settings):
+        self.logger.log_debug("Setting settings for sweep plugin: " + str(settings))
+        # some values may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
+        self.settings.update(copy.deepcopy(ext_settings)) #may not work with nested dicts, needs to be checked
+
+
     ###############GUI enable/disable
+    @pyqtSlot(bool)
     def set_running(self, status: bool) -> None:
         """Sets the running state of the GUI elements.
 
@@ -146,6 +318,32 @@ class Keithley2612BGUI:
         """
         self.settingsWidget.groupBox_HWsettings.setEnabled(not status)
         self.settingsWidget.groupBox_channels.setEnabled(not status)
+        self.settingsWidget.pushButton_Init.setEnabled(not status)
+        if not status:
+            self._update_GUI_state()
+
+###############reinitialize Keithlei
+    def _initAction(self):
+#### this might be useful if a plugin does not check if the smu was moved into a manual mode
+        steps = [
+            self.parse_settings_widget,
+            self.smu_connect,
+            self.smu_reset,
+        ]
+
+        for step in steps:
+            status, message = step()
+            if status:
+                if status == 1:
+                    self.logger.log_warn(str(message))
+                else:
+                    self.logger.log_info(str(message))
+                self.logger.log_info(message["Error message"])
+                return [status, message]
+
+
+        self.logger.log_debug(f"Reset successful")
+        return [status, message]
 
     ###############providing access to SMU functions
     def smu_channelNames(self) -> list[str]:
@@ -153,6 +351,26 @@ class Keithley2612BGUI:
         this should make plugins more universal, but still need to be rechecked"""
         self._parse_settings_address()
         return self.smu.channel_names(self.settings["backend"])
+
+    def smu_reset(self) -> tuple[int, dict]:
+       """an interface for resetting Keithley
+
+        Returns [status, message]:
+            0 - no error, ~0 - error (add error code later on if needed)
+            message contains devices response to IDN query if devices is connected, or an error message otherwise
+
+        """
+        try:
+            self.smu.keithley_reset()
+            return (0, {"Error message": self.smu.keithley_IDN()})
+        except Exception as e:
+            return (
+                4,
+                {
+                    "Error message": "Hardware error in Keithley2612B plugin: can not reset the device",
+                    "Exception": e,
+                },
+            )
 
     def smu_connect(self) -> tuple[int, dict]:
         """an interface for an externall calling function to connect to Keithley
@@ -162,7 +380,6 @@ class Keithley2612BGUI:
             message contains devices response to IDN query if devices is connected, or an error message otherwise
 
         """
-        self._parse_settings_address()
         try:
             self.smu.keithley_connect(
                 self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"]

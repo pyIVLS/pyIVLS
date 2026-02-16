@@ -60,7 +60,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
     elif settings["mode"] == "pulsed":
         comment = f"{comment}Pulse operation of the source with delays of {settings['pulsedpause']} s\n#"
     else:
-        comment = f"{comment}Mixed operation of the source with delays of {settings['pulsepause']} s\n#"
+        comment = f"{comment}Mixed operation of the source with delays of {settings['pulsedpause']} s\n#"
         comment = f"{comment}NPLC value for continuous operation arm {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']})"
         comment = f"{comment}Limit for continuous operation arm {settings['continuouslimit']} {limitunit}\n#"
         comment = f"{comment}Start value for continuous operation arm {settings['continuousstart']} {stepunit}\n#"
@@ -129,12 +129,26 @@ def create_sweep_reciepe(settings, settings_smu):
     s["single_ch"] = settings["singlechannel"]  # single channel mode: may be True or False
     s["repeat"] = settings["repeat"]  # repeat count: should be int >0
     s["pulsepause"] = settings["pulsedpause"]  # pause between pulses in sweep (may not be used in continuous)
+    if settings_smu["sourcefiltertype"] == "Repeat average":
+        s["sourcefiltertype"] = "FILTER_REPEAT_AVG"
+        s["sourcefiltervalue"] = settings_smu["sourcefiltervalue"]
+    else:
+    #settings_smu["drainfiltertype"] == "Off":
+        s["sourcefiltertype"] = "FILTER_OFF"
+    s["sourcedelayfactor"] = settings_smu["sourcedelayfactor"]
     s["drainnplc"] = settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
     s["draindelay"] = settings["draindelaymode"]  # stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)
     s["draindelayduration"] = settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
     s["drainlimit"] = settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
     s["sourcehighc"] = settings_smu["sourcehighc"]
     s["drainhighc"] = settings_smu["drainhighc"]
+    if settings_smu["drainfiltertype"] == "Repeat average":
+        s["drainfiltertype"] = "FILTER_REPEAT_AVG"
+        s["drainfiltervalue"] = settings_smu["drainfiltervalue"]
+    else:
+    #settings_smu["drainfiltertype"] == "Off":
+        s["drainfiltertype"] = "FILTER_OFF"
+    s["draindelayfactor"] = settings_smu["draindelayfactor"]
     if settings["singlechannel"]:
         loopdrain = 1  # 1 step for the drain loop
         drainstart = 0  # no voltage on drain, not needed in practice, but the variable may be used

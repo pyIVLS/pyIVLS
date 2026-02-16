@@ -139,7 +139,7 @@ class sweepGUI(QObject):
         # set default SMU
         if default_smu in self.function_dict["smu"]:
             self.settingsWidget.smuBox.setCurrentText(default_smu)
-        self.parse_settings_widget()
+        #self.parse_settings_widget() #intialization of the settings shape should be daone by update. Left here until the debug performed
         self.settings.update(plugin_info)
         self.logger.log_debug(f"Settings after update: {self.settings}")
         self.set_gui_from_settings()
@@ -741,8 +741,8 @@ class sweepGUI(QObject):
                         measurement["type"] == "i"
                         and (abs(lastV) > self.settings["prescaler"] * abs(measurement["limit"]))
                     ) or (
-                        measurement["type"] == "i"
-                        and (abs(lastV) > self.settings["prescaler"] * abs(measurement["limit"]))
+                        measurement["type"] == "v"
+                        and (abs(lastI) > self.settings["prescaler"] * abs(measurement["limit"]))
                     ):
                         self.function_dict["smu"][self.settings["smu"]]["smu_abort"](measurement["source"])
                         break
