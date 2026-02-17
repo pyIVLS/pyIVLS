@@ -376,15 +376,13 @@ class Keithley2612B:
         self.safewrite("smua.source.output=smua.OUTPUT_OFF")
         self.safewrite("smub.source.output=smub.OUTPUT_OFF")
 
-    def keithley_reset(self, settings: dict) -> int:
+    def keithley_reset(self) :
         # """resets Keithley and sets filter and highc settings
         #
         # Returns:
         #            0 - no error
         #            ~0 - error (add error code later on if needed)
         #
-        #        Args:
-        #            s (dict): Configuration dictionary.
         #      """
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
@@ -438,7 +436,7 @@ class Keithley2612B:
         if s["delay"]:
             self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
             if not s["pulse"]:
-                self.safewrite(f"{s['source']}.measure.delayfactor = {s['sourcedelayfactor'].2f}")
+                self.safewrite(f"{s['source']}.measure.delayfactor = {s['sourcedelayfactor']:.2f}")
             else:
                 self.safewrite(f"{s['source']}.measure.delayfactor = 1.0")
         else:

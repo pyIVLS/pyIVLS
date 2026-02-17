@@ -43,7 +43,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
             comment = f"{comment}Measurement stabilization period is done in AUTO mode\n#"
         else:
             comment = f"{comment}Measurement stabilization period is{settings['continuousdelay'] / 1000} ms\n#"
-        comment = f"{comment}NPLC value {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']})"
+        comment = f"{comment}NPLC value {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']})\n#"
     else:
         comment = f"{comment}Start value for sweep {settings['pulsedstart']} {stepunit}\n#"
         comment = f"{comment}End value for sweep {settings['pulsedend']} {stepunit}\n#"
@@ -54,24 +54,26 @@ def create_file_header(settings, smu_settings, backVoltage=None):
             comment = f"{comment}Measurement stabilization period is{settings['pulseddelay'] / 1000} ms\n#"
         comment = f"{comment}NPLC value {settings['pulsednplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['pulsednplc']})\n#"
 
-    comment = f"{comment}\n#\n#\n#"
+    comment = f"{comment}\n#"
     if settings["mode"] == "continuous":
-        comment = f"{comment}Continuous operation of the source\n#"
+        comment = f"{comment}\n#Continuous operation of the source\n#"
+        comment = f"{comment}\n#\n#\n#"
     elif settings["mode"] == "pulsed":
         comment = f"{comment}Pulse operation of the source with delays of {settings['pulsedpause']} s\n#"
+        comment = f"{comment}\n#\n#\n#\n#"
     else:
         comment = f"{comment}Mixed operation of the source with delays of {settings['pulsedpause']} s\n#"
-        comment = f"{comment}NPLC value for continuous operation arm {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']})"
+        comment = f"{comment}NPLC value for continuous operation arm {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']}) \n#"
         comment = f"{comment}Limit for continuous operation arm {settings['continuouslimit']} {limitunit}\n#"
         comment = f"{comment}Start value for continuous operation arm {settings['continuousstart']} {stepunit}\n#"
         comment = f"{comment}End value for continuous operation arm {settings['continuousend']} {stepunit}\n#"
-    comment = f"{comment}\n#\n#"
+
 
     if backVoltage is not None:
         comment = f"{comment}Back voltage set to drain is {backVoltage} V\n#"
     else:
         comment = f"{comment}\n#"
-    comment = f"{comment}\n#\n#\n#\n#"
+    comment = f"{comment}\n#\n#\n#"
 
     comment = f"{comment}Comment: {settings['comment']}\n#"
     comment = f"{comment}\n#\n#\n#\n#\n#"
@@ -88,7 +90,24 @@ def create_file_header(settings, smu_settings, backVoltage=None):
     else:
         comment = f"{comment}\n#"
 
-    comment = f"{comment}\n#\n#\n#\n#\n#\n#\n#\n#\n#"
+    comment = f"{comment}\n#\n#\n#\n#"
+    #### add a remark or condition that delay factors and filters are not active for sweeps above 1.5A
+    comment = f"{comment}Source delay factor: {smu_settings['sourcedelayfactor']}\n#"
+    comment = f"{comment}Drain delay factor: {smu_settings['draindelayfactor']}\n#"
+
+    comment = f"{comment}Source filter: {smu_settings['sourcefiltertype']}"
+    if not smu_settings["sourcefiltertype"] == "Off":
+        comment = f"{comment}, value: {smu_settings['sourcefiltervalue']}\n#"
+    else:
+        comment = f"{comment}\n#"
+
+    comment = f"{comment}Drain filter: {smu_settings['drainfiltertype']}"
+    if not smu_settings["drainfiltertype"] == "Off":
+        comment = f"{comment}, value: {smu_settings['drainfiltervalue']}\n#"
+    else:
+        comment = f"{comment}\n#"
+
+    comment = f"{comment}\n#"
 
     if settings["sourcesensemode"] == "2 wire":
         comment = f"{comment}Sourse in 2 point measurement mode\n#"

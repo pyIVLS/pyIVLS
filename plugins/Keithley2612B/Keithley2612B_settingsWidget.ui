@@ -29,9 +29,9 @@
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>0</y>
+        <y>-66</y>
         <width>753</width>
-        <height>526</height>
+        <height>540</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_10">
@@ -436,7 +436,7 @@
           </spacer>
          </item>
          <item>
-          <widget class="QPushButton" name="pushButton_Init">
+          <widget class="QPushButton" name="button_Init">
            <property name="text">
             <string>Reset</string>
            </property>

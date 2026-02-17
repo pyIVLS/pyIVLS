@@ -139,7 +139,7 @@ class sweepGUI(QObject):
         # set default SMU
         if default_smu in self.function_dict["smu"]:
             self.settingsWidget.smuBox.setCurrentText(default_smu)
-        #self.parse_settings_widget() #intialization of the settings shape should be daone by update. Left here until the debug performed
+        self.parse_settings_widget() #intialization of the settings shape should be done by update, but this does not include smu_settings
         self.settings.update(plugin_info)
         self.logger.log_debug(f"Settings after update: {self.settings}")
         self.set_gui_from_settings()
@@ -626,7 +626,7 @@ class sweepGUI(QObject):
         # is not possible while this is running.
         self.set_running(True)
         [status, message] = self.parse_settings_widget()
-        self.function_dict["smu"][self.settings["smu"]]["set_running"](True)
+        #self.function_dict["smu"][self.settings["smu"]]["set_running"](True) #not handling properly, needs to be checked
 
         if status:
             if status == 1:
@@ -635,7 +635,7 @@ class sweepGUI(QObject):
                 self.logger.log_info(str(message))
             self.logger.log_info(message["Error message"])
             self.set_running(False)
-            self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
+            #self.function_dict["smu"][self.settings["smu"]]["set_running"](False) #not handling properly, needs to be checked
 
             return [status, message]
 
@@ -648,7 +648,7 @@ class sweepGUI(QObject):
                 self.logger.log_info(str(message))
             self.logger.log_info(message["Error message"])
             self.set_running(False)
-            self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
+            #self.function_dict["smu"][self.settings["smu"]]["set_running"](False) #not handling properly, needs to be checked
 
             return [status, message]
 

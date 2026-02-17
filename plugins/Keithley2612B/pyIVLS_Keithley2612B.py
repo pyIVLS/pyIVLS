@@ -1,14 +1,15 @@
 import pluggy
 from Keithley2612BGUI import Keithley2612BGUI
-
+import os
+import configparser
 
 class pyIVLS_Keithley2612B_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
+    def __init__(self):
         """
         Initialize the plugin and set up properties.
         """
-
         # iterate current directory to find the .ini file
         path = os.path.dirname(__file__)
         for file in os.listdir(path):
@@ -45,7 +46,7 @@ class pyIVLS_Keithley2612B_plugin:
         This argument will allow the specific implementation of the hook to identify if any response is needed or not.
         :return: dict containing widget and setup structure
         """
-        self.smu._initGUI(plugin_data[self.plugin_name]["settings"])
+        self.smu._initGUI(plugin_data[self.name]["settings"])
         return {self.metadata["name"]: self.smu.settingsWidget}
 
     @hookimpl
