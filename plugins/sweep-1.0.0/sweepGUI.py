@@ -614,6 +614,7 @@ class sweepGUI(QObject):
         self.settingsWidget.runButton.setEnabled(not status)
         self.settingsWidget.groupBox_dep.setEnabled(not status)
         self.closelock.emit_close_lock(status)
+        self.settingsWidget.update()
 
     ########sweep implementation
 
@@ -625,32 +626,24 @@ class sweepGUI(QObject):
         # NOTE: smu set running was moved here since parsing needs to be done before setting running on the smu. It shouldn't cause issues since changing to the smu widget
         # is not possible while this is running.
         self.set_running(True)
-        [status, message] = self.parse_settings_widget()
-        #self.function_dict["smu"][self.settings["smu"]]["set_running"](True) #not handling properly, needs to be checked
+        self.function_dict["smu"][self.settings["smu"]]["set_running"](True)
+        
+        steps = [
+            self.parse_settings_widget,
+            self.function_dict["smu"][self.settings["smu"]]["smu_connect"],
+        ]
 
-        if status:
-            if status == 1:
-                self.logger.log_warn(str(message))
-            else:
-                self.logger.log_info(str(message))
-            self.logger.log_info(message["Error message"])
-            self.set_running(False)
-            #self.function_dict["smu"][self.settings["smu"]]["set_running"](False) #not handling properly, needs to be checked
-
-            return [status, message]
-
-        # check the needed devices are connected
-        [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
-        if status:
-            if status == 1:
-                self.logger.log_warn(str(message))
-            else:
-                self.logger.log_info(str(message))
-            self.logger.log_info(message["Error message"])
-            self.set_running(False)
-            #self.function_dict["smu"][self.settings["smu"]]["set_running"](False) #not handling properly, needs to be checked
-
-            return [status, message]
+        for step in steps:
+            status, message = step()
+            if status:
+                if status == 1:
+                    self.logger.log_warn(str(message))
+                else:
+                    self.logger.log_info(str(message))
+                self.logger.log_info(message["Error message"])
+                self.set_running(False)
+                self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
+                return [status, message]
 
         ##IRtodo#### check that the new file will not overwrite existing data -> implement dialog
 
@@ -840,6 +833,7 @@ class sweepGUI(QObject):
                 )
                 self.logger.info_popup("SMU turn off failed. Check log")
             self.set_running(False)
+            self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
 
     @public
     def set_gui_from_settings(self):

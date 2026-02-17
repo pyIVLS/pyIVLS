@@ -65,3 +65,23 @@ class pyIVLS_Keithley2612B_plugin:
         if args is None or args.get("function") == self.metadata["function"]:
             status, settings = self.smu.parse_settings_widget()
             return (self.metadata["name"], status, settings)
+        
+    @hookimpl
+    def get_log(self, args=None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+
+        if args is None or args.get("function") == self.metadata["function"]:
+            return {self.metadata["name"]: self.smu._getLogSignal()}
+
+    @hookimpl
+    def get_info(self, args=None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+
+        if args is None or args.get("function") == self.metadata["function"]:
+            return {self.metadata["name"]: self.smu._getInfoSignal()}

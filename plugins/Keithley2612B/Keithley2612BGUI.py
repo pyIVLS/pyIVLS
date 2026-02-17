@@ -155,6 +155,12 @@ class Keithley2612BGUI(QObject):
     ########plugins interraction
     def _get_public_methods(self) -> dict:
         return get_public_methods(self)
+    
+    def _getLogSignal(self):
+        return self.logger.logger_signal
+
+    def _getInfoSignal(self):
+        return self.logger.info_popup_signal
 
     ########Functions to be used externally
     ###############get settings from GUI
