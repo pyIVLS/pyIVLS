@@ -54,6 +54,7 @@ class TLCCS_GUI(QObject):
     public_methods = [
         "parse_settings_preview",
         "parse_settings_widget",
+        "set_gui_from_settings",
         "setSettings",
         "spectrometerConnect",
         "spectrometerDisconnect",
@@ -157,7 +158,7 @@ class TLCCS_GUI(QObject):
         if status:
             self.scanRunning = False
             return [status, info]
-        if self.settings["previewCorrection"]:
+        if self.settings["usecorrection"]:
             preview_data = [m * n * 1000 for m, n in zip(info, self.correction[:, 1])]
         else:
             preview_data = info
@@ -475,25 +476,76 @@ class TLCCS_GUI(QObject):
         """
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
-        self.settingsWidget.lineEdit_Integ.setText(plugin_info["integrationtime"])
         self._log_verbose(f"Initializing GUI with plugin_info: {plugin_info}")
-        if plugin_info["externaltrigger"] == "True":
-            self.settingsWidget.extTriggerCheck.setChecked(True)
-        if plugin_info["usecorrection"] == "True":
-            self.settingsWidget.correctionCheck.setChecked(True)
-        currentIndex = self.settingsWidget.getIntegrationTime_combo.findText(plugin_info["integrationtimetype"], Qt.MatchFlag.MatchFixedString)
-        if currentIndex > -1:
-            self.settingsWidget.getIntegrationTime_combo.setCurrentIndex(currentIndex)
-        if plugin_info["useintegrationtimeguess"]:
-            self.settingsWidget.useIntegrationTimeGuess_check.setChecked(True)
-        if plugin_info["saveattempts_check"] == "True" or plugin_info["saveattempts_check"] is True:
-            self.settingsWidget.saveAttempts_check.setChecked(True)
-        self._GUIchange_deviceConnected(False)
-        self.settingsWidget.saveButton.setEnabled(False)
-        self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
-        self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
-        self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
-        self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
+        self.settings.update(plugin_info)
+        self.set_gui_from_settings()
+        return 0
+
+    def set_gui_from_settings(self) -> None:
+        """
+        Updates the GUI fields based on the provided settings dictionary.
+
+        Args:
+            settings (dict): Dictionary containing settings to update the GUI.
+        """
+
+        def to_bool(value):
+            """
+            Helper function to make sure that the "True"|"False" values from ini files or JSON structures are bool.
+
+            Args:
+                value bool or str "True"|"False"
+
+            Returns:
+                bool: True if the value (str)"True" or (bool)True
+            """
+
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str):
+                return value.strip().lower() == "true"
+            return False
+
+        def set_combobox_value(combobox, value):
+            """
+            Helper function to set the value of a QComboBox in a case-insensitive manner.
+
+            Args:
+                combobox (QComboBox): The combobox to set the value for.
+                value (str): The value to set.
+
+            Returns:
+                bool: True if the value was found and set, False otherwise.
+            """
+            self.logger.log_debug(f"Setting combobox {combobox.objectName()} to value: {value}")
+            index = combobox.findText(value, Qt.MatchFlag.MatchFixedString)
+            if index != -1:
+                combobox.setCurrentIndex(index)
+                return True
+            return False
+
+        self._log_verbose(f"populating GUI from settings")
+        #values from autoTime settings
+        set_combobox_value(self.settingsWidget.getIntegrationTime_combo, self.settings["integrationtimetype"])
+        self.settings["saveattempts_check"] = to_bool(self.settings["saveattempts_check"])
+        self.settingsWidget.saveAttempts_check.setChecked(self.settings["saveattempts_check"])
+        self.settings["useintegrationtimeguess"] = to_bool(self.settings["useintegrationtimeguess"])
+        self.settingsWidget.useIntegrationTimeGuess_check.setChecked(self.settings["useintegrationtimeguess"])
+
+        #values from saveData settings
+        self.settingsWidget.lineEdit_path.setText(self.settings["address"])
+        self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
+        self.settingsWidget.lineEdit_sampleName.setText(self.settings["comment"])
+        self.settings["externaltrigger"] = to_bool(self.settings["externaltrigger"])
+        self.settingsWidget.extTriggerCheck.setChecked(self.settings["externaltrigger"])
+        self.settingsWidget.lineEdit_sampleName.setText(self.settings["samplename"])
+
+        #values from integrationTime settings
+        self.settingsWidget.lineEdit_Integ.text(f"{self.settings["integrationtime"]*1000}")
+
+        #values from spectrumCorrection
+        self.settings["usecorrection"] = to_bool(self.settings["usecorrection"])
+        self.settingsWidget.correctionCheck.setChecked(self.settings["usecorrection"])
 
     def _getAddress(self):
         address = self.settingsWidget.lineEdit_path.text()
@@ -536,7 +588,7 @@ class TLCCS_GUI(QObject):
 
     def _correctionChanged(self, int):
         if self.preview_running:  # this function is useful only in preview mode
-            self.settings["previewCorrection"] = self._parse_spectrumCorrection()
+            self.settings["usecorrection"] = self._parse_spectrumCorrection()
 
     def _integrationTime_mode_changed(self):
         integrationTimeMode = self.settingsWidget.getIntegrationTime_combo.currentText()
@@ -659,7 +711,7 @@ class TLCCS_GUI(QObject):
             self.settings["externalTrigger"] = True
         else:
             self.settings["externalTrigger"] = False
-        self.settings["previewCorrection"] = self._parse_spectrumCorrection()
+        self.settings["usecorrection"] = self._parse_spectrumCorrection()
         self.settings["autoTime_min"] = self.autoTime_min
         self.settings["autoTime_max"] = self.autoTime_max
         self.settings["autoValue_min"] = self.autoValue_min
@@ -690,7 +742,6 @@ class TLCCS_GUI(QObject):
             self.settings["externalTrigger"] = True
         else:
             self.settings["externalTrigger"] = False
-        self.settings["previewCorrection"] = self._parse_spectrumCorrection()
         self.settings["usecorrection"] = self._parse_spectrumCorrection()
         # duplicate value for spectrum correction since i don't want to break anything now. This is used to save the value to the ini.
 

@@ -266,6 +266,23 @@ class Keithley2612BGUI(QObject):
         This function assumes that the settings have already been set using the `setSettings` function.
         """
 
+        def to_bool(value):
+            """
+            Helper function to make sure that the "True"|"False" values from ini files or JSON structures are bool.
+
+            Args:
+                value bool or str "True"|"False"
+
+            Returns:
+                bool: True if the value (str)"True" or (bool)True
+            """
+
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str):
+                return value.strip().lower() == "true"
+            return False
+
         def set_combobox_value(combobox, value):
             """
             Helper function to set the value of a QComboBox in a case-insensitive manner.
@@ -285,10 +302,10 @@ class Keithley2612BGUI(QObject):
             return False
 
         self.logger.log_debug("Setting GUI from internal settings")
-        if self.settings["sourcehighc"] == "True":
-            self.settingsWidget.checkBox_sourceHighC.setChecked(True)
-        if self.settings["drainhighc"] == "True":
-            self.settingsWidget.checkBox_drainHighC.setChecked(True)
+        self.settings["sourcehighc"] = to_bool(self.settings["sourcehighc"])
+        self.settingsWidget.checkBox_sourceHighC.setChecked(self.settings["sourcehighc"])
+        self.settings["drainhighc"] = to_bool(self.settings["drainhighc"])
+        self.settingsWidget.checkBox_drainHighC.setChecked(self.settings["drainhighc"])
         self.settingsWidget.lineEditAddress.setText(self.settings["address"])
         self.settingsWidget.lineEditETH.setText(self.settings["eth_address"])
         self.settingsWidget.backendCombobox.setCurrentText(self.settings["backend"])
