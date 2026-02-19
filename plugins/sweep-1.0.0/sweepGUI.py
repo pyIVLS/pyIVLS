@@ -596,7 +596,7 @@ class sweepGUI(QObject):
         # the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
         self.settings = {}
         self.settings = copy.deepcopy(settings)
-        self.smu_settings = settings["smu_settings"]
+        self.smu_settings.update(settings["smu_settings"])
 
         # this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
         #        self._setGUIfromSettings()

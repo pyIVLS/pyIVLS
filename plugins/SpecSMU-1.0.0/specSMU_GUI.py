@@ -432,6 +432,9 @@ class specSMU_GUI(QWidget):
         self.settings = copy.deepcopy(settings)
         self.smu_settings = self.settings["smu_settings"]
         self.spectrometer_settings = self.settings["spectrometer_settings"]
+        spectro_name = self.settings["spectrometer"]
+        self.function_dict["spectrometer"][spectro_name]["setSettings"](self.spectrometer_settings)
+        
 
     # this function is called not from the main thread. Direct addressing of qt elements not from the main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
     #        self._setGUIfromSettings()
@@ -653,7 +656,7 @@ class specSMU_GUI(QWidget):
                 # do not continue if reached the limit
                 if (
                         self.settings["inject"] == "voltage"
-                        and (abs(i_after) >= abs(self.settings["limit"])
+                        and abs(i_after) >= abs(self.settings["limit"])
                     ) or (
                         self.settings["inject"] == "current"
                         and (abs(lastV) >= abs(measurement["limit"]))
