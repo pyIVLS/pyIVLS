@@ -116,7 +116,8 @@ def filter_to_valid_methods(function_dict: Dict[str, Any], required_functions: D
                          e.g., {"smu": ["connect", "init"], "spectro": ["measure"]}
 
     Returns:
-        Tuple of (is_valid, missing_functions_list)
+        Tuple of (is_valid, missing_functions_list) where missing_functions_list contains
+        only the methods that are not available in any plugin
     """
     missing_functions: List[str] = []
 
@@ -131,8 +132,11 @@ def filter_to_valid_methods(function_dict: Dict[str, Any], required_functions: D
         # Update in place to only include plugins that satisfy all required functions.
         function_dict[dependency_type] = valid_plugins
 
+        # Only report functions that are missing across ALL plugins
         if not valid_plugins:
-            missing_functions.extend([f"{dependency_type}.{func}" for func in required_funcs])
+            for func in required_funcs:
+                if not any(func in plugin_funcs for plugin_funcs in available_plugins.values()):
+                    missing_functions.append(f"{dependency_type}.{func}")
 
     is_valid = len(missing_functions) == 0
     return is_valid, missing_functions
