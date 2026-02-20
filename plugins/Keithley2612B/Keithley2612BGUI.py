@@ -65,7 +65,6 @@ class Keithley2612BGUI(QObject):
     public_methods = [
         "set_running",
         "set_gui_from_settings",
-        "parse_settings_widget",
         "smu_set_digio",
         "smu_resmes",
         "smu_setup_resmes",

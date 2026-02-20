@@ -26,6 +26,7 @@ try:
         DependencyManager,
         LoggingHelper,
         PluginException,
+        filter_to_valid_methods,
     )
     from PyQt6.QtWidgets import QApplication, QWidget, QLineEdit, QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox
     from PyQt6.QtCore import QObject
@@ -319,6 +320,50 @@ class TestGuiMapper:
 
         with pytest.raises(ValueError, match=f"Unsupported widget type for setting value: {type(unsupported_widget)}"):
             self.gui_mapper._set_value_dynamic(unsupported_widget, "value")
+
+
+class TestFilterToValidMethods:
+    """Test filtering of function dictionaries by required methods."""
+
+    def test_filters_to_valid_plugins(self):
+        function_dict = {
+            "smu": {
+                "valid": {"connect": Mock(), "init": Mock(), "measure": Mock()},
+                "partial": {"connect": Mock()},
+            }
+        }
+        required = {"smu": ["connect", "init"]}
+
+        is_valid, missing = filter_to_valid_methods(function_dict, required)
+
+        assert is_valid is True
+        assert missing == []
+        assert list(function_dict["smu"].keys()) == ["valid"]
+
+    def test_missing_dependency_type(self):
+        function_dict = {"spectro": {"ocean": {"measure": Mock()}}}
+        required = {"smu": ["connect"]}
+
+        is_valid, missing = filter_to_valid_methods(function_dict, required)
+
+        assert is_valid is False
+        assert missing == ["smu.connect"]
+        assert "smu" not in function_dict
+
+    def test_missing_methods_when_no_valid_plugins(self):
+        function_dict = {
+            "smu": {
+                "partial": {"connect": Mock()},
+                "also_partial": {"init": Mock()},
+            }
+        }
+        required = {"smu": ["connect", "init"]}
+
+        is_valid, missing = filter_to_valid_methods(function_dict, required)
+
+        assert is_valid is False
+        assert missing == ["smu.connect", "smu.init"]
+        assert function_dict["smu"] == {}
 
 
 class TestDependencyManager:

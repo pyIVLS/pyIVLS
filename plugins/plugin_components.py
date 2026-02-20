@@ -106,6 +106,38 @@ def get_public_methods(obj) -> Dict:
     return {name: getattr(obj, name) for name in dir(obj) if callable(getattr(obj, name, None)) and getattr(getattr(obj, name, None), "_is_public", False)}
 
 
+def filter_to_valid_methods(function_dict: Dict[str, Any], required_functions: Dict[str, list]) -> Tuple[bool, List[str]]:
+    """
+    Filter a function dictionary to only include valid methods based on required functions.
+
+    Args:
+        function_dict: Dict of available functions from plugins
+        required_functions: Dict mapping dependency types to required function lists
+                         e.g., {"smu": ["connect", "init"], "spectro": ["measure"]}
+
+    Returns:
+        Tuple of (is_valid, missing_functions_list)
+    """
+    missing_functions: List[str] = []
+
+    for dependency_type, required_funcs in required_functions.items():
+        if dependency_type not in function_dict:
+            missing_functions.extend([f"{dependency_type}.{func}" for func in required_funcs])
+            continue
+
+        available_plugins = function_dict[dependency_type]
+        valid_plugins = {plugin_name: plugin_funcs for plugin_name, plugin_funcs in available_plugins.items() if all(func in plugin_funcs for func in required_funcs)}
+
+        # Update in place to only include plugins that satisfy all required functions.
+        function_dict[dependency_type] = valid_plugins
+
+        if not valid_plugins:
+            missing_functions.extend([f"{dependency_type}.{func}" for func in required_funcs])
+
+    is_valid = len(missing_functions) == 0
+    return is_valid, missing_functions
+
+
 class PyIVLSReturnCode(Enum):
     """Standard return codes for pyIVLS plugins."""
 
@@ -222,262 +254,6 @@ class KeithleySettings:
 
     def __post_init__(self):
         self.validate()
-
-
-class PyIVLSReturn:
-    """
-    This class provides a standardized way to handle returns across all plugin (GUIs, since the ll-implementation should be stand-alone) while
-    maintaining full backward compatibility with the existing [status, data] tuple pattern.
-    TODO:
-    - add a field for the exception that was raised instead of just the exception as a str. Might help future debugging.
-    (To be fair, this would just be reinventing the exception wheel again. )
-    """
-
-    def __init__(self, code: PyIVLSReturnCode, data: Dict[str, Any]):
-        """
-        Initialize return object. Use class methods for construction instead.
-
-        Args:
-            code: PyIVLSReturnCode enum value
-            data: Dictionary containing return data or error information
-        """
-        self._code = code
-        self._data = data.copy() if data else {}
-
-    @property
-    def code(self) -> PyIVLSReturnCode:
-        """Get the return code enum."""
-        return self._code
-
-    @property
-    def status_code(self) -> int:
-        """Get the numeric status code"""
-        return self._code.value
-
-    @property
-    def data(self) -> Dict[str, Any]:
-        """Get the return data dictionary."""
-        return self._data.copy()
-
-    @property
-    def is_success(self) -> bool:
-        """Check if the operation was successful."""
-        return self._code == PyIVLSReturnCode.SUCCESS
-
-    @property
-    def is_error(self) -> bool:
-        """Check if the operation failed."""
-        return not self.is_success
-
-    @property
-    def error_message(self) -> str:
-        """Get error message if present, empty string otherwise."""
-        return self._data.get("Error message", "")
-
-    def to_tuple(self) -> Tuple[int, Dict[str, Any]]:
-        """Convert to legacy tuple format"""
-        return (self._code.value, self._data.copy())
-
-    def get_data_value(self, key: str, default: Any = None) -> Any:
-        """Safely get a value from the data dictionary."""
-        return self._data.get(key, default)
-
-    def has_data_key(self, key: str) -> bool:
-        """Check if a specific key exists in the data."""
-        return key in self._data
-
-    # Factory methods for creating returns
-    @classmethod
-    def success(cls, data: Optional[Dict[str, Any]] = None) -> "PyIVLSReturn":
-        """
-        Create a successful return.
-
-        Args:
-            data: Optional dictionary containing return data
-
-        Returns:
-            PyIVLSReturn object indicating success
-
-        """
-        return cls(PyIVLSReturnCode.SUCCESS, data or {})
-
-    @classmethod
-    def value_error(cls, message: str, plugin_name: str, **extra_data) -> "PyIVLSReturn":
-        """
-        Create a value error return with standardized formatting.
-
-        Args:
-            message: Error description
-            plugin_name: Name of the plugin reporting the error
-            **extra_data: Additional data to include in return
-
-        Returns:
-            PyIVLSReturn object indicating value error
-
-        """
-        error_msg = f"Value error in {plugin_name}: {message}"
-        data = {"Error message": error_msg}
-        data.update(extra_data)
-        return cls(PyIVLSReturnCode.VALUE_ERROR, data)
-
-    @classmethod
-    def dependency_error(cls, error_data: Dict[str, Any]) -> "PyIVLSReturn":
-        """
-        Forward an error from a dependency plugin.
-
-        Args:
-            error_data: Error dictionary from dependency plugin
-
-        Returns:
-            PyIVLSReturn object indicating dependency error
-
-        """
-        return cls(PyIVLSReturnCode.DEPENDENCY_ERROR, error_data)
-
-    @classmethod
-    def missing_dependency(cls, message: str, missing_functions: Optional[List[str]] = None, **extra_data) -> "PyIVLSReturn":
-        """
-        Create a missing dependency return.
-
-        Args:
-            message: Error description
-            missing_functions: Optional list of missing function names
-            **extra_data: Additional data to include in return
-
-        Returns:
-            PyIVLSReturn object indicating missing dependency
-
-        """
-        data = {"Error message": message}
-        if missing_functions:
-            # keep list runtime type but silence static checker
-            data["Missing functions"] = cast(Any, missing_functions)
-        data.update(extra_data)
-        return cls(PyIVLSReturnCode.MISSING_DEPENDENCY, data)
-
-    @classmethod
-    def hardware_error(cls, message: str, plugin_name: str, **extra_data) -> "PyIVLSReturn":
-        """
-        Create a hardware error return with standardized formatting.
-
-        Args:
-            message: Error description
-            plugin_name: Name of the plugin reporting the error
-            **extra_data: Additional data to include in return
-
-        Returns:
-            PyIVLSReturn object indicating hardware error
-
-        """
-        error_msg = f"Hardware error in {plugin_name}: {message}"
-        data = {"Error message": error_msg}
-        data.update(extra_data)
-        return cls(PyIVLSReturnCode.HARDWARE_ERROR, data)
-
-    @classmethod
-    def custom_error(cls, code: PyIVLSReturnCode, message: str, plugin_name: str = "", **extra_data) -> "PyIVLSReturn":
-        """
-        Create a custom error with any return code and additional data.
-
-        Args:
-            code: PyIVLSReturnCode enum value
-            message: Error description
-            plugin_name: Optional plugin name to include in message
-            **extra_data: Additional data to include in return
-
-        Returns:
-            PyIVLSReturn object with custom error
-        """
-        if plugin_name:
-            formatted_message = f"{plugin_name}: {message}"
-        else:
-            formatted_message = message
-
-        data = {"Error message": formatted_message}
-        data.update(extra_data)
-        return cls(code, data)
-
-    @classmethod
-    def from_tuple(cls, tup: Tuple[int, Dict[str, Any]]) -> "PyIVLSReturn":
-        """
-        Create PyIVLSReturn from legacy tuple format.
-
-        Args:
-            tup: Legacy tuple in format (status_code, data_dict)
-
-        Returns:
-            PyIVLSReturn object
-
-        Examples:
-            legacy_return = (1, {"Error message": "Some error"})
-            result = PyIVLSReturn.from_tuple(legacy_return)
-        """
-        status_code, data = tup
-        code = PyIVLSReturnCode(status_code)
-        return cls(code, data)
-
-    # Operator overloading for convenience
-    def __bool__(self) -> bool:
-        """Allow truthiness checking: if result: ..."""
-        return self.is_success
-
-    def __iter__(self):
-        """Allow tuple unpacking: status, data = result"""
-        return iter((self._code.value, self._data.copy()))
-
-    def __str__(self) -> str:
-        """Human-readable string representation."""
-        if self.is_success:
-            return f"Success: {self._data}"
-        else:
-            return f"Error ({self._code.name}): {self.error_message}"
-
-    def __getitem__(self, key):
-        """Allow dict-like access for backward compatibility: info['Error message']"""
-        return self._data[key]
-
-
-# Utility functions for working with returns
-def is_success(return_value: Union[PyIVLSReturn, Tuple[int, Dict[str, Any]]]) -> bool:
-    """
-    Check if a return value indicates success, works with both new and legacy formats.
-
-    Args:
-        return_value: Either PyIVLSReturn object or legacy tuple
-
-    Returns:
-        bool: True if successful
-
-    Examples:
-        if is_success(plugin_result):
-            process_data(...)
-    """
-    if isinstance(return_value, PyIVLSReturn):
-        return return_value.is_success
-    elif isinstance(return_value, tuple) and len(return_value) == 2:
-        return return_value[0] == 0
-    return False
-
-
-def get_error_message(return_value: Union[PyIVLSReturn, Tuple[int, Dict[str, Any]]]) -> str:
-    """
-    Extract error message from return value, works with both new and legacy formats.
-
-    Args:
-        return_value: Either PyIVLSReturn object or legacy tuple
-
-    Returns:
-        str: Error message or empty string if no error
-
-    Examples:
-        if not is_success(result):
-            logger.error(get_error_message(result))
-    """
-    if isinstance(return_value, PyIVLSReturn):
-        return return_value.error_message
-    elif isinstance(return_value, tuple) and len(return_value) == 2:
-        return return_value[1].get("Error message", "")
-    return ""
 
 
 class FileManager:
@@ -855,7 +631,7 @@ class PluginException(Exception):
 
 
 class DependencyManager:
-    """Enhanced dependency manager that handles multiple dependency types and validation."""
+    """Enhanced dependency manager that handles multiple dependency types and validation. Not used for all plugins, but can be used."""
 
     def __init__(self, plugin_name: str, dependencies: Dict[str, list], widget, mapping: Dict[str, str]):
         """
@@ -893,11 +669,11 @@ class DependencyManager:
         """Set the available function dictionary from plugin system."""
         self.function_dict = function_dict
 
-    def setup(self, settings: Dict[str, Any]) -> PyIVLSReturn:
+    def setup(self, settings: Dict[str, Any]):
         """Setup the dependency manager with initial settings if needed."""
         self.last_selected = settings.copy()
         self.update_comboboxes()
-        return PyIVLSReturn.success()
+        return (0, {})
 
     def validate_dependencies(self) -> Tuple[bool, list]:
         """
@@ -1008,7 +784,7 @@ class DependencyManager:
                 filtered_dict[dependency_type] = self._function_dict[dependency_type]
         return filtered_dict
 
-    def validate_and_extract_dependency_settings(self, target_settings_dict: Dict[str, Any]) -> PyIVLSReturn:
+    def validate_and_extract_dependency_settings(self, target_settings_dict: Dict[str, Any]):
         """
         Validates all dependency selections and extracts their settings.
 
@@ -1023,10 +799,10 @@ class DependencyManager:
             target_settings_dict: Dictionary to update with dependency information
 
         Returns:
-            PyIVLSReturn: Success with dependency settings or error with message
+            Tuple[int, dict]: (status, dependency_settings)
         """
         if not self._function_dict:
-            return PyIVLSReturn.missing_dependency(f"Missing functions in {self.plugin_name} plugin. Check log", self.missing_functions)
+            return (1, f"Missing functions in {self.plugin_name} plugin. Check log")
 
         # Get selected dependencies from GUI
         selected_deps = self.get_selected_dependencies()
@@ -1035,14 +811,14 @@ class DependencyManager:
         # Validate and extract settings for each dependency type
         for dependency_type in self.dependencies.keys():
             if dependency_type not in selected_deps or not selected_deps[dependency_type]:
-                return PyIVLSReturn.missing_dependency(f"No {dependency_type} plugin selected")
+                return (1, f"No {dependency_type} plugin selected")
 
             selected_plugin = selected_deps[dependency_type]
 
             # Validate selection
             is_valid, error_msg = self.validate_selection(dependency_type, selected_plugin)
             if not is_valid:
-                return PyIVLSReturn.missing_dependency(f"{dependency_type} validation failed: {error_msg}")
+                return (1, f"{dependency_type} validation failed: {error_msg}")
 
             # Update target settings with selected plugin name
             target_settings_dict[dependency_type] = selected_plugin
@@ -1051,7 +827,7 @@ class DependencyManager:
             try:
                 status, state = self._function_dict[dependency_type][selected_plugin]["parse_settings_widget"]()
                 if status:
-                    return PyIVLSReturn.dependency_error({"Error message": state})
+                    return (1, {"Error message": state})
                 else:
                     settings = state
 
@@ -1060,10 +836,10 @@ class DependencyManager:
                 dependency_settings[settings_key] = settings
 
             except KeyError as e:
-                return PyIVLSReturn.missing_dependency(f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}")
+                return (1, f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}")
             except Exception as e:
-                return PyIVLSReturn.missing_dependency(f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}")
-        return PyIVLSReturn.success(dependency_settings)
+                return (1, f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}")
+        return (0, dependency_settings)
 
 
 class LoggingHelper(QObject):
@@ -1133,103 +909,3 @@ class LoggingHelper(QObject):
         """show info popup, if provided"""
         message = f"{self.plugin_name}: {message}"
         self.info_popup_signal.emit(message)
-
-
-class SMUHelper:
-    """FORMAT OF SMU SETTINGS:
-    # s["source"] source channel: may take values [smua, smub]
-    # s["drain"] dain channel: may take values [smub, smua]
-    # s["type"] source inject current or voltage: may take values [i ,v]
-    # s["sourcesense"] source sence mode: may take values [True - 4 wire, False - 2 wire]
-    # s["drainsense"] drain sence mode: may take values [True - 4 wire, False - 2 wire]
-
-    # s["single_ch"] single channel mode: may be True or False
-
-    # s["pulse"] set pulsed mode: may be True - pulsed, False - continuous
-    # s["pulsepause"] pause between pulses in sweep
-
-    # s['sourcenplc'] integration time in nplc units
-    # s["drainnplc"] integration time in nplc units
-
-    # s["delay"] stabilization time mode for source: may take values [True - Auto, False - manual]
-    # s["delayduration"] stabilization time duration if manual
-
-    # s["draindelay"] stabilization time mode for drain: may take values [True - Auto, False - manual]
-    # s["draindelayduration"] stabilization time duration if manual
-
-    # s["steps"] number of points in sweep
-    # s["start"] start point of sweep
-    # s["end"] end point of sweep
-    # s["limit"] limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
-
-    # s["sourcehighc"] high capacitance mode for source
-    # s["drainhighc"] high capacitance mode for drain
-
-    # s["repeat"] repeat count
-
-    # settings for drain
-    ## s["drainvoltage"] voltage on drain
-    ## s["drainlimit"] limit for current in voltage mode or for voltage in current mode
-    """
-
-    def __init__(self, plugin_name: str):
-        """Initialize the SMU helper with the plugin name."""
-        self.plugin_name = plugin_name
-
-    def smu_init(self, plugin_settings_dict, smu_settings, smu_functions) -> PyIVLSReturn:
-        """Initialize the SMU with the provided settings."""
-        s = {}
-        s["pulse"] = False
-        s["source"] = plugin_settings_dict["channel"]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
-        s["drain"] = plugin_settings_dict["drainchannel"]
-        s["type"] = "v" if plugin_settings_dict["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
-        s["single_ch"] = plugin_settings_dict["singlechannel"]  # single channel mode: may be True or False
-
-        s["sourcenplc"] = plugin_settings_dict["sourcenplc"]  # drain NPLC (may not be used in single channel mode)
-        s["delay"] = True if plugin_settings_dict["sourcedelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
-        s["delayduration"] = plugin_settings_dict["sourcedelay"]  # stabilization time duration if manual (may not be used in single channel mode)
-        s["limit"] = plugin_settings_dict["sourcelimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
-        s["sourcehighc"] = smu_settings["sourcehighc"]
-
-        s["drainnplc"] = plugin_settings_dict["drainnplc"]  # drain NPLC (may not be used in single channel mode)
-        s["draindelay"] = True if plugin_settings_dict["draindelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
-        s["draindelayduration"] = plugin_settings_dict["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
-        s["drainlimit"] = plugin_settings_dict["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
-        s["drainhighc"] = smu_settings["drainhighc"]
-
-        if plugin_settings_dict["sourcesensemode"] == "4 wire":
-            s["sourcesense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
-        else:
-            s["sourcesense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
-        if plugin_settings_dict["drainsensemode"] == "4 wire":
-            s["drainsense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
-        else:
-            s["drainsense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
-
-        # Call SMU initialization function
-        try:
-            init_result = smu_functions["smu_init"](s)
-            if init_result:  # Non-zero return indicates error
-                return PyIVLSReturn.hardware_error("error in SMU plugin can not initialize", self.plugin_name)
-        except Exception as e:
-            return PyIVLSReturn.hardware_error(f"SMU initialization failed: {str(e)}", self.plugin_name)
-
-        return PyIVLSReturn.success({"smu_config": s})
-
-
-class GuiPluginBase:
-    """TODO"""
-
-    @property
-    def settings(self):
-        return self._settings
-
-    @settings.setter
-    def settings(self, value: Dict[str, Any]):
-        """Settings setter. Could be a useful tool to validate settings before applying, or automatically updating GUI elements."""
-        if not isinstance(value, dict):
-            raise ValueError("Settings must be a dictionary")
-        self._settings = value
-
-    def __init__(self):
-        self._settings = {}
