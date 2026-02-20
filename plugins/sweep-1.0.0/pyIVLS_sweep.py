@@ -74,6 +74,8 @@ class pyIVLS_sweep_plugin:
             ???????
         """
         missing = self.sweep.fill_function_dict(function_dict)
+        if missing:
+            raise Exception("Missing functions for sweep plugin: " + str(missing))
         return missing
 
     @hookimpl
