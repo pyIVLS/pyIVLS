@@ -646,9 +646,12 @@ class Keithley2612B:
             s["spectro_check_after"] True: use IV measurement at the beginning and end of the pulse, False only at the beginning (bool)
             s['sourcenplc'] NPLC in nplc units (float)
             s['nplcms'] NPLC in ms (float)
-            s['measuredelay'] True - auto delay before measurement; Flase - manual delay before measurement (bool)
-            s['measuredelayduration'] duration of the delay before measurement if manual in ms, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
+            s['delay'] True - auto delay before measurement; Flase - manual delay before measurement (bool)
+            s['delayduration'] duration of the delay before measurement if manual in ms, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
             s['postwait'] duration of waiting after the measurement for possible non-idealities in time synchronization in ms (float)
+            s['integrationtime'] duration of spectrometer integration time in ms (float)
+            s['linen'] DIGIO line to use (int)
+            s['digiopulse'] DIGIO pulse width in ms (float)
         Returns:
             0 - no error
             ~0 - error (add error code later on if needed)
@@ -694,82 +697,52 @@ class Keithley2612B:
                     self.safewrite(f"{s['source']}.source.rangei = {ceil_to_power_of_10(s['value'])}")
                     self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
                 #Calculate duration of the pulse:
+                if s['delay']:
+                    self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
+                    s['delayduration'] = 360# ms is max delay duration for DELAY_AUTO see page 255
+                else:
+                    self.safewrite(f"{s['source']}.measure.delay = {s['delayduration']/1000:.6f}")
+                    
                 if ["spectro_check_after"]:
-                    if 2*(delayduration+NPLC+postwait)>INTEGRATION_TIME:
-                       pulse = 2*(delayduration + NPLC+postwait)
+                    if 2*(s['delayduration']+s['nplcms']+s['postwait'])>s['integrationtime']:
+                        pulseduration = 2*(s['delayduration']+s['nplcms']+s['postwait'])
                     else:
-       pulse = INTEGRATION_TIME + postwait
-    ###### trigger.timer[2] for the second IV measurement
-    trigger.timer[2].delay = pulse - (delayduration +NPLC+postwait) #duration of wait before second measurement
-    trigger.timer[2].count = 1
-    trigger.timer[2].passthrough = false ## if true the timer will trigger immediately after run
-    trigger.blender[1].orenable = true
-    trigger.blender[1].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID
-    trigger.blender[1].stimulus[2] = trigger.timer[2].EVENT_ID
-    f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.blender[1].EVENT_ID
-else:
-    trigger.blender[1].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID
-    if (delayduration +NPLC+postwait)>INTEGRATION_TIME:
-        pulse = NPLC + postwait + delayduration
-    else:
-        pulse = INTEGRATION_TIME + postwait
-    f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID
-                ####set pulse mode for single channel
-                if not s["pulse"]:
-                    self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_HOLD")
-                #### by default smuX.trigger.source.stimulus = 0, i.e. next set point in sweep will be set py source without waiting for an event (7-250, 595)
+                        pulseduration = s['integrationtime'] + s['postwait']
+                    ###### trigger.timer[2] for the second IV measurement
+                    self.safewrite(f"trigger.timer[2].delay = {(pulseduration - (s['delayduration']+s['nplcms']+s['postwait']))/1000:.6f}") #duration of wait before second measurement in s
+                    self.safewrite(f"trigger.timer[2].count = 1")
+                    self.safewrite(f"trigger.timer[2].passthrough = false") ## if true the timer will trigger immediately after run
+                    self.safewrite(f"trigger.blender[1].orenable = true")
+                    self.safewrite(f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                    self.safewrite(f"trigger.blender[1].stimulus[2] = trigger.timer[2].EVENT_ID")
+                    self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
                 else:
-                    self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
-                    self.safewrite(f"trigger.timer[1].delay = {s['pulsepause']}")
-                    self.safewrite("trigger.timer[1].passthrough = false")
-                    self.safewrite("trigger.timer[1].count = 1")
-                    self.safewrite("trigger.blender[1].orenable = true")
-                    self.safewrite(f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.SWEEPING_EVENT_ID")
-                    self.safewrite(f"trigger.blender[1].stimulus[2] = {s['source']}.trigger.PULSE_COMPLETE_EVENT_ID")
-                    self.safewrite("trigger.timer[1].stimulus = trigger.blender[1].EVENT_ID")
-                    self.safewrite(f"{s['source']}.trigger.source.stimulus = trigger.timer[1].EVENT_ID")
-
-                # see trigger models on pp 3-35-36 (172-173) of the manual
-                self.safewrite(f"{s['source']}.trigger.count = {s['steps']}")
-                self.safewrite(f"{s['source']}.trigger.arm.count = {s['repeat']}")
-                self.safewrite(f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})")
-
-                #### initialize actions for sweep (see trigger models on pp 3-35-36 (172-173) of the manual)
-                self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
-                self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE")
-                self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")
-                self.safewrite(f"{s['source']}.trigger.endsweep.action = {s['source']}.SOURCE_IDLE")
-                self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
-                if s["single_ch"]:
-                    self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
-
-                ####################setting up drain
-                else:
-                    self.safewrite(f"{s['drain']}.nvbuffer1.clear()")
-                    self.safewrite(f"{s['drain']}.nvbuffer2.clear()")
-
-                    self.safewrite(f"{s['drain']}.trigger.count = {s['steps']}")
-                    self.safewrite(f"{s['drain']}.trigger.arm.count = {s['repeat']}")
-
-                    #### initialize sweep actions
-                    self.safewrite(f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)")
-                    self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE")
-                    self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")  # do not sweep the source (see 7-243 or 590 of the manual)
-                    self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
-                    self.safewrite("trigger.blender[2].orenable = false")
-                    self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
-                    self.safewrite(f"trigger.blender[2].stimulus[2] = {s['drain']}.trigger.MEASURE_COMPLETE_EVENT_ID")
-                    self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID")
-
-                    self.safewrite(f"{s['drain']}.source.func = {s['drain']}.OUTPUT_DCVOLTS")
-                    self.safewrite(f"{s['drain']}.source.levelv = {s['drainvoltage']}")
-                    self.safewrite(f"{s['drain']}.source.limiti = {s['drainlimit']}")
-
-                    # Turn on the source and trigger the sweep.
-                    self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_ON")
-                    self.safewrite(f"{s['drain']}.trigger.initiate()")
-
-                # Turn on the source and trigger the sweep.
+                    if s['delayduration']+s['nplcms']+s['postwait'])>s['integrationtime']:
+                        pulseduration = s['delayduration']+s['nplcms']+s['postwait']
+                    else:
+                        pulseduration = s['integrationtime'] + s['postwait']
+                    self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                #Configure timer parameters to output a single pulseduration length pulse.
+                self.safewrite(f"trigger.timer[1].delay = {pulseduration/1000:.6f}") #set duration of pulse in seconds
+                self.safewrite(f"trigger.timer[1].count = 1")
+                self.safewrite(f"trigger.timer[1].passthrough = false") ## if true the timer will trigger immediately after run
+                #Trigger timer when the SMU sets the power
+                self.safewrite(f"trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
+                #Configure source action to start immediately.
+                self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")                   
+                #Configure endpulse action to achieve a pulse.
+                self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
+                self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
+                #Configure digital I/O lineN to output a extPulse ms
+                ## according to THORLABD CCS p.65, the signal should be TTL, > 0.5 us, delay <8.25 us
+                ## as the signal is TTL let's consider it standard rising-edge trigger
+                self.safewrite(f"digio.trigger[{s['linen']}].mode = digio.TRIG_RISINGM") ### p.397 of Keithley manual: the only option for direct assertion
+                self.safewrite(f"digio.trigger[{s['linen']}].pulsewidth = {s['digiopulse']/1000:.6f}")
+                self.safewrite(f"digio.trigger[{s['linen']}].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                #Set appropriate counts of trigger model.
+                self.safewrite(f"{s['source']}.trigger.count = 1")
+                self.safewrite(f"{s['source']}.trigger.arm.count = 1")
+                #Turn on output and trigger SMU to output a single pulse.
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
                 self.safewrite(f"{s['source']}.trigger.initiate()")
                 return 0
@@ -778,9 +751,6 @@ else:
                 # if something fails, abort the measurement and turn off the source.
                 self.safewrite(f"{s['source']}.abort()")
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
-                if not s["single_ch"]:
-                    self.safewrite(f"{s['drain']}.abort()")
-                    self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
                 print(f"Caught exception during keithley_run_sweep : {e}")
                 raise e
                 return 1

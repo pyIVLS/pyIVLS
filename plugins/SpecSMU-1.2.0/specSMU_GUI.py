@@ -7,6 +7,13 @@ Standalone functionality may be added later.
 
 ivarad
 25.06.10
+
+v1.2
+HW trigger added
+NPLC time bug corrected (previously smu recieved NPLC time in ms but not in nplc units)
+
+ivarad
+26.02.20
 """
 
 import os
@@ -45,6 +52,7 @@ class specSMU_GUI(QWidget):
                 "parse_settings_widget",
                 "smu_connect",
                 "smu_init",
+                "smu_abort",
                 "smu_outputOFF",
                 "smu_outputON",
                 "smu_disconnect",
@@ -65,8 +73,9 @@ class specSMU_GUI(QWidget):
                 "spectrometerGetScan",
             ],
         }
-        self.settingsWidget = Ui_Form()
-        self.settingsWidget.setupUi(self)
+        # Load the settings based on the name of this file.
+        self.settingsWidget = uic.loadUi(self.path + "specSMU_settingsWidget.ui")
+        
         self.settings = {}
         self.function_dict = {}
         self.last_integration_time: Optional[float] = None  # s
@@ -140,10 +149,20 @@ class specSMU_GUI(QWidget):
             self.settingsWidget.label_pulsedPause.setEnabled(False)
             self.settingsWidget.label_pulsedPause_2.setEnabled(False)
             self.settingsWidget.lineEdit_Pause.setEnabled(False)
+            self.settingsWidget.groupBox_HWtrigger.setEnabled(False)
         elif mode == "Pulsed":
             self.settingsWidget.label_pulsedPause.setEnabled(True)
             self.settingsWidget.label_pulsedPause_2.setEnabled(True)
             self.settingsWidget.lineEdit_Pause.setEnabled(True)
+            self.settingsWidget.groupBox_HWtrigger.setEnabled(False)
+        elif mode == "HW pulse":
+            #### this should also update HW tigger in spectrometer plugin
+            #### however, there will be an issue with initialization of GUI as it is not clear what plugin will be loaded first
+            #### for now externaltrigger of spectrometer is updated only in setSettings
+            self.settingsWidget.label_pulsedPause.setEnabled(True)
+            self.settingsWidget.label_pulsedPause_2.setEnabled(True)
+            self.settingsWidget.lineEdit_Pause.setEnabled(True)
+            self.settingsWidget.groupBox_HWtrigger.setEnabled(True)
 
         self.update()
 
@@ -281,6 +300,11 @@ class specSMU_GUI(QWidget):
         spectro_pause_time = settings.get("spectro_pause_time", 1.0)
         self.settingsWidget.spectroPauseSpinBox.setValue(float(spectro_pause_time))
 
+        # set HW trig
+        self.settingsWidget.lineEdit_HWtrig_pulse.setText(f"{settings.get("hwtrigpulse", 0.01)}")
+        self.settingsWidget.lineEdit_powerPulse.setText(f"{settings.get("hwtrigpulse", 0.5)}")
+        self.settingsWidget.spinBox_digio.setValue(int(settings.get("ioline", 4)))
+        
         # Update GUI state
         self._update_GUI_state()
 
@@ -382,6 +406,7 @@ class specSMU_GUI(QWidget):
             self.settings["spectro_use_last_integ"] = raw_settings["spectro_use_last_integ"]  # bool
             self.settings["drainchannel"] = ""  # PLACEHOLDER FIXME:
 
+
             # Parse numeric fields
             self.settings["start"] = float(raw_settings["start"])
             self.settings["end"] = float(raw_settings["end"])
@@ -392,6 +417,15 @@ class specSMU_GUI(QWidget):
             self.settings["pause"] = float(raw_settings["pause"])
             self.settings["spectro_pause_time"] = float(raw_settings["spectro_pause_time"])  # should already be float from double spin box
             self.settings["repeat"] = int(raw_settings["repeat"])  # will already be an int from spin box
+            self.settings["hwtrigpulse"] = float(raw_settings["hwtrigpulse"])
+            if self.settings["hwtrigpulse"]<0:
+                self._log_verbose(f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative")
+                return [1, {"Error message": f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative"}]
+            self.settings["powerpulseext"] = float(raw_settings["powerpulseext"])
+            if self.settings["powerpulseext"]<0:
+                self._log_verbose(f"Value error in SpecSMU plugin: extension of the power pulse can not be negative")
+                return [1, {"Error message": f"Value error in SpecSMU plugin: extension of the power pulse can not be negative"}]
+            self.settings.["ioline"] = int(raw_settings["ioline"]) # should already be an int from spinbox
 
             self._log_verbose("Settings successfully parsed and validated")
         except ValueError as e:
@@ -429,8 +463,12 @@ class specSMU_GUI(QWidget):
     def setSettings(self, settings):  #### settings from sequenceBuilder
         # the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
         self.settings = {}
-        self.settings = copy.deepcopy(settings)
+        self.settings = self.settings.update(copy.deepcopy(settings))
         self.smu_settings = self.settings["smu_settings"]
+        if self.settings["mode"] == "hw pulse":
+                self.settings["spectrometer_settings"]["externaltrigger"] = True
+        else:
+                self.settings["spectrometer_settings"]["externaltrigger"] = False
         self.spectrometer_settings = self.settings["spectrometer_settings"]
         spectro_name = self.settings["spectrometer"]
         self.function_dict["spectrometer"][spectro_name]["setSettings"](self.spectrometer_settings)
@@ -469,6 +507,7 @@ class specSMU_GUI(QWidget):
             self.logger.log_error("")  # log error includes traceback already
             return [1, {"Error message": "SpecSMU plugin: error in seq implementation", "Exception": str(e)}]
         finally:
+            self.function_dict["smu"][smu_name]["smu_abort"](self.settings["channel"]) #in case of HW trig, as formally it uses a sweep
             self.function_dict["smu"][smu_name]["smu_outputOFF"]()
             self.function_dict["smu"][smu_name]["smu_disconnect"]()
             self.function_dict["spectrometer"][spectro_name]["spectrometerDisconnect"]()
@@ -483,7 +522,7 @@ class specSMU_GUI(QWidget):
         s["type"] = "v" if self.settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
         s["single_ch"] = self.settings["singlechannel"]  # single channel mode: may be True or False
 
-        s["sourcenplc"] = self.settings["nplc"]  # drain NPLC (may not be used in single channel mode)
+        s["sourcenplc"] = self.settings["nplc"] * 0.001 * self.smu_settings["lineFrequency"] # drain NPLC (may not be used in single channel mode)
         s["delay"] = True if self.settings["delaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
         s["delayduration"] = self.settings["delay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["limit"] = self.settings["limit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
@@ -513,8 +552,9 @@ class specSMU_GUI(QWidget):
         self._log_verbose("Entering _SpecSMUImplementation")
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
-        status, state = self.smuInit()
-        assert status == 0, f"Error in initializing SMU: {state}"
+        if not self.settings["mode"] == "hw trig":
+            status, state = self.smuInit()
+            assert status == 0, f"Error in initializing SMU: {state}"
         smuLoop = self.settings["points"]
         if smuLoop > 1:
             smuChange = (self.settings["end"] - self.settings["start"]) / (smuLoop - 1)
@@ -693,4 +733,7 @@ class specSMU_GUI(QWidget):
         settings["spectro_pause_time"] = self.settingsWidget.spectroPauseSpinBox.value()
         settings["spectro_use_last_integ"] = self.settingsWidget.spectroUseLastInteg.isChecked()
         settings["repeat"] = self.settingsWidget.repeat_spinbox.value()
+        settings["hwtrigpulse"] = self.settingsWidget.lineEdit_HWtrig_pulse.text()
+        settings["powerpulseext"] = self.settingsWidget.lineEdit_powerPulse.text()
+        settings["ioline"] = self.settingsWidget.spinBox_digio.value()
         return settings
