@@ -761,9 +761,28 @@ class sweepGUI(QObject):
         [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
         if status:
             return [status, message]
-        self._sweepImplementation()
-        self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
-        return [0, "sweep finished"]
+        # init exception flag
+        exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
+        try:
+            self._sweepImplementation()
+        except sweepException as e:
+            self.logger.log_info(f"{e}")
+            exception = 1
+
+        except Exception as e:
+            self.logger.log_info(f"sweep plugin implementation stopped because of unexpected exception: {e}")
+            exception = 3
+            # raise the exception again to be handled in the main implementation and to trigger the abort of the smu
+            raise e
+        finally:
+            # abort if in exception state
+            if exception > 1:
+                self.function_dict["smu"][self.settings["smu"]]["smu_abort"](self.settings["channel"])
+                if not self.settings["singlechannel"]:
+                    self.function_dict["smu"][self.settings["smu"]]["smu_abort"](self.settings["drainchannel"])
+            self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
+            self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
+            return [exception, "sweep finished with exception" if exception else "sweep finished successfully"]
 
     def _sequenceImplementation(self):
         """
