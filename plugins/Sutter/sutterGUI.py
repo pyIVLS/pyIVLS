@@ -37,6 +37,26 @@ drain nplc field should be numeric"}]
 """
 
 
+class sutter_thread(threading.Thread):
+    """Unused for now"""
+
+    def __init__(self, target, args=()):
+        super().__init__()
+        self._target = target
+        self._args = args
+        self._stop_event = threading.Event()
+
+    def run(self):
+        try:
+            self._target(*self._args)
+        except ThreadStopped:
+            pass  # Allow thread to exit gracefully on stop
+
+    def stop(self):
+        self._stop_event.set()
+        raise ThreadStopped()  # Raise exception to break out of any blocking calls
+
+
 def handle_sutter_exceptions(func):
     """Decorator to handle Sutter-specific exceptions while letting ThreadStopped pass through"""
 
@@ -46,6 +66,7 @@ def handle_sutter_exceptions(func):
             return func(self, *args, **kwargs)
         except ThreadStopped:
             # Re-raise ThreadStopped without catching it
+            self.mm_stop()  # Ensure the device is stopped if the thread is stopped
             raise
         except InterruptedError as e:
             # Handle move interruption as a successful stop operation
@@ -93,12 +114,9 @@ class SutterGUI(QObject):
     GREEN_STYLE = ConnectionIndicatorStyle.GREEN_CONNECTED.value
     RED_STYLE = ConnectionIndicatorStyle.RED_DISCONNECTED.value
 
-    # FIXME: kinda stupid to import the names here
-    def __init__(self, name, function):
+    def __init__(self):
         super().__init__()
         self.hal = Mpc325()
-        self.plugin_name = name
-        self.plugin_function = function
         self.logger = LoggingHelper(self)
         self.cl = CloseLockSignalProvider()
         self.settings = {}
@@ -535,8 +553,8 @@ class SutterGUI(QObject):
             x, y, z: Target coordinates. If None, the current position for that axis is maintained.
         """
         # Perform direct move
-        self.hal.move(x, y, z)
-
+        temp_thread = threading.Thread(target=self.hal.move, args=(x, y, z))
+        temp_thread.start()
         return [0, {"Error message": "Sutter moved"}]
 
     @public
