@@ -12,6 +12,12 @@ This plugin should have double functionality
 
 Because of (i) it requires to send log and message signals, i.e. it is a child of QObject
 
+IMPORTANT:
+settings["integrationtime"] is in s
+value of integrationtime in tlccs.ini is in ms
+value of integration time in settings comming from JSON from seqBuilder is the same as settings["integrationtime"], i.e. s
+value of guessIntTime is in ms
+
 version 0.2
 2025.03.07
 ivarad
@@ -25,7 +31,10 @@ ivarad
 version 0.4
 added spectrometerGetScan as a safer way to start a scan and get a spectrum
 
-
+version 0.5
+implemented hw trigger in auto time
+2026 02 23
+ivarad
 """
 
 from typing import Optional
@@ -63,6 +72,7 @@ class TLCCS_GUI(QObject):
         "spectrometerStartScan",
         "spectrometerGetScan",
         "spectrometerGetSpectrum",
+        "spectrometerTrigScan",
         "createFile",
         "getAutoTime",
     ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
@@ -372,6 +382,13 @@ class TLCCS_GUI(QObject):
                 if status:
                     self.logger.log_debug(f"getAutoTime: Failed to set integration time. {status}, {info}")
                     return [status, info]
+                # charging the spectrometer in case of external trigger
+                if self.settings["externaltrigger"]:
+                    self.logger.log_debug("Charging a new  HW trig scan.")
+                    self.drv.start_scan_ext_trigger()
+                    time.sleep(0.02) #just a precaution, duration does not mean anything specific, does not affect the measurement as smu is off
+                    mydict = external_action_args[0]
+                    mydict['integrationtime'] = guessIntTime #in ms
                 # external action if needed
                 if external_action:
                     self.logger.log_debug("getAutoTime: Executing external action.")
@@ -747,17 +764,17 @@ class TLCCS_GUI(QObject):
         self.settings = copy.deepcopy(settings)
         self.settings = {key.lower(): value for key, value in self.settings.items()}
 
-    def get_current_gui_settings(self):
-        """Reads the current settings from the settingswidget, returns a dict.
-        Returns:
-            tuple: (status, settings_dict)
-        """
-        [status, info] = self.parse_settings_widget()
-        if status:
-            return [status, info]
-        retset = self.settings.copy()
-        retset["integrationtime"] = int(self.settings["integrationtime"] * 1000)
-        return [0, retset]
+#    def get_current_gui_settings(self):
+#        """Reads the current settings from the settingswidget, returns a dict.
+#        Returns:
+#            tuple: (status, settings_dict)
+#        """
+#        [status, info] = self.parse_settings_widget()
+#        if status:
+#            return [status, info]
+#        retset = self.settings.copy()
+#        retset["integrationtime"] = int(self.settings["integrationtime"] * 1000)
+#        return [0, retset]
 
     ########Functions
     ########device functions
@@ -807,6 +824,16 @@ class TLCCS_GUI(QObject):
         try:
             intTime = self.drv.get_integration_time()
             return [0, intTime]
+        except ThreadStopped:
+            pass
+        except Exception as e:
+            return [4, {"Error message": f"{e}"}]
+
+    def spectrometerTrigScan(self):
+        # arm the spectrometer to perform a scan on external trigger
+        try:
+            self.drv.start_scan_ext_trigger()
+            return [0, "OK"]
         except ThreadStopped:
             pass
         except Exception as e:
@@ -871,8 +898,11 @@ class TLCCS_GUI(QObject):
         try:
             self.logger.log_debug("combined start / fetch to get spectrum")
             # No scan running, start a new scan
-            self.logger.log_debug("Starting new scan.")
-            self.drv.start_scan()
+            if not self.settings["externaltrigger"]:
+                self.logger.log_debug("Starting a new scan.")
+                self.drv.start_scan()
+            else:
+                self.logger.log_debug("External trigger should be already charged before, only reading the data out")
             self.logger.log_debug(f"Device status: {self.drv.get_device_status()} directly after scan start")
             data = self.drv.get_scan_data()
             self.logger.log_debug(f"Device status immediately after calling get_scan_data: {self.drv.get_device_status()}")
