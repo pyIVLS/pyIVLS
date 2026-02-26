@@ -262,7 +262,7 @@ class affineMoveGUI(QObject):
             self.logger.log_warn(f"Dependency validation failed: {state}")
             return None, None, None
 
-        func_dict = self.dm.get_function_dict_for_dependencies()
+        func_dict = self.dm.function_dict
         mm_functions = func_dict["micromanipulator"]
         camera_functions = func_dict["camera"]
         positioning_functions = func_dict["positioning"]
@@ -706,7 +706,7 @@ class affineMoveGUI(QObject):
     def setup(self, settings):
         """Sets up the GUI for the plugin. This function is called by hook to initialize the GUI."""
         self.logger.log_debug("Setting up affineMove GUI")
-        self.dm.setup(settings)
+        self.dm.initialize_dependency_selection(settings)
 
         # Store settings internally (maintain .ini format)
         self.settings = copy.deepcopy(settings)

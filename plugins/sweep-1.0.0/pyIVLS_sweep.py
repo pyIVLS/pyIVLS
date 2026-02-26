@@ -71,12 +71,10 @@ class pyIVLS_sweep_plugin:
         """provides a list of available public functions from other plugins as a nested list
 
         Returns:
-            ???????
+            dict: name, missing functions
         """
         missing = self.sweep.fill_function_dict(function_dict)
-        if missing:
-            raise Exception("Missing functions for sweep plugin: " + str(missing))
-        return missing
+        return {self.name: missing}
 
     @hookimpl
     def get_log(self, args=None):

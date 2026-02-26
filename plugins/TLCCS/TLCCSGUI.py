@@ -43,7 +43,7 @@ from MplCanvas import MplCanvas
 from threadStopped import ThreadStopped, thread_with_exception
 from threading import Lock
 import copy
-from plugins.plugin_components import LoggingHelper, CloseLockSignalProvider
+from plugin_components import LoggingHelper, CloseLockSignalProvider
 from TLCCS import CCSDRV
 
 
@@ -518,14 +518,14 @@ class TLCCS_GUI(QObject):
             return False
 
         self.logger.log_debug(f"populating GUI from settings")
-        #values from autoTime settings
+        # values from autoTime settings
         set_combobox_value(self.settingsWidget.getIntegrationTime_combo, self.settings["integrationtimetype"])
         self.settings["saveattempts_check"] = to_bool(self.settings["saveattempts_check"])
         self.settingsWidget.saveAttempts_check.setChecked(self.settings["saveattempts_check"])
         self.settings["useintegrationtimeguess"] = to_bool(self.settings["useintegrationtimeguess"])
         self.settingsWidget.useIntegrationTimeGuess_check.setChecked(self.settings["useintegrationtimeguess"])
 
-        #values from saveData settings
+        # values from saveData settings
         self.settingsWidget.lineEdit_path.setText(self.settings["address"])
         self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
         self.settingsWidget.lineEdit_sampleName.setText(self.settings["comment"])
@@ -534,11 +534,11 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.extTriggerCheck.setChecked(self.settings["externaltrigger"])
         self.settingsWidget.lineEdit_sampleName.setText(self.settings["samplename"])
 
-        #values from integrationTime settings
+        # values from integrationTime settings
         self.settings["integrationtime"] = int(self.settings["integrationtime"])
-        self.settingsWidget.lineEdit_Integ.setText(f"{self.settings["integrationtime"]*1000}")
+        self.settingsWidget.lineEdit_Integ.setText(f"{self.settings['integrationtime'] * 1000}")
 
-        #values from spectrumCorrection
+        # values from spectrumCorrection
         self.settings["usecorrection"] = to_bool(self.settings["usecorrection"])
         self.settingsWidget.correctionCheck.setChecked(self.settings["usecorrection"])
 

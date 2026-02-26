@@ -295,6 +295,8 @@ class specSMU_GUI(QWidget):
     ########Functions
     ########plugins interraction
 
+    
+
     def set_dependencies(self, dependencies: list) -> None:
         """
         Set the list of plugin dependencies (e.g., available SMU and spectrometer types).

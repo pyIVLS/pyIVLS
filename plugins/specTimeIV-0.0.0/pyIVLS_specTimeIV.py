@@ -94,9 +94,9 @@ class pyIVLS_specTimeIV_plugin:
         Returns:
             dict: name, widget
         """
-        pruned = {function_dict_key: function_dict[function_dict_key] for function_dict_key in self.dependencies if function_dict_key in function_dict}
-        self.pluginClass.dependency_manager.function_dict = pruned
-        return self.pluginClass.dependency_manager.function_dict
+        is_valid, missing = self.pluginClass.dependency_manager.set_available_dependency_functions(function_dict)
+
+        return {self.name: missing}
 
     @hookimpl
     def get_plugin_settings(self, args=None):

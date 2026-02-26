@@ -10,7 +10,7 @@ from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, Qt, pyqtSlot
 from PyQt6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
-from plugins.plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, filter_to_valid_methods
+from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, filter_to_valid_methods
 from sweepCommon import create_file_header, create_sweep_reciepe
 from threadStopped import (  # this should be moved to some pluginsShare
     ThreadStopped,

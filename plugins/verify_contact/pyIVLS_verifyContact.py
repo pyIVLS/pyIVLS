@@ -75,9 +75,9 @@ class pyIVLS_verifyContact_plugin:
         Returns: Missing methods
         """
         # set functions to DependencyManager
-        self.plg.dm.set_function_dict(function_dict)
-        missing, list = self.plg.dm.validate_dependencies()
-        return list
+        is_valid, missing = self.plg.dm.set_available_dependency_functions(function_dict)
+
+        return {self.name: missing}
 
     @hookimpl
     def get_plugin_settings(self, args=None):

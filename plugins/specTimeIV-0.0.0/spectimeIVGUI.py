@@ -17,19 +17,16 @@ from PyQt6 import uic
 from PyQt6.QtWidgets import QVBoxLayout, QFileDialog, QWidget
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from threadStopped import thread_with_exception, ThreadStopped
-from plugin_components import LoggingHelper, FileManager, GuiMapper, DependencyManager, PyIVLSReturn, DataOrder, PluginException
+from plugin_components import LoggingHelper, FileManager, DataOrder, PluginException, DependencyManager
 
 import pandas as pd
 
 
 class specTimeIVGUI:
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = ["parse_settings_widget", "set_running", "setSettings", "sequenceStep", "set_gui_from_settings"]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
-
     ########Functions
     def __init__(self):
         # List of functions from another plugins required for functioning
-        self.dependency: dict[str, list[str]] = {
+        self.dependency = {
             "smu": [
                 "parse_settings_widget",
                 "smu_connect",
@@ -83,9 +80,6 @@ class specTimeIVGUI:
             },
         )
 
-        self.dynamic_mapper = GuiMapper(self.settingsWidget, self.__class__.__name__)
-        self._setup_dynamic_mappings()
-
     def _connect_signals(self):
         self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
         self.settingsWidget.stopButton.clicked.connect(self._stopAction)
@@ -101,7 +95,7 @@ class specTimeIVGUI:
 
     def _update_smu_channels(self):
         self.logger.log_debug("Updating SMU channels in the GUI")
-        smu_plugin = self.dependency_manager.get_selected_dependencies().get("smu")
+        smu_plugin = self.dependency_manager.get_selected_dependency_plugins().get("smu")
         if smu_plugin:
             # fetch channels from the selected SMU plugin and update the channel combobox
             channels = self.dependency_manager.function_dict["smu"][smu_plugin]["smu_channelNames"]()
@@ -178,10 +172,30 @@ class specTimeIVGUI:
             "autosaveinterval": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Auto save interval must be positive"},
             "sourcelimit": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Source limit must be positive"},
             "drainlimit": {"validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Drain limit must be positive"},
-            "sourcenplc": {"converter": lambda x: float(x) * 0.001 * line_frequency, "display_converter": lambda x: float(x) / (0.001 * line_frequency), "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Source NPLC must be positive"},
-            "sourcedelay": {"converter": lambda x: float(x) / 1000, "display_converter": lambda x: float(x) * 1000, "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Source delay must be positive"},
-            "drainnplc": {"converter": lambda x: float(x) * 0.001 * line_frequency, "display_converter": lambda x: float(x) / (0.001 * line_frequency), "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Drain NPLC must be positive"},
-            "draindelay": {"converter": lambda x: float(x) / 1000, "display_converter": lambda x: float(x) * 1000, "validator": lambda x: isinstance(x, (float)) and x > 0, "error_message": "Drain delay must be positive"},
+            "sourcenplc": {
+                "converter": lambda x: float(x) * 0.001 * line_frequency,
+                "display_converter": lambda x: float(x) / (0.001 * line_frequency),
+                "validator": lambda x: isinstance(x, (float)) and x > 0,
+                "error_message": "Source NPLC must be positive",
+            },
+            "sourcedelay": {
+                "converter": lambda x: float(x) / 1000,
+                "display_converter": lambda x: float(x) * 1000,
+                "validator": lambda x: isinstance(x, (float)) and x > 0,
+                "error_message": "Source delay must be positive",
+            },
+            "drainnplc": {
+                "converter": lambda x: float(x) * 0.001 * line_frequency,
+                "display_converter": lambda x: float(x) / (0.001 * line_frequency),
+                "validator": lambda x: isinstance(x, (float)) and x > 0,
+                "error_message": "Drain NPLC must be positive",
+            },
+            "draindelay": {
+                "converter": lambda x: float(x) / 1000,
+                "display_converter": lambda x: float(x) * 1000,
+                "validator": lambda x: isinstance(x, (float)) and x > 0,
+                "error_message": "Drain delay must be positive",
+            },
         }
 
     ########Functions
@@ -372,23 +386,6 @@ class specTimeIVGUI:
 
     ########Functions
     ########plugins interraction
-    def _getPublicFunctions(self, function_dict):
-        # Set function dict in dependency manager (this will automatically update comboboxes)
-        self.dependency_manager.function_dict = function_dict
-
-        # Validate dependencies
-        is_valid, missing_functions = self.dependency_manager.validate_dependencies()
-
-        if is_valid:
-            self.logger.log_debug("All dependencies satisfied")
-            self.settingsWidget.runButton.setEnabled(True)
-            self.missing_functions = []
-        else:
-            self.logger.log_warn(f"Missing dependencies: {missing_functions}")
-            self.settingsWidget.runButton.setDisabled(True)
-            self.missing_functions = missing_functions
-
-        return self.missing_functions
 
     def setSettings(self, settings):
         """Sets the settings for the plugin. Workflow from seqBuilder:
@@ -422,7 +419,11 @@ class specTimeIVGUI:
         """
         # if the plugin type matches the requested type, return the functions
 
-        methods = {method: getattr(self, method) for method in dir(self) if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods}
+        methods = {
+            method: getattr(self, method)
+            for method in dir(self)
+            if callable(getattr(self, method)) and not method.startswith("__") and not method.startswith("_") and method not in self.non_public_methods and method in self.public_methods
+        }
         return methods
 
     ########Functions

@@ -3,13 +3,14 @@ import importlib
 import sys
 from configparser import ConfigParser
 from os.path import dirname, sep, basename
+from typing import Optional
 
 import pluggy
 
 # Import to communicate with the GUI
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from plugins.pyIVLS_hookspec import pyIVLS_hookspec
+from components.pyIVLS_hookspec import pyIVLS_hookspec
 
 
 class pyIVLS_container(QObject):
@@ -70,7 +71,7 @@ class pyIVLS_container(QObject):
                     if self._register(plugin):
                         changes_applied = True
                 else:
-                    if self._unregister(plugin):
+                    if self._unregister(plugin, reg_list=plugins_to_activate):
                         changes_applied = True
 
         # update .ini with the hidden mode changes
@@ -362,7 +363,7 @@ class pyIVLS_container(QObject):
             sys.path.remove(self.path + "plugins" + sep + self.config[plugin]["address"])
             return False
 
-    def _unregister(self, plugin: str) -> bool:
+    def _unregister(self, plugin: str, reg_list: Optional[list] = None) -> bool:
         """unregisters a plugin with the plugin manager. Checks if the plugin is a dependency for another plugin.
         Handles errors.
 
@@ -381,7 +382,7 @@ class pyIVLS_container(QObject):
                 print(f"Trying to unregister plugin: {plugin} with name {plugin_name}. Instance: {plugin_instance}")
             # is the plugin registered?
             if plugin_instance is not None:
-                is_dependency, dependent_plugin = self._check_dependencies_unregister(plugin)
+                is_dependency, dependent_plugin = self._check_dependencies_unregister(plugin, reg_list=reg_list)
 
                 # check if the plugin is a dependency for another plugin
                 if is_dependency:
@@ -442,7 +443,13 @@ class pyIVLS_container(QObject):
                         # Add to existing nested structure
                         function_map[plugin_function][plugin_name] = methods
 
-        self.pm.hook.set_function(function_dict=function_map)
+        ret = self.pm.hook.set_function(function_dict=function_map)
+        for plg_ret in ret:
+            for plugin_name, missing in plg_ret.items():
+                if missing:
+                    self.emit_error(f"Plugin {plugin_name} is missing dependencies: {missing}")
+                    self.show_message_signal.emit(f"Plugin {plugin_name} is missing one of the following dependencies: {missing}. Running without these dependencies WILL cause errors.")
+
         self.seqComponents_signal.emit(self.get_plugin_dict(), plugin_public_functions)
 
     def getLogSignals(self):
@@ -521,7 +528,7 @@ class pyIVLS_container(QObject):
 
         return plugins_to_activate
 
-    def _check_dependencies_unregister(self, plugin: str) -> tuple[bool, str]:
+    def _check_dependencies_unregister(self, plugin: str, reg_list: Optional[list] = None) -> tuple[bool, str]:
         """Checks if the plugin can be unregistered based on dependencies and type.
 
         Args:
@@ -541,6 +548,9 @@ class pyIVLS_container(QObject):
 
         is_last_of_type = len(active_plugins_of_type) == 1
 
+        print(f"Checking if plugin {plugin} can be unregistered. Active plugins of type '{plugin_type}': {active_plugins_of_type}. Is last of type: {is_last_of_type}")
+        print(f"Registered plugins: {self.pm.list_name_plugin()}")
+        print(f"reg_list: {reg_list}")
         # Check if any other registered plugin depends on this type of plugin
         for section in self.config.sections():
             if section == plugin:
@@ -550,9 +560,17 @@ class pyIVLS_container(QObject):
                 if self.pm.get_plugin(name) is not None:
                     dependencies = self.config[section].get("dependencies", "").split(",")
                     if plugin_type in dependencies:
+                        print(f"Plugin {section} depends on {plugin} (type: {plugin_type}).")
                         # If this is the last plugin of its type, return True and the dependent plugin
                         if is_last_of_type:
-                            return True, section
+                            print(f"Plugin {plugin} is the last of its type. Unregistering it will affect {section}.")
+                            # if reg_list does not contain the plugin that depends on this, we can safely unload this plugin
+                            # since the plugin that this is a dependency for is being unloaded aswell.
+                            dependent_plugin = section
+                            if reg_list is not None and dependent_plugin not in reg_list:
+                                print(f"Plugin {dependent_plugin} is not in the list of plugins to activate, so it will be unloaded. Unregistering {plugin} is safe.")
+                                continue
+                            return True, dependent_plugin
 
         # If there are other plugins of the same type, unregistration is not conflicted
         return False, ""
