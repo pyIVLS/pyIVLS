@@ -155,7 +155,8 @@ def create_sweep_reciepe(settings, settings_smu):
     #settings_smu["drainfiltertype"] == "Off":
         s["sourcefiltertype"] = "FILTER_OFF"
     s["sourcedelayfactor"] = settings_smu["sourcedelayfactor"]
-    s["drainnplc"] = settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
+    s["drainnplc"] = settings["drainnplc"] * settings_smu["lineFrequency"] #see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
+    #s["drainnplc"] = settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
     s["draindelay"] = settings["draindelaymode"]  # stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)
     s["draindelayduration"] = settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
     s["drainlimit"] = settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
@@ -203,7 +204,7 @@ def create_sweep_reciepe(settings, settings_smu):
             s["drainsense"] = loopsensedrain[sensecnt]  # drain sence mode: may take values [True - 4 wire, False - 2 wire]
             if not (settings["mode"] == "pulsed"):
                 s["pulse"] = False  # set pulsed mode: may be True - pulsed, False - continuous
-                s["sourcenplc"] = settings["continuousnplc"]  # integration time in nplc units
+                s["sourcenplc"] = settings["continuousnplc"] * settings_smu["lineFrequency"]#see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
                 s["delay"] = settings["continuousdelaymode"]  # stabilization time mode for source: may take values [True - Auto, False - manual]
                 s["delayduration"] = settings["continuousdelay"]  # stabilization time duration if manual
                 s["steps"] = settings["continuouspoints"]  # number of points in sweep
@@ -213,7 +214,7 @@ def create_sweep_reciepe(settings, settings_smu):
                 recipe.append(copy.deepcopy(s))
             if not (settings["mode"] == "continuous"):
                 s["pulse"] = True  # set pulsed mode: may be True - pulsed, False - continuous
-                s["sourcenplc"] = settings["pulsednplc"]  # integration time in nplc units
+                s["sourcenplc"] = settings["pulsednplc"] * settings_smu["lineFrequency"]#see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
                 s["delay"] = settings["pulseddelaymode"]  # stabilization time mode for source: may take values [True - Auto, False - manual]
                 s["delayduration"] = settings["pulseddelay"]  # stabilization time duration if manual
                 s["steps"] = settings["pulsedpoints"]  # number of points in sweep

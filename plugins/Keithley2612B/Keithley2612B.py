@@ -263,9 +263,8 @@ class Keithley2612B:
             0 - no error, ~0 - error (add error code later on if needed)
             message contains line frequency as float, or an error message otherwise
         """
-        # freq = float(self.safequery("print(localnode.linefreq)"))
-        # return freq
-        return 50
+        freq = float(self.safequery("print(localnode.linefreq)"))
+        return freq
 
     def getIV(self, channel) -> list[float]:
         """gets IV data
@@ -647,11 +646,11 @@ class Keithley2612B:
             s['sourcenplc'] NPLC in nplc units (float)
             s['nplcms'] NPLC in ms (float)
             s['delay'] True - auto delay before measurement; Flase - manual delay before measurement (bool)
-            s['delayduration'] duration of the delay before measurement if manual in ms, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
-            s['postwait'] duration of waiting after the measurement for possible non-idealities in time synchronization in ms (float)
-            s['integrationtime'] duration of spectrometer integration time in ms (float)
+            s['delayduration'] duration of the delay before measurement if manual in s, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
+            s['postwait'] duration of waiting after the measurement for possible non-idealities in time synchronization in s (float)
+            s['integrationtime'] duration of spectrometer integration time in s (float)
             s['linen'] DIGIO line to use (int)
-            s['digiopulse'] DIGIO pulse width in ms (float)
+            s['digiopulse'] DIGIO pulse width in s (float)
         Returns:
             0 - no error
             ~0 - error (add error code later on if needed)
@@ -699,17 +698,17 @@ class Keithley2612B:
                 #Calculate duration of the pulse:
                 if s['delay']:
                     self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
-                    s['delayduration'] = 360# ms is max delay duration for DELAY_AUTO see page 255
+                    s['delayduration'] = 0.360# s is max delay duration for DELAY_AUTO see page 255
                 else:
-                    self.safewrite(f"{s['source']}.measure.delay = {s['delayduration']/1000:.6f}")
-                    
+                    self.safewrite(f"{s['source']}.measure.delay = {s['delayduration']:.6f}")
+                nplc_s = s['nplcms']/1000 #change nplc time value from ms to seconds
                 if ["spectro_check_after"]:
-                    if 2*(s['delayduration']+s['nplcms']+s['postwait'])>s['integrationtime']:
-                        pulseduration = 2*(s['delayduration']+s['nplcms']+s['postwait'])
+                    if 2*(s['delayduration']+nplc_s+s['postwait'])>s['integrationtime']:
+                        pulseduration = 2*(s['delayduration']+nplc_s+s['postwait'])
                     else:
                         pulseduration = s['integrationtime'] + s['postwait']
                     ###### trigger.timer[2] for the second IV measurement
-                    self.safewrite(f"trigger.timer[2].delay = {(pulseduration - (s['delayduration']+s['nplcms']+s['postwait']))/1000:.6f}") #duration of wait before second measurement in s
+                    self.safewrite(f"trigger.timer[2].delay = {(pulseduration - (s['delayduration']+ nplc_s +s['postwait'])):.6f}") #duration of wait before second measurement in s
                     self.safewrite(f"trigger.timer[2].count = 1")
                     self.safewrite(f"trigger.timer[2].passthrough = false") ## if true the timer will trigger immediately after run
                     self.safewrite(f"trigger.blender[1].orenable = true")
@@ -717,13 +716,13 @@ class Keithley2612B:
                     self.safewrite(f"trigger.blender[1].stimulus[2] = trigger.timer[2].EVENT_ID")
                     self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
                 else:
-                    if s['delayduration']+s['nplcms']+s['postwait'])>s['integrationtime']:
-                        pulseduration = s['delayduration']+s['nplcms']+s['postwait']
+                    if s['delayduration']+nplc_s+s['postwait'])>s['integrationtime']:
+                        pulseduration = s['delayduration']+nplc_s+s['postwait']
                     else:
                         pulseduration = s['integrationtime'] + s['postwait']
                     self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                 #Configure timer parameters to output a single pulseduration length pulse.
-                self.safewrite(f"trigger.timer[1].delay = {pulseduration/1000:.6f}") #set duration of pulse in seconds
+                self.safewrite(f"trigger.timer[1].delay = {pulseduration:.6f}") #set duration of pulse in seconds
                 self.safewrite(f"trigger.timer[1].count = 1")
                 self.safewrite(f"trigger.timer[1].passthrough = false") ## if true the timer will trigger immediately after run
                 #Trigger timer when the SMU sets the power
@@ -737,7 +736,7 @@ class Keithley2612B:
                 ## according to THORLABD CCS p.65, the signal should be TTL, > 0.5 us, delay <8.25 us
                 ## as the signal is TTL let's consider it standard rising-edge trigger
                 self.safewrite(f"digio.trigger[{s['linen']}].mode = digio.TRIG_RISINGM") ### p.397 of Keithley manual: the only option for direct assertion
-                self.safewrite(f"digio.trigger[{s['linen']}].pulsewidth = {s['digiopulse']/1000:.6f}")
+                self.safewrite(f"digio.trigger[{s['linen']}].pulsewidth = {s['digiopulse']:.6f}")
                 self.safewrite(f"digio.trigger[{s['linen']}].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                 #Set appropriate counts of trigger model.
                 self.safewrite(f"{s['source']}.trigger.count = 1")

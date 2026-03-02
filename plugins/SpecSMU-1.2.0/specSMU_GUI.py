@@ -274,14 +274,24 @@ class specSMU_GUI(QWidget):
             "lineEdit_End": "end",
             "lineEdit_Points": "points",
             "lineEdit_Limit": "limit",
-            "lineEdit_NPLC": "nplc",
-            "lineEdit_Delay": "delay",
         }
         for line_name, key in line_map.items():
             line_edit = getattr(self.settingsWidget, line_name, None)
             value = settings.get(key, "")
             if line_edit and value != "":
                 line_edit.setText(str(value))
+
+        # setnplc and delay (ms in GUI, s in settings)
+        try:
+            self.settingsWidget.lineEdit_NPLC.setText(f"{float(settings.get("nplc", 0.02))*1000}")
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. nplc is set as it is in settings")
+            self.settingsWidget.lineEdit_NPLC.setText(str(settings.get("nplc", 0.02)))
+        try:
+            self.settingsWidget.lineEdit_Delay.setText(f"{float(settings.get("delay", 0.32))*1000}")
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed.delay is set as it is in settings")
+            self.settingsWidget.lineEdit_Delay.setText(str(settings.get("delay", 0.32)))
 
         # Set checkboxes
         def set_checkbox(cb_name: str, setting_key: str):
@@ -303,8 +313,19 @@ class specSMU_GUI(QWidget):
         self.settingsWidget.spectroPauseSpinBox.setValue(float(spectro_pause_time))
 
         # set HW trig
-        self.settingsWidget.lineEdit_HWtrig_pulse.setText(f"{settings.get("hwtrigpulse", 0.01)}")
-        self.settingsWidget.lineEdit_powerPulse.setText(f"{settings.get("hwtrigpulse", 0.5)}")
+        try:
+            self.settingsWidget.lineEdit_HWtrig_pulse.setText(f"{float(settings.get("hwtrigpulse", 0.00001))*1000}")
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. hwtrigpulse is set as it is in settings")
+            self.settingsWidget.lineEdit_HWtrig_pulse.setText(str(settings.get("hwtrigpulse", 0.00001)))
+            
+
+        try:
+            self.settingsWidget.lineEdit_powerPulse.setText(f"{float(settings.get("powerpulseext", 0.0005))*1000}")
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. powerpulseext is set as it is in settings")
+            self.settingsWidget.lineEdit_powerPulse.setText(str(settings.get("powerpulseext", 0.0005)))
+
         self.settingsWidget.spinBox_digio.setValue(int(settings.get("ioline", 4)))
         
         # Update GUI state
@@ -414,16 +435,16 @@ class specSMU_GUI(QWidget):
             self.settings["end"] = float(raw_settings["end"])
             self.settings["points"] = int(raw_settings["points"])
             self.settings["limit"] = float(raw_settings["limit"])
-            self.settings["nplc"] = float(raw_settings["nplc"])
-            self.settings["delay"] = float(raw_settings["delay"])
+            self.settings["nplc"] = float(raw_settings["nplc"])/1000
+            self.settings["delay"] = float(raw_settings["delay"])/1000
             self.settings["pause"] = float(raw_settings["pause"])
             self.settings["spectro_pause_time"] = float(raw_settings["spectro_pause_time"])  # should already be float from double spin box
             self.settings["repeat"] = int(raw_settings["repeat"])  # will already be an int from spin box
-            self.settings["hwtrigpulse"] = float(raw_settings["hwtrigpulse"])
+            self.settings["hwtrigpulse"] = float(raw_settings["hwtrigpulse"])/1000
             if self.settings["hwtrigpulse"]<0:
                 self._log_verbose(f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative")
                 return [1, {"Error message": f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative"}]
-            self.settings["powerpulseext"] = float(raw_settings["powerpulseext"])
+            self.settings["powerpulseext"] = float(raw_settings["powerpulseext"])/1000
             if self.settings["powerpulseext"]<0:
                 self._log_verbose(f"Value error in SpecSMU plugin: extension of the power pulse can not be negative")
                 return [1, {"Error message": f"Value error in SpecSMU plugin: extension of the power pulse can not be negative"}]
@@ -524,7 +545,7 @@ class specSMU_GUI(QWidget):
         s["type"] = "v" if self.settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
         s["single_ch"] = self.settings["singlechannel"]  # single channel mode: may be True or False
 
-        s["sourcenplc"] = self.settings["nplc"] * 0.001 * self.smu_settings["lineFrequency"] # drain NPLC (may not be used in single channel mode)
+        s["sourcenplc"] = self.settings["nplc"] * self.smu_settings["lineFrequency"] #see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
         s["delay"] = True if self.settings["delaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
         s["delayduration"] = self.settings["delay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["limit"] = self.settings["limit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
@@ -559,10 +580,10 @@ class specSMU_GUI(QWidget):
         trigpulse_dict["value"] = smuSetValue
         trigpulse_dict["limit"] = self.settings["limit"]
         trigpulse_dict["spectro_check_after"] = self.settings["spectro_check_after"]
-        trigpulse_dict['sourcenplc'] =  self.settings["nplc"] * 0.001 * self.smu_settings["lineFrequency"]
-        trigpulse_dict['nplcms'] =  self.settings["nplc"]
+        trigpulse_dict['sourcenplc'] =  self.settings["nplc"] * self.smu_settings["lineFrequency"] #see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
+        trigpulse_dict['nplcms'] =  self.settings["nplc"]*1000
         trigpulse_dict['delay'] = True if self.settings["delaymode"] == "auto" else False
-        trigpulse_dict['delayduration'] = 360 if trigpulse_dicts['delay'] else self.settings["delay"]# duration of the delay before measurement if manual in ms, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
+        trigpulse_dict['delayduration'] = 0.360 if trigpulse_dicts['delay'] else self.settings["delay"]# duration of the delay before measurement if manual in s, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
         trigpulse_dict['postwait'] = self.settings["powerpulseext"]
         trigpulse_dict['integrationtime'] = None #this in any case will be set in spectrometer plugin
         trigpulse_dict['linen'] = self.settings["ioline"]
@@ -707,7 +728,7 @@ class specSMU_GUI(QWidget):
                     time.sleep(0.02) #just a precaution, duration does not mean anything specific, does not affect the measurement as smu is off
                     #make dict for smu, as we do not know if autotime was used
                     trigDict = _make_hwtrig_dict()
-                    trigDict["integrationtime"] = integration_time_setting/1000 #in ms
+                    trigDict["integrationtime"] = integration_time_setting#in s
                     #run smupulse
                     status, info = self.function_dict["smu"][smu_name]["smu_trigpulse"](trigDict)
                     if status:

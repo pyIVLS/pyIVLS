@@ -7,7 +7,7 @@ from Keithley2612B import Keithley2612B
 from PyQt6 import uic
 from PyQt6.QtCore import Qt, QObject, pyqtSlot
 from PyQt6.QtWidgets import QComboBox
-from plugins.plugin_components import LoggingHelper, public, get_public_methods
+from plugins.plugin_components import LoggingHelper, public, get_public_methods, PyIVLSReturnCode
 
 """
             settings dictionary for class
@@ -248,8 +248,14 @@ class Keithley2612BGUI(QObject):
         # Determine a HighC mode for drain: may be True or False
         self.settings["drainhighc"] = self.settingsWidget.checkBox_drainHighC.isChecked()
         if "lineFrequency" not in self.settings:
-            info = self.smu.getLineFrequency()
-            self.settings["lineFrequency"] = info
+            try:
+                info = self.smu.getLineFrequency()
+                self.settings["lineFrequency"] = info
+            except:
+                return [
+                    PyIVLSReturnCode.HARDWARE_ERROR,
+                    {"Error message": "Hardware error in Keithley2612B plugin: can not get line frequency"},
+                ]
         self._parse_settings_address()
         return (0, self.settings)
 

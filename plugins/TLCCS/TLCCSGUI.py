@@ -14,9 +14,10 @@ Because of (i) it requires to send log and message signals, i.e. it is a child o
 
 IMPORTANT:
 settings["integrationtime"] is in s
-value of integrationtime in tlccs.ini is in ms
+value of integrationtime in tlccs.ini is in s
 value of integration time in settings comming from JSON from seqBuilder is the same as settings["integrationtime"], i.e. s
-value of guessIntTime is in ms
+value of guessIntTime is in s
+value of integration time in GUI is in ms
 
 version 0.2
 2025.03.07
@@ -82,7 +83,7 @@ class TLCCS_GUI(QObject):
     #    filedelimeter = "\t"
     filedelimeter = ";"
 
-    default_timerInterval = 20  # ms, it is close to 24*2 fps (twice the standard for movies and TV)
+    default_timerInterval = 0.020  # s, it is close to 24*2 fps (twice the standard for movies and TV)
     # limits for auto time detection
     autoTime_min = 0.004  # s, used to be 4
     autoTime_max = 30  # s, used to be 10000
@@ -247,8 +248,8 @@ class TLCCS_GUI(QObject):
                     [status, info] = self.spectrometerSetIntegrationTime(self.settings["integrationtime"])
                     self.integrationTimeChanged = False
                     # FIXME: sleep_time currently unused for debugging
-                    if self.settings["integrationtime"] * 1000 < self.default_timerInterval:
-                        self.sleep_time = self.default_timerInterval / 1000
+                    if self.settings["integrationtime"] < self.default_timerInterval:
+                        self.sleep_time = self.default_timerInterval
                     else:
                         self.sleep_time = self.settings["integrationtime"]
                     if status:
@@ -319,7 +320,7 @@ class TLCCS_GUI(QObject):
         if "SCAN_IDLE" in statuses:
             status, autoTime = self.getAutoTime()
             if not status:
-                self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime * 1000)}")
+                self.settingsWidget.lineEdit_Integ.setText(f"{round(autoTime)}")
             if preview_status:
                 self._previewAction()
             else:
@@ -356,8 +357,8 @@ class TLCCS_GUI(QObject):
             tuple[int, float | dict]: Status and integration time or error information.
         """
         self.logger.log_debug("Calculating auto integration time.")
-        low = self.autoTime_min * 1000  # time min ms
-        high = self.autoTime_max * 1000  # time max ms
+        low = self.autoTime_min# time min s
+        high = self.autoTime_max# time max s
         low_spectrum = self.autoValue_min  # min spectrum value
         high_spectrum = self.autoValue_max  # max spectrum value
 
@@ -366,19 +367,19 @@ class TLCCS_GUI(QObject):
             if last_integration_time is None:
                 if self.settings["useintegrationtimeguess"]:
                     # guess from current value
-                    guessIntTime = self.settings["integrationtime"] * 1000  # ms
+                    guessIntTime = self.settings["integrationtime"] #s
                 else:
                     # guess from min and max
-                    guessIntTime = (self.autoTime_min + self.autoTime_max) / 2 * 1000  # ms
+                    guessIntTime = (self.autoTime_min + self.autoTime_max) / 2 #s
             # initial guess provided as argument, use that.
             else:
-                guessIntTime = last_integration_time * 1000  # ms
+                guessIntTime = last_integration_time # ms
 
             # start iterating through integration times using guessIntTime as initial guess
             for iter in range(self.intTimeMaxIterations):
-                self.logger.log_debug(f"Iteration {iter + 1}: Current guess = {guessIntTime} ms.")
-                self.settings["integrationtime"] = guessIntTime / 1000.0  # needed for keeping self.lastspectrum in order
-                [status, info] = self.spectrometerSetIntegrationTime(guessIntTime / 1000.0)  # s
+                self.logger.log_debug(f"Iteration {iter + 1}: Current guess = {guessIntTime} s.")
+                self.settings["integrationtime"] = guessIntTime# needed for keeping self.lastspectrum in order
+                [status, info] = self.spectrometerSetIntegrationTime(guessIntTime)  # s
                 if status:
                     self.logger.log_debug(f"getAutoTime: Failed to set integration time. {status}, {info}")
                     return [status, info]
@@ -388,7 +389,7 @@ class TLCCS_GUI(QObject):
                     self.drv.start_scan_ext_trigger()
                     time.sleep(0.02) #just a precaution, duration does not mean anything specific, does not affect the measurement as smu is off
                     mydict = external_action_args[0]
-                    mydict['integrationtime'] = guessIntTime #in ms
+                    mydict['integrationtime'] = guessIntTime #in s
                 # external action if needed
                 if external_action:
                     self.logger.log_debug("getAutoTime: Executing external action.")
@@ -411,7 +412,7 @@ class TLCCS_GUI(QObject):
                 # save the spectrum if needed
                 if self.settings["saveattempts_check"]:
                     varDict = {}
-                    varDict["integrationtime"] = guessIntTime / 1000.0
+                    varDict["integrationtime"] = guessIntTime
                     varDict["triggermode"] = 1 if self.settings["externaltrigger"] else 0
                     varDict["name"] = self.settings["samplename"]
                     varDict["comment"] = self.settings["comment"] + " Auto adjust of integration time."
@@ -445,27 +446,27 @@ class TLCCS_GUI(QObject):
                 target = max(info[1])  # target value to optimize
                 # if spectrum is in the range, found good integration time
                 if low_spectrum <= target <= high_spectrum:
-                    self.logger.log_debug(f"Optimal integration time found: {guessIntTime / 1000.0} seconds.")
-                    return [0, guessIntTime / 1000.0]  # return in seconds
+                    self.logger.log_debug(f"Optimal integration time found: {guessIntTime} seconds.")
+                    return [0, guessIntTime]  # return in seconds
                 # if spectrum is below the range, increase integration time
                 if target < low_spectrum:
                     self.logger.log_debug(f"Spectrum value {target} is below the range ({low_spectrum}), increasing integration time.")
                     if guessIntTime >= high:
-                        self.logger.log_debug(f"Integration time is too high, returning: {guessIntTime / 1000.0} seconds.")
+                        self.logger.log_debug(f"Integration time is too high, returning: {guessIntTime} seconds.")
                         return [1, {"Error message": "Integration time too high"}]
                     low = guessIntTime
                 # if spectrum is above the range, decrease integration time
                 else:
                     self.logger.log_debug(f"Spectrum value {target} is above the range ({high_spectrum}), decreasing integration time.")
                     if guessIntTime <= low:
-                        self.logger.log_debug(f"Integration time is too low, returning: {guessIntTime / 1000.0} seconds.")
+                        self.logger.log_debug(f"Integration time is too low, returning: {guessIntTime} seconds.")
                         return [1, {"Error message": "Integration time too low"}]
                     high = guessIntTime
                 # Compute new guess in milliseconds, rounded to nearest millisecond
                 guessIntTime = int(round((low + high) / 2))
 
-            self.logger.log_debug(f"Auto integration time calculation completed: {guessIntTime / 1000.0} seconds.")
-            return [0, guessIntTime / 1000.0]  # return in seconds
+            self.logger.log_debug(f"Auto integration time calculation completed: {guessIntTime} seconds.")
+            return [0, guessIntTime]  # return in seconds
         else:
             self.logger.log_debug("Integration time mode is not set to auto, cannot calculate auto integration time.")
             return [
@@ -552,8 +553,11 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.lineEdit_sampleName.setText(self.settings["samplename"])
 
         #values from integrationTime settings
-        self.settings["integrationtime"] = int(self.settings["integrationtime"])
-        self.settingsWidget.lineEdit_Integ.setText(f"{self.settings["integrationtime"]*1000}")
+        try:
+            self.settingsWidget.lineEdit_Integ.setText(f"{float(self.settings["integrationtime"])*1000}")
+        except:
+            self.logger.log_warn(f"Setting GUI from settings conversion failed. integrationtime is set as it is in settings")
+            self.settingsWidget.lineEdit_Integ.setText(f"{self.settings["integrationtime"]}")
 
         #values from spectrumCorrection
         self.settings["usecorrection"] = to_bool(self.settings["usecorrection"])
@@ -646,20 +650,19 @@ class TLCCS_GUI(QObject):
             list: [0, "OK"] on success, or [1, {"Error message": ...}] on error.
         """
         try:
-            self.settings["integrationtime"] = int(self.settingsWidget.lineEdit_Integ.text())
+            self.settings["integrationtime"] = float(self.settingsWidget.lineEdit_Integ.text())/1000
         except ValueError:
-            return [1, {"Error message": "Value error in TLCCS plugin: integration time field should be integer"}]
-        if self.settings["integrationtime"] > const.CCS_SERIES_MAX_INT_TIME * 1000:
+            return [1, {"Error message": "Value error in TLCCS plugin: integration time field should be a number"}]
+        if self.settings["integrationtime"] > const.CCS_SERIES_MAX_INT_TIME:
             return [
                 1,
                 {"Error message": f"Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"},
             ]
-        if self.settings["integrationtime"] < 1:
+        if self.settings["integrationtime"] < 0.001:
             return [
                 1,
                 {"Error message": "Value error in TLCCS plugin: integration time should can not be smaller than 1 ms"},
             ]
-        self.settings["integrationtime"] = self.settings["integrationtime"] / 1000
         return [0, "OK"]
 
     def _parse_settings_autoTime(self) -> tuple[int, dict]:

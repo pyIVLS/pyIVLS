@@ -10,7 +10,7 @@ from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, Qt, pyqtSlot
 from PyQt6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
-from plugins.plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods
+from plugins.plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, PyIVLSReturnCode
 from sweepCommon import create_file_header, create_sweep_reciepe
 from threadStopped import (  # this should be moved to some pluginsShare
     ThreadStopped,
@@ -339,20 +339,20 @@ class sweepGUI(QObject):
         smu_selection = self.settingsWidget.smuBox.currentText()
         if not self.function_dict:
             return [
-                3,
+                PyIVLSReturnCode.MISSING_DEPENDENCY,
                 {
                     "Error message": "Missing functions in sweep plugin. Check log",
                     "Missing functions": self.missing_functions,
                 },
             ]
         if smu_selection not in self.function_dict["smu"]:
-            return [3, {"Error message": "SMU plugin not found in function_dict"}]
+            return [PyIVLSReturnCode.MISSING_DEPENDENCY, {"Error message": "SMU plugin not found in function_dict"}]
 
         self.settings = {}
         self.settings["smu"] = smu_selection
         [status, self.smu_settings] = self.function_dict["smu"][self.settings["smu"]]["parse_settings_widget"]()
         if status:
-            return [2, self.smu_settings]
+            return [PyIVLSReturnCode.DEPENDENCY_ERROR, self.smu_settings]
 
         self.settings["smu_settings"] = self.smu_settings
 
@@ -434,12 +434,13 @@ class sweepGUI(QObject):
 
         # continuous nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            if "lineFrequency" not in self.smu_settings:
-                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
-            line_freq = self.smu_settings["lineFrequency"]
-            self.settings["continuousnplc"] = (
-                0.001 * line_freq * float(self.settingsWidget.lineEdit_continuousNPLC.text())
-            )
+#            if "lineFrequency" not in self.smu_settings:
+#                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
+#            line_freq = self.smu_settings["lineFrequency"]
+#            self.settings["continuousnplc"] = (
+#                0.001 * line_freq * float(self.settingsWidget.lineEdit_continuousNPLC.text())
+#            )
+             self.settings["continuousnplc"] = float(self.settingsWidget.lineEdit_continuousNPLC.text()/1000 # value in settings is in s; value in GUI is in ms
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: continuous nplc field should be numeric"}]
         if self.settings["continuousnplc"] <= 0:
@@ -490,10 +491,11 @@ class sweepGUI(QObject):
 
         # pulsed nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            if "lineFrequency" not in self.smu_settings:
-                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
-            line_freq = self.smu_settings["lineFrequency"]
-            self.settings["pulsednplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_pulsedNPLC.text())
+#            if "lineFrequency" not in self.smu_settings:
+#                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
+#            line_freq = self.smu_settings["lineFrequency"]
+#            self.settings["pulsednplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_pulsedNPLC.text())
+             self.settings["pulsednplc"] = float(self.settingsWidget.lineEdit_pulsedNPLC.text())/1000 # value in settings is in s; value in GUI is in ms
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: pulsed nplc field should be numeric"}]
         if self.settings["pulsednplc"] <= 0:
@@ -549,10 +551,11 @@ class sweepGUI(QObject):
 
         # drain nplc (in fact it is integration time for the measurement) should be float >0
         try:
-            if "lineFrequency" not in self.smu_settings:
-                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
-            line_freq = self.smu_settings["lineFrequency"]
-            self.settings["drainnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_drainNPLC.text())
+#            if "lineFrequency" not in self.smu_settings:
+#                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
+#            line_freq = self.smu_settings["lineFrequency"]
+#            self.settings["drainnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_drainNPLC.text())
+            self.settings["drainnplc"] = float(self.settingsWidget.lineEdit_drainNPLC.text())/1000# value in settings is in s; value in GUI is in ms
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: drain nplc field should be numeric"}]
         if self.settings["drainnplc"] <= 0:
@@ -640,7 +643,7 @@ class sweepGUI(QObject):
                     self.logger.log_warn(str(message))
                 else:
                     self.logger.log_info(str(message))
-                self.logger.log_info(message["Error message"])
+                self.logger.info_popup(message["Error message"])
                 self.set_running(False)
                 self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
                 return [status, message]
@@ -875,15 +878,38 @@ class sweepGUI(QObject):
         set_combobox_value(self.settingsWidget.comboBox_sourceSenseMode, self.settings["sourcesensemode"])
         set_combobox_value(self.settingsWidget.comboBox_drainSenseMode, self.settings["drainsensemode"])
 
-        line_freq = self.smu_settings["lineFrequency"]
-        self.settingsWidget.lineEdit_continuousNPLC.setText(
-            str(float(self.settings["continuousnplc"]) * 1000 / line_freq)
-        )
-        self.settingsWidget.lineEdit_continuousDelay.setText(str(float(self.settings["continuousdelay"]) * 1000))
-        self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"]) * 1000 / line_freq))
-        self.settingsWidget.lineEdit_pulsedDelay.setText(str(float(self.settings["pulseddelay"]) * 1000))
-        self.settingsWidget.lineEdit_drainNPLC.setText(str(float(self.settings["drainnplc"]) * 1000 / line_freq))
-        self.settingsWidget.lineEdit_drainDelay.setText(str(float(self.settings["draindelay"]) * 1000))
+#        line_freq = self.smu_settings["lineFrequency"]
+        try:
+            self.settingsWidget.lineEdit_continuousNPLC.setText(str(float(self.settings["continuousnplc"]) * 1000)) # value in settings is in s; value in GUI is in ms
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. continuousnplc is set as it is in settings")
+            self.settingsWidget.lineEdit_continuousNPLC.setText(str(self.settings["continuousnplc"]))
+        try:
+            self.settingsWidget.lineEdit_continuousDelay.setText(str(float(self.settings["continuousdelay"]) * 1000))  # value in settings is in s; value in GUI is in ms
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. continuousdelay is set as it is in settings")
+            self.settingsWidget.lineEdit_continuousDelay.setText(str(self.settings["continuousdelay"]))
+        try:
+            self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"]) * 1000)) # value in settings is in s; value in GUI is in ms
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. pulsednplc is set as it is in settings")
+            self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"])))
+        try:
+            self.settingsWidget.lineEdit_pulsedDelay.setText(str(self.settings["pulseddelay"]) * 1000)
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. pulseddelay is set as it is")
+            self.settingsWidget.lineEdit_pulsedDelay.setText(str(self.settings["pulseddelay"]))
+        try:
+            self.settingsWidget.lineEdit_drainNPLC.setText(str(float(self.settings["drainnplc"]) * 1000)) # value in settings is in s; value in GUI is in ms
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. drainnplc is set as it is")
+            self.settingsWidget.lineEdit_drainNPLC.setText(str(self.settings["drainnplc"]))
+        try:
+            self.settingsWidget.lineEdit_drainDelay.setText(str(float(self.settings["draindelay"]) * 1000))
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. draindelay is set as it is")
+            self.settingsWidget.lineEdit_drainDelay.setText(str(self.settings["draindelay"]))
+
         self.settingsWidget.spinBox_plotUpdate.setValue(int(self.settings["plotupdate"]))
         self.settingsWidget.prescalerEdit.setText(str(self.settings["prescaler"]))
 
