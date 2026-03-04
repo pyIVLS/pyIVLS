@@ -717,10 +717,15 @@ class specSMU_GUI(QWidget):
                         # IV before spectrum
                         status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
 
+                    # spectrum
+                    status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
+                    if status:
+                        self._log_verbose(f"Error getting spectrum: {spectrum}")
+                        raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
+                        
                     # IV after spectrum
                     status, sourceIV_after = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
                     time.sleep(0.02)
-                    self.function_dict["smu"][smu_name]["smu_outputOFF"]()
                 #HW trig mode
                 else:
                     #arm spectrometer
@@ -735,15 +740,16 @@ class specSMU_GUI(QWidget):
                         self._log_verbose(f"Error running smupulse: {info}")
                         raise NotImplementedError(f"Error in smu_trigpulse: {info}, no handling provided")
                     time.sleep(0.2)#probably not needed
-
-                # spectrum
-                status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
-                if status:
+                    
+                    # spectrum
+                    status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
+                    if status:
                         self._log_verbose(f"Error getting spectrum: {spectrum}")
                         raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
 
                 # scan finished, now time to sleep if in pulsed mode
                 if not self.settings["mode"] == "continuous":
+                    self.function_dict["smu"][smu_name]["smu_outputOFF"]()
                     self._log_verbose(f"Sleeping for {self.settings['pause']} seconds in pulsed mode")
                     time.sleep(self.settings["pause"])
 
