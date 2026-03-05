@@ -494,6 +494,14 @@ class specSMU_GUI(QWidget):
         s["start"] = self.settings["start"]  # start value for source, added for current injection to work
         s["end"] = self.settings["end"]  # end value for source -||-
         s["points"] = self.settings["points"]  # number of points for source -||-
+
+        if self.smu_settings["sourcefiltertype"] == "Repeat average":
+            s["sourcefiltertype"] = "FILTER_REPEAT_AVG"
+            s["sourcefiltervalue"] = self.smu_settings["sourcefiltervalue"]
+        else:
+            #settings_smu["drainfiltertype"] == "Off":
+            s["sourcefiltertype"] = "FILTER_OFF"
+        s["sourcedelayfactor"] = self.smu_settings["sourcedelayfactor"]
         if self.settings["sourcesensemode"] == "4 wire":
             s["sourcesense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
         else:
@@ -533,7 +541,7 @@ class specSMU_GUI(QWidget):
                 # set output on SMU
                 self.function_dict["smu"][smu_name]["smu_setOutput"](self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue)
                 self._log_verbose("SMU output set")
-                integration_time_setting = float(self.spectrometer_settings["integrationTime"])
+                integration_time_setting = float(self.spectrometer_settings["integrationtime"])
                 status, integration_time_seconds = self.function_dict["spectrometer"][spectro_name]["spectrometerGetIntegrationTime"]()
                 integration_time = integration_time_seconds
                 if status:
@@ -635,7 +643,7 @@ class specSMU_GUI(QWidget):
                 # saving the results
                 varDict = {}
                 varDict["integrationtime"] = integration_time_setting
-                varDict["triggermode"] = 1 if self.spectrometer_settings["externalTrigger"] else 0
+                varDict["triggermode"] = 1 if self.spectrometer_settings["externaltrigger"] else 0
                 varDict["name"] = self.spectrometer_settings["samplename"]
                 if after_flag:
                     # sourceIV is returned as a tuple (i, v, readings)
