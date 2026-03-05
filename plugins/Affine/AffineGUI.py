@@ -76,7 +76,8 @@ class AffineGUI(QObject):
 
     # TODO: Read settings from file, for instance latest points and mask + default names for text inputs.
     def _initGUI(self, settings):
-        self._gui_change_mask_uploaded(False)
+        # Keep mask-related UI state aligned with whether a mask is currently loaded.
+        self._gui_change_mask_uploaded(self.mask is not None)
         self.settings = settings
         settingsWidget: QtWidgets.QWidget = self.settingsWidget
         MDIWidget = self.MDIWidget
@@ -167,7 +168,8 @@ class AffineGUI(QObject):
                     except IndexError:
                         continue
 
-        assert settingsWidget is not None, "Settings widget not found in the plugin directory."
+        if settingsWidget is None:
+            raise FileNotFoundError("Settings widget UI file not found in the plugin directory.")
         self._find_labels(settingsWidget)
         settingsWidget = self._connect_buttons(settingsWidget)
         return settingsWidget
@@ -255,7 +257,6 @@ class AffineGUI(QObject):
                 return
             items[0].setText("New name")
 
-
         if self.definedPoints.itemAt(pos) is None and not self.definedPoints.selectedItems():
             return
 
@@ -279,20 +280,13 @@ class AffineGUI(QObject):
             ".csv (*.csv);;All Files (*)",
         )
         if fileName:
+            points, names = self.positioning_measurement_points()
             with open(fileName, "w", newline="") as csvfile:
                 cswriter = csv.writer(csvfile, delimiter=",")
                 fields = ["Name", "x_mask", "y_mask", "x_img", "y_img"]
                 cswriter.writerow(fields)
-                for i in range(self.definedPoints.count()):
-                    item = self.definedPoints.item(i)
-                    name = item.text()
-                    points = item.data(self.COORD_DATA) or []
-                    for pt in points:
-                        # support both QPointF and (x, y) tuples
-                        if isinstance(pt, QPointF):
-                            x_mask, y_mask = pt.x(), pt.y()
-                        else:
-                            x_mask, y_mask = float(pt[0]), float(pt[1])
+                for name, point_set in zip(names, points):
+                    for x_mask, y_mask in point_set:
                         if self.affine.A is not None:
                             img_x, img_y = self.affine.coords((x_mask, y_mask))
                         else:
@@ -402,7 +396,8 @@ class AffineGUI(QObject):
         """Opens the matching dialog for aff transformation."""
 
         def _on_close():
-            assert self.dialog is not None, "Dialog is not initialized."
+            if self.dialog is None:
+                raise RuntimeError("Dialog is not initialized.")
             res = self.affine.result.get("matches", None)
             if res is not None and len(res) > 0:
                 self.logger.log_info(f"Affine: Transformation confirmed. {len(res)} matches found.")
@@ -519,7 +514,9 @@ class AffineGUI(QObject):
         for i in range(self.definedPoints.count()):
             item = self.definedPoints.item(i)
             if item is not None:
-                points.append(item.data(self.COORD_DATA))
+                raw_points = item.data(self.COORD_DATA) or []  # of type qpointF
+                tuple_points = [(point.x(), point.y()) for point in raw_points]
+                points.append(tuple_points)
                 names.append(item.text())
         return points, names
 
@@ -527,36 +524,63 @@ class AffineGUI(QObject):
     def parse_settings_widget(self):
         """Parse settings widget, return dict"""
         try:
-            settings = {
-                "pointcount": int(self.settingsWidget.pointCount.currentText()),
+            base_settings = {
+                "pointcount": self.settingsWidget.pointCount.value(),
                 "cameracombobox": self.settingsWidget.cameraComboBox.currentText(),
-                "addpointscheck": self.settingsWidget.addPointsCheck.isChecked(),
-                "default_mask_path": self.last_mask_path,
+                "default_mask_path": getattr(self, "last_mask_path", None),
                 "centerclicks": self.centerCheckbox.isChecked(),
             }
-            # extend the settings with the preprprocessing settings
-            s = self.affine.preprocessor.settings
-            # convert prepro settings to correct types
-            settings["ratiotest"] = float(self.affine.ratio_test)
-            settings["residualthreshold"] = int(self.affine.residual_threshold)
-            settings["crosscheck"] = True if self.affine.cross_check else False
-            settings["backend"] = self.affine.backend
-            settings["scalingfactor"] = self.affine.scalingfactor
-            settings.update(s)
 
-            assert settings["sigmaimage"] >= 0, "sigmaImage must be non-negative"
-            assert settings["sigmamask"] >= 0, "sigmaMask must be non-negative"
-            assert 0 <= settings["thresholdimage"] <= 255, "thresholdImage must be between 0 and 255"
-            assert 0 <= settings["thresholdmask"] <= 255, "thresholdMask must be between 0 and 255"
-            assert 1 <= settings["morphologystrengthimage"] <= 15, "morphologyStrengthImage must be between 1 and 15"
-            assert 1 <= settings["morphologystrengthmask"] <= 15, "morphologyStrengthMask must be between 1 and 15"
-        except AttributeError as e:
-            return 2, {
-                "error message": f"settings widget not initialized : {str(e)}",
+            preprocessor_settings = dict(self.affine.preprocessor.settings)
+
+            settings = {
+                **base_settings,
+                **preprocessor_settings,
+                "ratiotest": float(self.affine.ratio_test),
+                "residualthreshold": int(self.affine.residual_threshold),
+                "crosscheck": bool(self.affine.cross_check),
+                "backend": self.affine.backend,
+                "scalingfactor": self.affine.scalingfactor,
+            }
+        except Exception as e:
+            return 1, {
+                "error message": f"Affine value error: failed to parse settings: {str(e)}",
                 "exception": str(e),
             }
-        except (ValueError, AssertionError) as e:
-            return 1, {"error message": f"Affine value error: {str(e)}", "exception": str(e)}
+
+        try:
+            sigma_image = float(settings["sigmaimage"])
+            sigma_mask = float(settings["sigmamask"])
+            threshold_image = int(settings["thresholdimage"])
+            threshold_mask = int(settings["thresholdmask"])
+            morphology_strength_image = int(settings["morphologystrengthimage"])
+            morphology_strength_mask = int(settings["morphologystrengthmask"])
+        except (KeyError, TypeError, ValueError) as e:
+            return 1, {
+                "error message": f"Affine value error: invalid preprocessing setting types: {str(e)}",
+                "exception": str(e),
+            }
+
+        if sigma_image < 0:
+            return 1, {"error message": "Affine value error: sigmaImage must be non-negative"}
+        if sigma_mask < 0:
+            return 1, {"error message": "Affine value error: sigmaMask must be non-negative"}
+        if not 0 <= threshold_image <= 255:
+            return 1, {"error message": "Affine value error: thresholdImage must be between 0 and 255"}
+        if not 0 <= threshold_mask <= 255:
+            return 1, {"error message": "Affine value error: thresholdMask must be between 0 and 255"}
+        if not 1 <= morphology_strength_image <= 15:
+            return 1, {"error message": "Affine value error: morphologyStrengthImage must be between 1 and 15"}
+        if not 1 <= morphology_strength_mask <= 15:
+            return 1, {"error message": "Affine value error: morphologyStrengthMask must be between 1 and 15"}
+
+        settings["sigmaimage"] = sigma_image
+        settings["sigmamask"] = sigma_mask
+        settings["thresholdimage"] = threshold_image
+        settings["thresholdmask"] = threshold_mask
+        settings["morphologystrengthimage"] = morphology_strength_image
+        settings["morphologystrengthmask"] = morphology_strength_mask
+
         return 0, settings
 
     @public
