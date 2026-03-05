@@ -16,6 +16,7 @@ This also helps in keeping the GUI implementation relatively clean.
 
 This file includes:
 - ConnectionIndicatorStyle: Enum for connection indicator styles
+- Manipulator colors: A list of colors for manipulators, defined as RGB tuples
 - CloseLockSignalProvider: Component to provide closelock signal functionality without QObject inheritance
 - public: Decorator to mark a function as public in the plugin system. Also checks that the return type is annotated correctly.
 - get_public_methods: Function to get a dict of public methods in an object instance that are marked with the @public
@@ -34,6 +35,9 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtGui import QColor
+
+MANIPULATOR_COLORS = [QColor(255, 0, 0), QColor(0, 255, 0), QColor(0, 0, 255), QColor(255, 255, 0)]
 
 
 class ConnectionIndicatorStyle(Enum):
