@@ -71,12 +71,10 @@ class pyIVLS_sweep_plugin:
         """provides a list of available public functions from other plugins as a nested list
 
         Returns:
-            dict: name, widget
+            dict: name, missing functions
         """
-        pruned = {function_dict_key: function_dict[function_dict_key] for function_dict_key in self.dependencies if function_dict_key in function_dict}
-        self.sweep.function_dict = pruned
-
-        return self.sweep.function_dict
+        missing = self.sweep.fill_function_dict(function_dict)
+        return {self.name: missing}
 
     @hookimpl
     def get_log(self, args=None):
@@ -100,7 +98,7 @@ class pyIVLS_sweep_plugin:
 
     @hookimpl
     def get_closeLock(self, args=None):
-        """provides the signal for logging to main app
+        """provides the signal for locking the GUIs
 
         :return: dict that includes the log signal
         """

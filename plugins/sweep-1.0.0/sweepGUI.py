@@ -10,8 +10,8 @@ from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, Qt, pyqtSlot
 from PyQt6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
-from plugins.plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods
-from sweepCommon import create_file_header, create_sweep_reciepe, prescaler_stop_check
+from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, filter_to_valid_methods
+from sweepCommon import create_file_header, create_sweep_reciepe
 from threadStopped import (  # this should be moved to some pluginsShare
     ThreadStopped,
     thread_with_exception,
@@ -139,7 +139,7 @@ class sweepGUI(QObject):
         # set default SMU
         if default_smu in self.function_dict["smu"]:
             self.settingsWidget.smuBox.setCurrentText(default_smu)
-        self.parse_settings_widget()
+        self.parse_settings_widget()  # intialization of the settings shape should be done by update, but this does not include smu_settings
         self.settings.update(plugin_info)
         self.logger.log_debug(f"Settings after update: {self.settings}")
         self.set_gui_from_settings()
@@ -302,21 +302,14 @@ class sweepGUI(QObject):
     ########Functions
     ########plugins interraction
 
-    def _getPublicFunctions(self, function_dict):
-        self.missing_functions = []
-        for dependency_plugin in list(self.dependency.keys()):
-            if dependency_plugin not in function_dict:
-                self.missing_functions.append(dependency_plugin)
-                continue
-            for dependency_function in self.dependency[dependency_plugin]:
-                if dependency_function not in function_dict[dependency_plugin]:
-                    self.missing_functions.append(f"{dependency_plugin}:{dependency_function}")
-        if not self.missing_functions:
-            self.function_dict = function_dict
-        else:
-            self.function_dict = {}
-
-        return self.missing_functions
+    def fill_function_dict(self, function_dict):
+        """Functionality for set_function. Filters the available functions to a valid selection. Updates internal func dict"""
+        valid, missing = filter_to_valid_methods(function_dict, self.dependency)
+        if not valid:
+            self.logger.info_popup("Missing functions for sweep plugin. Check log for details.")
+            self.logger.log_warn("Missing functions for sweep plugin: " + str(missing))
+        self.function_dict = function_dict
+        return missing
 
     def _get_public_methods(self):
         return get_public_methods(self)
@@ -596,7 +589,7 @@ class sweepGUI(QObject):
         # the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
         self.settings = {}
         self.settings = copy.deepcopy(settings)
-        self.smu_settings = settings["smu_settings"]
+        self.smu_settings.update(settings["smu_settings"])
 
         # this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
         #        self._setGUIfromSettings()
@@ -614,6 +607,7 @@ class sweepGUI(QObject):
         self.settingsWidget.runButton.setEnabled(not status)
         self.settingsWidget.groupBox_dep.setEnabled(not status)
         self.closelock.emit_close_lock(status)
+        self.settingsWidget.update()
 
     ########sweep implementation
 
@@ -625,32 +619,24 @@ class sweepGUI(QObject):
         # NOTE: smu set running was moved here since parsing needs to be done before setting running on the smu. It shouldn't cause issues since changing to the smu widget
         # is not possible while this is running.
         self.set_running(True)
-        [status, message] = self.parse_settings_widget()
         self.function_dict["smu"][self.settings["smu"]]["set_running"](True)
 
-        if status:
-            if status == 1:
-                self.logger.log_warn(str(message))
-            else:
-                self.logger.log_info(str(message))
-            self.logger.log_info(message["Error message"])
-            self.set_running(False)
-            self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
+        steps = [
+            self.parse_settings_widget,
+            self.function_dict["smu"][self.settings["smu"]]["smu_connect"],
+        ]
 
-            return [status, message]
-
-        # check the needed devices are connected
-        [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
-        if status:
-            if status == 1:
-                self.logger.log_warn(str(message))
-            else:
-                self.logger.log_info(str(message))
-            self.logger.log_info(message["Error message"])
-            self.set_running(False)
-            self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
-
-            return [status, message]
+        for step in steps:
+            status, message = step()
+            if status:
+                if status == 1:
+                    self.logger.log_warn(str(message))
+                else:
+                    self.logger.log_info(str(message))
+                self.logger.log_info(message["Error message"])
+                self.set_running(False)
+                self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
+                return [status, message]
 
         ##IRtodo#### check that the new file will not overwrite existing data -> implement dialog
 
@@ -729,8 +715,9 @@ class sweepGUI(QObject):
                     self.axes.relim()
                     self.axes.autoscale_view()
                     self.sc.draw()
-                    if prescaler_stop_check(recipe=measurement, settings=self.settings, lastV=lastV, lastI=lastI):
-                        self.logger.log_info("Prescaler limit reached, stopping sweep")
+                    if (measurement["type"] == "i" and (abs(lastV) > self.settings["prescaler"] * abs(measurement["limit"]))) or (
+                        measurement["type"] == "v" and (abs(lastI) > self.settings["prescaler"] * abs(measurement["limit"]))
+                    ):
                         self.function_dict["smu"][self.settings["smu"]]["smu_abort"](measurement["source"])
                         break
                     buffer_prev = lastPoints
@@ -778,9 +765,28 @@ class sweepGUI(QObject):
         [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
         if status:
             return [status, message]
-        self._sweepImplementation()
-        self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
-        return [0, "sweep finished"]
+        # init exception flag
+        exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
+        try:
+            self._sweepImplementation()
+        except sweepException as e:
+            self.logger.log_info(f"{e}")
+            exception = 1
+
+        except Exception as e:
+            self.logger.log_info(f"sweep plugin implementation stopped because of unexpected exception: {e}")
+            exception = 3
+            # raise the exception again to be handled in the main implementation and to trigger the abort of the smu
+            raise e
+        finally:
+            # abort if in exception state
+            if exception > 1:
+                self.function_dict["smu"][self.settings["smu"]]["smu_abort"](self.settings["channel"])
+                if not self.settings["singlechannel"]:
+                    self.function_dict["smu"][self.settings["smu"]]["smu_abort"](self.settings["drainchannel"])
+            self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
+            self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
+            return [exception, "sweep finished with exception" if exception else "sweep finished successfully"]
 
     def _sequenceImplementation(self):
         """
@@ -815,6 +821,7 @@ class sweepGUI(QObject):
                 self.logger.log_error(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")
                 self.logger.info_popup("SMU turn off failed. Check log")
             self.set_running(False)
+            self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
 
     @public
     def set_gui_from_settings(self):

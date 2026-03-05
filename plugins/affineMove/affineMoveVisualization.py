@@ -7,6 +7,7 @@ import numpy as np
 from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsTextItem, QGraphicsRectItem
 from PyQt6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QFont
 from PyQt6.QtCore import Qt
+from plugins.affineMove.collisionDetection import AABB
 
 
 class AffineMoveVisualization:
@@ -25,6 +26,11 @@ class AffineMoveVisualization:
 
         # Camera image bounds for preventing view expansion
         self.camera_image_bounds = (0, 0, 800, 600)  # Default bounds
+        self.calibration_points = []
+
+    def set_calibration_points(self, points):
+        """Set the current calibration points for visualization."""
+        self.calibration_points = points
 
     def update_graphics_view(self, img):
         """Updates the graphics view with a new camera image."""
@@ -76,13 +82,19 @@ class AffineMoveVisualization:
                     if pos:
                         self._draw_target_reference_dot(pos, mm_idx)
 
-        # Draw planned moves 
+        # Draw planned moves
         if planned_moves:
             self._draw_planned_moves(planned_moves)
 
-        # draw bounding boxes 
+        # draw bounding boxes
         if bounding_boxes:
             self._draw_manipulator_bounding_boxes(bounding_boxes)
+
+        if len(self.calibration_points) > 0:
+            count = len(self.calibration_points)
+            for i, camera_point in enumerate(self.calibration_points):
+                # point_pair is (mm_point, camera_point), we want to draw camera_point
+                self._draw_calibration_point(camera_point, i + 1, count)
 
     def _draw_manipulator_dot(self, cam_pos, mm_idx):
         """Draw a dot representing the current manipulator position."""
@@ -151,28 +163,6 @@ class AffineMoveVisualization:
         text.setFont(font)
         self.graphics_scene.addItem(text)
 
-    def _draw_trajectory_line(self, current_pos, target_pos, mm_idx):
-        """Draw a solid trajectory line for actual movements."""
-        x1, y1 = current_pos
-        x2, y2 = target_pos
-        color = self._get_manipulator_color(mm_idx)
-
-        line = QGraphicsLineItem(x1, y1, x2, y2)
-        line.setPen(QPen(color, 3))
-        self.graphics_scene.addItem(line)
-
-    def _draw_position_labels(self, current_pos, target_pos, mm_idx):
-        """Draw position coordinate labels."""
-        if current_pos:
-            x, y = current_pos
-            text = QGraphicsTextItem(f"({x:.0f},{y:.0f})")
-            text.setPos(x + 12, y - 20)
-            text.setDefaultTextColor(self._get_manipulator_color(mm_idx))
-            font = QFont()
-            font.setPointSize(7)
-            text.setFont(font)
-            self.graphics_scene.addItem(text)
-
     def _draw_manipulator_bounding_boxes(self, bounding_boxes):
         """Draw bounding boxes for all manipulators."""
         for manipulator_idx, bbox in bounding_boxes.items():
@@ -182,24 +172,23 @@ class AffineMoveVisualization:
                 except Exception as e:
                     print(f"Error drawing bounding box for manipulator {manipulator_idx}: {e}")
 
-    def _draw_bounding_box(self, aabb, mm_idx):
+    def _draw_bounding_box(self, aabb: AABB, mm_idx):
         """Draw bounding box for a manipulator."""
         color = self._get_manipulator_color(mm_idx)
-        
+
         try:
             corners = aabb.get_absolute_corners()
-            
+
             # Two points defining a rectangle (top-left and bottom-right)
             x1, y1 = corners[0]
             x2, y2 = corners[1]
-            
+
             # Create rectangle
             rect = QGraphicsRectItem(x1, y1, x2 - x1, y2 - y1)
             rect.setPen(QPen(color, 3))  # Thicker lines for better visibility
             rect.setBrush(QBrush())  # Transparent fill
             self.graphics_scene.addItem(rect)
-                
-                
+
         except Exception as e:
             print(f"Error drawing bounding box for manipulator {mm_idx}: {e}")
 
@@ -223,3 +212,39 @@ class AffineMoveVisualization:
         """Update the camera image bounds."""
         self.camera_image_bounds = (0, 0, width, height)
         self.graphics_scene.setSceneRect(0, 0, width, height)
+
+    def _draw_calibration_point(self, point, point_number, total_points):
+        """Draw a calibration point with a large indicator and progress text.
+
+        Args:
+            point: (x, y) tuple of the clicked point
+            point_number: Current point number (1-indexed)
+            total_points: Total number of points needed
+            manipulator_idx: Index of the manipulator being calibrated
+        """
+        if point is None:
+            return
+        x, y = point
+
+        # Draw a large crosshair at the clicked point
+        crosshair_size = 20
+
+        # Horizontal line
+        h_line = QGraphicsLineItem(x - crosshair_size, y, x + crosshair_size, y)
+        h_line.setPen(QPen(Qt.GlobalColor.red, 3))
+        self.graphics_scene.addItem(h_line)
+
+        # Vertical line
+        v_line = QGraphicsLineItem(x, y - crosshair_size, x, y + crosshair_size)
+        v_line.setPen(QPen(Qt.GlobalColor.red, 3))
+        self.graphics_scene.addItem(v_line)
+
+        # Add text label with point number
+        text = QGraphicsTextItem(f"Point {point_number}/{total_points}")
+        text.setPos(x + 25, y - 10)
+        text.setDefaultTextColor(Qt.GlobalColor.red)
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        text.setFont(font)
+        self.graphics_scene.addItem(text)

@@ -87,7 +87,7 @@ class OOUSB2000_GUI(QObject):
 
     def _log_verbose(self, message):
         """Logs a message if verbose mode is enabled."""
-        self.logger.log_info(message)
+        self.logger.log_debug(message)
 
     def _connect_signals(self):
         self.settingsWidget.connectButton.clicked.connect(self._connectAction)

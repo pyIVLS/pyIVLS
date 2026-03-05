@@ -82,7 +82,7 @@ class pyIVLS_VenusUSB2_plugin:
             dict: functions
         """
         if args is None or args.get("function") == self.metadata["function"]:
-            return {self.metadata["name"]: self.camera_control._get_public_methods(self.function)}
+            return {self.metadata["name"]: self.camera_control._get_public_methods()}
 
     @hookimpl
     def get_log(self, args=None):

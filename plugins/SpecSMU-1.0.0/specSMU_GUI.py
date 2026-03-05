@@ -70,6 +70,7 @@ class specSMU_GUI(QWidget):
             ],
             "spectrometer": [
                 "parse_settings_widget",
+                "set_gui_from_settings",
                 "setSettings",
                 "spectrometerConnect",
                 "spectrometerDisconnect",
@@ -297,9 +298,9 @@ class specSMU_GUI(QWidget):
                 else:
                     cb.setChecked(bool(value))
 
-        set_checkbox("spectro_use_last_integ", "spectro_use_last_integ")
-        set_checkbox("spectro_check_after", "spectro_check_after")
-        set_checkbox("spectro_pause", "spectro_pause")
+        set_checkbox("spectroUseLastInteg", "spectro_use_last_integ")
+        set_checkbox("spectroCheckAfter", "spectro_check_after")
+        set_checkbox("spectroPause", "spectro_pause")
         set_checkbox("checkBox_singleChannel", "singlechannel")
 
         # set spinboxes
@@ -311,11 +312,33 @@ class specSMU_GUI(QWidget):
         # Update GUI state
         self._update_GUI_state()
 
+        ### this function may be called either form seqBuilder to populate GUI or at initialization.
+        ### at initialization the key "spectrometer_settings" is not in settings, so the GUI update for spectrometer plugin should not be performed
+        if "spectrometer_settings" in self.settings:
+            self.function_dict["spectrometer"][spectro_name]["set_gui_from_settings"]()
+
     ########Functions
     ###############GUI react to change
 
     ########Functions
     ########plugins interraction
+
+    
+
+    def set_dependencies(self, dependencies: list) -> None:
+        """
+        Set the list of plugin dependencies (e.g., available SMU and spectrometer types).
+        Args:
+            dependencies (list): List of dependency plugin names.
+        """
+        self.dependencies = dependencies
+        # If function_dict is available, update the smuBox and spectrometerBox with available plugins
+        self.settingsWidget.smuBox.clear()
+        smu_keys = list(self.function_dict["smu"].keys()) if "smu" in self.function_dict else []
+        self.settingsWidget.smuBox.addItems(smu_keys)
+        self.settingsWidget.spectrometerBox.clear()
+        spectro_keys = list(self.function_dict["spectrometer"].keys()) if "spectrometer" in self.function_dict else []
+        self.settingsWidget.spectrometerBox.addItems(spectro_keys)
 
     def _getPublicFunctions(self, function_dict):
         self.missing_functions = []
@@ -443,8 +466,11 @@ class specSMU_GUI(QWidget):
         self.settings = copy.deepcopy(settings)
         self.smu_settings = self.settings["smu_settings"]
         self.spectrometer_settings = self.settings["spectrometer_settings"]
+        spectro_name = self.settings["spectrometer"]
+        self.function_dict["spectrometer"][spectro_name]["setSettings"](self.spectrometer_settings)
+        
 
-    # this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
+    # this function is called not from the main thread. Direct addressing of qt elements not from the main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
     #        self._setGUIfromSettings()
     ###############GUI enable/disable
 
@@ -477,6 +503,7 @@ class specSMU_GUI(QWidget):
             self.logger.log_error("")  # log error includes traceback already
             return [1, {"Error message": "SpecSMU plugin: error in seq implementation", "Exception": str(e)}]
         finally:
+            self.function_dict["smu"][smu_name]["smu_outputOFF"]()
             self.function_dict["smu"][smu_name]["smu_disconnect"]()
             self.function_dict["spectrometer"][spectro_name]["spectrometerDisconnect"]()
 
@@ -711,27 +738,25 @@ class specSMU_GUI(QWidget):
 
                 varDict["comment"] = self.spectrometer_settings["comment"] + " " + readings
                 address = self.spectrometer_settings["address"] + os.sep + self.spectrometer_settings["filename"]
-                self.function_dict["spectrometer"][spectro_name]["createFile"](varDict=varDict, filedelimeter=";", address=address, data=spectrum)
+                status, state = self.function_dict["spectrometer"][spectro_name]["createFile"](varDict=varDict, filedelimeter=";", address=address, data=spectrum)
+                if status:
+                    self.logger.log_error(f"Error writing to file: {state}")
+                    raise NotImplementedError(f"Error in writing spectrum to file: {state}, no handling provided")
 
                 # updating the internal state of last integration time
                 self.last_integration_time = integration_time_setting
+                # do not continue if reached the limit
+                if (
+                        self.settings["inject"] == "voltage"
+                        and abs(i_after) >= abs(self.settings["limit"])
+                    ) or (
+                        self.settings["inject"] == "current"
+                        and (abs(lastV) >= abs(measurement["limit"]))
+                    ):
+                        self.function_dict["smu"][smu_name]["smu_outputOFF"]()
+                        break
         self._log_verbose("Exiting _SpecSMUImplementation")
         return 0
-
-    def set_dependencies(self, dependencies: list) -> None:
-        """
-        Set the list of plugin dependencies (e.g., available SMU and spectrometer types).
-        Args:
-            dependencies (list): List of dependency plugin names.
-        """
-        self.dependencies = dependencies
-        # If function_dict is available, update the smuBox and spectrometerBox with available plugins
-        self.settingsWidget.smuBox.clear()
-        smu_keys = list(self.function_dict["smu"].keys()) if "smu" in self.function_dict else []
-        self.settingsWidget.smuBox.addItems(smu_keys)
-        self.settingsWidget.spectrometerBox.clear()
-        spectro_keys = list(self.function_dict["spectrometer"].keys()) if "spectrometer" in self.function_dict else []
-        self.settingsWidget.spectrometerBox.addItems(spectro_keys)
 
     def get_settings_dict_raw(self) -> dict:
         """

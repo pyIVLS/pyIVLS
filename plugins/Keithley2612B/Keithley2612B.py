@@ -43,9 +43,17 @@ class BackendType(Enum):
 		
 		# s["delay"] stabilization time mode for source: may take values [True - Auto, False - manual]
 		# s["delayduration"] stabilization time duration if manual
+		# s["sourcedelayfactor"] stabilization time factor if auto (float)
+		
+		# s["sourcefiltertype"] type of filter ('Off' - no filter, str - filter type)
+		# s["sourcefiltervalue"] parameters of the filter, e.g. number of points
 		
 		# s["draindelay"] stabilization time mode for drain: may take values [True - Auto, False - manual]
 		# s["draindelayduration"] stabilization time duration if manual
+		# s["draindelayfactor"] stabilization time factor if auto (float)
+		
+		# s["drainfiltertype"] type of filter ('Off' - no filter, str - filter type)
+		# s["drainfiltervalue"] parameters of the filter, e.g. number of points
 		
 		# s["steps"] number of points in sweep
 		# s["start"] start point of sweep
@@ -366,6 +374,27 @@ class Keithley2612B:
         self.safewrite("smua.source.output=smua.OUTPUT_OFF")
         self.safewrite("smub.source.output=smub.OUTPUT_OFF")
 
+    def keithley_reset(self) :
+        # """resets Keithley and sets filter and highc settings
+        #
+        # Returns:
+        #            0 - no error
+        #            ~0 - error (add error code later on if needed)
+        #
+        #      """
+        self.safewrite("reset()")
+        self.safewrite("beeper.enable=0")
+
+        ####set visualization
+        self.safewrite("display.screen = display.SMUA_SMUB")
+        self.safewrite("format.data = format.ASCII")
+        self.safewrite("format.asciiprecision = 14")
+
+        ####reset channels
+        self.safewrite(f"smua.reset()")
+        self.safewrite(f"smub.reset()")
+
+
     def keithley_init(self, s: dict) -> int:
         ##IRtothink#### pulsed operation should be rechecked if strict pulse duration will be needed
         # """Initialize Keithley SMU for single or dual channel operation.
@@ -405,7 +434,7 @@ class Keithley2612B:
         if s["delay"]:
             self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
             if not s["pulse"]:
-                self.safewrite(f"{s['source']}.measure.delayfactor = 28.0")
+                self.safewrite(f"{s['source']}.measure.delayfactor = {s['sourcedelayfactor']:.2f}")
             else:
                 self.safewrite(f"{s['source']}.measure.delayfactor = 1.0")
         else:
@@ -420,10 +449,12 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
 
                 # Set filter for source
-                ##IRtodo#### create filter section in GUI
-                self.safewrite(f"{s['source']}.measure.filter.count = 4")
-                self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
-                self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.FILTER_REPEAT_AVG")
+                if not s['sourcefiltertype'] == 'FILTER_OFF':
+                    self.safewrite(f"{s['source']}.measure.filter.count = {s['sourcefiltervalue']}")
+                    self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
+                    self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.{s['sourcefiltertype']}")
+                else:
+                    self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.{s['sourcefiltertype']}")
 
                 # set autoranges on for source. see ranges on 2-83 (108) of the manual
                 self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_ON")
@@ -481,7 +512,7 @@ class Keithley2612B:
             if s["draindelay"]:
                 self.safewrite(f"{s['drain']}.measure.delay = {s['drain']}.DELAY_AUTO")
                 if not s["pulse"]:
-                    self.safewrite(f"{s['drain']}.measure.delayfactor = 28.0")
+                    self.safewrite(f"{s['drain']}.measure.delayfactor = {s['draindelayfactor']:.2f}")
                 else:
                     self.safewrite(f"{s['drain']}.measure.delayfactor = 1.0")
             else:
@@ -495,10 +526,13 @@ class Keithley2612B:
                 self.safewrite(f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['drain']}.source.rangei = 10")
             else:
-                ##IRtodo#### create filter section in GUI
-                self.safewrite(f"{s['drain']}.measure.filter.count = 4")
-                self.safewrite(f"{s['drain']}.measure.filter.enable = {s['drain']}.FILTER_ON")
-                self.safewrite(f"{s['drain']}.measure.filter.type = {s['drain']}.FILTER_REPEAT_AVG")
+                # Set filter for drain
+                if not s['drainfiltertype'] == 'FILTER_OFF':
+                    self.safewrite(f"{s['drain']}.measure.filter.count = {s['drainfiltervalue']}")
+                    self.safewrite(f"{s['drain']}.measure.filter.enable = {s['drain']}.FILTER_ON")
+                    self.safewrite(f"{s['drain']}.measure.filter.type = {s['drain']}.{s['drainfiltertype']}")
+                else:
+                    self.safewrite(f"{s['drain']}.measure.filter.type = {s['drain']}.{s['drainfiltertype']}")
                 # set autoranges on for drain. see ranges on 2-83 (108) of the manual
                 self.safewrite(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_ON")
                 self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_ON")

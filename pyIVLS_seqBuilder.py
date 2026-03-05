@@ -38,6 +38,11 @@ class pyIVLS_seqBuilder(QObject):
         else:
             raise TypeError("seqBuilder: Tried to assign a non-QStandardItem")
 
+    # flags
+
+    skip_iteration = False
+    # should be set when a skippable exceptions occurs in the sequence
+
     #### Signals for communication
 
     info_message = pyqtSignal(str)
@@ -222,6 +227,7 @@ class pyIVLS_seqBuilder(QObject):
         if not is_valid_filename(filename):
             self.info_message.emit("Can not save sequence. Filename is invalid.")
             return 1
+        print("Saving recipe to " + self.widget.lineEdit_path.text() + sep + filename)
         with open(self.widget.lineEdit_path.text() + sep + filename, "w") as file:
             json.dump(
                 self.extract_data(self.model.invisibleRootItem().child(0)),
@@ -399,6 +405,8 @@ class pyIVLS_seqBuilder(QObject):
                         looping[-1]["namePostfix"] = iterText
                         looping[-1]["currentIteration"] = looping[-1]["currentIteration"] + 1
                         looping[-1]["currentStep"] = looping[-1]["currentStep"] + 1
+                        # Reset skip flag at the start of each new iteration
+                        self.skip_iteration = False
                     elif looping[-1]["currentStep"] == looping[-1]["totalSteps"]:
                         if looping[-1]["currentIteration"] < looping[-1]["totalIterations"]:
                             looping[-1]["currentStep"] = 0
@@ -414,18 +422,19 @@ class pyIVLS_seqBuilder(QObject):
                 nextStepClass = stackItem["class"]
                 self.available_instructions[nextStepFunction]["functions"]["setSettings"](nextStepSettings)
                 if nextStepClass == "step":
+                    # If skip flag is set, skip all steps until next iteration boundary
+                    if self.skip_iteration:
+                        continue
                     namePostfix = ""
                     for loopItem in looping:
                         namePostfix = namePostfix + loopItem["namePostfix"]
                     [status, message] = self.available_instructions[nextStepFunction]["functions"]["sequenceStep"](namePostfix)
                     if status:
-                        raise ValueError(message)
-                        """
-                        print(f"Error: {message}")
-                        self._sigSeqEnd.emit()  # Added
-                        self._setNotRunning()  # Added
-                        """
-                        break
+                        # Set skip flag and continue skipping steps until next iteration
+                        self.skip_iteration = True
+                        # Inform user and continue to process control flow
+                        self.log_message.emit(f"Skipping iteration due to step error: {message}")
+                        continue
                 if nextStepClass == "loop":
                     iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
                     looping.append(
@@ -444,8 +453,8 @@ class pyIVLS_seqBuilder(QObject):
             self._sigSeqEnd.emit()
         except ThreadStopped as ts:
             print(f"Sequence stopped: {ts}")
-        except Exception as e:
-            print(f"Error occurred: {e}")
+        except Exception:
+            print(traceback.format_exc())
         finally:
             self._setNotRunning()
             self._sigSeqEnd.emit()
@@ -483,6 +492,20 @@ class pyIVLS_seqBuilder(QObject):
         """
 
         def update_item_settings(item):
+            def compare_dicts(old, new):
+                changes = []
+                for key, newValue in new.items():
+                    # if nested dict, compare recursively
+                    if isinstance(newValue, dict):
+                        oldValue = old.get(key, None) if old else None
+                        nested_changes = compare_dicts(oldValue, newValue)
+                        changes.extend([f"{key}.{change}" for change in nested_changes])
+                        continue
+                    oldValue = old.get(key, None) if old else None
+                    if oldValue != newValue:
+                        changes.append(f"{key}: {oldValue} -> {newValue}")
+                return changes
+
             instructionFunc = item.text()
             if instructionFunc not in self.available_instructions:
                 return [f"Instruction {instructionFunc} is not available."]
@@ -494,24 +517,20 @@ class pyIVLS_seqBuilder(QObject):
 
             # Compare old and new settings
             oldSettings = item.data(Qt.ItemDataRole.UserRole)
-            changes = []
-            for key, newValue in newSettings.items():
-                oldValue = oldSettings.get(key, None) if oldSettings else None
-                if oldValue != newValue:
-                    changes.append(f"{key}: {oldValue} -> {newValue}")
+            changes = compare_dicts(oldSettings, newSettings)
 
             # Update the item's settings
             item.setData(newSettings, Qt.ItemDataRole.UserRole)
 
             return changes
 
-        all_changes = []
+        all_changes = {}
 
         if item:
             # Update a single item
             changes = update_item_settings(item)
             if changes:
-                all_changes.extend(changes)
+                all_changes[item.text()] = changes
         else:
             # Update all items in the sequence
             def traverse_and_update(item):
@@ -519,7 +538,7 @@ class pyIVLS_seqBuilder(QObject):
                     child = item.child(row, 0)
                     changes = update_item_settings(child)
                     if changes:
-                        all_changes.extend(changes)
+                        all_changes[child.text()] = changes
                     traverse_and_update(child)
 
             root_item = self.model.invisibleRootItem()
@@ -536,7 +555,12 @@ class pyIVLS_seqBuilder(QObject):
 
         # Emit a single aggregated message
         if all_changes:
-            self.info_message.emit("Settings updated with the following changes:\n" + "\n".join(all_changes))
+            message = "Settings updated with the following changes:\n"
+            for child_name, changes in all_changes.items():
+                message += f"\n{child_name}:\n"
+                for change in changes:
+                    message += f"  - {change}\n"
+            self.info_message.emit(message)
         else:
             self.info_message.emit("No changes were made.")
 

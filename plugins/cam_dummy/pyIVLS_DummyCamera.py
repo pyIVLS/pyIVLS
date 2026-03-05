@@ -40,7 +40,13 @@ class pyIVLS_DummyCamera_plugin:
         self._class = config.get("plugin", "class", fallback="")
         self.dependencies = config.get("plugin", "dependencies", fallback="").split(",")
         self.version = config.get("plugin", "version", fallback="")
-        self.metadata = {"name": self.name, "type": self.type, "function": self.function, "version": self.version, "dependencies": self.dependencies}
+        self.metadata = {
+            "name": self.name,
+            "type": self.type,
+            "function": self.function,
+            "version": self.version,
+            "dependencies": self.dependencies,
+        }
 
         self.camera_control = DummyCameraGUI()
 
@@ -53,11 +59,8 @@ class pyIVLS_DummyCamera_plugin:
         Returns:
             dict: name, widget
         """
-        # Fill the lineEdit with the saved path from plugin_data if available
-        settings = plugin_data[self.name]["settings"]
-        image_path = settings.get("source", "")
-        if hasattr(self.camera_control.settingsWidget, "lineEdit"):
-            self.camera_control.settingsWidget.lineEdit.setText(image_path)
+        # Initialize GUI with provided settings like VenusUSB2 plugin
+        self.camera_control._initGUI(plugin_data[self.name]["settings"])
         return {self.metadata["name"]: self.camera_control.settingsWidget}
 
     @hookimpl
@@ -90,7 +93,7 @@ class pyIVLS_DummyCamera_plugin:
         """
 
         if args is None or args.get("function") == self.metadata["function"]:
-            return {self.metadata["name"]: self.camera_control._getLogSignal()}
+            return {self.metadata["name"]: self.camera_control.logger.logger_signal}
 
     @hookimpl
     def get_info(self, args=None):
@@ -100,7 +103,7 @@ class pyIVLS_DummyCamera_plugin:
         """
 
         if args is None or args.get("function") == self.metadata["function"]:
-            return {self.metadata["name"]: self.camera_control._getInfoSignal()}
+            return {self.metadata["name"]: self.camera_control.logger.info_popup_signal}
 
     @hookimpl
     def get_closeLock(self, args=None):
@@ -110,11 +113,11 @@ class pyIVLS_DummyCamera_plugin:
         """
 
         if args is None or args.get("function") == self.metadata["function"]:
-            return {self.metadata["name"]: self.camera_control._getCloseLockSignal()}
+            return {self.metadata["name"]: self.camera_control.cl.closeLock}
 
     @hookimpl
     def get_plugin_settings(self, args=None):
         """See pyIVLS_hookspec.py for details."""
         if args is None or args.get("function") == self.metadata["function"]:
-            status, settings = 0, {"source": self.camera_control.settingsWidget.lineEdit.text()}
+            status, settings = self.camera_control.parse_settings_widget()
             return (self.metadata["name"], status, settings)

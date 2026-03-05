@@ -75,9 +75,9 @@ class pyIVLS_touchDetect_plugin:
         Returns: Missing methods
         """
         # set functions to DependencyManager
-        self.pluginClass.dm.set_function_dict(function_dict)
-        missing, list = self.pluginClass.dm.validate_dependencies()
-        return list
+        is_valid, missing = self.pluginClass.dm.set_available_dependency_functions(function_dict)
+
+        return {self.name: missing}
 
     @hookimpl
     def get_plugin_settings(self, args=None):

@@ -181,6 +181,10 @@ class AffineGUI(QObject):
         self.pointName = settingsWidget.findChild(QtWidgets.QLineEdit, "pointName")
         self.definedPoints = settingsWidget.findChild(QtWidgets.QListWidget, "definedPoints")
         self.definedPoints.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.definedPoints.setDragEnabled(True)
+        self.definedPoints.setAcceptDrops(True)
+        self.definedPoints.setDragDropMode(QtWidgets.QAbstractItemView.DragDropMode.InternalMove)
+        self.definedPoints.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.cameraComboBox: QtWidgets.QComboBox = settingsWidget.cameraComboBox
 
     def _connect_buttons(self, settingsWidget):
@@ -240,19 +244,30 @@ class AffineGUI(QObject):
         self.settingsWidget.groupBox.setEnabled(mask_loaded)
 
     def _list_widget_context_menu(self, pos):
-        def remove_item(item):
-            self.definedPoints.takeItem(self.definedPoints.row(item))
+        def delete_selected():
+            rows = sorted([self.definedPoints.row(it) for it in self.definedPoints.selectedItems()], reverse=True)
+            for r in rows:
+                self.definedPoints.takeItem(r)
 
-        item = self.definedPoints.itemAt(pos)
-        if item is None:
+        def rename_first_selected():
+            items = self.definedPoints.selectedItems()
+            if not items:
+                return
+            items[0].setText("New name")
+
+
+        if self.definedPoints.itemAt(pos) is None and not self.definedPoints.selectedItems():
             return
 
         menu = QMenu()
-        delete_action = QAction("Delete", self.definedPoints)
-        rename_action = QAction("Rename", self.definedPoints)
-        rename_action.triggered.connect(lambda: item.setText("New name"))
-        delete_action.triggered.connect(lambda: remove_item(item))
+        delete_action = QAction("Delete Selected", self.definedPoints)
+        rename_action = QAction("Rename First Selected", self.definedPoints)
+
+        delete_action.triggered.connect(delete_selected)
+        rename_action.triggered.connect(rename_first_selected)
+
         menu.addAction(delete_action)
+        menu.addAction(rename_action)
         menu.exec(self.definedPoints.mapToGlobal(pos))
 
     def save_points_action(self):
@@ -513,9 +528,11 @@ class AffineGUI(QObject):
         """Parse settings widget, return dict"""
         try:
             settings = {
-                "pointcount": self.settingsWidget.pointCount.value(),
-                "cameraComboBox": self.settingsWidget.cameraComboBox.currentText(),
-                "centerClicks": self.centerCheckbox.isChecked(),
+                "pointcount": int(self.settingsWidget.pointCount.currentText()),
+                "cameracombobox": self.settingsWidget.cameraComboBox.currentText(),
+                "addpointscheck": self.settingsWidget.addPointsCheck.isChecked(),
+                "default_mask_path": self.last_mask_path,
+                "centerclicks": self.centerCheckbox.isChecked(),
             }
             # extend the settings with the preprprocessing settings
             s = self.affine.preprocessor.settings
@@ -541,3 +558,13 @@ class AffineGUI(QObject):
         except (ValueError, AssertionError) as e:
             return 1, {"error message": f"Affine value error: {str(e)}", "exception": str(e)}
         return 0, settings
+
+    @public
+    def setSettings(self, settings: dict):
+        """Sets the plugin settings from a dictionary.
+
+        Args:
+            settings (dict): A dictionary containing plugin settings.
+        """
+        self.settings = settings
+        self._initGUI(settings)

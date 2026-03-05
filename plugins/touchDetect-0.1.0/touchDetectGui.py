@@ -3,7 +3,7 @@ import copy
 from touchDetect import touchDetect, ManipulatorInfo
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox, QSpinBox
-from plugins.plugin_components import (
+from plugin_components import (
     public,
     ConnectionIndicatorStyle,
     get_public_methods,
@@ -107,7 +107,7 @@ class touchDetectGUI:
         if status != 0:
             self.logger.log_warn(f"Dependency settings invalid: {state}")
             return None, None, None
-        func_dict = self.dm.get_function_dict_for_dependencies()
+        func_dict = self.dm.function_dict
         mm_functions = func_dict["micromanipulator"]
         contacting_functions = func_dict["contacting"]
         smu_functions = func_dict["smu"]
@@ -209,11 +209,25 @@ class touchDetectGUI:
     def setup(self, settings) -> QWidget:
         """Sets up the GUI for the plugin. This function is called by hook to initialize the GUI."""
         self.logger.log_debug("Setting up touchDetect GUI")
-        self.dm.setup(settings)
+        self.dm.initialize_dependency_selection(settings)
 
         # Hide all manipulator boxes initially
-        for box, _, _, _ in self.manipulator_boxes:
+        for box, smu_box, con_box, res_spin in self.manipulator_boxes:
             box.setVisible(False)
+
+        # Apply settings from internal state
+        for manipulator_index, (box, smu_box, con_box, res_spin) in enumerate(self.manipulator_boxes):
+            manipulator_key = str(manipulator_index + 1)
+            smu_key = f"{manipulator_key}_smu"
+            con_key = f"{manipulator_key}_con"
+            res_key = f"{manipulator_key}_res"
+
+            if smu_key in self.settings:
+                smu_box.setCurrentText(self.settings[smu_key])
+            if con_key in self.settings:
+                con_box.setCurrentText(self.settings[con_key])
+            if res_key in self.settings:
+                res_spin.setValue(int(self.settings[res_key]))
 
         # Store settings internally (maintain .ini format)
         self.settings = copy.deepcopy(settings)
