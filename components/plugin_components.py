@@ -34,6 +34,10 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtGui import QColor as Qcolor
+
+# Qcolors for manipulators as list
+MANIPULATOR_COLORS = (Qcolor(255, 0, 0), Qcolor(0, 255, 0), Qcolor(0, 0, 255), Qcolor(255, 255, 0))
 
 
 class ConnectionIndicatorStyle(Enum):
