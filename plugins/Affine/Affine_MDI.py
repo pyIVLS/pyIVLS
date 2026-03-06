@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 from PyQt6 import QtGui
 from plugin_components import MANIPULATOR_COLORS
 
+
 class GraphicsView(QGraphicsView):
     # signal for added points
     point_clicked = pyqtSignal(QPointF)
@@ -23,8 +24,12 @@ class GraphicsView(QGraphicsView):
         super().__init__(scene, parent)
         self._mode: str = "none"  # one of: 'none' | 'pan' | 'points'
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
+        self._mmb_dragging: bool = False
+        self._mmb_last_pos: Optional[QPointF] = None
 
-    def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
+    def wheelEvent(self, event: QtGui.QWheelEvent | None) -> None:
+        if event is None:
+            return
         factor = 1.20 if event.angleDelta().y() > 0 else 0.8
         self.scale(factor, factor)
 
@@ -45,6 +50,13 @@ class GraphicsView(QGraphicsView):
         if event is None:
             return
 
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._mmb_dragging = True
+            self._mmb_last_pos = event.position()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+            return
+
         if self._mode == "points" and event.button() == Qt.MouseButton.LeftButton:
             scene_pos = self.mapToScene(event.position().toPoint())
             self.point_clicked.emit(scene_pos)
@@ -53,6 +65,37 @@ class GraphicsView(QGraphicsView):
         else:
             # default behaviour when mode is not "points"
             super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QtGui.QMouseEvent | None) -> None:
+        if event is None:
+            return
+
+        if self._mmb_dragging and self._mmb_last_pos is not None:
+            delta = event.position() - self._mmb_last_pos
+            hbar = self.horizontalScrollBar()
+            vbar = self.verticalScrollBar()
+            if hbar is not None:
+                hbar.setValue(hbar.value() - int(delta.x()))
+            if vbar is not None:
+                vbar.setValue(vbar.value() - int(delta.y()))
+            self._mmb_last_pos = event.position()
+            event.accept()
+            return
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent | None) -> None:
+        if event is None:
+            return
+
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._mmb_dragging = False
+            self._mmb_last_pos = None
+            self.unsetCursor()
+            event.accept()
+            return
+
+        super().mouseReleaseEvent(event)
 
     def draw_point_list(self, points: list[list[QPointF]], colors=MANIPULATOR_COLORS, size=6) -> None:
         # Takes in a list of point lists and draws them all
@@ -66,7 +109,7 @@ class GraphicsView(QGraphicsView):
             # Draw new points
             for point_list in points:
                 for i, point in enumerate(point_list):
-                    color = colors[i % len(colors)] # just in case someone modifies this to use more than 4 manipulators
+                    color = colors[i % len(colors)]  # just in case someone modifies this to use more than 4 manipulators
                     ellipse = QGraphicsEllipseItem(
                         point.x() - size / 2,
                         point.y() - size / 2,
@@ -77,6 +120,7 @@ class GraphicsView(QGraphicsView):
                     ellipse.setPen(QtGui.QPen(Qt.GlobalColor.black))
                     skene.addItem(ellipse)
                     self.drawn_points.append(ellipse)
+
 
 class DualGraphicsWidget(QWidget):
     """Two QGraphicsViews with a shared toolbar of common tools."""
@@ -113,12 +157,8 @@ class DualGraphicsWidget(QWidget):
         # Group selection/pan mutually exclusive
         self._act_points.toggled.connect(self._on_points_toggled)
         self._act_pan.toggled.connect(self._on_pan_toggled)
-        self._show_left.toggled.connect(
-            lambda checked: self._view_left.setVisible(checked)
-        )
-        self._show_right.toggled.connect(
-            lambda checked: self._view_right.setVisible(checked)
-        )
+        self._show_left.toggled.connect(lambda checked: self._view_left.setVisible(checked))
+        self._show_right.toggled.connect(lambda checked: self._view_right.setVisible(checked))
 
         # Wire actions
         self._act_reset.triggered.connect(lambda: self._apply(lambda v: v.reset_zoom()))
@@ -142,9 +182,6 @@ class DualGraphicsWidget(QWidget):
         root.addWidget(self._toolbar)
         root.addWidget(views, 1)
         self.setLayout(root)
-
-
-
 
     def _apply(self, fn):
         fn(self._view_left)
@@ -177,7 +214,7 @@ class DualGraphicsWidget(QWidget):
             self._view_right.setScene(scene)
         else:
             raise ValueError(f"Invalid side: {side}, must be 'left' or 'right'")
-        
+
     @pyqtSlot()
     def draw_points_on_left(self, points: list[list[QPointF]]) -> None:
         self._view_left.draw_point_list(points)

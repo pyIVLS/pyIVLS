@@ -225,8 +225,24 @@ class AffineGUI(QObject):
 
     @pyqtSlot(QPointF)
     def _on_mask_point_clicked(self, point: QPointF):
-        print(f"Mask point clicked: {point}")
-        self.temp_points.append(point)
+        point_to_store = point
+
+        if self.centerCheckbox.isChecked() and self.affine.internal_mask is not None:
+            try:
+                mask_shape = self.affine.internal_mask.shape
+                max_y = mask_shape[0] - 1
+                max_x = mask_shape[1] - 1
+                x = int(round(point.x()))
+                y = int(round(point.y()))
+
+                if 0 <= x <= max_x and 0 <= y <= max_y:
+                    centered_x, centered_y = self.affine.center_on_component(x, y)
+                    point_to_store = QPointF(float(centered_x), float(centered_y))
+            except Exception as e:
+                self.logger.log_warn(f"Affine: could not center click on component: {str(e)}")
+
+        print(f"Mask point clicked: {point_to_store}")
+        self.temp_points.append(point_to_store)
         # live-render points while inputting
         self._refresh_left_points_display()
         if len(self.temp_points) == self.pointCount.value():
