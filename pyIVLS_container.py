@@ -477,56 +477,61 @@ class pyIVLS_container(QObject):
         return closeLockSignals
 
     def _check_dependencies_register(self, plugins_to_activate: list) -> list:
-        """Check the dependencies of plugins to be activated. Adds the
-        dependencies to the list of plugins to activate only when no plugins of that type are already registered.
+        """Check dependencies for plugins to be activated.
+        Plugins with missing dependencies are blocked from loading.
 
         Args:
             plugins_to_activate (list): plugins to be activated, format: x_plugin (section name in the ini file)
 
         Returns:
-            list: updated loading list, format: x_plugin (section name in the ini file)
+            list: filtered loading list containing only dependency-safe plugins,
+                format: x_plugin (section name in the ini file)
         """
-
-        def resolve_dependencies(plugin, seen):
-            """Recursion helper to find the dependencies of dependencies."""
-            if plugin in seen:
-                return  # Stop when seeing an already seen plugin
-            seen.add(plugin)
-            dependencies = self.config[plugin].get("dependencies", "").split(",")
-            if self.debug:
-                print(f"Checking dependencies for {plugin}: {dependencies}")
-
-            for dependency in filter(None, dependencies):  # Filter out empties
-                for section in self.config.sections():
-                    name, type = section.rsplit("_", 1)
-                    # If type is plugin and fulfills the dependency
-                    if type == "plugin" and self.config[section].get("function") == dependency:
-                        # Check if any plugin of this type is already registered
-                        active_plugins_of_type = [
-                            sec
-                            for sec in self.config.sections()
-                            if sec.rsplit("_", 1)[1] == "plugin" and self.config[sec].get("function") == dependency and self.pm.get_plugin(self.config[sec]["name"]) is not None
-                        ]
-
-                        # Add dependency only if no active plugins of this type exist
-                        if not active_plugins_of_type and section not in plugins_to_activate:
-                            plugins_to_activate.append(section)
-                            added_deps.append(name)
-                            resolve_dependencies(section, seen)
-
-        added_deps = []
-        seen = set()
+        missing_dependencies: dict[str, list[str]] = {}
+        safe_plugins: list[str] = []
 
         if self.debug:
             print("Checking dependencies for: ", plugins_to_activate)
 
-        for plugin in plugins_to_activate.copy():
-            resolve_dependencies(plugin, seen)
+        requested_plugins = set(plugins_to_activate)
+        for plugin in plugins_to_activate:
+            dependencies = [dep.strip() for dep in self.config[plugin].get("dependencies", "").split(",") if dep.strip()]
+            if self.debug:
+                print(f"Checking dependencies for {plugin}: {dependencies}")
 
-        if added_deps:
-            self.emit_log(f"Added dependencies: {', '.join(added_deps)}")
+            plugin_missing: list[str] = []
+            for dependency in dependencies:
+                has_provider = False
+                for section in self.config.sections():
+                    _, section_type = section.rsplit("_", 1)
+                    if section_type != "plugin":
+                        continue
+                    if self.config[section].get("function") != dependency:
+                        continue
 
-        return plugins_to_activate
+                    provider_active = self.pm.get_plugin(self.config[section]["name"]) is not None
+                    provider_requested = section in requested_plugins
+                    if provider_active or provider_requested:
+                        has_provider = True
+                        break
+
+                if not has_provider:
+                    plugin_missing.append(dependency)
+
+            if plugin_missing:
+                missing_dependencies[plugin] = plugin_missing
+            else:
+                safe_plugins.append(plugin)
+
+        if missing_dependencies:
+            for plugin_section, deps in missing_dependencies.items():
+                plugin_name = self.config[plugin_section].get("name", plugin_section)
+                dep_text = ", ".join(deps)
+                msg = f"Plugin {plugin_name} is missing required dependencies: {dep_text}. Loading this plugin has been blocked."
+                self.show_message_signal.emit(msg)
+                self.emit_error(msg)
+
+        return safe_plugins
 
     def _check_dependencies_unregister(self, plugin: str, reg_list: Optional[list] = None) -> tuple[bool, str]:
         """Checks if the plugin can be unregistered based on dependencies and type.
