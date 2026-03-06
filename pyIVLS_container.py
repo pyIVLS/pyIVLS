@@ -46,8 +46,6 @@ class pyIVLS_container(QObject):
     def read_available_plugins(self):
         """Called from the plugin loader to request the available plugins.
         Emits the available_plugins_signal with the plugin dictionary."""
-        if self.debug:
-            print("read_available_plugins in container called")
         self.available_plugins_signal.emit(self.get_plugin_dict())
 
     @pyqtSlot(list, list)
@@ -58,8 +56,7 @@ class pyIVLS_container(QObject):
         Args:
             plugins_to_activate (list): list of plugin names to activate
         """
-        if self.debug:
-            print("update_registration in container called with: ", plugins_to_activate)
+
         changes_applied = False
         # add dependencies to the list of plugins to activate
         plugins_to_activate = self._check_dependencies_register(plugins_to_activate)
@@ -197,9 +194,7 @@ class pyIVLS_container(QObject):
         Args:
             config_path (str): full path to the config file
         """
-        if self.debug:
-            print("Updating config file: ", config_path)
-        print("Updating config file: ", config_path)
+
         # Update the config file path and ensure the directory path is updated
         # get the name of the file, not the full path
         configName = basename(config_path)
@@ -334,8 +329,7 @@ class pyIVLS_container(QObject):
         # read the plugin name from the config
         plugin_name = self.config[plugin]["name"]
 
-        if self.debug:
-            print("Registering plugin: ", plugin_name)
+
 
         module_name = f"pyIVLS_{plugin_name}"
         class_name = f"pyIVLS_{plugin_name}_plugin"
@@ -378,8 +372,7 @@ class pyIVLS_container(QObject):
             plugin_name = self.config[plugin]["name"]
             # Retrieve the registered plugin instance
             plugin_instance = self.pm.get_plugin(plugin_name)
-            if self.debug:
-                print(f"Trying to unregister plugin: {plugin} with name {plugin_name}. Instance: {plugin_instance}")
+
             # is the plugin registered?
             if plugin_instance is not None:
                 is_dependency, dependent_plugin = self._check_dependencies_unregister(plugin, reg_list=reg_list)
@@ -490,14 +483,10 @@ class pyIVLS_container(QObject):
         missing_dependencies: dict[str, list[str]] = {}
         safe_plugins: list[str] = []
 
-        if self.debug:
-            print("Checking dependencies for: ", plugins_to_activate)
-
         requested_plugins = set(plugins_to_activate)
         for plugin in plugins_to_activate:
             dependencies = [dep.strip() for dep in self.config[plugin].get("dependencies", "").split(",") if dep.strip()]
-            if self.debug:
-                print(f"Checking dependencies for {plugin}: {dependencies}")
+
 
             plugin_missing: list[str] = []
             for dependency in dependencies:
@@ -508,7 +497,8 @@ class pyIVLS_container(QObject):
                         continue
                     if self.config[section].get("function") != dependency:
                         continue
-
+                    
+                    # either already active, or requested to be activated in the same batch
                     provider_active = self.pm.get_plugin(self.config[section]["name"]) is not None
                     provider_requested = section in requested_plugins
                     if provider_active or provider_requested:
@@ -553,9 +543,6 @@ class pyIVLS_container(QObject):
 
         is_last_of_type = len(active_plugins_of_type) == 1
 
-        print(f"Checking if plugin {plugin} can be unregistered. Active plugins of type '{plugin_type}': {active_plugins_of_type}. Is last of type: {is_last_of_type}")
-        print(f"Registered plugins: {self.pm.list_name_plugin()}")
-        print(f"reg_list: {reg_list}")
         # Check if any other registered plugin depends on this type of plugin
         for section in self.config.sections():
             if section == plugin:
@@ -565,15 +552,12 @@ class pyIVLS_container(QObject):
                 if self.pm.get_plugin(name) is not None:
                     dependencies = self.config[section].get("dependencies", "").split(",")
                     if plugin_type in dependencies:
-                        print(f"Plugin {section} depends on {plugin} (type: {plugin_type}).")
                         # If this is the last plugin of its type, return True and the dependent plugin
                         if is_last_of_type:
-                            print(f"Plugin {plugin} is the last of its type. Unregistering it will affect {section}.")
                             # if reg_list does not contain the plugin that depends on this, we can safely unload this plugin
                             # since the plugin that this is a dependency for is being unloaded aswell.
                             dependent_plugin = section
                             if reg_list is not None and dependent_plugin not in reg_list:
-                                print(f"Plugin {dependent_plugin} is not in the list of plugins to activate, so it will be unloaded. Unregistering {plugin} is safe.")
                                 continue
                             return True, dependent_plugin
 
