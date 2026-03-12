@@ -19,12 +19,13 @@ ivarad
 import os
 
 import time
+from PyQt6 import uic
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
-from settingsWidget import Ui_Form
 import numpy as np
 import copy
 from typing import Optional
+from plugin_components import LoggingHelper
 from plugin_components import LoggingHelper
 
 
@@ -157,7 +158,7 @@ class specSMU_GUI(QWidget):
             self.settingsWidget.label_pulsedPause_2.setEnabled(True)
             self.settingsWidget.lineEdit_Pause.setEnabled(True)
             self.settingsWidget.groupBox_HWtrigger.setEnabled(False)
-        elif mode == "HW pulse":
+        elif mode == "HW trigger":
             #### this should also update HW tigger in spectrometer plugin
             #### however, there will be an issue with initialization of GUI as it is not clear what plugin will be loaded first
             #### for now externaltrigger of spectrometer is updated only in setSettings
@@ -448,7 +449,7 @@ class specSMU_GUI(QWidget):
             if self.settings["powerpulseext"]<0:
                 self._log_verbose(f"Value error in SpecSMU plugin: extension of the power pulse can not be negative")
                 return [1, {"Error message": f"Value error in SpecSMU plugin: extension of the power pulse can not be negative"}]
-            self.settings.["ioline"] = int(raw_settings["ioline"]) # should already be an int from spinbox
+            self.settings["ioline"] = int(raw_settings["ioline"]) # should already be an int from spinbox
 
             self._log_verbose("Settings successfully parsed and validated")
         except ValueError as e:
@@ -486,7 +487,7 @@ class specSMU_GUI(QWidget):
     def setSettings(self, settings):  #### settings from sequenceBuilder
         # the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
         self.settings = {}
-        self.settings = self.settings.update(copy.deepcopy(settings))
+        self.settings.update(copy.deepcopy(settings))
         self.smu_settings = self.settings["smu_settings"]
         if self.settings["mode"] == "hw pulse":
                 self.settings["spectrometer_settings"]["externaltrigger"] = True
@@ -560,6 +561,14 @@ class specSMU_GUI(QWidget):
             s["sourcesense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
         self._log_verbose(f"SMU settings: {s}")
 
+        if self.smu_settings["sourcefiltertype"] == "Repeat average":
+            s["sourcefiltertype"] = "FILTER_REPEAT_AVG"
+            s["sourcefiltervalue"] = self.smu_settings["sourcefiltervalue"]
+        else:
+            s["sourcefiltertype"] = "FILTER_OFF"
+
+        s["sourcedelayfactor"] = self.smu_settings["sourcedelayfactor"]
+
         if not s["single_ch"]:
             self._log_verbose("Dual channel mode not implemented")
             return [1, {"Error message": "SpecSMU plugin: dual channel mode not implemented"}]
@@ -594,7 +603,9 @@ class specSMU_GUI(QWidget):
         self._log_verbose("Entering _SpecSMUImplementation")
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
-        if not self.settings["mode"] == "hw trig":
+        print(self.settings["mode"])
+        if not self.settings["mode"] == "hw trigger":
+            print('init')
             status, state = self.smuInit()
             assert status == 0, f"Error in initializing SMU: {state}"
         smuLoop = self.settings["points"]
@@ -649,7 +660,7 @@ class specSMU_GUI(QWidget):
                             pause_duration=self.settings["pause"],
                             last_integration_time=last_integration_time,
                         )
-                    elif self.settings["mode"] == "hw trig":
+                    elif self.settings["mode"] == "hw trigger":
 
                         # hw trig mode mainly based on smu_trigpulse. Spectrometer plugin understands that it is in hw trig mode from externaltrigger setting
                         status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](
@@ -701,7 +712,8 @@ class specSMU_GUI(QWidget):
                     self._log_verbose(f"Not changing integration time, current {integration_time} is close to setting {integration_time_setting}")
                     self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
 
-                if not self.settings["mode"] == "hw trig":
+                if not self.settings["mode"] == "hw trigger":
+
                     # integration time set, smu ready, spectrometer ready:
                     self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])  # output on
 
@@ -729,12 +741,13 @@ class specSMU_GUI(QWidget):
                 #HW trig mode
                 else:
                     #arm spectrometer
-                    self.self.function_dict["spectrometer"][spectro_name]["spectrometerTrigScan"]()
+                    self.function_dict["spectrometer"][spectro_name]["spectrometerTrigScan"]()
                     time.sleep(0.02) #just a precaution, duration does not mean anything specific, does not affect the measurement as smu is off
                     #make dict for smu, as we do not know if autotime was used
-                    trigDict = _make_hwtrig_dict()
+                    trigDict = self._make_hwtrig_dict()
                     trigDict["integrationtime"] = integration_time_setting#in s
                     #run smupulse
+                    print("HWtrig")
                     status, info = self.function_dict["smu"][smu_name]["smu_trigpulse"](trigDict)
                     if status:
                         self._log_verbose(f"Error running smupulse: {info}")
@@ -758,7 +771,7 @@ class specSMU_GUI(QWidget):
                 varDict["integrationtime"] = integration_time_setting
                 varDict["triggermode"] = 1 if self.spectrometer_settings["externalTrigger"] else 0
                 varDict["name"] = self.spectrometer_settings["samplename"]
-                if self.settings["mode"] == "hw trig":
+                if self.settings["mode"] == "hw trigger":
                     IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
                     readings = ",".join(map(str, IVdata.ravel()))
                 else:

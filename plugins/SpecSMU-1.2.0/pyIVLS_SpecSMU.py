@@ -60,7 +60,7 @@ class pyIVLS_SpecSMU_plugin:
         if "function_dict" in plugin_data[self.name]:
             self.specsmu.function_dict = plugin_data[self.name]["function_dict"]
         self.specsmu._initGUI(plugin_data[self.name]["settings"])
-        return {self.name: self.specsmu}
+        return {self.name: self.specsmu.settingsWidget}
 
     @hookimpl
     def get_functions(self, args=None):
@@ -82,9 +82,9 @@ class pyIVLS_SpecSMU_plugin:
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
         if args is None or args.get("function") == self.function:
             # Use the raw getter for saving settings
-            settings = self.specsmu.get_settings_dict_raw()
+            #settings = self.specsmu.get_settings_dict_raw()
             # Optionally, you can still parse/validate if needed:
-            # status, parsed_settings = self.specsmu.parse_settings_widget()
+            status, settings = self.specsmu.parse_settings_widget()
             # return (self.name, status, parsed_settings)
             return (self.name, 0, settings)
 

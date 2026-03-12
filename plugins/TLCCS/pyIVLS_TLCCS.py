@@ -108,6 +108,6 @@ class pyIVLS_TLCCS_plugin:
     def get_plugin_settings(self, args=None):
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
         if args is None or args.get("function") == self.metadata["function"]:
-            status, settings = self.spectrometerGUI.get_current_gui_settings()
+            status, settings = self.spectrometerGUI.parse_settings_widget()
             return (self.metadata["name"], status, settings)
 

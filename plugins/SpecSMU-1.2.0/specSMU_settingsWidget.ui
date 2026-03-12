@@ -140,10 +140,23 @@
                    </item>
                   </widget>
                  </item>
+                 <item>
+                  <spacer name="horizontalSpacer_4">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="HBoxLayout_inject" stretch="0,0">
+                <layout class="QHBoxLayout" name="HBoxLayout_inject" stretch="0,0,0">
                  <item>
                   <widget class="QLabel" name="label_inject">
                    <property name="sizePolicy">
@@ -191,6 +204,19 @@
                     </property>
                    </item>
                   </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_5">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
                  </item>
                 </layout>
                </item>
@@ -244,15 +270,28 @@
                    </item>
                    <item>
                     <property name="text">
-                     <string>HW pulse</string>
+                     <string>HW trigger</string>
                     </property>
                    </item>
                   </widget>
                  </item>
+                 <item>
+                  <spacer name="horizontalSpacer_6">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="HBoxLayout_sourceSenseMode" stretch="0,0">
+                <layout class="QHBoxLayout" name="HBoxLayout_sourceSenseMode" stretch="0,0,0">
                  <item>
                   <widget class="QLabel" name="label_sourceSenseMode">
                    <property name="sizePolicy">
@@ -305,6 +344,19 @@
                     </property>
                    </item>
                   </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_7">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
                  </item>
                 </layout>
                </item>
