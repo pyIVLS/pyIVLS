@@ -174,6 +174,7 @@ class Keithley2612BGUI(QObject):
             self.settings
         """
         self.settings = {}
+        self._parse_settings_address()
         #Get source settings
         self.settings["sourcefiltertype"] = self.settingsWidget.comboBox_sourceFilter.currentText()
         # Determine if a filter is used
@@ -249,14 +250,12 @@ class Keithley2612BGUI(QObject):
         self.settings["drainhighc"] = self.settingsWidget.checkBox_drainHighC.isChecked()
         if "lineFrequency" not in self.settings:
             try:
+                self.smu_connect()
                 info = self.smu.getLineFrequency()
                 self.settings["lineFrequency"] = info
             except:
-                return [
-                    PyIVLSReturnCode.HARDWARE_ERROR,
-                    {"Error message": "Hardware error in Keithley2612B plugin: can not get line frequency"},
-                ]
-        self._parse_settings_address()
+                self.logger.log_warn("Hardware error in Keithley2612B plugin: can not get line frequency, returned line frequency is 0")
+                self.settings["lineFrequency"] = 0
         return (0, self.settings)
 
     def _parse_settings_address(self) -> None:
@@ -321,8 +320,8 @@ class Keithley2612BGUI(QObject):
         set_combobox_value(self.settingsWidget.comboBox_drainFilter, self.settings["drainfiltertype"])
         self.settingsWidget.lineEdit_sourceFilter.setText(str(self.settings["sourcefiltervalue"]))
         self.settingsWidget.lineEdit_drainFilter.setText(str(self.settings["drainfiltervalue"]))
-        self.settingsWidget.lineEdit_sourceDelayFactor.setText(f"{self.settings['sourcedelayfactor']:.2f}")
-        self.settingsWidget.lineEdit_drainDelayFactor.setText(f"{self.settings['draindelayfactor']:.2f}")
+        self.settingsWidget.lineEdit_sourceDelayFactor.setText(f"{self.settings['sourcedelayfactor']}")
+        self.settingsWidget.lineEdit_drainDelayFactor.setText(f"{self.settings['draindelayfactor']}")
         self.logger.log_debug("GUI settings set from internal settings")
         self._update_GUI_state()
 
@@ -353,8 +352,8 @@ class Keithley2612BGUI(QObject):
 #### this might be useful if a plugin does not check if the smu was moved into a manual mode
 
         steps = [
-            self.parse_settings_widget,
             self.smu_connect,
+            self.parse_settings_widget,
             self.smu_reset,
         ]
 
@@ -365,7 +364,7 @@ class Keithley2612BGUI(QObject):
                     self.logger.log_warn(str(message))
                 else:
                     self.logger.log_info(str(message))
-                self.logger.log_info(message["Error message"])
+                self.logger.info_popup(message["Error message"])
                 return [status, message]
 
 

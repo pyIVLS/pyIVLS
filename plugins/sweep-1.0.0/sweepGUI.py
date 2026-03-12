@@ -139,7 +139,7 @@ class sweepGUI(QObject):
         # set default SMU
         if default_smu in self.function_dict["smu"]:
             self.settingsWidget.smuBox.setCurrentText(default_smu)
-        self.parse_settings_widget() #intialization of the settings shape should be done by update, but this does not include smu_settings
+        #self.parse_settings_widget() #parse settings widgets asks all the other plugins to parse their widgets, should not be done immediately
         self.settings.update(plugin_info)
         self.logger.log_debug(f"Settings after update: {self.settings}")
         self.set_gui_from_settings()
@@ -280,7 +280,6 @@ class sweepGUI(QObject):
         smu_selection = self.settingsWidget.smuBox.currentText()
         if smu_selection in self.function_dict["smu"]:
             # update smu:
-            self.function_dict["smu"][smu_selection]["parse_settings_widget"]()
             available_channels = self.function_dict["smu"][smu_selection]["smu_channelNames"]()
             # get channel names from the selected SMU plugin
             self.settingsWidget.comboBox_channel.clear()
@@ -440,7 +439,7 @@ class sweepGUI(QObject):
 #            self.settings["continuousnplc"] = (
 #                0.001 * line_freq * float(self.settingsWidget.lineEdit_continuousNPLC.text())
 #            )
-             self.settings["continuousnplc"] = float(self.settingsWidget.lineEdit_continuousNPLC.text()/1000 # value in settings is in s; value in GUI is in ms
+             self.settings["continuousnplc"] = float(self.settingsWidget.lineEdit_continuousNPLC.text())/1000 # value in settings is in s; value in GUI is in ms
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: continuous nplc field should be numeric"}]
         if self.settings["continuousnplc"] <= 0:
@@ -895,7 +894,7 @@ class sweepGUI(QObject):
             self.logger.log_warn("Setting GUI from settings conversion failed. pulsednplc is set as it is in settings")
             self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"])))
         try:
-            self.settingsWidget.lineEdit_pulsedDelay.setText(str(self.settings["pulseddelay"]) * 1000)
+            self.settingsWidget.lineEdit_pulsedDelay.setText(str(float(self.settings["pulseddelay"]) * 1000))
         except:
             self.logger.log_warn("Setting GUI from settings conversion failed. pulseddelay is set as it is")
             self.settingsWidget.lineEdit_pulsedDelay.setText(str(self.settings["pulseddelay"]))

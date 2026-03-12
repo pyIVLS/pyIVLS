@@ -173,7 +173,6 @@ class Keithley2612B:
             self.safewrite("display.settext('Connected to PyIVLS')")
             time.sleep(2)
             self.safewrite("display.screen = display.SMUA_SMUB")
-
         if self.backend == BackendType.USB.value:
             if self.k is None:
                 #### connect with usbtmc
@@ -657,7 +656,7 @@ class Keithley2612B:
         """
         
         def ceil_to_power_of_10(x):
-            "Helper function for getting ceil to the injected current in current injection mode
+            "Helper function for getting ceil to the injected current in current injection mode"
             if x == 0:
                 return 0
             power = math.floor(math.log10(abs(x)))
@@ -716,7 +715,7 @@ class Keithley2612B:
                     self.safewrite(f"trigger.blender[1].stimulus[2] = trigger.timer[2].EVENT_ID")
                     self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
                 else:
-                    if s['delayduration']+nplc_s+s['postwait'])>s['integrationtime']:
+                    if s['delayduration']+nplc_s+s['postwait']>s['integrationtime']:
                         pulseduration = s['delayduration']+nplc_s+s['postwait']
                     else:
                         pulseduration = s['integrationtime'] + s['postwait']

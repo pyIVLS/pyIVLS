@@ -43,7 +43,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
             comment = f"{comment}Measurement stabilization period is done in AUTO mode\n#"
         else:
             comment = f"{comment}Measurement stabilization period is{settings['continuousdelay'] / 1000} ms\n#"
-        comment = f"{comment}NPLC value {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']})\n#"
+        comment = f"{comment}NPLC value {settings['continuousnplc'] * 1000} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc'] * smu_settings['lineFrequency']})\n#"
     else:
         comment = f"{comment}Start value for sweep {settings['pulsedstart']} {stepunit}\n#"
         comment = f"{comment}End value for sweep {settings['pulsedend']} {stepunit}\n#"
@@ -52,7 +52,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
             comment = f"{comment}Measurement stabilization period is done in AUTO mode\n#"
         else:
             comment = f"{comment}Measurement stabilization period is{settings['pulseddelay'] / 1000} ms\n#"
-        comment = f"{comment}NPLC value {settings['pulsednplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['pulsednplc']})\n#"
+        comment = f"{comment}NPLC value {settings['pulsednplc'] * 1000} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['pulsednplc']*smu_settings['lineFrequency']})\n#"
 
     comment = f"{comment}\n#"
     if settings["mode"] == "continuous":
@@ -63,7 +63,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
         comment = f"{comment}\n#\n#\n#\n#"
     else:
         comment = f"{comment}Mixed operation of the source with delays of {settings['pulsedpause']} s\n#"
-        comment = f"{comment}NPLC value for continuous operation arm {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']}) \n#"
+        comment = f"{comment}NPLC value for continuous operation arm {settings['continuousnplc'] * 1000} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc'] * smu_settings['lineFrequency']}) \n#"
         comment = f"{comment}Limit for continuous operation arm {settings['continuouslimit']} {limitunit}\n#"
         comment = f"{comment}Start value for continuous operation arm {settings['continuousstart']} {stepunit}\n#"
         comment = f"{comment}End value for continuous operation arm {settings['continuousend']} {stepunit}\n#"
