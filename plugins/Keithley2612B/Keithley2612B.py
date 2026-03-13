@@ -717,10 +717,12 @@ class Keithley2612B:
                     self.safewrite(f"trigger.timer[2].delay = {(pulseduration - (s['delayduration']+ nplc_s +s['postwait'])):.6f}") #duration of wait before second measurement in s
                     self.safewrite(f"trigger.timer[2].count = 1")
                     self.safewrite(f"trigger.timer[2].passthrough = false") ## if true the timer will trigger immediately after run
+                    self.safewrite(f"trigger.timer[2].stimulus = {s['source']}.trigger.SWEEPING_EVENT_ID")
                     self.safewrite(f"trigger.blender[1].orenable = true")
                     self.safewrite(f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                     self.safewrite(f"trigger.blender[1].stimulus[2] = trigger.timer[2].EVENT_ID")
                     self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
+                    print("check after")
                 else:
                     if s['delayduration']+nplc_s+s['postwait']>s['integrationtime']:
                         pulseduration = s['delayduration']+nplc_s+s['postwait']

@@ -663,7 +663,7 @@ class specSMU_GUI(QWidget):
                         # hw trig mode mainly based on smu_trigpulse. Spectrometer plugin understands that it is in hw trig mode from externaltrigger setting
                         status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](
                             external_action=self.function_dict["smu"][smu_name]["smu_trigpulse"],
-                            external_action_args=(_make_hwtrig_dict(),),
+                            external_action_args=(self._make_hwtrig_dict(smuSetValue),),
                             external_cleanup=self.function_dict["smu"][smu_name]["smu_outputOFF"],
                             pause_duration=self.settings["pause"],
                             last_integration_time=last_integration_time,
@@ -753,7 +753,6 @@ class specSMU_GUI(QWidget):
                     
                     # spectrum
                     status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
-                    print(status, spectrum)
                     if status:
                         self._log_verbose(f"Error getting spectrum: {spectrum}")
                         raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
@@ -772,7 +771,8 @@ class specSMU_GUI(QWidget):
                 if self.settings["mode"] == "hw trigger":
                     IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
                     readings = ",".join(map(str, IVdata.ravel()))
-                    i_after, v_after = IVdata[-1] 
+                    i_after, v_after = IVdata[-1]
+                    print(IVdata)
                 else:
                     if after_flag:
                         # sourceIV is returned as a tuple (i, v, readings)
