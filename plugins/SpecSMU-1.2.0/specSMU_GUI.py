@@ -783,7 +783,6 @@ class specSMU_GUI(QWidget):
                     IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
                     readings = ",".join(map(str, IVdata.ravel()))
                     i_after, v_after = IVdata[-1]
-                    print(IVdata)
                 else:
                     if after_flag:
                         # sourceIV is returned as a tuple (i, v, readings)
