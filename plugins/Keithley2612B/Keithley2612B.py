@@ -668,6 +668,7 @@ class Keithley2612B:
             try:
                 self.safewrite("reset()")
                 self.safewrite("beeper.enable=0")
+                self.safewrite("digio.writeport(0)")
 
                 ####set visualization
                 self.safewrite("display.screen = display.SMUA_SMUB")
@@ -722,7 +723,6 @@ class Keithley2612B:
                     self.safewrite(f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                     self.safewrite(f"trigger.blender[1].stimulus[2] = trigger.timer[2].EVENT_ID")
                     self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
-                    print("check after")
                 else:
                     if s['delayduration']+nplc_s+s['postwait']>s['integrationtime']:
                         pulseduration = s['delayduration']+nplc_s+s['postwait']
