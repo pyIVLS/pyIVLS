@@ -338,7 +338,6 @@ class Keithley2612B:
             readings_count = int(float(self.safequery(f"print({channel}.nvbuffer2.n)")))
             i_values = self.safequery(f"printbuffer({1}, {readings_count}, {channel}.nvbuffer1)")
             v_values = self.safequery(f"printbuffer({1}, {readings_count}, {channel}.nvbuffer2)")
-
             # Add to the iv array
             ##IRtothink#### some check may be added to make sure that the value may be converted
             iv.extend(
@@ -684,16 +683,24 @@ class Keithley2612B:
 
                 #Configure a single-point list sweep
                 self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE") ## enable source action
+                self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
                 self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ASYNC") ## enable asynchronous measurement action (to measure IV before and after the pulse)
                 self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})") ##
                 #Configure other source parameters for best timing possible.
+                self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_ONCE") #see p. 585 of Keithley manual
                 if s["type"] == 'v':
                     self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
-                    self.safewrite(f"{s['source']}.source.rangev = {math.ceil(s["value"])}")
+                    self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.source.rangev = {math.ceil(abs(s["value"]))}")
+                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
                 else:
                     self.safewrite(f"{s['source']}.trigger.source.limitv = {s['limit']}")
+                    self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
                     self.safewrite(f"{s['source']}.source.rangei = {ceil_to_power_of_10(s['value'])}")
                     self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
+                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
                 #Calculate duration of the pulse:
                 if s['delay']:
                     self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
