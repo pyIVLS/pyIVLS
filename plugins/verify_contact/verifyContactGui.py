@@ -2,7 +2,7 @@ import os
 import copy
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget
-from plugins.plugin_components import public, ConnectionIndicatorStyle, get_public_methods, LoggingHelper, DependencyManager
+from plugin_components import public, ConnectionIndicatorStyle, get_public_methods, LoggingHelper, DependencyManager
 
 
 class verifyContactGUI:
@@ -43,7 +43,7 @@ class verifyContactGUI:
             self.logger.log_info(f"Verify contact successful: {state}")
 
     def _verify_functionality(self):
-        func_dict = self.dm.get_function_dict_for_dependencies()
+        func_dict = self.dm.function_dict
         contacting_functions = func_dict["contactingmove"]
         contacting_functions = contacting_functions[self.settings["contactingmove"]]
         contacting_functions["setSettings"](self.settings["contactingmove_settings"])  # no return
@@ -56,7 +56,7 @@ class verifyContactGUI:
     def setup(self, settings: dict) -> QWidget:
         self.settings = settings
         # Setup the UI elements with the provided settings
-        self.dm.setup(settings)
+        self.dm.initialize_dependency_selection(settings)
 
         return self.settingsWidget
 

@@ -7,7 +7,7 @@ from Keithley2612B import Keithley2612B
 from PyQt6 import uic
 from PyQt6.QtCore import Qt, QObject, pyqtSlot
 from PyQt6.QtWidgets import QComboBox
-from plugins.plugin_components import LoggingHelper, public, get_public_methods, PyIVLSReturnCode
+from plugin_components import LoggingHelper, public, get_public_methods
 
 """
             settings dictionary for class
@@ -65,7 +65,6 @@ class Keithley2612BGUI(QObject):
     public_methods = [
         "set_running",
         "set_gui_from_settings",
-        "parse_settings_widget",
         "smu_set_digio",
         "smu_resmes",
         "smu_setup_resmes",
@@ -113,7 +112,7 @@ class Keithley2612BGUI(QObject):
         # use _update_GUI_state instead of the smaller updates similar to the other plugins
         self.settingsWidget.comboBox_sourceFilter.currentIndexChanged.connect(self._update_GUI_state)
         self.settingsWidget.comboBox_drainFilter.currentIndexChanged.connect(self._update_GUI_state)
-        
+
         self.settingsWidget.button_Init.clicked.connect(self._initAction)
 
     ########Functions
@@ -156,7 +155,7 @@ class Keithley2612BGUI(QObject):
     ########plugins interraction
     def _get_public_methods(self) -> dict:
         return get_public_methods(self)
-    
+
     def _getLogSignal(self):
         return self.logger.logger_signal
 
@@ -166,7 +165,7 @@ class Keithley2612BGUI(QObject):
     ########Functions to be used externally
     ###############get settings from GUI
     @public
-    def parse_settings_widget(self) -> tuple[int, dict]:
+    def parse_settings_widget(self):
         """Parses the settings widget for the Keithley. Extracts current values
 
         Returns [status, settings_dict]:
@@ -178,7 +177,7 @@ class Keithley2612BGUI(QObject):
         #Get source settings
         self.settings["sourcefiltertype"] = self.settingsWidget.comboBox_sourceFilter.currentText()
         # Determine if a filter is used
-        if self.settings["sourcefiltertype"] == 'Off':
+        if self.settings["sourcefiltertype"] == "Off":
             self.settings["sourcefiltervalue"] = 1
         else:
             # number of averages should be int >0
@@ -194,9 +193,9 @@ class Keithley2612BGUI(QObject):
                     1,
                     {"Error message": "Value error in Keithley2612B plugin: number in source filter value field can not be less than 1"},
                 ]
-        #source dealy factor
+        # source dealy factor
         try:
-                self.settings["sourcedelayfactor"] = float(self.settingsWidget.lineEdit_sourceDelayFactor.text())
+            self.settings["sourcedelayfactor"] = float(self.settingsWidget.lineEdit_sourceDelayFactor.text())
         except ValueError:
             return [
                 1,
@@ -205,16 +204,14 @@ class Keithley2612BGUI(QObject):
         if self.settings["sourcedelayfactor"] < 0:
             return [
                 1,
-                {
-                    "Error message": "Value error in Keithley2612B plugin: number in source delay factor field can not be negative"
-                },
+                {"Error message": "Value error in Keithley2612B plugin: number in source delay factor field can not be negative"},
             ]
         # Determine a HighC mode for source: may be True or False
         self.settings["sourcehighc"] = self.settingsWidget.checkBox_sourceHighC.isChecked()
-        #Get drain settings
+        # Get drain settings
         self.settings["drainfiltertype"] = self.settingsWidget.comboBox_drainFilter.currentText()
         # Determine if a filter is used
-        if self.settings["drainfiltertype"] == 'Off':
+        if self.settings["drainfiltertype"] == "Off":
             self.settings["drainfiltervalue"] = 1
         else:
             # number of averages should be int >0
@@ -229,10 +226,10 @@ class Keithley2612BGUI(QObject):
                 return [
                     1,
                     {"Error message": "Value error in Keithley2612B plugin: number in drain filter value field can not be less than 1"},
-            ]
-        #drain dealy factor
+                ]
+        # drain dealy factor
         try:
-                self.settings["draindelayfactor"] = float(self.settingsWidget.lineEdit_drainDelayFactor.text())
+            self.settings["draindelayfactor"] = float(self.settingsWidget.lineEdit_drainDelayFactor.text())
         except ValueError:
             return [
                 1,
@@ -241,9 +238,7 @@ class Keithley2612BGUI(QObject):
         if self.settings["draindelayfactor"] < 0:
             return [
                 1,
-                {
-                    "Error message": "Value error in Keithley2612B plugin: number in drain delay factor field can not be negative"
-                },
+                {"Error message": "Value error in Keithley2612B plugin: number in drain delay factor field can not be negative"},
             ]
 
         # Determine a HighC mode for drain: may be True or False
@@ -329,8 +324,7 @@ class Keithley2612BGUI(QObject):
     def setSettings(self, ext_settings):
         self.logger.log_debug("Setting settings for sweep plugin: " + str(settings))
         # some values may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
-        self.settings.update(copy.deepcopy(ext_settings)) #may not work with nested dicts, needs to be checked
-
+        self.settings.update(copy.deepcopy(ext_settings))  # may not work with nested dicts, needs to be checked
 
     ###############GUI enable/disable
     @public
@@ -347,9 +341,9 @@ class Keithley2612BGUI(QObject):
         if not status:
             self._update_GUI_state()
 
-###############reinitialize Keithlei
+    ###############reinitialize Keithlei
     def _initAction(self):
-#### this might be useful if a plugin does not check if the smu was moved into a manual mode
+        #### this might be useful if a plugin does not check if the smu was moved into a manual mode
 
         steps = [
             self.smu_connect,
@@ -367,12 +361,11 @@ class Keithley2612BGUI(QObject):
                 self.logger.info_popup(message["Error message"])
                 return [status, message]
 
-
         self.logger.log_debug(f"Reset successful")
         return [status, message]
 
     ###############providing access to SMU functions
-    @public    
+    @public
     def smu_channelNames(self) -> list[str]:
         """provides channel names for particular SMU
         this should make plugins more universal, but still need to be rechecked"""
@@ -398,6 +391,7 @@ class Keithley2612BGUI(QObject):
                     "Exception": e,
                 },
             )
+
     @public
     def smu_connect(self) -> tuple[int, dict]:
         """an interface for an externall calling function to connect to Keithley
@@ -408,9 +402,7 @@ class Keithley2612BGUI(QObject):
 
         """
         try:
-            self.smu.keithley_connect(
-                self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"]
-            )
+            self.smu.keithley_connect(self.settings["address"], self.settings["eth_address"], self.settings["backend"], self.settings["port"])
             return (0, {"Error message": self.smu.keithley_IDN()})
         except Exception as e:
             return (
@@ -420,10 +412,12 @@ class Keithley2612BGUI(QObject):
                     "Exception": e,
                 },
             )
+
     @public
     def smu_disconnect(self) -> None:
         """an interface for an externall calling function to disconnect Keithley"""
         self.smu.keithley_disconnect()
+
     @public
     def smu_abort(self, channel) -> None:
         """An interface for an externall calling function to stop the sweep on Keithley
@@ -431,6 +425,7 @@ class Keithley2612BGUI(QObject):
         s: channel to get the last value (may be 'smua' or 'smub')
         """
         self.smu.abort_sweep(channel)
+
     @public
     def smu_outputON(self, source: Optional[str] = None, drain: Optional[str] = None) -> None:
         """An interface for an externall calling function to switch on the output
@@ -438,11 +433,13 @@ class Keithley2612BGUI(QObject):
         source and drain are "smua" or "smub"
         """
         self.smu.channelsON(source, drain)
+
     @public
     def smu_outputOFF(self) -> None:
         """An interface for an externall calling function to switch off the output"""
 
         self.smu.channelsOFF()
+
     @public
     def smu_init(self, s: dict) -> int:
         """an interface for an externall calling function to initialize Keithley
@@ -458,6 +455,7 @@ class Keithley2612BGUI(QObject):
         Note: this function should be called only when the settings are checked, i.e. after parse_settings_widget
         """
         return self.smu.keithley_init(s)
+
     @public
     def smu_runSweep(self, s: dict) -> int:
         """an interface for an externall calling function to run sweep on Keithley
@@ -473,6 +471,7 @@ class Keithley2612BGUI(QObject):
         Note: this function should be called only after the Keithley is initialized (i.e. after smu.keithley_init(s))
         """
         return self.smu.keithley_run_sweep(s)
+
     @public
     def smu_getLastBufferValue(self, channel, readings=None) -> list:
         """an interface for an externall calling function to get last buffer value from Keithley
@@ -482,6 +481,7 @@ class Keithley2612BGUI(QObject):
             list [i, v, number of point in the buffer]
         """
         return self.smu.get_last_buffer_value(channel, readings)
+
     @public
     def smu_bufferRead(self, channel):
         """an interface for an externall calling function to get the content of a channel buffer from Keithley
@@ -491,6 +491,7 @@ class Keithley2612BGUI(QObject):
             np.ndarray (current, voltage)
         """
         return self.smu.read_buffers(channel)
+
     @public
     def smu_getIV(self, channel) -> tuple[int, list[float]]:
         """gets IV data
@@ -499,6 +500,7 @@ class Keithley2612BGUI(QObject):
             list [i, v]
         """
         return (0, self.smu.getIV(channel))
+
     @public
     def smu_setOutput(self, channel, outputType, value):
         #        """sets smu output but does not switch it ON
@@ -508,6 +510,7 @@ class Keithley2612BGUI(QObject):
         #        """
         self.smu.setOutput(channel, outputType, value)
         return [0, "OK"]
+
     @public
     def smu_setup_resmes(self, channel):
         """Sets up resistance measurement
@@ -523,6 +526,7 @@ class Keithley2612BGUI(QObject):
             return (0, {"Error message": "Keithley setup resistance measurement"})
         else:
             return (4, {"Error message": f"HW issue in keithley resistance setup: {err_text}"})
+
     @public
     def smu_resmes(self, channel):
         """Measures resistance on the specified channel.
@@ -535,6 +539,7 @@ class Keithley2612BGUI(QObject):
         """
         resistance = self.smu.resistance_measurement(channel)
         return (0, resistance)
+
     @public
     def smu_set_digio(self, channel, value):
         """Sets digital output on the specified channel.

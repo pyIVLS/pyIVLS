@@ -3,10 +3,8 @@ Comprehensive tests for plugin_components.py
 
 This module tests the following classes:
 - FileManager: File header creation functionality
-- GuiMapper: Dynamic GUI field mapping with bidirectional conversion
 - DependencyManager: Plugin dependency management and validation
 - LoggingHelper: Logging functionality with Qt signals
-- SMUHelper: SMU initialization helper
 - DataOrder: Enum for data ordering
 - PluginException: Custom exception class
 """
@@ -16,18 +14,18 @@ import os
 import pytest
 from unittest.mock import Mock, patch
 
-# Add the plugins directory to the path so we can import the module
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "plugins"))
+# Add the components directory to the path so we can import the module
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "components"))
 
 try:
     from plugin_components import (
         FileManager,
-        GuiMapper,
         DependencyManager,
         LoggingHelper,
         PluginException,
+        filter_to_valid_methods,
     )
-    from PyQt6.QtWidgets import QApplication, QWidget, QLineEdit, QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox
+    from PyQt6.QtWidgets import QApplication, QComboBox
     from PyQt6.QtCore import QObject
     import sys
 
@@ -150,365 +148,139 @@ class TestFileManager:
         assert "No sample name test" in header
 
 
-class TestGuiMapper:
-    """Test the GuiMapper class for dynamic GUI field mapping."""
+class TestFilterToValidMethods:
+    """Test filtering of function dictionaries by required methods."""
 
-    def setup_method(self):
-        """Set up test fixtures with real Qt widgets."""
-        # Create a real QWidget container
-        self.widget = QWidget()
-        self.plugin_name = "TestPlugin"
-        self.gui_mapper = GuiMapper(self.widget, self.plugin_name)
+    def test_filters_to_valid_plugins(self):
+        function_dict = {
+            "smu": {
+                "valid": {"connect": Mock(), "init": Mock(), "measure": Mock()},
+                "partial": {"connect": Mock()},
+            }
+        }
+        required = {"smu": ["connect", "init"]}
 
-        # Create real PyQt6 widgets
-        self.line_edit = QLineEdit()
-        self.checkbox = QCheckBox()
-        self.combobox = QComboBox()
-        self.spinbox = QSpinBox()
-        self.double_spinbox = QDoubleSpinBox()
+        is_valid, missing = filter_to_valid_methods(function_dict, required)
 
-        # Add some options to combobox for testing
-        self.combobox.addItems(["Option1", "Option2", "Option3"])
+        assert is_valid is True
+        assert missing == []
+        assert list(function_dict["smu"].keys()) == ["valid"]
 
-        # Set reasonable ranges for spinboxes
-        self.spinbox.setRange(-1000, 1000)
-        self.double_spinbox.setRange(-1000.0, 1000.0)
-        self.double_spinbox.setDecimals(5)
+    def test_missing_dependency_type(self):
+        function_dict = {"spectro": {"ocean": {"measure": Mock()}}}
+        required = {"smu": ["connect"]}
 
-    def teardown_method(self):
-        """Clean up Qt widgets."""
-        self.widget.deleteLater()
-        # Process Qt events to ensure cleanup
-        if QApplication.instance():
-            QApplication.processEvents()
+        is_valid, missing = filter_to_valid_methods(function_dict, required)
 
-    def test_extract_value_dynamic_line_edit_float(self):
-        """Test value extraction from QLineEdit with float conversion."""
-        self.line_edit.setText("3.14")
+        assert is_valid is False
+        assert missing == ["smu.connect"]
+        assert "smu" not in function_dict
 
-        result = self.gui_mapper._extract_value_dynamic(self.line_edit)
+    def test_missing_methods_when_no_valid_plugins(self):
+        function_dict = {
+            "smu": {
+                "partial": {"connect": Mock()},
+                "also_partial": {"init": Mock()},
+            }
+        }
+        required = {"smu": ["connect", "init"]}
 
-        assert result == 3.14
-        assert isinstance(result, float)
+        is_valid, missing = filter_to_valid_methods(function_dict, required)
 
-    def test_extract_value_dynamic_line_edit_integer(self):
-        """Test value extraction from QLineEdit with integer value."""
-        self.line_edit.setText("42")
-
-        result = self.gui_mapper._extract_value_dynamic(self.line_edit)
-
-        assert result == 42.0
-        assert isinstance(result, float)
-
-    def test_extract_value_dynamic_line_edit_string(self):
-        """Test value extraction from QLineEdit with string fallback."""
-        self.line_edit.setText("test_string")
-
-        result = self.gui_mapper._extract_value_dynamic(self.line_edit)
-
-        assert result == "test_string"
-        assert isinstance(result, str)
-
-    def test_extract_value_dynamic_line_edit_empty(self):
-        """Test value extraction from QLineEdit with empty string."""
-        self.line_edit.setText("  ")  # Whitespace only
-
-        result = self.gui_mapper._extract_value_dynamic(self.line_edit)
-
-        assert result == ""  # Should be stripped to empty
-
-    def test_extract_value_dynamic_checkbox_true(self):
-        """Test value extraction from QCheckBox when checked."""
-        self.checkbox.setChecked(True)
-
-        result = self.gui_mapper._extract_value_dynamic(self.checkbox)
-
-        assert result is True
-
-    def test_extract_value_dynamic_checkbox_false(self):
-        """Test value extraction from QCheckBox when unchecked."""
-        self.checkbox.setChecked(False)
-
-        result = self.gui_mapper._extract_value_dynamic(self.checkbox)
-
-        assert result is False
-
-    def test_extract_value_dynamic_combobox(self):
-        """Test value extraction from QComboBox."""
-        self.combobox.setCurrentText("Option1")
-
-        result = self.gui_mapper._extract_value_dynamic(self.combobox)
-
-        assert result == "Option1"
-
-    def test_extract_value_dynamic_spinbox(self):
-        """Test value extraction from QSpinBox."""
-        self.spinbox.setValue(42)
-
-        result = self.gui_mapper._extract_value_dynamic(self.spinbox)
-
-        assert result == 42
-        assert isinstance(result, int)
-
-    def test_extract_value_dynamic_double_spinbox(self):
-        """Test value extraction from QDoubleSpinBox."""
-        self.double_spinbox.setValue(3.14159)
-
-        result = self.gui_mapper._extract_value_dynamic(self.double_spinbox)
-
-        assert result == 3.14159
-
-    def test_extract_value_dynamic_unsupported_widget(self):
-        """Test that unsupported widget types raise ValueError."""
-        unsupported_widget = QWidget()  # Use a real widget that's not supported
-
-        with pytest.raises(ValueError, match=f"Unsupported widget type: {type(unsupported_widget)}"):
-            self.gui_mapper._extract_value_dynamic(unsupported_widget)
-
-    def test_set_value_dynamic_line_edit(self):
-        """Test setting value to QLineEdit."""
-        self.gui_mapper._set_value_dynamic(self.line_edit, 42.5)
-
-        assert self.line_edit.text() == "42.5"
-
-    def test_set_value_dynamic_checkbox_true(self):
-        """Test setting True value to QCheckBox."""
-        self.gui_mapper._set_value_dynamic(self.checkbox, True)
-
-        assert self.checkbox.isChecked() is True
-
-    def test_set_value_dynamic_checkbox_string_true(self):
-        """Test setting string 'True' value to QCheckBox."""
-        self.gui_mapper._set_value_dynamic(self.checkbox, "True")
-
-        assert self.checkbox.isChecked() is True
-
-    def test_set_value_dynamic_checkbox_false(self):
-        """Test setting False value to QCheckBox."""
-        self.gui_mapper._set_value_dynamic(self.checkbox, False)
-
-        assert self.checkbox.isChecked() is False
-
-    def test_set_value_dynamic_checkbox_string_false(self):
-        """Test setting non-True string to QCheckBox."""
-        self.gui_mapper._set_value_dynamic(self.checkbox, "False")
-
-        assert self.checkbox.isChecked() is False
-
-    def test_set_value_dynamic_combobox(self):
-        """Test setting value to QComboBox."""
-        self.gui_mapper._set_value_dynamic(self.combobox, "Option2")
-
-        assert self.combobox.currentText() == "Option2"
-
-    def test_set_value_dynamic_spinbox(self):
-        """Test setting value to QSpinBox."""
-        self.gui_mapper._set_value_dynamic(self.spinbox, 42.7)
-
-        assert self.spinbox.value() == 42  # Should convert to int
-
-    def test_set_value_dynamic_double_spinbox(self):
-        """Test setting value to QDoubleSpinBox."""
-        self.gui_mapper._set_value_dynamic(self.double_spinbox, 3.14159)
-
-        assert self.double_spinbox.value() == 3.14159
-
-    def test_set_value_dynamic_unsupported_widget(self):
-        """Test that unsupported widget types raise ValueError."""
-        unsupported_widget = QWidget()  # Use a real widget that's not supported
-
-        with pytest.raises(ValueError, match=f"Unsupported widget type for setting value: {type(unsupported_widget)}"):
-            self.gui_mapper._set_value_dynamic(unsupported_widget, "value")
+        assert is_valid is False
+        assert missing == ["smu.connect", "smu.init"]
+        assert function_dict["smu"] == {}
 
 
 class TestDependencyManager:
-    """Test the DependencyManager class for plugin dependency management."""
+    """Simple tests for DependencyManager behavior."""
 
     def setup_method(self):
-        """Set up test fixtures."""
         self.plugin_name = "TestPlugin"
         self.dependencies = {"smu": ["connect", "init", "measure"], "spectro": ["scan", "get_spectrum"]}
         self.mock_widget = Mock()
         self.mapping = {"smu": "smuComboBox", "spectro": "spectroComboBox"}
-
-        # Set up mock comboboxes
         self.mock_smu_combo = Mock()
         self.mock_spectro_combo = Mock()
         self.mock_widget.smuComboBox = self.mock_smu_combo
         self.mock_widget.spectroComboBox = self.mock_spectro_combo
-
         self.dependency_manager = DependencyManager(self.plugin_name, self.dependencies, self.mock_widget, self.mapping)
 
-    def test_init(self):
-        """Test DependencyManager initialization."""
-        assert self.dependency_manager.plugin_name == "TestPlugin"
-        assert self.dependency_manager.dependencies == self.dependencies
-        assert self.dependency_manager.widget == self.mock_widget
-        assert self.dependency_manager.combobox_mapping == self.mapping
-        assert self.dependency_manager.function_dict == {}
-
-    def test_function_dict_property_setter(self):
-        """Test that setting function_dict property triggers update_comboboxes."""
-        with patch.object(self.dependency_manager, "update_comboboxes") as mock_update:
-            test_dict = {"smu": {"plugin1": ["connect", "init"]}}
-            self.dependency_manager.function_dict = test_dict
-
-            assert self.dependency_manager._function_dict == test_dict
-            mock_update.assert_called_once()
-
-    def test_set_function_dict(self):
-        """Test set_function_dict method."""
-        with patch.object(self.dependency_manager, "update_comboboxes") as mock_update:
-            test_dict = {"smu": {"plugin1": ["connect", "init"]}}
-            self.dependency_manager.set_function_dict(test_dict)
-
-            assert self.dependency_manager.function_dict == test_dict
-            mock_update.assert_called_once()
-
-    def test_validate_dependencies_success(self):
-        """Test successful dependency validation."""
+    def test_set_available_dependency_functions_prunes_and_reports_missing(self):
         function_dict = {
-            "smu": {"plugin1": ["connect", "init", "measure", "extra_function"]},
-            "spectro": {"plugin2": ["scan", "get_spectrum", "calibrate"]},
+            "smu": {
+                "invalid": ["connect", "init"],
+                "valid": ["connect", "init", "measure"],
+            },
+            "spectro": {
+                "invalid": ["scan"],
+            },
+            "extra": {"ignored": ["x"]},
         }
-        self.dependency_manager.set_function_dict(function_dict)
 
-        is_valid, missing = self.dependency_manager.validate_dependencies()
-
-        assert is_valid is True
-        assert missing == []
-
-    def test_validate_dependencies_missing_plugin_type(self):
-        """Test dependency validation when plugin type is missing."""
-        function_dict = {
-            "smu": {"plugin1": ["connect", "init", "measure"]}
-            # Missing "spectro" plugin type
-        }
-        self.dependency_manager.set_function_dict(function_dict)
-
-        is_valid, missing = self.dependency_manager.validate_dependencies()
+        is_valid, missing = self.dependency_manager.set_available_dependency_functions(function_dict)
 
         assert is_valid is False
         assert "spectro.scan" in missing
         assert "spectro.get_spectrum" in missing
+        assert self.dependency_manager.function_dict["smu"] == {"valid": ["connect", "init", "measure"]}
+        assert self.dependency_manager.function_dict["spectro"] == {}
+        assert "extra" not in self.dependency_manager.function_dict
 
-    def test_validate_dependencies_missing_functions(self):
-        """Test dependency validation when required functions are missing."""
-        function_dict = {
+    def test_function_dict_property_prunes_invalid_plugins(self):
+        """Setting function_dict directly should keep only valid providers for each dependency type."""
+        self.dependency_manager.function_dict = {
             "smu": {
-                "plugin1": ["connect", "init"]  # Missing "measure"
+                "ok": ["connect", "init", "measure"],
+                "missing_measure": ["connect", "init"],
             },
             "spectro": {
-                "plugin2": ["scan"]  # Missing "get_spectrum"
+                "ok": ["scan", "get_spectrum"],
+                "missing_get": ["scan"],
             },
+            "unused": {"plugin": ["noop"]},
         }
-        self.dependency_manager.set_function_dict(function_dict)
 
-        is_valid, missing = self.dependency_manager.validate_dependencies()
+        assert self.dependency_manager.function_dict == {
+            "smu": {"ok": ["connect", "init", "measure"]},
+            "spectro": {"ok": ["scan", "get_spectrum"]},
+        }
 
-        assert is_valid is False
-        assert "smu.measure" in missing
-        assert "spectro.get_spectrum" in missing
+    def test_function_dict_property_updates_missing_functions(self):
+        """Setting function_dict directly should update missing_functions for unresolved dependencies."""
+        self.dependency_manager.function_dict = {
+            "smu": {"partial": ["connect", "init"]},
+            # spectro dependency type intentionally absent
+        }
 
-    def test_update_comboboxes(self):
-        """Test combobox updating with available plugins."""
+        assert "smu.connect" in self.dependency_manager.missing_functions
+        assert "smu.init" in self.dependency_manager.missing_functions
+        assert "smu.measure" in self.dependency_manager.missing_functions
+        assert "spectro.scan" in self.dependency_manager.missing_functions
+        assert "spectro.get_spectrum" in self.dependency_manager.missing_functions
+
+    def test_initialize_dependency_selection_restores_last_choice(self):
         function_dict = {
-            "smu": {"smu_plugin1": ["connect", "init"], "smu_plugin2": ["connect", "init", "measure"]},
-            "spectro": {"spectro_plugin1": ["scan", "get_spectrum"]},
+            "smu": {"smu_ok": ["connect", "init", "measure"]},
+            "spectro": {"spec_ok": ["scan", "get_spectrum"]},
         }
+        self.dependency_manager.set_available_dependency_functions(function_dict)
+        self.dependency_manager.initialize_dependency_selection({"smu": "smu_ok", "spectro": "spec_ok"})
 
-        self.dependency_manager.set_function_dict(function_dict)
+        self.mock_smu_combo.setCurrentText.assert_called_with("smu_ok")
+        self.mock_spectro_combo.setCurrentText.assert_called_with("spec_ok")
 
-        # Verify SMU combobox was updated
-        self.mock_smu_combo.clear.assert_called()
-        self.mock_smu_combo.addItems.assert_called_with(["smu_plugin1", "smu_plugin2"])
+    def test_get_selected_dependency_plugins(self):
+        self.mock_smu_combo.currentText.return_value = "selected_smu"
+        self.mock_spectro_combo.currentText.return_value = "selected_spec"
 
-        # Verify Spectro combobox was updated
-        self.mock_spectro_combo.clear.assert_called()
-        self.mock_spectro_combo.addItems.assert_called_with(["spectro_plugin1"])
+        selected = self.dependency_manager.get_selected_dependency_plugins()
 
-    def test_update_comboboxes_no_widget(self):
-        """Test update_comboboxes when widget is None."""
+        assert selected == {"smu": "selected_smu", "spectro": "selected_spec"}
+
+    def test_get_selected_dependency_plugins_no_widget(self):
         dependency_manager = DependencyManager("TestPlugin", self.dependencies, None, self.mapping)
-
-        # Should not raise an exception
-        dependency_manager.update_comboboxes()
-
-    def test_get_selected_dependencies(self):
-        """Test getting selected dependencies from comboboxes."""
-        self.mock_smu_combo.currentText.return_value = "selected_smu_plugin"
-        self.mock_spectro_combo.currentText.return_value = "selected_spectro_plugin"
-
-        selected = self.dependency_manager.get_selected_dependencies()
-
-        expected = {"smu": "selected_smu_plugin", "spectro": "selected_spectro_plugin"}
-        assert selected == expected
-
-    def test_get_selected_dependencies_no_widget(self):
-        """Test get_selected_dependencies when widget is None."""
-        dependency_manager = DependencyManager("TestPlugin", self.dependencies, None, self.mapping)
-
-        selected = dependency_manager.get_selected_dependencies()
-
-        assert selected == {}
-
-    def test_validate_selection_success(self):
-        """Test successful selection validation."""
-        function_dict = {"smu": {"plugin1": ["connect", "init", "measure", "extra"]}}
-        self.dependency_manager.set_function_dict(function_dict)
-
-        is_valid, error = self.dependency_manager.validate_selection("smu", "plugin1")
-
-        assert is_valid is True
-        assert error == ""
-
-    def test_validate_selection_unknown_dependency_type(self):
-        """Test validation with unknown dependency type."""
-        function_dict = {"smu": {"plugin1": ["connect", "init"]}}
-        self.dependency_manager.set_function_dict(function_dict)
-
-        is_valid, error = self.dependency_manager.validate_selection("unknown_type", "plugin1")
-
-        assert is_valid is False
-        assert "Unknown dependency type" in error
-
-    def test_validate_selection_plugin_not_found(self):
-        """Test validation when plugin is not found."""
-        function_dict = {"smu": {"plugin1": ["connect", "init", "measure"]}}
-        self.dependency_manager.set_function_dict(function_dict)
-
-        is_valid, error = self.dependency_manager.validate_selection("smu", "nonexistent_plugin")
-
-        assert is_valid is False
-        assert "not found" in error
-
-    def test_validate_selection_missing_functions(self):
-        """Test validation when plugin is missing required functions."""
-        function_dict = {
-            "smu": {
-                "plugin1": ["connect", "init"]  # Missing "measure"
-            }
-        }
-        self.dependency_manager.set_function_dict(function_dict)
-
-        is_valid, error = self.dependency_manager.validate_selection("smu", "plugin1")
-
-        assert is_valid is False
-        assert "missing functions" in error
-
-    def test_get_function_dict_for_dependencies(self):
-        """Test getting filtered function dictionary."""
-        function_dict = {
-            "smu": {"plugin1": ["connect", "init"]},
-            "spectro": {"plugin2": ["scan"]},
-            "other": {"plugin3": ["other_func"]},  # Not in dependencies
-        }
-        self.dependency_manager.set_function_dict(function_dict)
-
-        filtered = self.dependency_manager.get_function_dict_for_dependencies()
-
-        expected = {"smu": {"plugin1": ["connect", "init"]}, "spectro": {"plugin2": ["scan"]}}
-        assert filtered == expected
+        assert dependency_manager.get_selected_dependency_plugins() == {}
 
     def test_validate_and_extract_dependency_settings_success(self):
         """Test successful dependency settings extraction."""
@@ -531,7 +303,7 @@ class TestDependencyManager:
             "smu": {"smu_plugin": {"parse_settings_widget": Mock(return_value=(0, {"param1": "value1"}))}},
             "spectrometer": {"spec_plugin": {"parse_settings_widget": Mock(return_value=(0, {"param2": "value2"}))}},
         }
-        dep_manager.set_function_dict(mock_function_dict)
+        dep_manager.set_available_dependency_functions(mock_function_dict)
 
         # Test the method
         target_settings = {}
@@ -556,8 +328,7 @@ class TestDependencyManager:
         status, result = dep_manager.validate_and_extract_dependency_settings(target_settings)
 
         assert status == 3
-        assert "Error message" in result
-        assert "Missing functions" in result["Error message"]
+        assert "Missing functions" in result
 
     def test_validate_and_extract_dependency_settings_no_selection(self):
         """Test error when no dependency is selected."""
@@ -569,17 +340,16 @@ class TestDependencyManager:
         mock_widget = Mock()
         mock_widget.smu_combo = mock_smu_combo
         dep_manager = DependencyManager("test_plugin", dependencies, mock_widget, mapping)
-        dep_manager.set_function_dict({"smu": {"smu_plugin": {"parse_settings_widget": Mock()}}})
+        dep_manager.set_available_dependency_functions({"smu": {"smu_plugin": {"parse_settings_widget": Mock()}}})
 
         target_settings = {}
         status, result = dep_manager.validate_and_extract_dependency_settings(target_settings)
 
         assert status == 3
-        assert "Error message" in result
-        assert "No smu plugin selected" in result["Error message"]
+        assert "No smu plugin selected" in result
 
-    def test_validate_and_extract_dependency_settings_validation_failure(self):
-        """Test error when dependency validation fails."""
+    def test_validate_and_extract_dependency_settings_plugin_not_available(self):
+        """Test error when selected dependency plugin is not available."""
         mock_smu_combo = Mock()
         mock_smu_combo.currentText.return_value = "invalid_plugin"
 
@@ -588,17 +358,16 @@ class TestDependencyManager:
         mock_widget = Mock()
         mock_widget.smu_combo = mock_smu_combo
         dep_manager = DependencyManager("test_plugin", dependencies, mock_widget, mapping)
-        dep_manager.set_function_dict({"smu": {"smu_plugin": {"parse_settings_widget": Mock()}}})
+        dep_manager.set_available_dependency_functions({"smu": {"smu_plugin": {"parse_settings_widget": Mock()}}})
 
         target_settings = {}
         status, result = dep_manager.validate_and_extract_dependency_settings(target_settings)
 
         assert status == 3
-        assert "Error message" in result
-        assert "validation failed" in result["Error message"]
+        assert "not available" in result
 
     def test_validate_and_extract_dependency_settings_missing_function(self):
-        """Test error when parse_settings_widget function is missing."""
+        """Test error when parse_settings_widget function is missing in selected plugin."""
         mock_smu_combo = Mock()
         mock_smu_combo.currentText.return_value = "smu_plugin"
 
@@ -614,14 +383,13 @@ class TestDependencyManager:
                 "smu_plugin": {}  # Missing parse_settings_widget
             }
         }
-        dep_manager.set_function_dict(mock_function_dict)
+        dep_manager.set_available_dependency_functions(mock_function_dict)
 
         target_settings = {}
         status, result = dep_manager.validate_and_extract_dependency_settings(target_settings)
 
         assert status == 3
-        assert "Error message" in result
-        assert "parse_settings_widget" in result["Error message"]
+        assert "smu plugin 'smu_plugin' not available" in result
 
 
 class TestLoggingHelper:
@@ -675,34 +443,20 @@ class TestPluginException:
 
 
 class TestIntegration:
-    """Integration tests that test multiple components working together."""
+    """Simple integration tests for plugin components."""
 
-    def test_gui_mapper_with_dependency_manager(self):
-        """Test integration between GuiMapper and DependencyManager."""
-        # Set up mock widget with dependency comboboxes
+    def test_dependency_manager_selection_integration(self):
+        """Test that DependencyManager selection is available from widget comboboxes."""
         mock_widget = Mock()
         mock_smu_combo = Mock(spec=QComboBox)
         mock_widget.smuComboBox = mock_smu_combo
         mock_smu_combo.currentText.return_value = "selected_smu"
 
-        # Set up dependency manager
         dependencies = {"smu": ["connect", "init"]}
         mapping = {"smu": "smuComboBox"}
         dep_manager = DependencyManager("TestPlugin", dependencies, mock_widget, mapping)
 
-        # Set up GUI mapper with the same widget
-        gui_mapper = GuiMapper(mock_widget, "TestPlugin")
-
-        # Test that both can work with the same widget
-        field_mapping = {"smu_selection": "smuComboBox"}
-
-        # This should extract the combobox value
-        status, result = gui_mapper.get_values(field_mapping)
-        assert status == 0
-        assert result["smu_selection"] == "selected_smu"
-
-        # This should get the selected dependencies
-        selected = dep_manager.get_selected_dependencies()
+        selected = dep_manager.get_selected_dependency_plugins()
         assert selected["smu"] == "selected_smu"
 
 

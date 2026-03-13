@@ -45,7 +45,6 @@ import copy
 
 from mockspec import MockCCSDRV
 from plugin_components import (
-    PyIVLSReturn,
     LoggingHelper,
     public,
     get_public_methods,

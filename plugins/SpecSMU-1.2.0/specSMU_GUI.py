@@ -343,6 +343,8 @@ class specSMU_GUI(QWidget):
     ########Functions
     ########plugins interraction
 
+    
+
     def set_dependencies(self, dependencies: list) -> None:
         """
         Set the list of plugin dependencies (e.g., available SMU and spectrometer types).
@@ -555,6 +557,14 @@ class specSMU_GUI(QWidget):
         s["start"] = self.settings["start"]  # start value for source, added for current injection to work
         s["end"] = self.settings["end"]  # end value for source -||-
         s["points"] = self.settings["points"]  # number of points for source -||-
+
+        if self.smu_settings["sourcefiltertype"] == "Repeat average":
+            s["sourcefiltertype"] = "FILTER_REPEAT_AVG"
+            s["sourcefiltervalue"] = self.smu_settings["sourcefiltervalue"]
+        else:
+            #settings_smu["drainfiltertype"] == "Off":
+            s["sourcefiltertype"] = "FILTER_OFF"
+        s["sourcedelayfactor"] = self.smu_settings["sourcedelayfactor"]
         if self.settings["sourcesensemode"] == "4 wire":
             s["sourcesense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
         else:
@@ -618,6 +628,7 @@ class specSMU_GUI(QWidget):
             # iterate over the SMU loop steps
             for smuLoopStep in range(smuLoop):
                 smuSetValue = self.settings["start"] + smuLoopStep * smuChange
+
                 if self.settings["mode"] == "continuous":
                     self._log_verbose(f"Setting SMU output to {smuSetValue}")
                     # set output on SMU

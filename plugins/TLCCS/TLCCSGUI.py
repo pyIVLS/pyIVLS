@@ -53,7 +53,7 @@ from MplCanvas import MplCanvas
 from threadStopped import ThreadStopped, thread_with_exception
 from threading import Lock
 import copy
-from plugins.plugin_components import LoggingHelper, CloseLockSignalProvider
+from plugin_components import LoggingHelper, CloseLockSignalProvider
 from TLCCS import CCSDRV
 
 
@@ -536,14 +536,14 @@ class TLCCS_GUI(QObject):
             return False
 
         self.logger.log_debug(f"populating GUI from settings")
-        #values from autoTime settings
+        # values from autoTime settings
         set_combobox_value(self.settingsWidget.getIntegrationTime_combo, self.settings["integrationtimetype"])
         self.settings["saveattempts_check"] = to_bool(self.settings["saveattempts_check"])
         self.settingsWidget.saveAttempts_check.setChecked(self.settings["saveattempts_check"])
         self.settings["useintegrationtimeguess"] = to_bool(self.settings["useintegrationtimeguess"])
         self.settingsWidget.useIntegrationTimeGuess_check.setChecked(self.settings["useintegrationtimeguess"])
 
-        #values from saveData settings
+        # values from saveData settings
         self.settingsWidget.lineEdit_path.setText(self.settings["address"])
         self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
         self.settingsWidget.lineEdit_sampleName.setText(self.settings["comment"])
@@ -559,7 +559,7 @@ class TLCCS_GUI(QObject):
             self.logger.log_warn(f"Setting GUI from settings conversion failed. integrationtime is set as it is in settings")
             self.settingsWidget.lineEdit_Integ.setText(f"{self.settings["integrationtime"]}")
 
-        #values from spectrumCorrection
+        # values from spectrumCorrection
         self.settings["usecorrection"] = to_bool(self.settings["usecorrection"])
         self.settingsWidget.correctionCheck.setChecked(self.settings["usecorrection"])
 
