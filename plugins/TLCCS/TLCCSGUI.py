@@ -429,6 +429,8 @@ class TLCCS_GUI(QObject):
                 # external cleanup if needed
                 if external_cleanup:
                     self.logger.log_debug("getAutoTime: Executing external cleanup.")
+                    if self.settings["externaltrigger"]:
+                        time.sleep(2*mydict['postwait']) #for the case if postwait is comparable with integration time, to make sure that the smu finished all the operations
                     try:
                         if external_cleanup_args:
                             status, info = external_cleanup(*external_cleanup_args)

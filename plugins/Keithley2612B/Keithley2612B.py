@@ -637,6 +637,7 @@ class Keithley2612B:
         Args:
             s (dict): trigpulse settings dictionary
             s["source"] source channel: may take values [smua, smub]
+            s["sense"] true: 4wire; false: 2wire
             s["type"] source inject current or voltage: may take values [i ,v]
             s["value"] pulse voltage if is in voltage injection mode, or current if is in current injection mode (float)
             s["limit"] limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode (float)
@@ -665,6 +666,7 @@ class Keithley2612B:
         # Try and acquire the lock to make sure nothing else is running
         ##IRtothink#### is locking really needed?
         with self.lock:
+            time.sleep(2) ## to avoid overlapping error
             try:
                 self.safewrite("reset()")
                 self.safewrite("beeper.enable=0")
@@ -678,6 +680,11 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.reset()")
                 ##### based on Single pulse example code (p.183) of Keithley manual
                 
+                if s["sense"]:
+                    self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_REMOTE")
+                else:
+                    self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
+
                 #Clear buffers, set repeats and steps, set sweep range.
                 self.safewrite(f"{s['source']}.nvbuffer1.clear()")
                 self.safewrite(f"{s['source']}.nvbuffer2.clear()")

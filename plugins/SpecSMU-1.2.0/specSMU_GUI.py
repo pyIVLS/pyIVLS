@@ -595,6 +595,7 @@ class specSMU_GUI(QWidget):
         description of the dict in spectrometer plugin, function header"""
         trigpulse_dict = {}
         trigpulse_dict["source"] = self.settings["channel"]
+        trigpulse_dict["sense"] = True if self.settings["sourcesensemode"] == "4 wire" else False
         trigpulse_dict["type"] = 'v' if self.settings["inject"] == 'voltage' else 'i'
         trigpulse_dict["value"] = smuSetValue
         trigpulse_dict["limit"] = self.settings["limit"]
