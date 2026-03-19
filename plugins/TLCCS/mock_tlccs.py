@@ -16,10 +16,15 @@ class MockCCSDRV:
 
     def close(self):
         print("[Mock] Closed connection to device")
+        self.continuous_scan_requested = False
+        self.ext_scan_requested = False
+        self.single_scan_requested = False
         pass
 
     def get_integration_time(self):
         print(f"[Mock] Current integration time: {self.integration_time}s")
+        # stop continous scanning when integration time is queried, to simulate the behavior of the real device:
+        self.continuous_scan_requested = False
         return self.integration_time
 
     def pipe_status(self):
@@ -31,6 +36,7 @@ class MockCCSDRV:
             raise ValueError("Integration time out of valid range")
         self.integration_time = intg_time
         print(f"[Mock] Set integration time to: {self.integration_time}s")
+        self.continuous_scan_requested = False
         return True
 
     def get_device_status(self):
@@ -48,13 +54,12 @@ class MockCCSDRV:
 
     def start_scan(self):
         # a single scan resets the continous scanning and triggered scanning:
-        self.continous_scan_requested = False
+        self.continuous_scan_requested = False
         self.ext_scan_requested = False
         # single scan simu
         self.single_scan_requested = True
         print("[Mock] Starting single scan...")
         time.sleep(self.integration_time * 1)
-        self.single_scan_requested = False
 
     def start_scan_continuous(self):
         print("[Mock] Starting continuous scan...")
@@ -64,12 +69,14 @@ class MockCCSDRV:
         print("[Mock] Starting external trigger scan...")
         self.ext_scan_requested = True
 
-    def get_scan_data(self):
+    def get_scan_data(self) -> np.ndarray:
         if not (self.single_scan_requested or self.continuous_scan_requested or self.ext_scan_requested):
             raise RuntimeError("No scan in progress. Call start_scan() first.")
         data = (np.random.rand(3648)) / 2  # from 0 to 0.5
         data -= 0.4  # from -0.4 to 0.1
         data = data + (self.integration_time)
+        # reset single scan request after data retrieval, but not continuous or ext trigger requests:
+        self.single_scan_requested = False
         return np.array(data)
 
     def read_eeprom(self, addr, idx, length):
