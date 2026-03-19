@@ -517,7 +517,7 @@ class pyIVLS_container(QObject):
             for plugin_section, deps in missing_dependencies.items():
                 plugin_name = self.config[plugin_section].get("name", plugin_section)
                 dep_text = ", ".join(deps)
-                msg = f"Plugin {plugin_name} is missing required dependencies: {dep_text}. Loading this plugin has been blocked."
+                msg = f"Plugin {plugin_name} is missing required dependencies: {dep_text}. Loading has been blocked."
                 self.show_message_signal.emit(msg)
                 self.emit_error(msg)
 
@@ -575,7 +575,6 @@ class pyIVLS_container(QObject):
         sys.path.append(self.path + "plugins" + sep)
         self.pm = pluggy.PluginManager("pyIVLS")
         self.pm.add_hookspecs(pyIVLS_hookspec)
-        self.debug = False
 
     def cleanup(self) -> None:
         """Explicitly cleanup resources, such as writing the config file."""
