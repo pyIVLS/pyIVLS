@@ -47,6 +47,10 @@ class MockCCSDRV:
         return statuses
 
     def start_scan(self):
+        # a single scan resets the continous scanning and triggered scanning:
+        self.continous_scan_requested = False
+        self.ext_scan_requested = False
+        # single scan simu
         self.single_scan_requested = True
         print("[Mock] Starting single scan...")
         time.sleep(self.integration_time * 1)
@@ -61,11 +65,12 @@ class MockCCSDRV:
         self.ext_scan_requested = True
 
     def get_scan_data(self):
-        data = (np.random.rand(3648)) / 2 # from 0 to 0.5
-        data -= 0.4 # from -0.4 to 0.1
+        if not (self.single_scan_requested or self.continuous_scan_requested or self.ext_scan_requested):
+            raise RuntimeError("No scan in progress. Call start_scan() first.")
+        data = (np.random.rand(3648)) / 2  # from 0 to 0.5
+        data -= 0.4  # from -0.4 to 0.1
         data = data + (self.integration_time)
         return np.array(data)
-
 
     def read_eeprom(self, addr, idx, length):
         return bytes([int(255 * np.random.rand()) for _ in range(length)])
