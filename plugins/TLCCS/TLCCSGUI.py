@@ -226,7 +226,8 @@ class TLCCS_GUI(QObject):
             # request continous scan start from dev
             self.drv.start_scan_continuous()
 
-            interval_ms = int(max(self.default_timerInterval, self.settings["integrationTime"] * 1000))
+            integration_ms = int(self.settings["integrationtime"] * 1000)
+            interval_ms = int(max(self.default_timerInterval, integration_ms))
             self._preview_timer.start(interval_ms)
             self.log_verbose(f"Preview started with timer interval {interval_ms} ms.")
             self.settingsWidget.previewButton.setText("Stop preview")
@@ -248,7 +249,7 @@ class TLCCS_GUI(QObject):
             self.notify_user("TLCCS plugin : " + str(info["Error message"]))
             return [status, info]
         varDict = {}
-        varDict["integrationtime"] = self.lastspectrum[1]["integrationTime"]
+        varDict["integrationtime"] = self.lastspectrum[1]["integrationtime"]
         varDict["triggermode"] = 1 if self.lastspectrum[1]["externalTrigger"] else 0
         varDict["name"] = self.settings["samplename"]
         varDict["comment"] = self.settings["comment"]
@@ -307,7 +308,7 @@ class TLCCS_GUI(QObject):
             return
         self._auto_time_result_handled = True
 
-        if not isinstance(result, (list, tuple)) or len(result) != 2:
+        if not isinstance(result, tuple) or len(result) != 2:
             self.notify_user(f"Auto integration time returned unexpected result: {result}")
             return
 
@@ -321,6 +322,7 @@ class TLCCS_GUI(QObject):
     def _on_auto_time_error(self, error_message: str):
         self.notify_user(f"Auto integration time failed: {error_message}")
 
+    @pyqtSlot()
     def _on_auto_time_finished(self):
         self.settingsWidget.getTime_button.setEnabled(True)
         if self._gettime_preview_status:
@@ -351,6 +353,7 @@ class TLCCS_GUI(QObject):
             external_cleanup (callable): External cleanup function to execute after auto time calculation.
             external_cleanup_args (tuple): Arguments for the external cleanup function.
             pause_duration (float): Duration to pause after each iteration.
+            last_integration_time (float): Optional initial guess for integration time in seconds.
 
         Returns:
             tuple[int, float | dict]: Status and integration time or error information.
@@ -366,7 +369,7 @@ class TLCCS_GUI(QObject):
             if last_integration_time is None:
                 if self.settings["useintegrationtimeguess"]:
                     # guess from current value
-                    guessIntTime = self.settings["integrationTime"] * 1000  # ms
+                    guessIntTime = self.settings["integrationtime"] * 1000  # ms
                 else:
                     # guess from min and max
                     guessIntTime = (self.autoTime_min + self.autoTime_max) / 2 * 1000  # ms
@@ -377,7 +380,7 @@ class TLCCS_GUI(QObject):
             # start iterating through integration times using guessIntTime as initial guess
             for iter in range(self.intTimeMaxIterations):
                 self.log_verbose(f"Iteration {iter + 1}: Current guess = {guessIntTime} ms.")
-                self.settings["integrationTime"] = guessIntTime / 1000.0  # needed for keeping self.lastspectrum in order
+                self.settings["integrationtime"] = guessIntTime / 1000.0  # needed for keeping self.lastspectrum in order seconds
                 [status, info] = self.spectrometerSetIntegrationTime(guessIntTime / 1000.0)  # s
                 if status:
                     self.log_verbose(f"getAutoTime: Failed to set integration time. {status}, {info}")
@@ -470,8 +473,9 @@ class TLCCS_GUI(QObject):
         """
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
-        self.settingsWidget.lineEdit_Integ.setText(plugin_info["integrationtime"])
-        self.log_verbose(f"Initializing GUI with plugin_info: {plugin_info}")
+        integration_time_ms = int(float(plugin_info["integrationtime"]) * 1000)
+        self.settingsWidget.lineEdit_Integ.setText(str(integration_time_ms))
+        self.log_verbose(f"Initializing GUI with integration time: {integration_time_ms} ms")
         if plugin_info["externaltrigger"] == "True":
             self.settingsWidget.extTriggerCheck.setChecked(True)
         if plugin_info["usecorrection"] == "True":
@@ -488,6 +492,8 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
         self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
         self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
+
+        self.setSettings(plugin_info)  # set settings dict from plugin_info for internal use
 
     def _getAddress(self):
         address = self.settingsWidget.lineEdit_path.text()
@@ -554,20 +560,20 @@ class TLCCS_GUI(QObject):
         """
         Parses the integration time from the GUI line edit and stores it in the settings dictionary.
 
-        stored in self.settings["integrationTime"] as float in seconds
+        stored in self.settings["integrationtime"] as float in seconds
 
         Returns:
             list: [0, "OK"] on success, or [1, {"Error message": ...}] on error.
         """
         try:
-            self.settings["integrationTime"] = int(self.settingsWidget.lineEdit_Integ.text())
+            integration_time_ms = int(self.settingsWidget.lineEdit_Integ.text())
         except ValueError:
             return (1, {"Error message": "Value error in TLCCS plugin: integration time field should be integer"})
-        if self.settings["integrationTime"] > const.CCS_SERIES_MAX_INT_TIME * 1000:
+        if integration_time_ms > const.CCS_SERIES_MAX_INT_TIME * 1000:
             return (1, {"Error message": f"Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"})
-        if self.settings["integrationTime"] < 1:
+        if integration_time_ms < 1:
             return (1, {"Error message": "Value error in TLCCS plugin: integration time should can not be smaller than 1 ms"})
-        self.settings["integrationTime"] = self.settings["integrationTime"] / 1000
+        self.settings["integrationtime"] = integration_time_ms / 1000  # stored in seconds
         return (0, {})
 
     def _parse_settings_autoTime(self) -> tuple[int, dict]:
@@ -683,7 +689,6 @@ class TLCCS_GUI(QObject):
         if status:
             return (status, info)
         retset = self.settings.copy()
-        retset["integrationTime"] = int(self.settings["integrationTime"] * 1000)
         return (0, retset)
 
     ########Functions
@@ -696,9 +701,9 @@ class TLCCS_GUI(QObject):
             return [parsed_status, info]
 
         if integrationTime is not None:
-            self.settings["integrationTime"] = integrationTime
+            self.settings["integrationtime"] = integrationTime
 
-        status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationTime"])
+        status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationtime"])
         if not status:
             return (4, {"Error message": "Can not connect to spectrometer"})
 
@@ -763,7 +768,7 @@ class TLCCS_GUI(QObject):
         MAX_ITER = 5
         while "SCAN_TRANSFER" not in self.drv.get_device_status():
             self.log_verbose("Waiting for scan to finish.")
-            time.sleep(self.settings["integrationTime"])
+            time.sleep(self.settings["integrationtime"])
             iterations += 1
             if iterations > MAX_ITER:
                 raise TimeoutError("Timeout waiting for scan to finish.")
@@ -809,10 +814,15 @@ class TLCCS_GUI(QObject):
         """Timer tick handler: apply pending integration time and get data for new scan"""
         try:
             if self.integrationTimeChanged:
-                self.spectrometerSetIntegrationTime(self.settings["integrationTime"])
+                self.spectrometerSetIntegrationTime(self.settings["integrationtime"])
                 self.integrationTimeChanged = False
-                # since setting the integration time causes a SINGLE scan read, we need to restart continous scanning.
+                # since setting the integration time causes a SINGLE scan read, we need to restart continous scanning
                 self.drv.start_scan_continuous()
+
+                # reset the timer interval in case integration time is higher than default interval
+                integration_ms = int(self.settings["integrationtime"] * 1000)
+                interval_ms = int(max(self.default_timerInterval, integration_ms))
+                self._preview_timer.start(interval_ms)
             # trigger and emit via spectrometerGetScan
             self.spectrometerGetSpectrum()
         except Exception as e:
