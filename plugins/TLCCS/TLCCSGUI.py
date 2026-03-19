@@ -34,7 +34,6 @@ import TLCCS_const as const
 import time
 import os
 import numpy as np
-from datetime import datetime
 from pathvalidate import is_valid_filename
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, pyqtSignal, Qt, QTimer, pyqtSlot
@@ -43,7 +42,7 @@ from MplCanvas import MplCanvas
 from threadStopped import ThreadStopped
 import copy
 
-from plugin_components import public, get_public_methods, LoggingHelper, ConnectionIndicatorStyle
+from plugin_components import public, get_public_methods, LoggingHelper, ConnectionIndicatorStyle, FileManager
 from TLCCS import CCSDRV
 from mock_tlccs import MockCCSDRV
 
@@ -92,6 +91,10 @@ class TLCCS_GUI(QObject):
         # create the driver
         self.drv = MockCCSDRV()
 
+        # create fm for saving files
+        self.fm = FileManager()
+
+
         self._connect_signals()
         self._create_plt()
 
@@ -114,7 +117,6 @@ class TLCCS_GUI(QObject):
         self._preview_timer.setSingleShot(False)
         self._preview_timer.timeout.connect(self._on_preview_tick)
 
-
     def _connect_signals(self):
         """Connect GUI signals to their respective slots."""
         self.settingsWidget.connectButton.clicked.connect(self.spectrometerConnect)
@@ -126,6 +128,8 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
         self.settingsWidget.getIntegrationTime_combo.currentIndexChanged.connect(self._integrationTime_mode_changed)
         self.settingsWidget.getTime_button.clicked.connect(self._getTimeAction)
+        # https://stackoverflow.com/questions/11476267/segmentation-fault-while-emitting-signal-from-other-thread-in-qt
+        # if facing the dreaded segfault again, chekc the type of connection since we are not threading with qthread 
         self.connectionStateChanged.connect(self._GUIchange_deviceConnected)
         self.data_recieved_signal.connect(self._on_data_recieved)
 
@@ -206,7 +210,7 @@ class TLCCS_GUI(QObject):
                 self.logger.log_warn(f"Failed to parse preview settings: {info}")
                 self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
                 return (status, info)
-            
+
             self.integrationTimeChanged = True
             self.preview_running = True
             self.closeLock.emit(self.preview_running)
@@ -229,16 +233,16 @@ class TLCCS_GUI(QObject):
                     else:
                         self.sleep_time = self.settings["integrationTime"]
                     if status:
-                        self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-                        self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+                        self.logger.log_info("Failed to set integration time during preview: " + str(info))
+                        self.logger.info_popup("Failed to set integration time during preview: " + str(info))
                         self.preview_running = False
                         return [status, info]
                 # time.sleep(self.sleep_time)
                 [status, info] = self._update_spectrum()
                 if status:
-                    self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
+                    self.logger.log_info("Failed to update spectrum during preview: " + str(info))
                     if not status == 1:
-                        self.logger.info_popup(f"TLCCS plugin : {info}")
+                        self.logger.info_popup("Failed to update spectrum during preview: " + str(info))
                     self.preview_running = False
                     return [status, info]
             # If preview_running is set to False, finish the current scan and exit
@@ -251,8 +255,8 @@ class TLCCS_GUI(QObject):
         if self.preview_running:  # this function is useful only in preview mode
             [status, info] = self._parse_settings_integrationTime()
             if status:
-                self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-                self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+                self.logger.log_info("Failed to parse integration time settings: " + str(info))
+                self.logger.info_popup("Failed to parse integration time settings: " + str(info))
                 return [status, info]
             self.integrationTimeChanged = True
             return [0, "OK"]
@@ -260,7 +264,7 @@ class TLCCS_GUI(QObject):
     def _saveAction(self):
         [status, info] = self._parseSaveData()
         if status:
-            self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+            self.logger.info_popup("TLCCS plugin : " + str(info["Error message"]))
             return [status, info]
         varDict = {}
         varDict["integrationtime"] = self.lastspectrum[1]["integrationTime"]
@@ -279,8 +283,8 @@ class TLCCS_GUI(QObject):
         preview_status = False
         [status, info] = self._parse_settings_autoTime()
         if status:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f" : TLCCS plugin : {info}, status = {status}")
-            self.logger.info_popup(f"TLCCS plugin : {info['Error message']}")
+            self.logger.log_info("Failed to parse auto integration time settings: " + str(info))
+            self.logger.info_popup("Failed to parse auto integration time settings: " + str(info))
             return [status, info]
         if self.preview_running:
             preview_status = self.preview_running
@@ -577,19 +581,19 @@ class TLCCS_GUI(QObject):
     def _parseSaveData(self) -> tuple[int, dict]:
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : address string should point to a valid directory")
-            return [1, {"Error message": "TLCCS plugin : address string should point to a valid directory"}]
+            self.logger.log_info("Address is not valid")
+            return (1, {"Error message": "TLCCS plugin : address string should point to a valid directory"})
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + " : TLCCS plugin : filename is not valid")
+            self.logger.log_info("Filename is not valid")
             self.logger.info_popup("TLCCS plugin : filename is not valid")
-            return [1, {"Error message": "TLCCS plugin : filename is not valid"}]
+            return (1, {"Error message": "TLCCS plugin : filename is not valid"})
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
         self.settings["externalTrigger"] = self.settingsWidget.extTriggerCheck.isChecked()  # this is here since this is written into the header
 
-        return [0, {"Error message": "OK"}]
+        return (0, {"Error message": "OK"})
 
     def parse_settings_preview(self) -> tuple[int, dict]:
         """Parses the settings widget for the spectrometer. Extracts current values
@@ -774,9 +778,8 @@ class TLCCS_GUI(QObject):
 
     @public
     def createFile(self, varDict, filedelimeter, address, data):
-        fileheader = self._spectrometerMakeHeader(varDict, separator=filedelimeter)
+        fileheader = self.fm.create_spectrometer_header(varDict, separator=filedelimeter)
         self.logger.log_debug(f"Creating file at {address} with data shape {data.shape}")
-        self.logger.log_debug(f"Correction data has shape {self.correction.shape}")
         np.savetxt(
             address,
             list(zip(self.correction[:, 0], data)),
@@ -788,60 +791,7 @@ class TLCCS_GUI(QObject):
             comments="#",
         )
 
-    def _spectrometerMakeHeader(self, varDict={}, separator=";"):
-        ###following the structure of files generated by Thorlabs software
-        ### a part of values are just const, they may be replaces with real values
-        #
-        # structure of the varDict
-        #
-        # varDict['average'] - int:averaging
-        # varDict['integrationtime'] - float:integration time in seconds
-        # varDict['triggermode'] - external trigger = 1 / internal = 0
-        # varDict['name'] - str:sample name
-        # varDict['comment'] - str:comment
-        comment = "Thorlabs FTS operated by pyIVSL\n"
-        comment = f"{comment}#[SpectrumHeader]\n"
-        comment = f"{comment}Date{separator}{datetime.now().strftime('%Y%m%d')}\n"
-        comment = f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
-        comment = f"{comment}GMTTime{separator}{datetime.utcnow().strftime('%H%M%S%f')[:-4]}\n"
-        comment = f"{comment}XAxisUnit{separator}nm_air\n"
-        comment = f"{comment}YAxisUnit{separator}intensity\n"
-        if "average" in varDict:
-            comment = f"{comment}Average{separator}{varDict['average']}\n"
-        else:
-            comment = f"{comment}Average{separator}0\n"
-        comment = f"{comment}RollingAverage{separator}0\n"
-        comment = f"{comment}SpectrumSmooth{separator}0\n"
-        comment = f"{comment}SSmoothParam1{separator}0\n"
-        comment = f"{comment}SSmoothParam2{separator}0\n"
-        comment = f"{comment}SSmoothParam3{separator}0\n"
-        comment = f"{comment}SSmoothParam4{separator}0\n"
-        comment = f"{comment}IntegrationTime{separator}{varDict['integrationtime']}\n"
-        comment = f"{comment}TriggerMode{separator}{varDict['triggermode']}\n"
-        comment = f"{comment}InterferometerSerial{separator}M00903839\n"
-        comment = f"{comment}Source\n"
-        comment = f"{comment}AirMeasureOpt{separator}0\n"
-        comment = f"{comment}WnrMin{separator}0\n"
-        comment = f"{comment}WnrMax{separator}0\n"
-        comment = f"{comment}Length{separator}3648\n"
-        comment = f"{comment}Resolution{separator}0\n"
-        comment = f"{comment}ADC{separator}0\n"
-        comment = f"{comment}Instrument{separator}0\n"
-        comment = f"{comment}Model{separator}CCS175\n"
-        comment = f"{comment}Type{separator}emission\n"
-        comment = f"{comment}AirTemp{separator}0\n"
-        comment = f"{comment}AirPressure{separator}0\n"
-        comment = f"{comment}AirRelHum{separator}0\n"
-        if "name" in varDict:
-            comment = f"{comment}Name{separator}{varDict['name']}\n"
-        else:
-            comment = f"{comment}Name{separator}\n"
-        if "comment" in varDict:
-            comment = f'{comment}Comment{separator}"{varDict["comment"]}"\n'
-        else:
-            comment = f'{comment}Comment{separator} ""\n'
-        comment = f"{comment}#[Data]\n"
-        return comment
+    
 
     ######## Timer callback ########
     def _on_preview_tick(self):
