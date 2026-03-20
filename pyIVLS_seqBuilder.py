@@ -94,6 +94,7 @@ class pyIVLS_seqBuilder(QObject):
         ui_file_name = path + "components" + sep + "pyIVLS_seqBuilder.ui"
         self.widget = uic.loadUi(ui_file_name)
         self.path = path
+        self.skip_iteration = False
 
         self._connect_signals()
         self._init_treeView()
@@ -383,6 +384,8 @@ class pyIVLS_seqBuilder(QObject):
     def _runParser(self):
         """Runs the sequence parser, iterates through the sequence and executes the steps."""
         try:
+            # Ensure a previous stop/error does not leak skip state into a new run.
+            self.skip_iteration = False
             ###############Main logic of iteration: 0 - no iterations, 1 - only start point, 2 - start end end point, iterstep = (end-start)/(iternum -1).The same is used in sweepCommon for drainVoltage. !!!Adapt to logic of iteration, do not modify it!!!
             self.log_message.emit("pyIVLS_seqBuilder: Running sequence parser")
             data = self.extract_data(self.model.invisibleRootItem().child(0))
@@ -453,8 +456,10 @@ class pyIVLS_seqBuilder(QObject):
             self._sigSeqEnd.emit()
         except ThreadStopped as ts:
             print(f"Sequence stopped: {ts}")
+            # this eats threadstopped
         except Exception:
             print(traceback.format_exc())
+            # this eats other exceptions
         finally:
             self._setNotRunning()
             self._sigSeqEnd.emit()

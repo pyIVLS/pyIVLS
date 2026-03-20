@@ -31,6 +31,10 @@ from plugin_components import LoggingHelper, DependencyManager, public, get_publ
 class specSMU_GUI(QWidget):
     """GUI implementation"""
 
+    def notify_user(self, message: str) -> None:
+        self.logger.log_info(message)
+        self.logger.info_popup(message)
+
     @property
     def function_dict(self):
         return self.dm.function_dict
@@ -348,6 +352,9 @@ class specSMU_GUI(QWidget):
         if "spectrometer_settings" in self.settings:
             self.function_dict["spectrometer"][spectro_name]["set_gui_from_settings"]()
 
+        if "smu_settings" in self.settings:
+            self.function_dict["smu"][smu_name]["set_gui_from_settings"]()
+
     ########Functions
     ###############GUI react to change
 
@@ -442,6 +449,7 @@ class specSMU_GUI(QWidget):
             self.settings["spectro_pause_time"] = float(raw_settings["spectro_pause_time"])  # should already be float from double spin box
             self.settings["repeat"] = int(raw_settings["repeat"])  # will already be an int from spin box
             self.settings["hwtrigpulse"] = float(raw_settings["hwtrigpulse"]) / 1000
+            self.settings["prescaler"] = float(raw_settings["prescaler"])
             if self.settings["hwtrigpulse"] < 0:
                 self._log_verbose(f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative")
                 return [1, {"Error message": f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative"}]
@@ -465,7 +473,9 @@ class specSMU_GUI(QWidget):
             dependency_settings = possible_settings
             self.settings.update(dependency_settings)
             self.smu_settings = self.settings["smu_settings"]
+            print(f"SMU settings extracted: {self.smu_settings}")
             self.spectrometer_settings = self.settings["spectrometer_settings"]
+            print(f"Spectrometer settings extracted: {self.spectrometer_settings}")
 
         self._log_verbose("Exiting parse_settings_widget with success")
         return [0, self.settings]
@@ -634,7 +644,7 @@ class specSMU_GUI(QWidget):
                     if self.settings["spectro_use_last_integ"]:
                         # no checks on wheter self.last_integration_time is set, since getAutoTime takes in Optional[float]
                         self._log_verbose(f"Using last valid integration time as initial guess for AutoTime: {self.last_integration_time}")
-                        last_integration_time = self.last_integration_time # s
+                        last_integration_time = self.last_integration_time  # s
 
                     # check mode, pulse or continuous
                     if self.settings["mode"] == "continuous":
@@ -775,7 +785,7 @@ class specSMU_GUI(QWidget):
                 address = self.spectrometer_settings["address"] + os.sep + self.spectrometer_settings["filename"]
                 status, state = self.function_dict["spectrometer"][spectro_name]["createFile"](varDict=varDict, filedelimeter=";", address=address, data=spectrum)
                 if status:
-                    self.logger.log_error(f"Error writing to file: {state}")
+                    self.notify_user(f"Error saving spectrum: {state}")
                     raise NotImplementedError(f"Error in writing spectrum to file: {state}, no handling provided")
 
                 # updating the internal state of last integration time
@@ -817,4 +827,5 @@ class specSMU_GUI(QWidget):
         settings["hwtrigpulse"] = self.settingsWidget.lineEdit_HWtrig_pulse.text()
         settings["powerpulseext"] = self.settingsWidget.lineEdit_powerPulse.text()
         settings["ioline"] = self.settingsWidget.spinBox_digio.value()
+        settings["prescaler"] = self.settingsWidget.prescalerSpinBox.value()
         return settings

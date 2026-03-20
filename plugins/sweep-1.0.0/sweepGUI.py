@@ -12,7 +12,7 @@ from PyQt6.QtCore import QObject, Qt, pyqtSlot
 from PyQt6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
 from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, filter_to_valid_methods
 from sweepCommon import create_file_header, create_sweep_reciepe
-from threadStopped import (  # this should be moved to some pluginsShare
+from components.threadStopped import (
     ThreadStopped,
     thread_with_exception,
 )
@@ -760,6 +760,10 @@ class sweepGUI(QObject):
                 fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + f"{measurement['drainvoltage']}V" + ".dat"
             else:
                 fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
+
+            # check wheter the file already exists. If it does, prevent writing
+            if os.path.exists(fulladdress):
+                raise sweepException(f"file {fulladdress} already exists. Aborting to prevent overwriting data.")
             with open(fulladdress, "w") as f:
                 f.write(fileheader + f"{columnheader[1:-1]}" + "\n")
                 pd.DataFrame(data).to_csv(f, index=False, header=False, float_format="%.12e", sep=",")
@@ -774,17 +778,25 @@ class sweepGUI(QObject):
             return [status, message]
         # init exception flag
         exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
-        stop_exception = None
         try:
             self._sweepImplementation()
+            return (0, {})
         except sweepException as e:
-            self.logger.log_info(f"{e}")
+            self.logger.log_info(f"Sweep stopped because of exception: {e}")
+            self.logger.info_popup(f"Sweep stopped because of exception: {e}")
             exception = 1
+            return (1, {"Error message": f"{e}"})
 
-        except ThreadStopped as e:
+        except ThreadStopped:
             self.logger.log_info("sweep plugin implementation aborted by user request")
             exception = 2
-            stop_exception = e
+            raise
+
+        except Exception as e:
+            self.logger.log_info(f"sweep plugin implementation stopped because of unexpected exception: {e}")
+            self.logger.info_popup(f"sweep plugin implementation stopped because of unexpected exception: {e}")
+            exception = 3
+            return (1, {"Error message": f"Unexpected error: {e}"})
 
         finally:
             # abort if in exception state
@@ -795,14 +807,9 @@ class sweepGUI(QObject):
             self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
             self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
 
-        if stop_exception is not None:
-            raise stop_exception
-
-        return [exception, "sweep finished with exception" if exception else "sweep finished successfully"]
-
     def _sequenceImplementation(self):
         """
-        Performs an IV sweep on SMU, saves the result in a file
+        Performs an IV sweep on SMU, saves the result in a file. THIS IS ONLY USED BY THE BUTTON; not the sequence builder.
 
         Returns [status, message]:
                status: 0 - no error, ~0 - error
@@ -811,7 +818,7 @@ class sweepGUI(QObject):
             exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
             self._sweepImplementation()
         except sweepException as e:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f"{e}")
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f"Sweep stopped because of exception: {e}")
             exception = 1
         except ThreadStopped:
             self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")

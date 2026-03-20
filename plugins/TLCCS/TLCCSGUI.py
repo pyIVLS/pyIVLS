@@ -219,7 +219,7 @@ class TLCCS_GUI(QObject):
                 self.log_verbose("Statuses after reading leftover data: " + str(statuses_after))
 
             self._enableSaveButton()
-            self.closelock.emit_close_lock(self.preview_running)
+            self.closeLock.emit(self.preview_running)
             self.settingsWidget.previewButton.setText("Preview")
             return (0, {})
         else:
@@ -231,7 +231,7 @@ class TLCCS_GUI(QObject):
 
             self.integrationTimeChanged = True
             self.preview_running = True
-            self.closelock.emit_close_lock(self.preview_running)
+            self.closeLock.emit(self.preview_running)
             self.settingsWidget.saveButton.setEnabled(False)
             # request continous scan start from dev
             self.drv.start_scan_continuous()
@@ -270,8 +270,7 @@ class TLCCS_GUI(QObject):
             data=self.lastspectrum[0],
         )
         if status:
-            self.logger.log_debug(f"Error occurred while saving file: {state}")
-            self.logger.log_info(f"Error occurred while saving file: {state}")
+            self.notify_user("Failed to save spectrum: " + str(state))
             return [status, state]
         return [0, "OK"]
 
@@ -295,7 +294,7 @@ class TLCCS_GUI(QObject):
             preview_status = self.preview_running
             self._previewAction()
         self.settingsWidget.saveButton.setEnabled(False)
-        self.closelock.emit_close_lock(True)
+        self.closeLock.emit(True)
         # check if get time may be used (spectrometer IDLE)
         statuses = self.drv.get_device_status()
         if "SCAN_IDLE" in statuses:
@@ -373,8 +372,8 @@ class TLCCS_GUI(QObject):
             tuple[int, float | dict]: Status and integration time or error information.
         """
         self.logger.log_debug("Calculating auto integration time.")
-        low = self.autoTime_min# time min s
-        high = self.autoTime_max# time max s
+        low = self.autoTime_min  # time min s
+        high = self.autoTime_max  # time max s
         low_spectrum = self.autoValue_min  # min spectrum value
         high_spectrum = self.autoValue_max  # max spectrum value
 
@@ -383,29 +382,31 @@ class TLCCS_GUI(QObject):
             if last_integration_time is None:
                 if self.settings["useintegrationtimeguess"]:
                     # guess from current value
-                    guessIntTime = self.settings["integrationtime"] #s
+                    guessIntTime = self.settings["integrationtime"]  # s
                 else:
                     # guess from min and max
-                    guessIntTime = (self.autoTime_min + self.autoTime_max) / 2 #s
+                    guessIntTime = (self.autoTime_min + self.autoTime_max) / 2  # s
             # initial guess provided as argument, use that.
             else:
-                guessIntTime = last_integration_time # ms
+                guessIntTime = last_integration_time  # ms
 
             # start iterating through integration times using guessIntTime as initial guess
             for iter in range(self.intTimeMaxIterations):
                 self.logger.log_debug(f"Iteration {iter + 1}: Current guess = {guessIntTime} s.")
-                self.settings["integrationtime"] = guessIntTime# needed for keeping self.lastspectrum in order
+                self.settings["integrationtime"] = guessIntTime  # needed for keeping self.lastspectrum in order
                 [status, info] = self.spectrometerSetIntegrationTime(guessIntTime)  # s
                 if status:
                     self.logger.log_debug(f"getAutoTime: Failed to set integration time. {status}, {info}")
-                    return [status, info]
+                    return (status, info)
                 # charging the spectrometer in case of external trigger
                 if self.settings["externaltrigger"]:
                     self.logger.log_debug("Charging a new  HW trig scan.")
                     self.drv.start_scan_ext_trigger()
-                    time.sleep(0.02) #just a precaution, duration does not mean anything specific, does not affect the measurement as smu is off
+                    time.sleep(0.02)  # just a precaution, duration does not mean anything specific, does not affect the measurement as smu is off
+                    if external_action_args is None:
+                        return (1, {"Error message": "External action arguments are required for hardware trigger mode."})
                     mydict = external_action_args[0]
-                    mydict['integrationtime'] = guessIntTime #in s
+                    mydict["integrationtime"] = guessIntTime  # in s
                 # external action if needed
                 if external_action:
                     self.log_verbose("getAutoTime: Executing external action.")
@@ -439,14 +440,13 @@ class TLCCS_GUI(QObject):
                         data=info,
                     )
                     if status:
-                        self.logger.log_debug(f"getAutoTime: Failed to save spectrum. {status}, {state}")
-                        self.logger.log_info(f"Failed to save spectrum during auto integration time calculation: {state}")
+                        self.notify_user(f"Failed to save auto time attempt: {state}")
                         return (status, state)
                 # external cleanup if needed
                 if external_cleanup:
                     self.logger.log_debug("getAutoTime: Executing external cleanup.")
                     if self.settings["externaltrigger"]:
-                        time.sleep(2*mydict['postwait']) #for the case if postwait is comparable with integration time, to make sure that the smu finished all the operations
+                        time.sleep(2 * mydict["postwait"])  # for the case if postwait is comparable with integration time, to make sure that the smu finished all the operations
                     try:
                         if external_cleanup_args:
                             status, info = external_cleanup(*external_cleanup_args)
@@ -581,7 +581,7 @@ class TLCCS_GUI(QObject):
         return get_public_methods(self)
 
     def _getCloseLockSignal(self):
-        return self.closelock.closeLock
+        return self.closeLock
 
     def _parse_settings_integrationTime(self) -> tuple[int, dict]:
         """
@@ -632,7 +632,6 @@ class TLCCS_GUI(QObject):
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
             self.notify_user("Filename is not valid. Please enter a valid filename")
-
             return (1, {"Error message": "TLCCS plugin : filename is not valid"})
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
@@ -706,16 +705,9 @@ class TLCCS_GUI(QObject):
         self.settings = {}
         self.settings = copy.deepcopy(settings)
 
-    def get_current_gui_settings(self) -> tuple[int, dict[Any, Any]]:
-        """Reads the current settings from the settingswidget, returns a dict.
-        Returns:
-            tuple: (status, settings_dict)
-        """
-        [status, info] = self.parse_settings_widget()
-        if status:
-            return (status, info)
-        retset = self.settings.copy()
-        return (0, retset)
+    @public
+    def set_gui_from_settings(self):
+        print("TODO SET GUI FROM SETTINGS")
 
     ########Functions
     ########device functions
@@ -763,16 +755,16 @@ class TLCCS_GUI(QObject):
         intTime = self.drv.get_integration_time()
         return [0, intTime]
 
+    @public
     def spectrometerTrigScan(self):
         # arm the spectrometer to perform a scan on external trigger
         try:
             self.drv.start_scan_ext_trigger()
             return [0, "OK"]
-        except ThreadStopped:
-            pass
         except Exception as e:
             return [4, {"Error message": f"{e}"}]
 
+    @public
     def spectrometerStartScan(self):
         """Starts a spectro scan"""
         status = self.drv.get_device_status()
@@ -831,6 +823,9 @@ class TLCCS_GUI(QObject):
 
     @public
     def createFile(self, varDict, filedelimeter, address, data):
+        # check if the file already exists, if yes, return error
+        if os.path.isfile(address):
+            return (1, {"Error message": "File already exists at the specified address."})
         fileheader = self.fm.create_spectrometer_header(varDict, separator=filedelimeter)
         self.log_verbose(f"Creating file at {address} with data shape {data.shape}")
         np.savetxt(
@@ -843,6 +838,7 @@ class TLCCS_GUI(QObject):
             footer="#[EndOfFile]",
             comments="#",
         )
+        return (0, {})
 
     ######## Timer callback ########
     def _on_preview_tick(self):
