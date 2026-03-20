@@ -302,6 +302,7 @@ class OOUSB2000_GUI(QObject):
             external_cleanup (callable): External cleanup function to execute after auto time calculation.
             external_cleanup_args (tuple): Arguments for the external cleanup function.
             pause_duration (float): Duration to pause after each iteration.
+            last_integration_time (float): Optional initial guess for integration time in seconds.
 
         Returns:
             tuple[int, float | dict]: Status and integration time or error information.

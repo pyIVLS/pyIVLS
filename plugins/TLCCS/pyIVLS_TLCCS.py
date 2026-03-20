@@ -81,8 +81,8 @@ class pyIVLS_TLCCS_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.metadata["function"]:
-            return {self.metadata["name"]: self.spectrometerGUI._getLogSignal()}
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.spectrometerGUI.logger.logger_signal}
 
     @hookimpl
     def get_info(self, args=None):
@@ -91,8 +91,8 @@ class pyIVLS_TLCCS_plugin:
         :return: dict that includes the log signal
         """
 
-        if args is None or args.get("function") == self.metadata["function"]:
-            return {self.metadata["name"]: self.spectrometerGUI._getInfoSignal()}
+        if args is None or args.get("function") == self.plugin_function:
+            return {self.plugin_name: self.spectrometerGUI.logger.info_popup_signal}
 
     @hookimpl
     def get_closeLock(self, args=None):

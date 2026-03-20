@@ -634,7 +634,7 @@ class specSMU_GUI(QWidget):
                     if self.settings["spectro_use_last_integ"]:
                         # no checks on wheter self.last_integration_time is set, since getAutoTime takes in Optional[float]
                         self._log_verbose(f"Using last valid integration time as initial guess for AutoTime: {self.last_integration_time}")
-                        last_integration_time = self.last_integration_time
+                        last_integration_time = self.last_integration_time # s
 
                     # check mode, pulse or continuous
                     if self.settings["mode"] == "continuous":
