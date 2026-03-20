@@ -7,6 +7,7 @@ import time
 from enum import Enum
 from typing import Optional
 from pyvisa.resources import MessageBasedResource
+import math
 
 
 # for mock connection
@@ -164,7 +165,6 @@ class Keithley2612B:
             self.safewrite("display.settext('Connected to PyIVLS')")
             time.sleep(2)
             self.safewrite("display.screen = display.SMUA_SMUB")
-
         if self.backend == BackendType.USB.value:
             if self.k is None:
                 #### connect with usbtmc
@@ -260,9 +260,8 @@ class Keithley2612B:
             0 - no error, ~0 - error (add error code later on if needed)
             message contains line frequency as float, or an error message otherwise
         """
-        # freq = float(self.safequery("print(localnode.linefreq)"))
-        # return freq
-        return 50
+        freq = float(self.safequery("print(localnode.linefreq)"))
+        return freq
 
     def getIV(self, channel) -> list[float]:
         """gets IV data
@@ -337,7 +336,6 @@ class Keithley2612B:
             readings_count = int(float(self.safequery(f"print({channel}.nvbuffer2.n)")))
             i_values = self.safequery(f"printbuffer({1}, {readings_count}, {channel}.nvbuffer1)")
             v_values = self.safequery(f"printbuffer({1}, {readings_count}, {channel}.nvbuffer2)")
-
             # Add to the iv array
             ##IRtothink#### some check may be added to make sure that the value may be converted
             iv.extend(
@@ -631,6 +629,145 @@ class Keithley2612B:
                 raise e
                 return 1
 
+    def keithley_run_trigpulse(self, s: dict):  # -> status:
+        """Makes a single pulse with predetermined duration and triggers a DIGIO line at the end of source action
+
+        Args:
+            s (dict): trigpulse settings dictionary
+            s["source"] source channel: may take values [smua, smub]
+            s["sense"] true: 4wire; false: 2wire
+            s["type"] source inject current or voltage: may take values [i ,v]
+            s["value"] pulse voltage if is in voltage injection mode, or current if is in current injection mode (float)
+            s["limit"] limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode (float)
+            s["spectro_check_after"] True: use IV measurement at the beginning and end of the pulse, False only at the beginning (bool)
+            s['sourcenplc'] NPLC in nplc units (float)
+            s['nplcms'] NPLC in ms (float)
+            s['delay'] True - auto delay before measurement; Flase - manual delay before measurement (bool)
+            s['delayduration'] duration of the delay before measurement if manual in s, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
+            s['postwait'] duration of waiting after the measurement for possible non-idealities in time synchronization in s (float)
+            s['integrationtime'] duration of spectrometer integration time in s (float)
+            s['linen'] DIGIO line to use (int)
+            s['digiopulse'] DIGIO pulse width in s (float)
+        Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+        """
+        
+        def ceil_to_power_of_10(x):
+            "Helper function for getting ceil to the injected current in current injection mode"
+            if x == 0:
+                return 0
+            power = math.floor(math.log10(abs(x)))
+            factor = 10 ** power
+            return math.ceil(x / factor) * factor
+        
+        # Try and acquire the lock to make sure nothing else is running
+        ##IRtothink#### is locking really needed?
+        with self.lock:
+            time.sleep(2) ## to avoid overlapping error
+            try:
+                self.safewrite("reset()")
+                self.safewrite("beeper.enable=0")
+                self.safewrite("digio.writeport(0)")
+
+                ####set visualization
+                self.safewrite("display.screen = display.SMUA_SMUB")
+                self.safewrite("format.data = format.ASCII")
+                self.safewrite("format.asciiprecision = 14")
+
+                self.safewrite(f"{s['source']}.reset()")
+                ##### based on Single pulse example code (p.183) of Keithley manual
+                
+                if s["sense"]:
+                    self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_REMOTE")
+                else:
+                    self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
+
+                #Clear buffers, set repeats and steps, set sweep range.
+                self.safewrite(f"{s['source']}.nvbuffer1.clear()")
+                self.safewrite(f"{s['source']}.nvbuffer2.clear()")
+
+                #Configure a single-point list sweep
+                self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE") ## enable source action
+                self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
+                self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ASYNC") ## enable asynchronous measurement action (to measure IV before and after the pulse)
+                self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})") ##
+                #Configure other source parameters for best timing possible.
+                self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_ONCE") #see p. 585 of Keithley manual
+                if s["type"] == 'v':
+                    self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
+                    self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.source.rangev = {math.ceil(abs(s["value"]))}")
+                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
+                else:
+                    self.safewrite(f"{s['source']}.trigger.source.limitv = {s['limit']}")
+                    self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.source.rangei = {ceil_to_power_of_10(s['value'])}")
+                    self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
+                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
+                #Calculate duration of the pulse:
+                if s['delay']:
+                    self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
+                    s['delayduration'] = 0.360# s is max delay duration for DELAY_AUTO see page 255
+                else:
+                    self.safewrite(f"{s['source']}.measure.delay = {s['delayduration']:.6f}")
+                nplc_s = s['nplcms']/1000 #change nplc time value from ms to seconds
+                if ["spectro_check_after"]:
+                    if 2*(s['delayduration']+nplc_s+s['postwait'])>s['integrationtime']:
+                        pulseduration = 2*(s['delayduration']+nplc_s+s['postwait'])
+                    else:
+                        pulseduration = s['integrationtime'] + s['postwait']
+                    ###### trigger.timer[2] for the second IV measurement
+                    self.safewrite(f"trigger.timer[2].delay = {(pulseduration - (s['delayduration']+ nplc_s +s['postwait'])):.6f}") #duration of wait before second measurement in s
+                    self.safewrite(f"trigger.timer[2].count = 1")
+                    self.safewrite(f"trigger.timer[2].passthrough = false") ## if true the timer will trigger immediately after run
+                    self.safewrite(f"trigger.timer[2].stimulus = {s['source']}.trigger.SWEEPING_EVENT_ID")
+                    self.safewrite(f"trigger.blender[1].orenable = true")
+                    self.safewrite(f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                    self.safewrite(f"trigger.blender[1].stimulus[2] = trigger.timer[2].EVENT_ID")
+                    self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
+                else:
+                    if s['delayduration']+nplc_s+s['postwait']>s['integrationtime']:
+                        pulseduration = s['delayduration']+nplc_s+s['postwait']
+                    else:
+                        pulseduration = s['integrationtime'] + s['postwait']
+                    self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                #Configure timer parameters to output a single pulseduration length pulse.
+                self.safewrite(f"trigger.timer[1].delay = {pulseduration:.6f}") #set duration of pulse in seconds
+                self.safewrite(f"trigger.timer[1].count = 1")
+                self.safewrite(f"trigger.timer[1].passthrough = false") ## if true the timer will trigger immediately after run
+                #Trigger timer when the SMU sets the power
+                self.safewrite(f"trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
+                #Configure source action to start immediately.
+                self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")                   
+                #Configure endpulse action to achieve a pulse.
+                self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
+                self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
+                #Configure digital I/O lineN to output a extPulse ms
+                ## according to THORLABD CCS p.65, the signal should be TTL, > 0.5 us, delay <8.25 us
+                ## as the signal is TTL let's consider it standard rising-edge trigger
+                self.safewrite(f"digio.trigger[{s['linen']}].mode = digio.TRIG_RISINGM") ### p.397 of Keithley manual: the only option for direct assertion
+                self.safewrite(f"digio.trigger[{s['linen']}].pulsewidth = {s['digiopulse']:.6f}")
+                self.safewrite(f"digio.trigger[{s['linen']}].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                #Set appropriate counts of trigger model.
+                self.safewrite(f"{s['source']}.trigger.count = 1")
+                self.safewrite(f"{s['source']}.trigger.arm.count = 1")
+                #Turn on output and trigger SMU to output a single pulse.
+                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
+                self.safewrite(f"{s['source']}.trigger.initiate()")
+                return 0
+
+            except Exception as e:
+                # if something fails, abort the measurement and turn off the source.
+                self.safewrite(f"{s['source']}.abort()")
+                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
+                print(f"Caught exception during keithley_run_sweep : {e}")
+                raise e
+                return 1
+            
+            
     def set_digio(self, line_id: int, value: bool):
         """Set a digital I/O line to a value.
 

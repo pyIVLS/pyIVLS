@@ -7,17 +7,26 @@ Standalone functionality may be added later.
 
 ivarad
 25.06.10
+
+v1.2
+HW trigger added
+NPLC time bug corrected (previously smu recieved NPLC time in ms but not in nplc units)
+
+ivarad
+26.02.20
 """
 
 import os
 
 import time
+from PyQt6 import uic
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
-from settingsWidget import Ui_Form
 import numpy as np
 import copy
 from typing import Optional
+from plugin_components import LoggingHelper
+from plugin_components import LoggingHelper
 from plugin_components import LoggingHelper
 
 
@@ -61,12 +70,15 @@ class specSMU_GUI(QWidget):
                 "parse_settings_widget",
                 "smu_connect",
                 "smu_init",
+                "smu_abort",
                 "smu_outputOFF",
                 "smu_outputON",
                 "smu_disconnect",
                 "set_running",
                 "smu_setOutput",
                 "smu_channelNames",
+                "smu_trigpulse",
+                "smu_bufferRead",
             ],
             "spectrometer": [
                 "parse_settings_widget",
@@ -82,8 +94,9 @@ class specSMU_GUI(QWidget):
                 "spectrometerGetScan",
             ],
         }
-        self.settingsWidget = Ui_Form()
-        self.settingsWidget.setupUi(self)
+        # Load the settings based on the name of this file.
+        self.settingsWidget = uic.loadUi(self.path + "specSMU_settingsWidget.ui")
+        
         self.settings = {}
         self.function_dict = {}
         self.last_integration_time: Optional[float] = None  # s
@@ -163,10 +176,20 @@ class specSMU_GUI(QWidget):
             self.settingsWidget.label_pulsedPause.setEnabled(False)
             self.settingsWidget.label_pulsedPause_2.setEnabled(False)
             self.settingsWidget.lineEdit_Pause.setEnabled(False)
+            self.settingsWidget.groupBox_HWtrigger.setEnabled(False)
         elif mode == "Pulsed":
             self.settingsWidget.label_pulsedPause.setEnabled(True)
             self.settingsWidget.label_pulsedPause_2.setEnabled(True)
             self.settingsWidget.lineEdit_Pause.setEnabled(True)
+            self.settingsWidget.groupBox_HWtrigger.setEnabled(False)
+        elif mode == "HW trigger":
+            #### this should also update HW tigger in spectrometer plugin
+            #### however, there will be an issue with initialization of GUI as it is not clear what plugin will be loaded first
+            #### for now externaltrigger of spectrometer is updated only in setSettings
+            self.settingsWidget.label_pulsedPause.setEnabled(True)
+            self.settingsWidget.label_pulsedPause_2.setEnabled(True)
+            self.settingsWidget.lineEdit_Pause.setEnabled(True)
+            self.settingsWidget.groupBox_HWtrigger.setEnabled(True)
 
         self.update()
 
@@ -279,14 +302,24 @@ class specSMU_GUI(QWidget):
             "lineEdit_End": "end",
             "lineEdit_Points": "points",
             "lineEdit_Limit": "limit",
-            "lineEdit_NPLC": "nplc",
-            "lineEdit_Delay": "delay",
         }
         for line_name, key in line_map.items():
             line_edit = getattr(self.settingsWidget, line_name, None)
             value = settings.get(key, "")
             if line_edit and value != "":
                 line_edit.setText(str(value))
+
+        # setnplc and delay (ms in GUI, s in settings)
+        try:
+            self.settingsWidget.lineEdit_NPLC.setText(f"{float(settings.get("nplc", 0.02))*1000}")
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. nplc is set as it is in settings")
+            self.settingsWidget.lineEdit_NPLC.setText(str(settings.get("nplc", 0.02)))
+        try:
+            self.settingsWidget.lineEdit_Delay.setText(f"{float(settings.get("delay", 0.32))*1000}")
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed.delay is set as it is in settings")
+            self.settingsWidget.lineEdit_Delay.setText(str(settings.get("delay", 0.32)))
 
         # Set checkboxes
         def set_checkbox(cb_name: str, setting_key: str):
@@ -307,8 +340,23 @@ class specSMU_GUI(QWidget):
         spectro_pause_time = settings["spectro_pause_time"]
         prescaler = settings["prescaler"]
         self.settingsWidget.spectroPauseSpinBox.setValue(float(spectro_pause_time))
-        self.settingsWidget.prescaler_spinbox.setValue(float(prescaler))
 
+        # set HW trig
+        try:
+            self.settingsWidget.lineEdit_HWtrig_pulse.setText(f"{float(settings.get("hwtrigpulse", 0.00001))*1000}")
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. hwtrigpulse is set as it is in settings")
+            self.settingsWidget.lineEdit_HWtrig_pulse.setText(str(settings.get("hwtrigpulse", 0.00001)))
+            
+
+        try:
+            self.settingsWidget.lineEdit_powerPulse.setText(f"{float(settings.get("powerpulseext", 0.0005))*1000}")
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. powerpulseext is set as it is in settings")
+            self.settingsWidget.lineEdit_powerPulse.setText(str(settings.get("powerpulseext", 0.0005)))
+
+        self.settingsWidget.spinBox_digio.setValue(int(settings.get("ioline", 4)))
+        
         # Update GUI state
         self._update_GUI_state()
 
@@ -412,20 +460,26 @@ class specSMU_GUI(QWidget):
             self.settings["spectro_use_last_integ"] = raw_settings["spectro_use_last_integ"]  # bool
             self.settings["drainchannel"] = ""  # PLACEHOLDER FIXME:
 
+
             # Parse numeric fields
             self.settings["start"] = float(raw_settings["start"])
             self.settings["end"] = float(raw_settings["end"])
             self.settings["points"] = int(raw_settings["points"])
             self.settings["limit"] = float(raw_settings["limit"])
-            self.settings["nplc"] = float(raw_settings["nplc"])
-            self.settings["delay"] = float(raw_settings["delay"])
+            self.settings["nplc"] = float(raw_settings["nplc"])/1000
+            self.settings["delay"] = float(raw_settings["delay"])/1000
             self.settings["pause"] = float(raw_settings["pause"])
             self.settings["spectro_pause_time"] = float(raw_settings["spectro_pause_time"])  # should already be float from double spin box
             self.settings["repeat"] = int(raw_settings["repeat"])  # will already be an int from spin box
-            self.settings["prescaler"] = raw_settings["prescaler"]  # will already be float from double spin box
-
-            # add a field for type of source
-            self.settings["type"] = "v" if raw_settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
+            self.settings["hwtrigpulse"] = float(raw_settings["hwtrigpulse"])/1000
+            if self.settings["hwtrigpulse"]<0:
+                self._log_verbose(f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative")
+                return [1, {"Error message": f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative"}]
+            self.settings["powerpulseext"] = float(raw_settings["powerpulseext"])/1000
+            if self.settings["powerpulseext"]<0:
+                self._log_verbose(f"Value error in SpecSMU plugin: extension of the power pulse can not be negative")
+                return [1, {"Error message": f"Value error in SpecSMU plugin: extension of the power pulse can not be negative"}]
+            self.settings["ioline"] = int(raw_settings["ioline"]) # should already be an int from spinbox
 
             self._log_verbose("Settings successfully parsed and validated")
         except ValueError as e:
@@ -463,8 +517,12 @@ class specSMU_GUI(QWidget):
     def setSettings(self, settings):  #### settings from sequenceBuilder
         # the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
         self.settings = {}
-        self.settings = copy.deepcopy(settings)
+        self.settings.update(copy.deepcopy(settings))
         self.smu_settings = self.settings["smu_settings"]
+        if self.settings["mode"] == "hw trigger":
+                self.settings["spectrometer_settings"]["externaltrigger"] = True
+        else:
+                self.settings["spectrometer_settings"]["externaltrigger"] = False
         self.spectrometer_settings = self.settings["spectrometer_settings"]
         spectro_name = self.settings["spectrometer"]
         self.function_dict["spectrometer"][spectro_name]["setSettings"](self.spectrometer_settings)
@@ -503,6 +561,7 @@ class specSMU_GUI(QWidget):
             self.logger.log_error("")  # log error includes traceback already
             return [1, {"Error message": "SpecSMU plugin: error in seq implementation", "Exception": str(e)}]
         finally:
+            self.function_dict["smu"][smu_name]["smu_abort"](self.settings["channel"]) #in case of HW trig, as formally it uses a sweep
             self.function_dict["smu"][smu_name]["smu_outputOFF"]()
             self.function_dict["smu"][smu_name]["smu_disconnect"]()
             self.function_dict["spectrometer"][spectro_name]["spectrometerDisconnect"]()
@@ -517,7 +576,7 @@ class specSMU_GUI(QWidget):
         s["type"] = "v" if self.settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
         s["single_ch"] = self.settings["singlechannel"]  # single channel mode: may be True or False
 
-        s["sourcenplc"] = self.settings["nplc"]  # drain NPLC (may not be used in single channel mode)
+        s["sourcenplc"] = self.settings["nplc"] * self.smu_settings["lineFrequency"] #see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
         s["delay"] = True if self.settings["delaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
         s["delayduration"] = self.settings["delay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["limit"] = self.settings["limit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
@@ -526,11 +585,27 @@ class specSMU_GUI(QWidget):
         s["start"] = self.settings["start"]  # start value for source, added for current injection to work
         s["end"] = self.settings["end"]  # end value for source -||-
         s["points"] = self.settings["points"]  # number of points for source -||-
+
+        if self.smu_settings["sourcefiltertype"] == "Repeat average":
+            s["sourcefiltertype"] = "FILTER_REPEAT_AVG"
+            s["sourcefiltervalue"] = self.smu_settings["sourcefiltervalue"]
+        else:
+            #settings_smu["drainfiltertype"] == "Off":
+            s["sourcefiltertype"] = "FILTER_OFF"
+        s["sourcedelayfactor"] = self.smu_settings["sourcedelayfactor"]
         if self.settings["sourcesensemode"] == "4 wire":
             s["sourcesense"] = True  # source sence mode: may take values [True - 4 wire, False - 2 wire]
         else:
             s["sourcesense"] = False  # source sence mode: may take values [True - 4 wire, False - 2 wire]
         self._log_verbose(f"SMU settings: {s}")
+
+        if self.smu_settings["sourcefiltertype"] == "Repeat average":
+            s["sourcefiltertype"] = "FILTER_REPEAT_AVG"
+            s["sourcefiltervalue"] = self.smu_settings["sourcefiltervalue"]
+        else:
+            s["sourcefiltertype"] = "FILTER_OFF"
+
+        s["sourcedelayfactor"] = self.smu_settings["sourcedelayfactor"]
 
         if not s["single_ch"]:
             self._log_verbose("Dual channel mode not implemented")
@@ -541,7 +616,27 @@ class specSMU_GUI(QWidget):
             return [2, {"Error message": "SpecSMU plugin: error in SMU plugin can not initialize"}]
 
         self._log_verbose("Leaving smuInit")
-        return (0, s)
+        return (0, "OK")
+
+    def _make_hwtrig_dict(self,smuSetValue):
+        """ form the dict to be used with smu_trigpulse
+        description of the dict in spectrometer plugin, function header"""
+        trigpulse_dict = {}
+        trigpulse_dict["source"] = self.settings["channel"]
+        trigpulse_dict["sense"] = True if self.settings["sourcesensemode"] == "4 wire" else False
+        trigpulse_dict["type"] = 'v' if self.settings["inject"] == 'voltage' else 'i'
+        trigpulse_dict["value"] = smuSetValue
+        trigpulse_dict["limit"] = self.settings["limit"]
+        trigpulse_dict["spectro_check_after"] = self.settings["spectro_check_after"]
+        trigpulse_dict['sourcenplc'] =  self.settings["nplc"] * self.smu_settings["lineFrequency"] #see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
+        trigpulse_dict['nplcms'] =  self.settings["nplc"]*1000
+        trigpulse_dict['delay'] = True if self.settings["delaymode"] == "auto" else False
+        trigpulse_dict['delayduration'] = 0.360 if trigpulse_dict['delay'] else self.settings["delay"]# duration of the delay before measurement if manual in s, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
+        trigpulse_dict['postwait'] = self.settings["powerpulseext"]
+        trigpulse_dict['integrationtime'] = None #this in any case will be set in spectrometer plugin
+        trigpulse_dict['linen'] = self.settings["ioline"]
+        trigpulse_dict['digiopulse'] = self.settings["hwtrigpulse"]
+        return trigpulse_dict
 
     def _SpecSMUImplementation(self):
         def get_spectro_scan(smu_settings: dict, integration_time: float, voltage: float):
@@ -591,12 +686,9 @@ class specSMU_GUI(QWidget):
         self._log_verbose("Entering _SpecSMUImplementation")
         smu_name = self.settings["smu"]
         spectro_name = self.settings["spectrometer"]
-        status, smu_settings_dict = self.smuInit()
-        external_triggering = self.spectrometer_settings["externalTrigger"]
-
-        if status:
-            raise NotImplementedError(f"Error in SMU initialization: {smu_settings_dict}, no handling provided")
-
+        if not self.settings["mode"] == "hw trigger":
+            status, state = self.smuInit()
+            assert status == 0, f"Error in initializing SMU: {state}"
         smuLoop = self.settings["points"]
         if smuLoop > 1:
             smuChange = (self.settings["end"] - self.settings["start"]) / (smuLoop - 1)
@@ -609,16 +701,18 @@ class specSMU_GUI(QWidget):
             # iterate over the SMU loop steps
             for smuLoopStep in range(smuLoop):
                 smuSetValue = self.settings["start"] + smuLoopStep * smuChange
-                self._log_verbose(f"Setting SMU output to {smuSetValue}")
-                # set output on SMU
-                self.function_dict["smu"][smu_name]["smu_setOutput"](self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue)
-                self._log_verbose("SMU output set")
-                integration_time_setting = float(self.spectrometer_settings["integrationTime"])
-                status, integration_time_seconds = self.function_dict["spectrometer"][spectro_name]["spectrometerGetIntegrationTime"]()
-                integration_time = integration_time_seconds
-                if status:
-                    self._log_verbose(f"Error getting integration time: {integration_time}")
-                    raise NotImplementedError(f"Error in getting integration time from spectrometer: {integration_time}, no handling provided")
+
+                if self.settings["mode"] == "continuous":
+                    self._log_verbose(f"Setting SMU output to {smuSetValue}")
+                    # set output on SMU
+                    self.function_dict["smu"][smu_name]["smu_setOutput"](self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue)
+                    self._log_verbose("SMU output set")
+#                integration_time_setting = float(self.spectrometer_settings["integrationtime"])
+#                status, integration_time_seconds = self.function_dict["spectrometer"][spectro_name]["spectrometerGetIntegrationTime"]()
+#                integration_time = integration_time_seconds
+#                if status:
+#                    self._log_verbose(f"Error getting integration time: {integration_time}")
+#                    raise NotImplementedError(f"Error in getting integration time from spectrometer: {integration_time}, no handling provided")
 
                 # set filename
                 self.spectrometer_settings["filename"] = specFilename + f"_{smuSetValue:.4f}" + f"_{rep}" + " iv.csv"
@@ -650,7 +744,10 @@ class specSMU_GUI(QWidget):
                         last_integration_time = self.last_integration_time
 
                     # check mode, pulse or continuous
-                    if self.settings["mode"] == "pulsed":
+                    if self.settings["mode"] == "continuous":
+                        self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
+                        status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](last_integration_time=last_integration_time)
+                    elif self.settings["mode"] == "pulsed":
                         # "Abandon all hope, ye who enter here"
                         status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](
                             external_action=self.function_dict["smu"][smu_name]["smu_outputON"],
@@ -659,10 +756,16 @@ class specSMU_GUI(QWidget):
                             pause_duration=self.settings["pause"],
                             last_integration_time=last_integration_time,
                         )
-                    else:
-                        # continuous mode, just set the output on and get the auto time
-                        self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])
-                        status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](last_integration_time=last_integration_time)
+                    elif self.settings["mode"] == "hw trigger":
+
+                        # hw trig mode mainly based on smu_trigpulse. Spectrometer plugin understands that it is in hw trig mode from externaltrigger setting
+                        status, auto_time = self.function_dict["spectrometer"][spectro_name]["getAutoTime"](
+                            external_action=self.function_dict["smu"][smu_name]["smu_trigpulse"],
+                            external_action_args=(self._make_hwtrig_dict(smuSetValue),),
+                            external_cleanup=self.function_dict["smu"][smu_name]["smu_outputOFF"],
+                            pause_duration=self.settings["pause"],
+                            last_integration_time=last_integration_time,
+                        )
 
                     # Depending on the branch, auto_time may be None if getAutoTime failed
                     if status == 0:
@@ -682,8 +785,18 @@ class specSMU_GUI(QWidget):
                         self._log_verbose(f"Error getting auto integration time: {auto_time}")
                         # autotime failed
                         raise NotImplementedError(f"Error in getting auto integration time: {auto_time}, no handling provided")
+                # non-automatic integration time handling
+                else:
+                    integration_time_setting = float(self.spectrometer_settings["integrationtime"])
 
                 # integration time setting is determined based on autotime or from GUI, now check if it is different from the current one
+                status, integration_time_seconds = self.function_dict["spectrometer"][spectro_name]["spectrometerGetIntegrationTime"]()
+                integration_time = integration_time_seconds
+                if status:
+                    self._log_verbose(f"Error getting integration time: {integration_time}")
+                    raise NotImplementedError(f"Error in getting integration time from spectrometer: {integration_time}, no handling provided")
+
+                # check integration time
                 if not np.isclose(integration_time, integration_time_setting, atol=0, rtol=0.0001):
                     self._log_verbose(f"Setting integration time to {integration_time_setting}, current is {integration_time}")
                     self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
@@ -695,46 +808,77 @@ class specSMU_GUI(QWidget):
                     self._log_verbose(f"Not changing integration time, current {integration_time} is close to setting {integration_time_setting}")
                     self._log_verbose(f"Integ time determined with mode: {self.spectrometer_settings['integrationtimetype']}")
 
-                # integration time set, smu ready, spectrometer ready:
-                if not external_triggering:
+                if not self.settings["mode"] == "hw trigger":
+
+                    # integration time set, smu ready, spectrometer ready:
                     self.function_dict["smu"][smu_name]["smu_outputON"](self.settings["channel"])  # output on
 
-                # pause before any measurements if spectro_pause is set
-                if self.settings["spectro_pause"]:
-                    self._log_verbose(f"Pausing for {self.settings['spectro_pause_time']} seconds before reading spectrum")
-                    time.sleep(self.settings["spectro_pause_time"])
+                    # pause before any measurements if spectro_pause is set
+                    if self.settings["spectro_pause"]:
+                        self._log_verbose(f"Pausing for {self.settings['spectro_pause_time']} seconds before reading spectrum")
+                        time.sleep(self.settings["spectro_pause_time"])
 
-                # if checkbox for before and after is set:
-                after_flag = self.settings["spectro_check_after"]
-                sourceIV_before = (None, None)
-                if after_flag:
-                    # IV before spectrum
-                    status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
+                    # if checkbox for before and after is set:
+                    after_flag = self.settings["spectro_check_after"]
+                    sourceIV_before = (None, None)
+                    if after_flag:
+                        # IV before spectrum
+                        status, sourceIV_before = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
 
-                # spectrum
-                spectrum, sourceIV_after = get_spectro_scan(smu_settings_dict, integration_time_setting, smuSetValue)
-
-                time.sleep(0.02)
-                self.function_dict["smu"][smu_name]["smu_outputOFF"]()
+                    # spectrum
+                    status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
+                    if status:
+                        self._log_verbose(f"Error getting spectrum: {spectrum}")
+                        raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
+                        
+                    # IV after spectrum
+                    status, sourceIV_after = self.function_dict["smu"][smu_name]["smu_getIV"](self.settings["channel"])
+                    time.sleep(0.02)
+                #HW trig mode
+                else:
+                    #arm spectrometer
+                    self.function_dict["spectrometer"][spectro_name]["spectrometerTrigScan"]()
+                    time.sleep(0.02) #just a precaution, duration does not mean anything specific, does not affect the measurement as smu is off
+                    #make dict for smu, as we do not know if autotime was used
+                    trigDict = self._make_hwtrig_dict(smuSetValue)
+                    trigDict["integrationtime"] = integration_time_setting#in s
+                    #run smupulse
+                    status, info = self.function_dict["smu"][smu_name]["smu_trigpulse"](trigDict)
+                    if status:
+                        self._log_verbose(f"Error running smupulse: {info}")
+                        raise NotImplementedError(f"Error in smu_trigpulse: {info}, no handling provided")
+                    time.sleep(5)#probably not needed
+                    
+                    # spectrum
+                    status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
+                    if status:
+                        self._log_verbose(f"Error getting spectrum: {spectrum}")
+                        raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
 
                 # scan finished, now time to sleep if in pulsed mode
-                if self.settings["mode"] == "pulsed":
+                if not self.settings["mode"] == "continuous":
+                    self.function_dict["smu"][smu_name]["smu_outputOFF"]()
                     self._log_verbose(f"Sleeping for {self.settings['pause']} seconds in pulsed mode")
                     time.sleep(self.settings["pause"])
 
                 # saving the results
                 varDict = {}
                 varDict["integrationtime"] = integration_time_setting
-                varDict["triggermode"] = 1 if self.spectrometer_settings["externalTrigger"] else 0
+                varDict["triggermode"] = 1 if self.spectrometer_settings["externaltrigger"] else 0
                 varDict["name"] = self.spectrometer_settings["samplename"]
-                if after_flag:
-                    # sourceIV is returned as a tuple (i, v, readings)
-                    i_before, v_before = sourceIV_before
-                    i_after, v_after = sourceIV_after
-                    readings = str(i_before) + "," + str(v_before) + "," + str(i_after) + "," + str(v_after)
+                if self.settings["mode"] == "hw trigger":
+                    IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
+                    readings = ",".join(map(str, IVdata.ravel()))
+                    i_after, v_after = IVdata[-1]
                 else:
-                    i_after, v_after = sourceIV_after
-                    readings = str(i_after) + "," + str(v_after)
+                    if after_flag:
+                        # sourceIV is returned as a tuple (i, v, readings)
+                        i_before, v_before = sourceIV_before
+                        i_after, v_after = sourceIV_after
+                        readings = str(i_before) + "," + str(v_before) + "," + str(i_after) + "," + str(v_after)
+                    else:
+                        i_after, v_after = sourceIV_after
+                        readings = str(i_after) + "," + str(v_after)
 
                 varDict["comment"] = self.spectrometer_settings["comment"] + " " + readings
                 address = self.spectrometer_settings["address"] + os.sep + self.spectrometer_settings["filename"]
@@ -751,7 +895,7 @@ class specSMU_GUI(QWidget):
                         and abs(i_after) >= abs(self.settings["limit"])
                     ) or (
                         self.settings["inject"] == "current"
-                        and (abs(lastV) >= abs(measurement["limit"]))
+                        and (abs(v_after) >= abs(measurement["limit"]))
                     ):
                         self.function_dict["smu"][smu_name]["smu_outputOFF"]()
                         break
@@ -785,5 +929,7 @@ class specSMU_GUI(QWidget):
         settings["spectro_pause_time"] = self.settingsWidget.spectroPauseSpinBox.value()
         settings["spectro_use_last_integ"] = self.settingsWidget.spectroUseLastInteg.isChecked()
         settings["repeat"] = self.settingsWidget.repeat_spinbox.value()
-        settings["prescaler"] = self.settingsWidget.prescaler_spinbox.value()
+        settings["hwtrigpulse"] = self.settingsWidget.lineEdit_HWtrig_pulse.text()
+        settings["powerpulseext"] = self.settingsWidget.lineEdit_powerPulse.text()
+        settings["ioline"] = self.settingsWidget.spinBox_digio.value()
         return settings

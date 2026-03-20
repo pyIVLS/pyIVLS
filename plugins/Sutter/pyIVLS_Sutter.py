@@ -11,7 +11,7 @@ class pyIVLS_Sutter_plugin:
     def __init__(self):
         self.function = "micromanipulator"
         self.name = "Sutter"
-        self.gui = SutterGUI(self.name, self.function)
+        self.gui = SutterGUI()
         self.metadata = {
             "name": self.name,
             "function": self.function,

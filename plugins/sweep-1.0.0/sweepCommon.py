@@ -43,7 +43,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
             comment = f"{comment}Measurement stabilization period is done in AUTO mode\n#"
         else:
             comment = f"{comment}Measurement stabilization period is{settings['continuousdelay'] / 1000} ms\n#"
-        comment = f"{comment}NPLC value {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']})\n#"
+        comment = f"{comment}NPLC value {settings['continuousnplc'] * 1000} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc'] * smu_settings['lineFrequency']})\n#"
     else:
         comment = f"{comment}Start value for sweep {settings['pulsedstart']} {stepunit}\n#"
         comment = f"{comment}End value for sweep {settings['pulsedend']} {stepunit}\n#"
@@ -52,7 +52,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
             comment = f"{comment}Measurement stabilization period is done in AUTO mode\n#"
         else:
             comment = f"{comment}Measurement stabilization period is{settings['pulseddelay'] / 1000} ms\n#"
-        comment = f"{comment}NPLC value {settings['pulsednplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['pulsednplc']})\n#"
+        comment = f"{comment}NPLC value {settings['pulsednplc'] * 1000} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['pulsednplc']*smu_settings['lineFrequency']})\n#"
 
     comment = f"{comment}\n#"
     if settings["mode"] == "continuous":
@@ -63,7 +63,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
         comment = f"{comment}\n#\n#\n#\n#"
     else:
         comment = f"{comment}Mixed operation of the source with delays of {settings['pulsedpause']} s\n#"
-        comment = f"{comment}NPLC value for continuous operation arm {settings['continuousnplc'] * 1000 / smu_settings['lineFrequency']} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc']}) \n#"
+        comment = f"{comment}NPLC value for continuous operation arm {settings['continuousnplc'] * 1000} ms (for detected line frequency {smu_settings['lineFrequency']} Hz is {settings['continuousnplc'] * smu_settings['lineFrequency']}) \n#"
         comment = f"{comment}Limit for continuous operation arm {settings['continuouslimit']} {limitunit}\n#"
         comment = f"{comment}Start value for continuous operation arm {settings['continuousstart']} {stepunit}\n#"
         comment = f"{comment}End value for continuous operation arm {settings['continuousend']} {stepunit}\n#"
@@ -155,7 +155,8 @@ def create_sweep_reciepe(settings, settings_smu):
     #settings_smu["drainfiltertype"] == "Off":
         s["sourcefiltertype"] = "FILTER_OFF"
     s["sourcedelayfactor"] = settings_smu["sourcedelayfactor"]
-    s["drainnplc"] = settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
+    s["drainnplc"] = settings["drainnplc"] * settings_smu["lineFrequency"] #see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
+    #s["drainnplc"] = settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
     s["draindelay"] = settings["draindelaymode"]  # stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)
     s["draindelayduration"] = settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
     s["drainlimit"] = settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
@@ -203,7 +204,7 @@ def create_sweep_reciepe(settings, settings_smu):
             s["drainsense"] = loopsensedrain[sensecnt]  # drain sence mode: may take values [True - 4 wire, False - 2 wire]
             if not (settings["mode"] == "pulsed"):
                 s["pulse"] = False  # set pulsed mode: may be True - pulsed, False - continuous
-                s["sourcenplc"] = settings["continuousnplc"]  # integration time in nplc units
+                s["sourcenplc"] = settings["continuousnplc"] * settings_smu["lineFrequency"]#see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
                 s["delay"] = settings["continuousdelaymode"]  # stabilization time mode for source: may take values [True - Auto, False - manual]
                 s["delayduration"] = settings["continuousdelay"]  # stabilization time duration if manual
                 s["steps"] = settings["continuouspoints"]  # number of points in sweep
@@ -213,7 +214,7 @@ def create_sweep_reciepe(settings, settings_smu):
                 recipe.append(copy.deepcopy(s))
             if not (settings["mode"] == "continuous"):
                 s["pulse"] = True  # set pulsed mode: may be True - pulsed, False - continuous
-                s["sourcenplc"] = settings["pulsednplc"]  # integration time in nplc units
+                s["sourcenplc"] = settings["pulsednplc"] * settings_smu["lineFrequency"]#see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
                 s["delay"] = settings["pulseddelaymode"]  # stabilization time mode for source: may take values [True - Auto, False - manual]
                 s["delayduration"] = settings["pulseddelay"]  # stabilization time duration if manual
                 s["steps"] = settings["pulsedpoints"]  # number of points in sweep

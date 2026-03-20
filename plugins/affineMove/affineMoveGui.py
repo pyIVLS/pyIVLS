@@ -798,6 +798,8 @@ class affineMoveGUI(QObject):
             if cam_pos:
                 self.collision_detector.update_manipulator_tip_position(manipulator_idx, cam_pos[0], cam_pos[1])
                 self.logger.log_debug(f"Updated bounding box tip for manipulator {manipulator_idx}: {cam_pos}")
+        except ThreadStopped:
+            raise
         except Exception as e:
             self.logger.log_debug(f"Could not update bounding box tip for manipulator {manipulator_idx}: {e}")
 
@@ -1103,6 +1105,8 @@ class affineMoveGUI(QObject):
                         continue
                     # Cache the fresh position
                     self.update_manipulator_position(manip_idx, current_mm_pos)
+                except ThreadStopped:
+                    raise
                 except Exception as e:
                     self.logger.log_warn(f"Exception getting position for manipulator {manip_idx}: {e}")
                     continue

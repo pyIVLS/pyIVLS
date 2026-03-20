@@ -80,6 +80,7 @@ class Keithley2612BGUI(QObject):
         "smu_disconnect",
         "smu_connect",
         "smu_channelNames",
+        "smu_trigpulse"
     ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
     ####################################  threads
@@ -172,7 +173,8 @@ class Keithley2612BGUI(QObject):
             self.settings
         """
         self.settings = {}
-        # Get source settings
+        self._parse_settings_address()
+        #Get source settings
         self.settings["sourcefiltertype"] = self.settingsWidget.comboBox_sourceFilter.currentText()
         # Determine if a filter is used
         if self.settings["sourcefiltertype"] == "Off":
@@ -242,9 +244,13 @@ class Keithley2612BGUI(QObject):
         # Determine a HighC mode for drain: may be True or False
         self.settings["drainhighc"] = self.settingsWidget.checkBox_drainHighC.isChecked()
         if "lineFrequency" not in self.settings:
-            info = self.smu.getLineFrequency()
-            self.settings["lineFrequency"] = info
-        self._parse_settings_address()
+            try:
+                self.smu_connect()
+                info = self.smu.getLineFrequency()
+                self.settings["lineFrequency"] = info
+            except:
+                self.logger.log_warn("Hardware error in Keithley2612B plugin: can not get line frequency, returned line frequency is 0")
+                self.settings["lineFrequency"] = 0
         return (0, self.settings)
 
     def _parse_settings_address(self) -> None:
@@ -340,8 +346,8 @@ class Keithley2612BGUI(QObject):
         #### this might be useful if a plugin does not check if the smu was moved into a manual mode
 
         steps = [
-            self.parse_settings_widget,
             self.smu_connect,
+            self.parse_settings_widget,
             self.smu_reset,
         ]
 
@@ -352,7 +358,7 @@ class Keithley2612BGUI(QObject):
                     self.logger.log_warn(str(message))
                 else:
                     self.logger.log_info(str(message))
-                self.logger.log_info(message["Error message"])
+                self.logger.info_popup(message["Error message"])
                 return [status, message]
 
         self.logger.log_debug(f"Reset successful")
@@ -546,84 +552,23 @@ class Keithley2612BGUI(QObject):
         """
         self.smu.set_digio(id, value)
         return (0, {"Error message": "Digital output set successfully"})
-
-    def smu_digio_pulse(self, id, width_s=0.00001):
-        """Generates a digital pulse on the specified channel.
-        Args:
-            line_id (int): digio id. see keithley 2600b reference manual p.4-41 for details.
-            width_s (float): pulse width in seconds. Default is 0.00001s
-
-        Returns:
-            tuple: (status, message) where status is 0 for success, non-zero for error.
-        """
-        # sanity check of line state
-        last_value = self.smu.read_digio(id)
-        if int(last_value) != 0:
-            raise ValueError(f"Cannot generate pulse on digio line {id} because its current value is HIGH.")
-        # rising edge
-        self.smu.set_digio(id, True)
-        # wait for pulse width
-        time.sleep(width_s)
-        # falling edge
-        self.smu.set_digio(id, False)
-        return (0, {"Error Message": "OK"})
-
-    def smu_trigger_measurement(self,integration_time_seconds: float, voltage: float, s: dict) -> tuple[int, list]:
-        """Performs a measurement with an additional triggered opertation on line 1. 
-
-        Args:
-            integration_time_seconds (float): 
-            voltage (float): 
-            s (dict): standard keithley dict as in other functions
+    @public
+    def smu_trigpulse (self, s):
+        """an interface for an externall calling function to run trigger pulse on Keithley
+        s: dictionary containing the settings to run the sweep. It is different from the self.settings and from dictionary for normal sweep
+        the structure is given in header to keithley_run_trigpulse
 
         Returns:
-            tuple(int, list): return code, IV 
+            0 - no error
+            ~0 - error (add error code later on if needed)
+
+        Args:
+            s (dict): Configuration dictionary.
+
+        Note: this function reinitializes the Keithley, separate init is not needed
         """
-
-        # TODO: sync nplc for triggered measurement with integration time?
-
-        #clear buffers
-        self.smu.safewrite(f"{s['source']}.nvbuffer1.clear()")
-        self.smu.safewrite(f"{s['source']}.nvbuffer2.clear()")
-
-        #set voltage range
-        self.smu.safewrite(f"{s['source']}.trigger.source.listv({{{voltage}}})") # should we also enable current measurement?
-
-        #set timer
-        self.smu.safewrite("trigger.timer[1].count = 1")
-        self.smu.safewrite("trigger.timer[1].passthrough = false")
-
-        #start timer when source ready
-        self.smu.safewrite(f"trigger.timer[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
-
-        #trigger digio when ready
-        self.smu.safewrite("digio.trigger[1].mode = digio.TRIG_RISINGM")
-        self.smu.safewrite(f"digio.trigger[1].pulsewidth = {integration_time_seconds}")
-        self.smu.safewrite(f"digio.trigger[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
-
-        #initialize measurement action
-        self.smu.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
-        self.smu.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ENABLE")
-        self.smu.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")
-        self.smu.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
-        
-
-        #set endpulse actions and stimulus 
-        self.smu.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
-        self.smu.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
-        self.smu.safewrite(f"trigger.timer[1].delay = {integration_time_seconds + 0.001}")
-        #self.smu.safewrite("digio.trigger[1].mode = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
-        
-        self.smu.safewrite(f"{s['source']}.trigger.count = 1")
-        self.smu.safewrite(f"{s['source']}.trigger.arm.count = 1")
-
-        # Turn on the source and trigger the sweep.
-        self.smu.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
-        self.smu.safewrite(f"{s['source']}.trigger.initiate()")
-        self.smu.safewrite("waitcomplete()")
-
-        # commented out since waitcomplete should ensure that the integration time has passed, since the digio pulse has a width equal to integration time
-        # time.sleep(integration_time_seconds+0.001)
-
-        i, v, _ = self.smu.get_last_buffer_value(s['source'])
-        return (0, [i, v])
+        try:
+            self.smu.keithley_run_trigpulse(s)
+            return (0, {"Error message": f"OK"})
+        except Exception as e:
+            return (4, {"Error message": f"HW issue in keithley trigpulse: {e}"})
