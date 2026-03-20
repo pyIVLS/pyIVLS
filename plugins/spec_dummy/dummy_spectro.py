@@ -812,6 +812,15 @@ class dummy_spectro_GUI:
             except Exception as e:
                 return [4, {"Error message": f"Can not get scan: {e}"}]
 
+    @public
+    def set_gui_from_settings(self):
+        print("Updating GUI from settings. FAKE")
+
+    @public
+    def spectrometerTrigScan(self) -> tuple[int, dict[str, str]]:
+        print("Triggering spectrometer scan. FAKE")
+        return (0, {"Error message": "asf"})
+
     ########Functions
     ###############save data
 
