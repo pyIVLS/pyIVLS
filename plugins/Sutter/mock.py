@@ -135,7 +135,7 @@ class Mpc325Mock:
     def quick_move_to(self, x: np.float64, y: np.float64, z: np.float64):
         with self._comm_lock:
             self._positions[self._active_device] = (float(x), float(y), float(z))
-            time.sleep(0.005)
+            time.sleep(1.0)  # Simulate fixed quick move time
 
     def slow_move_to(self, x: np.float64, y: np.float64, z: np.float64, speed=None):
         with self._comm_lock:

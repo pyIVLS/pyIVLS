@@ -9,6 +9,7 @@ import numpy as np  # for better typing
 import serial  # Accessing sutter device through serial port
 
 
+
 class Mpc325:
     """
     Handles communication with the Sutter MPC-325 micromanipulator system.

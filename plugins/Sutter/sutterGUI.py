@@ -321,76 +321,15 @@ class SutterGUI(QObject):
         finally:
             if self.hal.is_connected():
                 self._gui_change_device_connected(True)
-                # self._move_worker.start()  # Removed move worker from public API
-
             else:
                 self._gui_change_device_connected(False)
 
     def _status_button(self):
-        def _move_sequence():
-            pos = self.hal.get_current_position()
-            print(f"Current position in status button: x={pos[0]}, y={pos[1]}, z={pos[2]}")
-            status, state = self.mm_move(x=0, y=0, z=0)
-            print(f"status: {status}, state: {state} for zeroing move")
-
-            status, state = self.mm_move_relative(x_change=1000, y_change=1000, z_change=1000)
-            print(f"status: {status}, state: {state} for positive relative move")
-            status, state = self.mm_move_relative(x_change=-1000, y_change=-1000, z_change=-1000)
-            print(f"status: {status}, state: {state} for negative relative move")
-            status, state = self.mm_zmove(z_change=1000, absolute=True)
-            print(f"status: {status}, state: {state} for absolute z move down")
-            status, state = self.mm_zmove(z_change=0, absolute=True)
-            print(f"status: {status}, state: {state} for absolute z move up")
-            status, state = self.mm_zmove(z_change=1000, absolute=False)
-            print(f"status: {status}, state: {state} for relative z move down")
-            status, state = self.mm_up_max()
-            print(f"status: {status}, state: {state} for move to max z")
-
-        def _quickmove_slowmove_check():
-            pos = self.hal.get_current_position()
-            print(f"Current position in quickmove/slowmove check: x={pos[0]}, y={pos[1]}, z={pos[2]}")
-            initial = self.hal.quick_move
-            self.hal.quick_move = True
-            self.mm_move(x=pos[0] + 200, y=pos[1] + 200, z=pos[2] + 200)
-            self.mm_move(x=pos[0], y=pos[1], z=pos[2])
-            self.hal.quick_move = False
-            self.mm_move(x=pos[0] + 200, y=pos[1] + 200, z=pos[2] + 200)
-            self.mm_move(x=pos[0], y=pos[1], z=pos[2])
-            self.hal.quick_move = initial
-
-        def check_working_slow_moves_single_axis():
-            import time
-            import numpy as np
-
-            # Running this shows that speeds up to 12 work when using spesified wait time between command1 and 2. When using wait time * 4 modes up to 13 work.
-            for i in range(10, 16):
-                n = 1000
-                pos = self.hal.get_current_position()
-                move_times = []
-                initial = self.hal.quick_move
-                self.hal.quick_move = False
-                initial_speed = self.hal.speed
-                self.hal.speed = i
-                # move n microns, track time:
-                start_time = time.perf_counter()
-                self.mm_move(x=pos[0] + n)
-                end_time = time.perf_counter()
-                move_times.append(end_time - start_time)
-                """
-                start_time = time.perf_counter()
-                self.mm_move(x=pos[0])
-                end_time = time.perf_counter()
-                move_times.append(end_time - start_time)
-                """
-                print(f"moved with speed {i}: {np.mean(move_times)} seconds")
-                self.hal.quick_move = initial
-                self.hal.speed = initial_speed
-
         def check_fast_moves():
             import time
             import numpy as np
 
-            # Running this shows that speeds up to 12 work when using spesified wait time between command1 and 2. When using wait time * 4 modes up to 13 work.
+            # Running this shows that speeds up to 12 work when using specified wait time between command1 and 2. When using wait time * 4 modes up to 13 work.
             for i in range(12, 16):
                 n = 1000
                 pos = self.hal.get_current_position()
@@ -414,31 +353,6 @@ class SutterGUI(QObject):
                 self.hal.quick_move = initial
                 self.hal.speed = initial_speed
 
-        def check_working_slow_moves_multi_axis():
-            import time
-            import numpy as np
-
-            # Running this shows that speeds up to 13 work.
-            for i in range(16):
-                pos = self.hal.get_current_position()
-                move_times = []
-                initial = self.hal.quick_move
-                self.hal.quick_move = False
-                initial_speed = self.hal.speed
-                self.hal.speed = i
-                # move n microns, track time:
-                n = 200
-                start_time = time.perf_counter()
-                self.mm_move(x=pos[0] + n, y=pos[1] + n, z=pos[2] + n)
-                end_time = time.perf_counter()
-                move_times.append(end_time - start_time)
-                start_time = time.perf_counter()
-                self.mm_move(x=pos[0], y=pos[1], z=pos[2])
-                end_time = time.perf_counter()
-                move_times.append(end_time - start_time)
-                print(f"moved with speed {i}: {np.mean(move_times)} seconds")
-                self.hal.quick_move = initial
-                self.hal.speed = initial_speed
 
         # run move sequence in a thread
         move_thread = threading.Thread(target=check_fast_moves)
