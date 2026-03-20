@@ -70,12 +70,12 @@ class pyIVLS_SpecSMU_plugin:
 
     @hookimpl
     def set_function(self, function_dict):
-        """Provides a list of available public functions from other plugins as a nested list"""
-        pruned = {k: function_dict[k] for k in self.dependencies if k in function_dict}
-        missing = [dependency_key for dependency_key in self.dependencies if dependency_key not in pruned]
-        self.specsmu.function_dict = pruned
-        if hasattr(self.specsmu, "set_dependencies"):
-            self.specsmu.set_dependencies(self.dependencies)
+        """Hook to set methods from other plugins to this plugins function dictionary
+        Returns: Missing methods
+        """
+        # set functions to DependencyManager
+        is_valid, missing = self.specsmu.dm.set_available_dependency_functions(function_dict)
+
         return {self.name: missing}
 
     @hookimpl
