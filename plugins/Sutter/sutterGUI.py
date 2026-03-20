@@ -111,14 +111,14 @@ class SutterGUI(QObject):
         self.logger = LoggingHelper(self)
         self.cl = CloseLockSignalProvider()
         self.settings = {}
-        self._settingsWidget: Optional[QtWidgets.QWidget] = None
+        path = os.path.dirname(__file__) + os.path.sep
+        self._settingsWidget = uic.loadUi(path + "Sutter_settingsWidget.ui")  # type: ignore
+
 
     def setup(self, settings):
         """
         Setup the sutter GUI by loading ui and initializing the hal. Connect buttons to functions.
         """
-        path = os.path.dirname(__file__) + os.path.sep
-        self._settingsWidget = uic.loadUi(path + "Sutter_settingsWidget.ui")  # type: ignore
 
         # Store settings internally in .ini format
         self.settings = copy.deepcopy(settings)
