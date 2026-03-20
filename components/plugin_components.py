@@ -378,7 +378,7 @@ class DependencyManager:
             plugin_name: Name of the plugin using this manager
             dependencies: Dict mapping dependency types to required function lists
                          e.g., {"smu": ["connect", "init"], "spectro": ["measure"]}
-            widget: Optional widget containing comboboxes for dependency selection
+            widget:  widget containing comboboxes for dependency selection
             mapping: Dict mapping dependency type to combobox widget name
         """
         self.plugin_name = plugin_name
@@ -461,7 +461,7 @@ class DependencyManager:
 
         return selected
 
-    def validate_and_extract_dependency_settings(self, target_settings_dict: Dict[str, Any]):
+    def validate_and_extract_dependency_settings(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
         """
         Validates all dependency selections and extracts their settings.
 
@@ -479,7 +479,7 @@ class DependencyManager:
             Tuple[int, dict]: (status, dependency_settings)
         """
         if not self._function_dict:
-            return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, f"Missing functions in {self.plugin_name} plugin. Check log")
+            return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"Missing functions in {self.plugin_name} plugin. Check log"})
 
         # Get selected dependencies from GUI
         selected_deps = self.get_selected_dependency_plugins()
@@ -488,16 +488,16 @@ class DependencyManager:
         # Validate and extract settings for each dependency type
         for dependency_type in self.dependencies.keys():
             if dependency_type not in selected_deps or not selected_deps[dependency_type]:
-                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, f"No {dependency_type} plugin selected")
+                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"No {dependency_type} plugin selected"})
 
             selected_plugin = selected_deps[dependency_type]
 
             # Selection existence check. Method-level validation is already guaranteed by pruned function_dict.
             if dependency_type not in self._function_dict:
-                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, f"No {dependency_type} plugins available")
+                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"No {dependency_type} plugins available"})
 
             if selected_plugin not in self._function_dict[dependency_type]:
-                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, f"{dependency_type} plugin '{selected_plugin}' not available")
+                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"{dependency_type} plugin '{selected_plugin}' not available"})
 
             # Update target settings with selected plugin name
             target_settings_dict[dependency_type] = selected_plugin
@@ -515,9 +515,9 @@ class DependencyManager:
                 dependency_settings[settings_key] = settings
 
             except KeyError as e:
-                return (PyIVLSReturnCode.DEPENDENCY_ERROR.value, f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}")
+                return (PyIVLSReturnCode.DEPENDENCY_ERROR.value, {"Error message": f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {str(e)}"})
             except Exception as e:
-                return (PyIVLSReturnCode.DEPENDENCY_ERROR.value, f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}")
+                return (PyIVLSReturnCode.DEPENDENCY_ERROR.value, {"Error message": f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {str(e)}"})
         # combine the target settings dict with the dependency settings to return to the plugin.
         target_settings_dict.update(dependency_settings)
         return (0, target_settings_dict)
