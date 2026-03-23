@@ -523,7 +523,6 @@ class pyIVLS_seqBuilder(QObject):
             # Validate settings using parse_settings_widget
             status, possible_settings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
             if status:
-                print(f"function {instructionFunc} contains following dict: {item.data(Qt.ItemDataRole.UserRole)}")
                 self.info_message.emit(f"Error parsing settings for {instructionFunc}: {possible_settings['Error message']}")
                 return
             else:
@@ -583,9 +582,26 @@ class pyIVLS_seqBuilder(QObject):
         if instruction_func not in self.available_instructions:
             self.info_message.emit(f"Instruction {instruction_func} is not available.")
             return
+        
+        # retrieve the settings for the item in question
+        settings = item.data(Qt.ItemDataRole.UserRole)
+        if not settings:
+            self.info_message.emit(f"No settings found for {instruction_func}. Cannot update GUI.")
+            return
+        
 
-        # Get the plugin's set_gui_from_settings function
+
+        # Get funcs
         plugin_functions = self.available_instructions[instruction_func]["functions"]
+        # send the settings to the plugin
+        if "setSettings" in plugin_functions:
+            try:
+                plugin_functions["setSettings"](settings)
+            except Exception as e:
+                self.info_message.emit(f"Error sending settings to {instruction_func}: {str(e)}")
+                return
+
+        # update the gui based on the settings
         if "set_gui_from_settings" in plugin_functions:
             try:
                 plugin_functions["set_gui_from_settings"]()
@@ -593,12 +609,15 @@ class pyIVLS_seqBuilder(QObject):
                 self.info_message.emit(f"Error while updating GUI for {instruction_func}: {str(e)}")
         else:
             self.info_message.emit(f"set_gui_from_settings is not implemented for {instruction_func}.")
+            return
 
     def update_all_instruction_guis(self):
         """
+        THIS SEEMS TO BE DEAD CODE CURRENTLY; DEPRECATE!
         Iterates through all instructions in the sequence and calls `set_gui_from_settings` for each instruction plugin.
         Logs a message if `set_gui_from_settings` is not implemented for a plugin.
         """
+        raise DeprecationWarning("update_all_instruction_guis is currently not used and may be removed in future versions.")
 
         def traverse_and_update(item):
             for row in range(item.rowCount()):
@@ -615,7 +634,7 @@ class pyIVLS_seqBuilder(QObject):
         if first_child is None:
             self.info_message.emit("Error: The sequence tree has no root item.")
             return
-
+        
         traverse_and_update(first_child)
 
     def read_and_update_instruction_settings(self):
