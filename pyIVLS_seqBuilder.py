@@ -149,10 +149,14 @@ class pyIVLS_seqBuilder(QObject):
 
         def update_settings_for_selected_item(row, idx_parent):
             item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
+            if item is None:
+                raise ValueError("Selected item not found in the model.")
             self._updateInstructionSettings(item)
 
         def to_gui_settings_for_selected_item(row, idx_parent):
             item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
+            if item is None:
+                raise ValueError("Selected item not found in the model.")
             self.update_item_gui(item)
 
         idx: QModelIndex = self.widget.treeView.indexAt(position)
@@ -513,12 +517,17 @@ class pyIVLS_seqBuilder(QObject):
 
             instructionFunc = item.text()
             if instructionFunc not in self.available_instructions:
-                return [f"Instruction {instructionFunc} is not available."]
+                self.info_message.emit(f"Instruction {instructionFunc} is not available.")
+                return
 
             # Validate settings using parse_settings_widget
-            status, newSettings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
+            status, possible_settings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
             if status:
-                return [newSettings["Error message"]]
+                print(f"function {instructionFunc} contains following dict: {item.data(Qt.ItemDataRole.UserRole)}")
+                self.info_message.emit(f"Error parsing settings for {instructionFunc}: {possible_settings['Error message']}")
+                return
+            else:
+                newSettings = possible_settings
 
             # Compare old and new settings
             oldSettings = item.data(Qt.ItemDataRole.UserRole)
@@ -623,6 +632,7 @@ class pyIVLS_seqBuilder(QObject):
 
             # Retrieve saved settings from the item
             saved_settings = item.data(Qt.ItemDataRole.UserRole)
+            print(f"Retrieved settings for {instruction_func}: {saved_settings}")
             if not saved_settings:
                 self.info_message.emit(f"No saved settings found for {instruction_func}.")
                 return
