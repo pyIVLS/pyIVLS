@@ -48,7 +48,7 @@ class pyIVLS_pluginTemplate_plugin:
     def get_setup_interface(self, plugin_data) -> dict:
         """Returns GUI plugin for the docking area (settings/buttons). This function is called from pyIVLS_container
         Args:
-            plugin_data (dict): plugin dict from pyIVLS_container. Used for example to get the initial settings.
+            plugin_data (dict): plugin dict from pyIVLS_container. Used to get the initial settings.
         Returns:
             dict: name, widget
         """
@@ -86,8 +86,10 @@ class pyIVLS_pluginTemplate_plugin:
 
         :return: list containing missed plugins or functions in form of [plg1, plg2:func3]
         """
-        raise NotImplementedError()
+        # set functions to DependencyManager
+        is_valid, missing = self.pluginClass.dm.set_available_dependency_functions(function_dict)
 
+        return {self.name: missing}
 
     @hookimpl
     def get_log(self, args=None):
@@ -97,7 +99,7 @@ class pyIVLS_pluginTemplate_plugin:
         """
 
         if args is None or args.get("function") == self.function:
-            return {self.name: self.camera_control._getLogSignal()}
+            return {self.name: self.pluginClass.logger.logger_signal}
 
     @hookimpl
     def get_info(self, args=None):
@@ -107,7 +109,7 @@ class pyIVLS_pluginTemplate_plugin:
         """
 
         if args is None or args.get("function") == self.function:
-            return {self.name: self.pluginClass._getInfoSignal()}
+            return {self.name: self.pluginClass.logger.info_popup_signal}
 
     @hookimpl
     def get_closeLock(self, args=None):
@@ -117,4 +119,13 @@ class pyIVLS_pluginTemplate_plugin:
         """
 
         if args is None or args.get("function") == self.function:
-            return {self.name: self.pluginClass._getCloseLockSignal()}
+            return {self.name: self.pluginClass.cl.closeLock}
+
+    @hookimpl
+    def get_plugin_settings(self, args=None):
+        """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)
+        Called from pyIVLS_container when saving settings
+        """
+        if args is None or args.get("function") == self.function:
+            status, settings = self.pluginClass.parse_settings_widget()
+            return (self.name, status, settings)

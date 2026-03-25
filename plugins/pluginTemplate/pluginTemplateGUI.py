@@ -13,65 +13,143 @@ The standard implementation may (but not must) include
 """
 
 import os
-
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtWidgets import QWidget
 from pluginTemplate import pluginTemplate
-from MplCanvas import (
-    MplCanvas,
-)  # this is loaded from components directory that contains shared classes
+from plugin_components import (
+    CloseLockSignalProvider,
+    public,
+    get_public_methods,
+    load_widget,
+    ini_to_bool,
+    LoggingHelper,
+    ConnectionIndicatorStyle,
+    PyIVLSReturnCode,
+    DependencyManager,
+)
+from MplCanvas import MplCanvas
+# this is loade from components directory that contains shared classes
 
 
 class pluginTemplateGUI(QObject):
-    """GUI implementation
-    this class may be a child of QObject if Signals or Slot will be needed
-    """
+    @property
+    def settingsWidget(self) -> QWidget:
+        if not hasattr(self, "_settingsWidget"):
+            raise NotImplementedError("Settings widget not implemented, remove this function if settings widget is not needed.")
+        if self._settingsWidget is None:
+            raise RuntimeError("Settings widget not initialized.")
+        return self._settingsWidget
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = []  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
-    ########Signals
-    ##remove this if plugin will only provide functions to another plugins, but will not interract with the user directly
-    log_message = pyqtSignal(str)
-    info_message = pyqtSignal(str)
+    @property
+    def MDIWidget(self) -> QWidget:
+        if not hasattr(self, "_mdiWidget"):
+            raise NotImplementedError("MDI widget not implemented, remove this function if MDI widget is not needed.")
+        if self._mdiWidget is None:
+            raise RuntimeError("MDI widget not initialized.")
+        return self._mdiWidget
+
+    def notify_user(self, message: str):
+        """Utility to create popup and corresponding log entry for events that should be clearly visible"""
+        self.logger.log_info(message)
+        self.logger.info_popup(message)
+
+    update_gui_signal = pyqtSignal()
 
     ########Functions
     def __init__(self):
         super(pluginTemplateGUI, self).__init__()  ### this is needed if the class is a child of QObject
-        # Load the settings based on the name of this file.
-        self.path = os.path.dirname(__file__) + os.path.sep
 
-        self.settingsWidget = uic.loadUi(self.path + "pluginTemplate_settingsWidget.ui")
-        self.previewWidget = uic.loadUi(self.path + "pluginTemplate_MDIWidget.ui")
+        self.path = os.path.dirname(__file__) + os.path.sep
+        # remove load_widget if no widgets are needed
+        self._settingsWidget, self._mdiWidget = load_widget(settings=True, mdi=True, path=self.path)
 
         # Initialize the functionality core that should be independent on GUI
         self.templateFunctionality = pluginTemplate()
 
-        # remove next if no direct interraction with user
-        self._connect_sgnals()
-        # remove next if no plots
+        # init settings
+        self.settings = {}
+
+        # connect signals and slots
+        self._connect_signals()
+
+        # create plot
         self._create_plt()
 
+        # initialize logger
+        self.logger = LoggingHelper(self)
+
+        # initialize dependency manager
+        self.dm = DependencyManager(
+            "pluginTemplate",
+            {"camera": ["parse_settings_widget", "setSettings"]},
+            self.settingsWidget,
+            {"camera": "camBox"},
+        )
+        # initialize closelock if needed
+        self.cl = CloseLockSignalProvider()
+
+        # prepare GUI
+        self.settingsWidget.doubleSpinBox_float.setRange(0, 1)
+        self.settingsWidget.comboBox_categorical.addItems(["option1", "option2", "option3"])
+        # HOX: things such as adding items for comboboxes MUST be done here to prevent duplicate entries
+        # when initGUI is repeatedly called from pyIVLS_container when plugin list is updated.
+
     def _connect_signals(self):
-        self.settingsWidget.exampleButton.clicked.connect(self._exampleAction)
+        self.settingsWidget.pushButton_doStuff.clicked.connect(self._exampleAction)
+        self.update_gui_signal.connect(self._update_gui)
 
     def _create_plt(self):
         self.sc = MplCanvas(self, width=5, height=4, dpi=100)
         self.axes = self.sc.fig.add_subplot(111)
         self.axes.set_xlabel("time (HH:MM)")
-        self.axes.set_ylabel("Temperature ($^\circ$C)")
+        self.axes.set_ylabel(r"Temperature ($^\circ$C)")
 
-        self.MDIWidget.dislpayLayout.addWidget(self.sc._create_toolbar(self.MDIWidget))
-        self.MDIWidget.dislpayLayout.addWidget(self.sc)
+        # self.MDIWidget.previewForm.addWidget(self.sc._create_toolbar(self.MDIWidget))
+        # self.MDIWidget.previewForm.addWidget(self.sc)
 
     ########Functions
     ########GUI Slots
+    # This section should contain functions that should react to GUI events.
 
+    @pyqtSlot()
     def _exampleAction(self):
-        # do smth
-        return 0
+        # do something
+        print("Button clicked!!")
+
+    @pyqtSlot()
+    def _update_gui(self):
+        # update GUI elements based on the internal state of the plugin
+        self.settingsWidget.doubleSpinBox_float.setValue(self.settings["float"])
+        self.settingsWidget.spinBox_integer.setValue(self.settings["int"])
+        self.settingsWidget.lineEdit_str.setText(self.settings["str"])
+        self.settingsWidget.comboBox_categorical.setCurrentText(self.settings["category"])
+
+    @pyqtSlot()
+    def _update_plot(self, x, y):
+        self.axes.clear()
+        self.axes.plot(x, y)
+        self.sc.draw()
 
     ########Functions
     ################################### internal
+    def _validate_settings(self, settings: dict) -> tuple[int, str]:
+        """Validate settings dict
+
+        Args:
+            settings (dict): settings dict with correct data types, so not the initial .ini dict
+
+        Returns:
+            tuple[int, str]: status code, error message (empty if no error)
+        """
+        if not (0 <= settings["float"] <= 1):
+            return (1, "Float value should be between 0 and 1.")
+        if settings["category"] not in ["option1", "option2", "option3"]:
+            return (1, "Category should be one of the following: option1, option2, option3.")
+        if settings["int"] < 0:
+            return (1, "Integer value should be non-negative.")
+        if len(settings["str"]) == 0:
+            return (1, "String value should not be empty.")
+        return (0, "")
 
     ########Functions
     ###############GUI setting up
@@ -80,16 +158,22 @@ class pluginTemplateGUI(QObject):
         plugin_info: dict,
     ):
         """Initialize the GUI components with the provided plugin information.
+        This should not set the internal state of the plugin, but only set the GUI elements.
+        It should be possible to call this function multiple times without
+        side effects. This will in fact be called multiple times, since pyIVLS_container calls get_setup_interface
+        every time the pluginlist is updated.
 
         Args:
             plugin_info (dict): dictionary with settings obtained from plugin_data in pyIVLS_
         """
-        ##settings are not initialized here, only GUI
-        ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
+        # initialize dependency manager with the provided settings to initialize combobox
+        self.dm.initialize_dependency_selection(plugin_info)
 
-        #### for example
-        self.settingsWidget.cameraExposure.setValue(self.camera.exposures.index(int(plugin_info["exposure"])))
-        self.settingsWidget.cameraSource.setText(plugin_info["source"])
+        # set actual values to GUI from plugin info
+        self.settingsWidget.doubleSpinBox_float.setValue(float(plugin_info["float"]))
+        self.settingsWidget.spinBox_integer.setValue(int(plugin_info["int"]))
+        self.settingsWidget.lineEdit_str.setText(plugin_info["str"])
+        self.settingsWidget.comboBox_categorical.setCurrentText(plugin_info["category"])
 
     ########Functions
     ###############GUI react to change
@@ -97,42 +181,65 @@ class pluginTemplateGUI(QObject):
     ########Functions
     ########plugins interraction
     def _get_public_methods(self):
+        get_public_methods(self)
+
+    @public
+    def setSettings(self, settings: dict):
+        """Set the settings for the templatePlugin.
+
+        Args:
+            settings (dict): dictionary with settings for the templatePlugin.
         """
-        Returns a nested dictionary of public methods for the plugin
-        """
-        # if the plugin type matches the requested type, return the functions
+        ok, error_message = self._validate_settings(settings)
+        if not ok:
+            self.notify_user(f"Error in settings: {error_message}")
+            return (1, {"Error message": error_message})
+        self.settings = settings
 
-        methods = {
-            method: getattr(self, method)
-            for method in dir(self)
-            if callable(getattr(self, method))
-            and not method.startswith("__")
-            and not method.startswith("_")
-            and method not in self.non_public_methods
-            and method in self.public_methods
-        }
-        return methods
+        # update settings for deps:
+        self.dm.set_dependency_settings(settings)
 
-    def _getLogSignal(self):
-        return self.log_message
+        return (0, {"Error message": "ok"})
 
-    def _getInfoSignal(self):
-        return self.info_message
-
-    def _getCloseLockSignal(self):
-        return self.closeLock
+    @public
+    def set_gui_from_settings(self):
+        """Set the GUI elements from the internal settings. This can be used after settings have been updated from an external plugin to update the GUI accordingly."""
+        # Here we can assume that self.settings contains the values in correct datatype since they are checked before writing to settings.
+        self.update_gui_signal.emit()
 
     ########Functions to be used externally
-    ###############get settings from GUI
+    ########Public API
+    @public
     def parse_settings_widget(self) -> tuple[int, dict]:
-        """Parses the settings widget for the templatePlugin. Extracts current values. Checks if values are allowed. Provides settings of template plugin to an external plugin
+        """Parses the settings widget for the templatePlugin. Extracts current values.
+        Checks if values are allowed. Provides settings of template plugin to an external plugin
 
-        Returns [status, settings_dict]:
+        Returns (status, settings_dict):
             status: 0 - no error, ~0 - error (add error code later on if needed)
             self.settings
         """
-        #### for example
-        self.settings["exposure"] = self.camera.exposures[int(self.settingsWidget.cameraExposure.value())]
-        self.settings["source"] = self.settingsWidget.cameraSource.text()
-        ##IRtodo######### add here checks that the values are allowed
-        return [0, self.settings]
+        ts = {}  # init temporary settings dict to store the values before writing to internal
+
+        ts["float"] = self.settingsWidget.doubleSpinBox_float.value()  # doublespinbox returns float
+        ts["int"] = self.settingsWidget.spinBox_integer.value()  # spinbox returns int
+        ts["str"] = self.settingsWidget.lineEdit_str.text()  # lineedit returns str
+        ts["category"] = self.settingsWidget.comboBox_categorical.currentText()  # combobox returns str
+
+        # checking may not be necessary if widgets are selected/designed in a way that they do not allow wrong values
+        # but checking here might be useful.
+        status, error_message = self._validate_settings(ts)
+        if status != 0:
+            self.notify_user(f"Error in settings: {error_message}")
+            return (status, {"Error message": error_message})
+
+        # parse dependency settings:
+        status, ts = self.dm.parse_dependencies(ts)
+        print("Dependency parsing result: ", ts)
+        if status != 0:
+            # non zero status means error in parsing dependencies, error message is included in ts dict
+            self.notify_user(f"Error in dependency settings: {ts['Error message']}")
+            return status, ts
+
+        # all good, write to internal and return
+        self.settings = ts
+        return (0, ts)
