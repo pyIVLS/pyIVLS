@@ -103,7 +103,6 @@ class pyIVLS_Affine_plugin:
         if args is None or args.get("function") == self.function:
             return {self.name: self.affine_control._getCloseLockSignal()}
 
-
     @hookimpl
     def get_plugin_settings(self, args=None):
         """See pyIVLS_hookspec.py for details."""

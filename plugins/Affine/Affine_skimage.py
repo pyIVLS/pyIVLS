@@ -6,21 +6,39 @@ import cv2 as cv
 import numpy as np
 import skimage as ski
 
-# for gds loading
-from klayout import lay
 
 # Sift detection moved over to skimage since I prefer it.
 from skimage.feature import SIFT, ORB, match_descriptors
+
+
+def str_to_bool(value: Any) -> bool:
+    """
+    Convert a string representation of truth to True or False.
+    Args:
+        value (Any): Input value to convert.
+    Returns:
+        bool: Converted boolean value.
+    Raises:
+        ValueError: If the input cannot be interpreted as a boolean.
+    """
+    if isinstance(value, bool):
+        return value
+    elif isinstance(value, str):
+        if value.lower() in ("true"):
+            return True
+        elif value.lower() in ("false"):
+            return False
+        else:
+            raise ValueError(f"Cannot convert string to bool: {value}")
+    else:
+        raise ValueError(f"Cannot convert type {type(value)} to bool: {value}")
 
 
 class Preprocessor:
     """
     Handles preprocessing of images and masks for affine registration.
     Settings control operations like blur, invert, equalize, canny edge detection, and sigma values.
-    """
 
-    def __init__(self) -> None:
-        self.settings: Dict[str, Any] = {
             "blurmask": False,
             "invertmask": False,
             "equalizemask": False,
@@ -43,7 +61,10 @@ class Preprocessor:
             "morphologystrengthimage": 3,
             "sigmaimage": 1.0,
             "sigmamask": 1.0,
-        }
+    """
+
+    def __init__(self) -> None:
+        self.settings: Dict[str, Any] = {}
 
     def update_settings(self, settings_dict: Dict[str, Any]) -> None:
         """
@@ -52,6 +73,14 @@ class Preprocessor:
             settings_dict (dict): Dictionary of preprocessing settings.
         """
         self.settings.update(settings_dict)
+
+    def get_settings(self) -> Dict[str, Any]:
+        """
+        Get the current preprocessing settings.
+        Returns:
+            dict: Current preprocessing settings.
+        """
+        return self.settings
 
     def preprocess_img(self, img: np.ndarray) -> np.ndarray:
         """
@@ -176,88 +205,11 @@ class AffineError(Exception):
 
 class Affine_IO:
     """
-    Handles loading and saving of images and GDS files for affine registration.
+    Handles loading of images for registration.
     """
 
     def __init__(self, path: str) -> None:
         self.path: str = path
-
-    def load_and_save_gds(
-        self,
-        input_gds_path: str,
-        output_image_path: Optional[str] = None,
-        width: int = 1920,
-        height: int = 1080,
-    ) -> Tuple[np.ndarray, str]:
-        """
-        Loads a GDS file and saves it as a PNG image.
-        Args:
-            input_gds_path (str): Path to .gds file.
-            output_image_path (str, optional): Where to save results. Defaults to None.
-            width (int, optional): Image width.
-            height (int, optional): Image height.
-        Returns:
-            Tuple[np.ndarray, str]: Loaded mask image (RGB), and filename (without extension).
-        """
-        filename = os.path.basename(input_gds_path)
-        filename = filename.split(".")[0]
-        if output_image_path is None:
-            output_image_path = self.path + os.sep + "masks" + os.sep + filename + ".png"
-        # Create a layout view
-        view = lay.LayoutView(options=lay.LayoutView.LV_NoGrid)
-        view.load_layout(input_gds_path, add_cellview=False)
-        view.selection_size()
-        view.zoom_fit()
-        view.max_hier()
-        h = view.viewport_height()
-        w = view.viewport_width()
-        aspect_ratio = w / h
-        # scale the image to have the same aspect ratio and height 1080
-        if aspect_ratio > 1:
-            w = 1920
-            h = int(1920 / aspect_ratio)
-        else:
-            h = 1080
-            w = int(1080 * aspect_ratio)
-
-        it = view.begin_layers()
-        i = 0
-        # colorlist, encoded as 32bit values in the following way:
-        # The color is a 32bit value encoding the blue value in the lower 8 bits, the green value in the next 8 bits and the red value in the 8 bits above that.
-        """             
-        colorlist = [
-            0xFF0000,  # Red
-            0x00FF00,  # Green
-            0x0000FF,  # Blue
-        ]
-
-        """
-        # color_idx = 0
-        while not it.at_end():
-            lp = it.current()
-            new_layer = lp.dup()
-            new_layer.visible = True
-            new_layer.clear_dither_pattern()
-            """
-            try:
-                new_layer.fill_color = colorlist[color_idx % len(colorlist)]
-                color_idx += 1
-            except IndexError:
-                pass
-            """
-            view.set_layer_properties(it, new_layer)
-            it.next()
-            i += 1
-
-        view.set_config("grid-show-ruler", "false")
-        view.commit_config()
-        view.set_config("background-color", "#00000000")
-        view.set_config("grid-visible", "false")
-        view.save_image(output_image_path, width=w, height=h)
-        # view.save_screenshot(output_image_path.replace(".png", "_screenshot.png"))
-        internal_mask = cv.imread(output_image_path)
-        internal_mask = cv.cvtColor(internal_mask, cv.COLOR_BGR2RGB)
-        return internal_mask, filename
 
     def load_image(self, path: str) -> Tuple[np.ndarray, str]:
         """
@@ -333,22 +285,28 @@ class Affine:
         Args:
             settings (dict): Settings dictionary.
         """
-        if "ratiotest" in settings:
-            self.ratio_test = float(settings["ratiotest"])
-        if "residualthreshold" in settings:
-            self.residual_threshold = int(settings["residualthreshold"])
-        if "crosscheck" in settings:
-            val = settings["crosscheck"]
-            if isinstance(val, str):
-                self.cross_check = val.lower() == "true"
-            else:
-                self.cross_check = bool(val)
-        if "backend" in settings:
-            self.backend = settings["backend"]
-
-        if "scalingfactor" in settings:
-            self.scalingfactor = float(settings["scalingfactor"])
+        self.ratio_test = float(settings["ratiotest"])
+        self.residual_threshold = int(settings["residualthreshold"])
+        self.cross_check = str_to_bool(settings["crosscheck"])
+        self.backend = settings["backend"]
+        self.scalingfactor = float(settings["scalingfactor"]) 
         self.preprocessor.update_settings(settings)
+
+    def get_settings(self) -> Dict[str, Any]:
+        """
+        Get the current algorithmic and preprocessing settings.
+        Returns:
+            dict: Current settings including algorithmic and preprocessing parameters.
+        """
+        settings = {
+            "ratiotest": self.ratio_test,
+            "residualthreshold": self.residual_threshold,
+            "crosscheck": self.cross_check,
+            "backend": self.backend,
+            "scalingfactor": self.scalingfactor,
+        }
+        settings.update(self.preprocessor.get_settings())
+        return settings
 
     def _create_feature_detector(self):
         """
@@ -362,7 +320,6 @@ class Affine:
             return SIFT()
         elif self.backend == "ORB":
             return ORB(n_keypoints=1000)
-
         else:
             raise AffineError(f"Unsupported backend: {self.backend}", 4)
 
@@ -411,11 +368,12 @@ class Affine:
 
         self.result["kp1"] = kp_mask
         self.result["kp2"] = kp_img
+        if kp_mask is None or kp_img is None:
+            raise AffineError("No keypoints found in either image or mask.", 3)
         matches = match_descriptors(desc_mask, desc_img, max_ratio=max_ratio, cross_check=cross_check)
         if len(matches) < self.MIN_MATCHES:
             raise AffineError(f"Not enough matches found: {len(matches)} < {self.MIN_MATCHES}", 3)
-        if kp_mask is None or kp_img is None:
-            raise AffineError("No keypoints found in either image or mask.", 3)
+
         src = kp_mask[matches[:, 0]][:, ::-1].astype(np.float32)  # mask keypoints masked with matches
         dst = kp_img[matches[:, 1]][:, ::-1].astype(np.float32)  # image keypoints masked with matches
 
@@ -534,10 +492,7 @@ class Affine:
             np.ndarray: Loaded mask image.
         """
         try:
-            if path.endswith(".gds"):
-                mask, filename = self.io.load_and_save_gds(path)
-            else:
-                mask, filename = self.io.load_image(path)
+            mask, filename = self.io.load_image(path)
             self.mask_filename = filename
             self.mask_path = path
             self.internal_mask = mask
