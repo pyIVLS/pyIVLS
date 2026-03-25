@@ -15,8 +15,10 @@ This also helps in keeping the GUI implementation relatively clean.
 
 
 This file includes:
-- ConnectionIndicatorStyle: Enum for connection indicator styles
 - Manipulator colors: A list of colors for manipulators, defined as RGB tuples
+- load_widget: function to load widgets from .ui files in a specified directory, with options for settings and MDI widgets
+- ini_to_bool: function to convert ini string values to boolean, handles str and bool inputs
+- ConnectionIndicatorStyle: Enum for connection indicator styles
 - CloseLockSignalProvider: Component to provide closelock signal functionality without QObject inheritance
 - public: Decorator to mark a function as public in the plugin system. Also checks that the return type is annotated correctly.
 - get_public_methods: Function to get a dict of public methods in an object instance that are marked with the @public
@@ -29,16 +31,91 @@ This file includes:
 
 """
 
+import os
 import sys
 import traceback
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Literal, overload
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QColor as Qcolor
+from PyQt6.QtWidgets import QWidget
+from PyQt6 import uic
 
 # Qcolors for manipulators as list
 MANIPULATOR_COLORS = (Qcolor(255, 0, 0), Qcolor(0, 255, 0), Qcolor(0, 0, 255), Qcolor(255, 255, 0))
+
+
+@overload
+def load_widget(settings: Literal[True], mdi: Literal[True], path: str) -> tuple[QWidget, QWidget]: ...
+
+
+@overload
+def load_widget(settings: Literal[True], mdi: Literal[False], path: str) -> QWidget: ...
+
+
+@overload
+def load_widget(settings: Literal[False], mdi: Literal[True], path: str) -> QWidget: ...
+
+
+def load_widget(settings: bool, mdi: bool, path: str) -> QWidget | tuple[QWidget, QWidget]:
+    """Loads either an settings widget or mdi widget from the specified directory with a certain suffix.
+    Eww ugly return
+
+    Args:
+        settings (bool): load settings widget
+        mdi (bool): load MDI widget
+        path (str): path to directory which should contain the widget
+
+    Raises:
+        FileNotFoundError: No widget found
+        ValueError: Invalid Arguments
+
+    Returns:
+        QWidget: settings or MDI widget
+    """
+    if not (settings or mdi):
+        raise ValueError("At least one of settings or mdi must be True")
+
+    setwid = None
+    mdiwid = None
+
+    for _, _, files in os.walk(path):
+        for file in files:
+            if file.endswith(".ui"):
+                suffix = file.rsplit("_", 1)[-1].lower()
+                full_path = os.path.join(path, file)
+                if suffix == "settingswidget.ui" and settings:
+                    setwid: QWidget | None = uic.loadUi(full_path)  # type: ignore
+                elif suffix == "mdiwidget.ui" and mdi:
+                    mdiwid: QWidget | None = uic.loadUi(full_path)  # type: ignore
+
+    if settings and mdi:
+        if setwid is None:
+            raise FileNotFoundError("Could not find settings widgets in the specified path")
+        if mdiwid is None:
+            raise FileNotFoundError("Could not find MDI widgets in the specified path")
+        return setwid, mdiwid
+    elif settings:
+        if setwid is None:
+            raise FileNotFoundError("Could not find settings widget in the specified path")
+        return setwid
+    else:
+        if mdiwid is None:
+            raise FileNotFoundError("Could not find MDI widget in the specified path")
+        return mdiwid
+
+
+def ini_to_bool(val: str | bool) -> bool:
+    """Convert ini string to bool. Accepts "true" and "false" (case insensitive). Raises ValueError for invalid input."""
+    if isinstance(val, bool):
+        return val
+    if val.lower() == "true":
+        return True
+    elif val.lower() == "false":
+        return False
+    else:
+        raise ValueError(f"Invalid boolean value: {val}. Expected 'true' or 'false' (case insensitive).")
 
 
 class ConnectionIndicatorStyle(Enum):
