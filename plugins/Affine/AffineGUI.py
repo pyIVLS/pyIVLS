@@ -8,7 +8,7 @@ from PyQt6.QtGui import QAction, QImage, QPixmap
 from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu, QGroupBox, QLabel
 import csv
 from affineDialog import dialog
-from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, ini_to_bool, DependencyManager, load_widget
+from plugin_components import LoggingHelper, CloseLockSignalProvider, PyIVLSReturnCode, public, get_public_methods, ini_to_bool, DependencyManager, load_widget
 from gdsLoadFunctionality import gdsLoadDialog
 from Affine_MDI import DualGraphicsWidget
 import numpy as np
@@ -235,7 +235,7 @@ class AffineGUI(QObject):
             ".csv (*.csv);;All Files (*)",
         )
         if fileName:
-            points, names = self.positioning_measurement_points()
+            status, (points, names) = self.positioning_measurement_points()
             with open(fileName, "w", newline="") as csvfile:
                 cswriter = csv.writer(csvfile, delimiter=",")
                 fields = ["Name", "x_mask", "y_mask", "x_img", "y_img"]
@@ -450,15 +450,14 @@ class AffineGUI(QObject):
 
     # public API
 
-    # FIXME: non standard return type for plugin
     @public
-    def positioning_coords(self, coords: tuple[float, float]) -> tuple[float, float]:
+    def positioning_coords(self, coords: tuple[float, float]) -> tuple[int, tuple[float, float]]:
         """Returns the transformed coordinates."""
         try:
             transformed = self.affine.coords(coords)
-            return transformed
+            return (0, transformed)
         except AffineError:
-            return (-1, -1)
+            return (PyIVLSReturnCode.VALUE_ERROR.value, (-1, -1))
 
     @public
     def positioning_measurement_points(self):
@@ -472,7 +471,7 @@ class AffineGUI(QObject):
                 tuple_points = [(point.x(), point.y()) for point in raw_points]
                 points.append(tuple_points)
                 names.append(item.text())
-        return points, names
+        return 0, (points, names)
 
     @public
     def parse_settings_widget(self):
@@ -487,8 +486,8 @@ class AffineGUI(QObject):
 
         internal_settings = self.affine.get_settings()
 
-        # Internal affine settings must not override dependency selections from dm. 
-        # to fix the bug where the camera can never be changed since the entire dict is read to core and later returned to overwrite parsed value xd 
+        # Internal affine settings must not override dependency selections from dm.
+        # to fix the bug where the camera can never be changed since the entire dict is read to core and later returned to overwrite parsed value xd
         merged_settings = {**internal_settings, **ts}
         # all tests pass, write to internal settings
         self.settings.update(merged_settings)

@@ -12,7 +12,7 @@ from PyQt6.QtCore import QObject, Qt, pyqtSlot
 from PyQt6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
 from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, filter_to_valid_methods, PyIVLSReturnCode
 from sweepCommon import create_file_header, create_sweep_reciepe
-from components.threadStopped import (
+from threadStopped import (
     ThreadStopped,
     thread_with_exception,
 )

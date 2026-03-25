@@ -20,7 +20,7 @@ from PyQt6.QtCore import pyqtSignal, Qt, pyqtSlot
 from plugin_components import LoggingHelper, ini_to_bool
 from typing import Optional
 import time
-from components.worker_thread import WorkerThread
+from worker_thread import WorkerThread
 
 
 class dialog(QDialog):

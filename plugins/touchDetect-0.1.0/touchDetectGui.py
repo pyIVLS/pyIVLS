@@ -10,8 +10,8 @@ from plugin_components import (
     LoggingHelper,
     DependencyManager,
 )
-from components.worker_thread import WorkerThread
-from components.threadStopped import ThreadStopped
+from worker_thread import WorkerThread
+from threadStopped import ThreadStopped
 
 
 class touchDetectGUI:

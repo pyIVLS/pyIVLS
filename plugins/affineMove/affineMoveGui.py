@@ -18,7 +18,7 @@ from plugin_components import (
 )
 from collisionDetection import CollisionDetector
 from affineMoveVisualization import AffineMoveVisualization
-from components.threadStopped import ThreadStopped
+from threadStopped import ThreadStopped
 
 
 class ViewportClickCatcher(QObject):
@@ -610,8 +610,8 @@ class affineMoveGUI(QObject):
         if pos is None:
             self.logger.log_warn("Positioning plugin is None in _fetch_mask_functionality")
             return
-        points, names = pos["positioning_measurement_points"]()
-        if points is None or names is None:
+        status, (points, names) = pos["positioning_measurement_points"]()
+        if status != 0 or points is None or names is None:
             self.logger.info_popup("AffineMove: No measurement points available in positioning plugin")
             self.logger.log_error("No measurement points or names returned from positioning plugin")
             return
@@ -934,8 +934,9 @@ class affineMoveGUI(QObject):
                     if point and len(point) >= 2:
                         # Convert from mask coordinates to camera coordinates using positioning plugin
                         try:
-                            camera_x, camera_y = pos["positioning_coords"](point)
-                            target_coords[point_idx][device_idx] = (float(camera_x), float(camera_y))
+                            status, (camera_x, camera_y) = pos["positioning_coords"](point)
+                            if status == 0:
+                                target_coords[point_idx][device_idx] = (float(camera_x), float(camera_y))
                         except Exception as e:
                             self.logger.log_debug(f"Error converting mask coordinates {point} to camera coordinates: {e}")
 
@@ -961,8 +962,8 @@ class affineMoveGUI(QObject):
                     self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
                     self.logger.log_info(f"Manipulator {i} not calibrated")
                     break
-
-            if pos["positioning_coords"]((0, 0)) == (-1, -1):
+            status, _ = pos["positioning_coords"]((0, 0))
+            if status != 0:
                 self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
             else:
                 self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
@@ -1091,11 +1092,11 @@ class affineMoveGUI(QObject):
             camera_target_points = []
             for device_idx, mask_point in enumerate(points, 1):
                 # Convert mask coordinates to camera coordinates
-                camera_coords = pos["positioning_coords"](mask_point)
-                if camera_coords == (-1, -1):
+                status, (camera_x, camera_y) = pos["positioning_coords"](mask_point)
+                if status != 0:
                     self.logger.log_warn(f"Failed to convert mask coordinates {mask_point} for manipulator {device_idx}")
                     continue
-                camera_target_points.append((device_idx, camera_coords))
+                camera_target_points.append((device_idx, (float(camera_x), float(camera_y))))
 
             if not camera_target_points:
                 self.logger.log_warn("No valid target points after coordinate conversion")
