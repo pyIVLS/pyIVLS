@@ -51,7 +51,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, Qt, QTimer, pyqtSlot
 from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
 from MplCanvas import MplCanvas
 import copy
-from components.worker_thread import WorkerThread
+from worker_thread import WorkerThread
 from plugin_components import public, get_public_methods, LoggingHelper, ConnectionIndicatorStyle, FileManager
 from TLCCS import CCSDRV
 from mock_tlccs import MockCCSDRV
@@ -107,7 +107,7 @@ class TLCCS_GUI(QObject):
         self._previewWidget = uic.loadUi(self.path + "TLCCS_MDIWidget.ui")  # type: ignore
 
         # create the driver
-        self.drv = MockCCSDRV()
+        self.drv = CCSDRV()
 
         # create fm for saving files
         self.fm = FileManager()
