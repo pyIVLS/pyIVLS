@@ -617,7 +617,8 @@ class DependencyManager:
         selected_deps = self.get_selected_dependency_plugins()
 
         for dependency_type, plugin_name in selected_deps.items():
-            self._function_dict[dependency_type][plugin_name]["setSettings"](settings)
+            settings_key = f"{dependency_type}_settings"
+            self._function_dict[dependency_type][plugin_name]["setSettings"](settings[settings_key])
 
 
 class LoggingHelper(QObject):

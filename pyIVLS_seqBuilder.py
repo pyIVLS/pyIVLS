@@ -632,7 +632,6 @@ class pyIVLS_seqBuilder(QObject):
 
             # Retrieve saved settings from the item
             saved_settings = item.data(Qt.ItemDataRole.UserRole)
-            print(f"Retrieved settings for {instruction_func}: {saved_settings}")
             if not saved_settings:
                 self.info_message.emit(f"No saved settings found for {instruction_func}.")
                 return
