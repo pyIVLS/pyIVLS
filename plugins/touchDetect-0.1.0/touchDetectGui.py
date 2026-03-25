@@ -102,7 +102,7 @@ class touchDetectGUI:
     def _fetch_dep_plugins(self):
         self.logger.log_debug("Fetching dependency plugins")
 
-        result = self.dm.validate_and_extract_dependency_settings(self.settings)
+        result = self.dm.parse_dependencies(self.settings)
         status, state = result
         if status != 0:
             self.logger.log_warn(f"Dependency settings invalid: {state}")
@@ -408,7 +408,7 @@ class touchDetectGUI:
         settings["spectrometer_height"] = self.spectro_height.value()
 
         # add dependency settings
-        result = self.dm.validate_and_extract_dependency_settings(self.settings)
+        result = self.dm.parse_dependencies(self.settings)
         status, state = result
         if status != 0:
             return status, state

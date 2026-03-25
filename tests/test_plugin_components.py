@@ -282,7 +282,7 @@ class TestDependencyManager:
         dependency_manager = DependencyManager("TestPlugin", self.dependencies, None, self.mapping)
         assert dependency_manager.get_selected_dependency_plugins() == {}
 
-    def test_validate_and_extract_dependency_settings_success(self):
+    def test_parse_dependencies_success(self):
         """Test successful dependency settings extraction."""
         # Mock dependencies and comboboxes
         mock_smu_combo = Mock()
@@ -307,7 +307,7 @@ class TestDependencyManager:
 
         # Test the method
         target_settings = {}
-        status, result = dep_manager.validate_and_extract_dependency_settings(target_settings)
+        status, result = dep_manager.parse_dependencies(target_settings)
 
         assert status == 0
         assert "smu_settings" in result
@@ -317,7 +317,7 @@ class TestDependencyManager:
         assert target_settings["smu"] == "smu_plugin"
         assert target_settings["spectrometer"] == "spec_plugin"
 
-    def test_validate_and_extract_dependency_settings_no_function_dict(self):
+    def test_parse_dependencies_no_function_dict(self):
         """Test error when function dict is not available."""
         dependencies = {"smu": ["parse_settings_widget"]}
         mapping = {"smu": "smu_combo"}
@@ -325,12 +325,12 @@ class TestDependencyManager:
         dep_manager = DependencyManager("test_plugin", dependencies, mock_widget, mapping)
 
         target_settings = {}
-        status, result = dep_manager.validate_and_extract_dependency_settings(target_settings)
+        status, result = dep_manager.parse_dependencies(target_settings)
 
         assert status == 3
         assert "Missing functions" in result
 
-    def test_validate_and_extract_dependency_settings_no_selection(self):
+    def test_parse_dependencies_no_selection(self):
         """Test error when no dependency is selected."""
         mock_smu_combo = Mock()
         mock_smu_combo.currentText.return_value = ""
@@ -343,12 +343,12 @@ class TestDependencyManager:
         dep_manager.set_available_dependency_functions({"smu": {"smu_plugin": {"parse_settings_widget": Mock()}}})
 
         target_settings = {}
-        status, result = dep_manager.validate_and_extract_dependency_settings(target_settings)
+        status, result = dep_manager.parse_dependencies(target_settings)
 
         assert status == 3
         assert "No smu plugin selected" in result
 
-    def test_validate_and_extract_dependency_settings_plugin_not_available(self):
+    def test_parse_dependencies_plugin_not_available(self):
         """Test error when selected dependency plugin is not available."""
         mock_smu_combo = Mock()
         mock_smu_combo.currentText.return_value = "invalid_plugin"
@@ -361,12 +361,12 @@ class TestDependencyManager:
         dep_manager.set_available_dependency_functions({"smu": {"smu_plugin": {"parse_settings_widget": Mock()}}})
 
         target_settings = {}
-        status, result = dep_manager.validate_and_extract_dependency_settings(target_settings)
+        status, result = dep_manager.parse_dependencies(target_settings)
 
         assert status == 3
         assert "not available" in result
 
-    def test_validate_and_extract_dependency_settings_missing_function(self):
+    def test_parse_dependencies_missing_function(self):
         """Test error when parse_settings_widget function is missing in selected plugin."""
         mock_smu_combo = Mock()
         mock_smu_combo.currentText.return_value = "smu_plugin"
@@ -386,7 +386,7 @@ class TestDependencyManager:
         dep_manager.set_available_dependency_functions(mock_function_dict)
 
         target_settings = {}
-        status, result = dep_manager.validate_and_extract_dependency_settings(target_settings)
+        status, result = dep_manager.parse_dependencies(target_settings)
 
         assert status == 3
         assert "smu plugin 'smu_plugin' not available" in result

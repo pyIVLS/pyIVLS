@@ -442,7 +442,7 @@ class DependencyManager:
     - When loading data from .ini, call initialize_dependency_selection to set the initial state of the dependency comboboxes based on saved settings.
     - When receiving the function dict from the plugin system, call set_available_dependency_functions to set the available functions and check for missing dependencies. This will also update the comboboxes to only show valid options.
     - Access available function_dict through the property. This includes all plugins that satify the required method sets, and should be filtered after fetching
-    - "validate_and_extract_dependency_settings" is used to parse the settings widgets for plugins and add their settings to the settings dict.
+    - "parse_dependencies" is used to parse the settings widgets for plugins and add their settings to the settings dict.
 
 
     """
@@ -460,6 +460,15 @@ class DependencyManager:
         """
         self.plugin_name = plugin_name
         self.dependencies = dependencies
+
+        # add methods to dependencies that DM uses itself, such as setSettings and parse_settings_widget
+        for dependency_type in self.dependencies:
+            if "setSettings" not in self.dependencies[dependency_type]:
+                self.dependencies[dependency_type].append("setSettings")
+                print(f"Added setSettings to required functions for {dependency_type} dependency in {self.plugin_name} plugin since it is required for DM functionality")
+            if "parse_settings_widget" not in self.dependencies[dependency_type]:
+                self.dependencies[dependency_type].append("parse_settings_widget")
+                print(f"Added parse_settings_widget to required functions for {dependency_type} dependency in {self.plugin_name} plugin since it is required for DM functionality")
         self.widget = widget
         self._function_dict = {}
         self.missing_functions = []
@@ -538,7 +547,7 @@ class DependencyManager:
 
         return selected
 
-    def validate_and_extract_dependency_settings(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+    def parse_dependencies(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
         """
         Validates all dependency selections and extracts their settings.
 
@@ -598,6 +607,17 @@ class DependencyManager:
         # combine the target settings dict with the dependency settings to return to the plugin.
         target_settings_dict.update(dependency_settings)
         return (0, target_settings_dict)
+
+    def set_dependency_settings(self, settings: Dict[str, Any]) -> None:
+        """Call setSettings for selected deps to update their internal state
+
+        Args:
+            settings (Dict[str, Any]): _description_
+        """
+        selected_deps = self.get_selected_dependency_plugins()
+
+        for dependency_type, plugin_name in selected_deps.items():
+            self._function_dict[dependency_type][plugin_name]["setSettings"](settings)
 
 
 class LoggingHelper(QObject):

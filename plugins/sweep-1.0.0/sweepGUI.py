@@ -866,7 +866,6 @@ class sweepGUI(QObject):
             Returns:
                 bool: True if the value was found and set, False otherwise.
             """
-            self.logger.log_debug(f"Setting combobox {combobox.objectName()} to value: {value}")
             index = combobox.findText(value, Qt.MatchFlag.MatchFixedString)
             if index != -1:
                 combobox.setCurrentIndex(index)

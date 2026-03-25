@@ -465,7 +465,7 @@ class specSMU_GUI(QWidget):
             return [1, {"Error message": f"Value error in SpecSMU plugin: {e}"}]
 
         # add dependency settings
-        result = self.dm.validate_and_extract_dependency_settings(self.settings)
+        result = self.dm.parse_dependencies(self.settings)
         status, possible_settings = result
         if status != 0:
             return status, possible_settings

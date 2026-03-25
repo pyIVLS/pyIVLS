@@ -225,7 +225,7 @@ class specTimeIVGUI:
             Success with settings_dict or error with message
         """
         # Use dependency manager to handle all dependency validation and settings extraction
-        dependency_result = self.dependency_manager.validate_and_extract_dependency_settings(self.settings)
+        dependency_result = self.dependency_manager.parse_dependencies(self.settings)
         if dependency_result.is_error:
             return dependency_result
 

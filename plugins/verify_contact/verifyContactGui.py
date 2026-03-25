@@ -69,7 +69,7 @@ class verifyContactGUI:
                 status_code: 0 if successful, 1 if error
                 settings_dict: dictionary of current settings
         """
-        result = self.dm.validate_and_extract_dependency_settings(self.settings)
+        result = self.dm.parse_dependencies(self.settings)
         status, state = result
         if status != 0:
             return status, state
