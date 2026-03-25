@@ -487,13 +487,13 @@ class AffineGUI(QObject):
 
         internal_settings = self.affine.get_settings()
 
-        # update to ts
-        ts.update(internal_settings)
-
+        # Internal affine settings must not override dependency selections from dm. 
+        # to fix the bug where the camera can never be changed since the entire dict is read to core and later returned to overwrite parsed value xd 
+        merged_settings = {**internal_settings, **ts}
         # all tests pass, write to internal settings
-        self.settings.update(ts)
+        self.settings.update(merged_settings)
 
-        return 0, ts
+        return 0, merged_settings
 
     @public
     def setSettings(self, settings: dict):

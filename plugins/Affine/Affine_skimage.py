@@ -66,13 +66,39 @@ class Preprocessor:
     def __init__(self) -> None:
         self.settings: Dict[str, Any] = {}
 
+    PREPROCESSOR_KEYS = {
+        "blurmask",
+        "invertmask",
+        "equalizemask",
+        "cannymask",
+        "otsumask",
+        "manualthresholdmask",
+        "thresholdmask",
+        "morphologymask",
+        "morphologytypemask",
+        "morphologystrengthmask",
+        "blurimage",
+        "invertimage",
+        "equalizeimage",
+        "cannyimage",
+        "otsuimage",
+        "manualthresholdimage",
+        "thresholdimage",
+        "morphologyimage",
+        "morphologytypeimage",
+        "morphologystrengthimage",
+        "sigmaimage",
+        "sigmamask",
+    }
+
     def update_settings(self, settings_dict: Dict[str, Any]) -> None:
         """
         Update preprocessing settings from a dictionary.
         Args:
             settings_dict (dict): Dictionary of preprocessing settings.
         """
-        self.settings.update(settings_dict)
+        filtered = {key: value for key, value in settings_dict.items() if key in self.PREPROCESSOR_KEYS}
+        self.settings.update(filtered)
 
     def get_settings(self) -> Dict[str, Any]:
         """
@@ -288,9 +314,47 @@ class Affine:
         self.ratio_test = float(settings["ratiotest"])
         self.residual_threshold = int(settings["residualthreshold"])
         self.cross_check = str_to_bool(settings["crosscheck"])
-        self.backend = settings["backend"]
-        self.scalingfactor = float(settings["scalingfactor"]) 
-        self.preprocessor.update_settings(settings)
+        self.backend = str(settings["backend"])
+        self.scalingfactor = float(settings["scalingfactor"])
+
+        # Normalize known preprocessor setting types and ignore unrelated keys.
+        normalized_preproc: Dict[str, Any] = {}
+        bool_keys = {
+            "blurmask",
+            "invertmask",
+            "equalizemask",
+            "cannymask",
+            "otsumask",
+            "manualthresholdmask",
+            "morphologymask",
+            "blurimage",
+            "invertimage",
+            "equalizeimage",
+            "cannyimage",
+            "otsuimage",
+            "manualthresholdimage",
+            "morphologyimage",
+        }
+        int_keys = {"thresholdmask", "morphologystrengthmask", "thresholdimage", "morphologystrengthimage"}
+        float_keys = {"sigmaimage", "sigmamask"}
+        str_keys = {"morphologytypemask", "morphologytypeimage"}
+
+        for key in Preprocessor.PREPROCESSOR_KEYS:
+            if key not in settings:
+                continue
+            val = settings[key]
+            if key in bool_keys:
+                normalized_preproc[key] = str_to_bool(val)
+            elif key in int_keys:
+                normalized_preproc[key] = int(val)
+            elif key in float_keys:
+                normalized_preproc[key] = float(val)
+            elif key in str_keys:
+                normalized_preproc[key] = str(val)
+            else:
+                normalized_preproc[key] = val
+
+        self.preprocessor.update_settings(normalized_preproc)
 
     def get_settings(self) -> Dict[str, Any]:
         """
