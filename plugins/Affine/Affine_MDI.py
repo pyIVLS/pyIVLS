@@ -18,7 +18,6 @@ from plugin_components import MANIPULATOR_COLORS
 class GraphicsView(QGraphicsView):
     # signal for added points
     point_clicked = pyqtSignal(QPointF)
-    drawn_points: list[QGraphicsItem] = []
 
     def __init__(self, scene: QGraphicsScene, parent: Optional[QWidget] = None) -> None:
         super().__init__(scene, parent)
@@ -26,6 +25,16 @@ class GraphicsView(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
         self._mmb_dragging: bool = False
         self._mmb_last_pos: Optional[QPointF] = None
+        self.drawn_points: list[QGraphicsItem] = []
+
+        # get size of skene
+        current_scene = self.scene()
+        if current_scene is None:
+            self.point_size = 6
+        else:
+            skene_rect = current_scene.sceneRect()
+            skene_rect_size = min(skene_rect.width(), skene_rect.height())
+            self.point_size = max(6, skene_rect_size * 0.01)  # scale points to skene size!
 
     def wheelEvent(self, event: QtGui.QWheelEvent | None) -> None:
         if event is None:
@@ -97,13 +106,26 @@ class GraphicsView(QGraphicsView):
 
         super().mouseReleaseEvent(event)
 
-    def draw_point_list(self, points: list[list[QPointF]], colors=MANIPULATOR_COLORS, size=6) -> None:
+    def draw_point_list(self, points: list[list[QPointF]], colors=MANIPULATOR_COLORS, size: Optional[float] = None) -> None:
         # Takes in a list of point lists and draws them all
         skene = self.scene()
+        # skenettääkö
         if skene:
+            # Recompute marker size from the current scene (mask) unless explicitly given.
+            if size is None:
+                skene_rect = skene.sceneRect()
+                skene_rect_size = min(skene_rect.width(), skene_rect.height())
+                self.point_size = max(6, skene_rect_size * 0.01)
+            else:
+                self.point_size = size
+
             # Clear previous points
             for item in self.drawn_points:
-                skene.removeItem(item)
+                item_scene = item.scene()
+                if item_scene is not None:
+                    item_scene.removeItem(item)
+
+            # Clear the list of drawn points
             self.drawn_points.clear()
 
             # Draw new points
@@ -111,10 +133,10 @@ class GraphicsView(QGraphicsView):
                 for i, point in enumerate(point_list):
                     color = colors[i % len(colors)]  # just in case someone modifies this to use more than 4 manipulators
                     ellipse = QGraphicsEllipseItem(
-                        point.x() - size / 2,
-                        point.y() - size / 2,
-                        size,
-                        size,
+                        point.x() - self.point_size / 2,
+                        point.y() - self.point_size / 2,
+                        self.point_size,
+                        self.point_size,
                     )
                     ellipse.setBrush(color)
                     ellipse.setPen(QtGui.QPen(Qt.GlobalColor.black))
@@ -209,8 +231,10 @@ class DualGraphicsWidget(QWidget):
 
     def set_scene(self, side, scene: QGraphicsScene) -> None:
         if side == "left":
+            self._view_left.drawn_points.clear()
             self._view_left.setScene(scene)
         elif side == "right":
+            self._view_right.drawn_points.clear()
             self._view_right.setScene(scene)
         else:
             raise ValueError(f"Invalid side: {side}, must be 'left' or 'right'")
