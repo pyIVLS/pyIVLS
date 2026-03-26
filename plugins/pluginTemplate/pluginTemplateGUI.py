@@ -21,10 +21,7 @@ from plugin_components import (
     public,
     get_public_methods,
     load_widget,
-    ini_to_bool,
     LoggingHelper,
-    ConnectionIndicatorStyle,
-    PyIVLSReturnCode,
     DependencyManager,
 )
 from MplCanvas import MplCanvas

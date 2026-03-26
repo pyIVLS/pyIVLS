@@ -208,7 +208,7 @@ class affineMoveGUI(QObject):
                 calibration_matrix_parts = calibration_matrix_str.strip("[]").split(", ")
                 calibration_matrix = np.array(calibration_matrix_parts, dtype=float).reshape(2, 3)
                 return calibration_matrix
-            except ValueError as e:
+            except ValueError:
                 return None
         else:
             print(f"No calibration found for manipulator {manipulator_idx} in settings.")

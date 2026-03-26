@@ -40,7 +40,7 @@ implemented hw trigger in auto time
 ivarad
 """
 
-from typing import Optional, Any
+from typing import Optional
 import TLCCS_const as const
 import time
 import os
@@ -54,7 +54,6 @@ import copy
 from worker_thread import WorkerThread
 from plugin_components import public, get_public_methods, LoggingHelper, ConnectionIndicatorStyle, FileManager
 from TLCCS import CCSDRV
-from mock_tlccs import MockCCSDRV
 
 
 class TLCCS_GUI(QObject):

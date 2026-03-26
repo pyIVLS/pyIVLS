@@ -25,7 +25,7 @@ from PyQt6.QtWidgets import QWidget
 import numpy as np
 import copy
 from typing import Optional
-from plugin_components import LoggingHelper, DependencyManager, public, get_public_methods
+from plugin_components import LoggingHelper, DependencyManager
 
 
 class specSMU_GUI(QWidget):
@@ -467,12 +467,12 @@ class specSMU_GUI(QWidget):
             self.settings["hwtrigpulse"] = float(raw_settings["hwtrigpulse"]) / 1000
             self.settings["prescaler"] = float(raw_settings["prescaler"])
             if self.settings["hwtrigpulse"] < 0:
-                self._log_verbose(f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative")
-                return [1, {"Error message": f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative"}]
+                self._log_verbose("Value error in SpecSMU plugin: HW trigger pulse width can not be negative")
+                return [1, {"Error message": "Value error in SpecSMU plugin: HW trigger pulse width can not be negative"}]
             self.settings["powerpulseext"] = float(raw_settings["powerpulseext"]) / 1000
             if self.settings["powerpulseext"] < 0:
-                self._log_verbose(f"Value error in SpecSMU plugin: extension of the power pulse can not be negative")
-                return [1, {"Error message": f"Value error in SpecSMU plugin: extension of the power pulse can not be negative"}]
+                self._log_verbose("Value error in SpecSMU plugin: extension of the power pulse can not be negative")
+                return [1, {"Error message": "Value error in SpecSMU plugin: extension of the power pulse can not be negative"}]
             self.settings["ioline"] = int(raw_settings["ioline"])  # should already be an int from spinbox
 
             self._log_verbose("Settings successfully parsed and validated")
