@@ -77,8 +77,8 @@ class AffineGUI(QObject):
         self.closelock = CloseLockSignalProvider()
 
         # initialize dependencyManager
-        dependencies = {"camera": ["camera_capture_image"]}
-        self.dm = DependencyManager("affine", dependencies, self.settingsWidget, {"camera": "cameraComboBox"})
+        dependencies = {"camera": ["camera_capture_image", "parse_settings_widget", "setSettings"]}
+        self.dm = DependencyManager("affine", dependencies)
 
         # init dependency functions
         self.dialog = None
@@ -97,6 +97,7 @@ class AffineGUI(QObject):
         self._gui_change_mask_uploaded(self.mask is not None)
         # init camerabox through dm
         self.dm.initialize_dependency_selection(settings)
+        self._refresh_dependency_comboboxes(settings)
 
         self.settings = settings
 
@@ -107,6 +108,19 @@ class AffineGUI(QObject):
         self.set_gui_from_settings()
 
         return self.settingsWidget, self.MDIWidget
+
+    def _refresh_dependency_comboboxes(self, settings: dict | None = None):
+        available = self.dm.get_available_dependency_plugins().get("camera", [])
+        self.cameraComboBox.clear()
+        self.cameraComboBox.addItems(available)
+
+        preferred = ""
+        if settings is not None:
+            preferred = settings.get("camera", "")
+        if not preferred:
+            preferred = self.settings.get("camera", "") if hasattr(self, "settings") else ""
+        if preferred and preferred in available:
+            self.cameraComboBox.setCurrentText(preferred)
 
     def _find_labels(self, settingsWidget):
         """Finds the labels in the settings widget."""
@@ -429,6 +443,7 @@ class AffineGUI(QObject):
     def _fetch_dependency_functions(self, function_dict):
         """Set dependency methods from plugin manager and return missing dependency methods."""
         _is_valid, missing = self.dm.set_available_dependency_functions(function_dict)
+        self._refresh_dependency_comboboxes(self.settings)
         return missing
 
     def _get_public_methods(self, function: str) -> dict:
@@ -479,6 +494,9 @@ class AffineGUI(QObject):
         ts = {}  # temp settings
         ts["pointcount"] = self.pointCount.value()
         ts["centerclicks"] = self.centerCheckbox.isChecked()
+        ts["camera"] = self.cameraComboBox.currentText()
+
+        self.dm.set_selected_dependency_plugins({"camera": ts["camera"]})
 
         status, ts = self.dm.parse_dependencies(ts)
         if status != 0:

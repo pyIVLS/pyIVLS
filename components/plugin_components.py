@@ -436,18 +436,21 @@ class PluginException(Exception):
 
 class DependencyManager:
     """
-    Wrapper to manage gathering dependencies, parsing dep settings and providing a consistent interface for plugins to access the methods they need.
+    Wrapper to manage gathering dependencies, parsing dependency settings and providing
+    a consistent interface for plugins to access required methods.
     USAGE:
-    - Initialize with or without widget and with the declared dependencies.
-    - When loading data from .ini, call initialize_dependency_selection to set the initial state of the dependency comboboxes based on saved settings.
-    - When receiving the function dict from the plugin system, call set_available_dependency_functions to set the available functions and check for missing dependencies. This will also update the comboboxes to only show valid options.
-    - Access available function_dict through the property. This includes all plugins that satify the required method sets, and should be filtered after fetching
+    - Initialize with the declared dependencies.
+    - When loading data from .ini, call initialize_dependency_selection to restore remembered selections.
+    - Plugin GUI code owns any comboboxes/widgets and calls set_selected_dependency_plugins.
+    - When receiving the function dict from the plugin system, call set_available_dependency_functions to set the available functions and check for missing dependencies.
+    - Use get_available_dependency_plugins to populate dependency combobox options.
+    - Access available function_dict through the property. This includes all plugins that satisfy the required method sets.
     - "parse_dependencies" is used to parse the settings widgets for plugins and add their settings to the settings dict.
 
 
     """
 
-    def __init__(self, plugin_name: str, dependencies: Dict[str, list], widget, mapping: Dict[str, str]):
+    def __init__(self, plugin_name: str, dependencies: Dict[str, list]):
         """
         Initialize dependency manager.
 
@@ -455,26 +458,15 @@ class DependencyManager:
             plugin_name: Name of the plugin using this manager
             dependencies: Dict mapping dependency types to required function lists
                          e.g., {"smu": ["connect", "init"], "spectro": ["measure"]}
-            widget:  widget containing comboboxes for dependency selection
-            mapping: Dict mapping dependency type to combobox widget name
         """
         self.plugin_name = plugin_name
-        self.dependencies = dependencies
-
-        # add methods to dependencies that DM uses itself, such as setSettings and parse_settings_widget
-        for dependency_type in self.dependencies:
-            if "setSettings" not in self.dependencies[dependency_type]:
-                self.dependencies[dependency_type].append("setSettings")
-                print(f"Added setSettings to required functions for {dependency_type} dependency in {self.plugin_name} plugin since it is required for DM functionality")
-            if "parse_settings_widget" not in self.dependencies[dependency_type]:
-                self.dependencies[dependency_type].append("parse_settings_widget")
-                print(f"Added parse_settings_widget to required functions for {dependency_type} dependency in {self.plugin_name} plugin since it is required for DM functionality")
-        self.widget = widget
+        # Keep a local mutable copy.
+        self.dependencies = {dep: list(required) for dep, required in dependencies.items()}
         self._function_dict = {}
         self.missing_functions = []
         self.dependency_settings = {}
-        self.combobox_mapping = mapping
         self.last_selected = {}
+        self.selected_dependencies: Dict[str, str] = {}
 
     @property
     def function_dict(self) -> Dict[str, Any]:
@@ -487,7 +479,6 @@ class DependencyManager:
         pruned_function_dict, is_valid, missing_functions = self._prune_dependency_function_dict(value)
         self._function_dict = pruned_function_dict
         self.missing_functions = missing_functions
-        self._update_comboboxes()
 
     def _prune_dependency_function_dict(self, function_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], bool, List[str]]:
         """Keep only declared dependency types and plugins that satisfy required methods."""
@@ -505,47 +496,54 @@ class DependencyManager:
         return len(self.missing_functions) == 0, self.missing_functions
 
     def initialize_dependency_selection(self, settings: Dict[str, Any]):
-        """Initialize remembered dependency selections from settings and refresh comboboxes."""
-        self.last_selected = settings.copy()
-        self._update_comboboxes()
+        """Initialize remembered dependency selections from settings."""
+        self.last_selected = {dependency_type: settings.get(dependency_type, "") for dependency_type in self.dependencies.keys() if settings.get(dependency_type, "")}
         return (0, {})
 
-    def _update_comboboxes(self) -> None:
-        """Update all dependency comboboxes with available plugins."""
-        if not self.widget:
-            return
-
-        for dependency_type, combobox_name in self.combobox_mapping.items():
-            if dependency_type in self._function_dict:
-                combobox = getattr(self.widget, combobox_name)
-                combobox.clear()
-                available_plugins = list(self._function_dict[dependency_type].keys())
-                combobox.addItems(available_plugins)
-                # Try to restore previous selection if it's still available
-                if dependency_type in self.last_selected:
-                    last_selection = self.last_selected[dependency_type]
-                    if last_selection in available_plugins:
-                        combobox.setCurrentText(last_selection)
+    def set_selected_dependency_plugins(self, selected: Dict[str, str]) -> None:
+        """Set selected dependency plugins from caller-managed UI state."""
+        for dependency_type in self.dependencies.keys():
+            selected_plugin = selected.get(dependency_type, "")
+            if selected_plugin:
+                self.selected_dependencies[dependency_type] = selected_plugin
+                self.last_selected[dependency_type] = selected_plugin
 
     def get_selected_dependency_plugins(self) -> Dict[str, str]:
         """
-        Get currently selected dependencies from comboboxes.
+        Get currently selected dependencies.
 
         Returns:
             Dict mapping dependency type to selected plugin name
         """
-        selected = {}
-        if not self.widget:
-            return selected
+        return self.selected_dependencies.copy()
 
-        for dependency_type, combobox_name in self.combobox_mapping.items():
-            try:
-                combobox = getattr(self.widget, combobox_name)
-                selected[dependency_type] = combobox.currentText()
-            except AttributeError:
-                continue
+    def get_available_dependency_plugins(self) -> Dict[str, List[str]]:
+        """Get valid plugin names for each dependency type after filtering."""
+        return {dependency_type: list(self._function_dict.get(dependency_type, {}).keys()) for dependency_type in self.dependencies.keys()}
 
-        return selected
+    def _resolve_selected_dependencies(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, str] | Dict[str, Any]]:
+        selected_deps: Dict[str, str] = {}
+        for dependency_type in self.dependencies.keys():
+            selected_plugin = target_settings_dict.get(dependency_type, "")
+            if not selected_plugin:
+                selected_plugin = self.selected_dependencies.get(dependency_type, "")
+            if not selected_plugin:
+                selected_plugin = self.last_selected.get(dependency_type, "")
+
+            if not selected_plugin:
+                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"No {dependency_type} plugin selected"})
+
+            if dependency_type not in self._function_dict:
+                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"No {dependency_type} plugins available"})
+
+            if selected_plugin not in self._function_dict[dependency_type]:
+                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"{dependency_type} plugin '{selected_plugin}' not available"})
+
+            selected_deps[dependency_type] = selected_plugin
+
+        self.selected_dependencies.update(selected_deps)
+        self.last_selected.update(selected_deps)
+        return (0, selected_deps)
 
     def parse_dependencies(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
         """
@@ -567,15 +565,14 @@ class DependencyManager:
         if not self._function_dict:
             return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"Missing functions in {self.plugin_name} plugin. Check log"})
 
-        # Get selected dependencies from GUI
-        selected_deps = self.get_selected_dependency_plugins()
+        status, selected_or_error = self._resolve_selected_dependencies(target_settings_dict)
+        if status != 0:
+            return status, selected_or_error  # type: ignore
+        selected_deps = selected_or_error  # type: ignore
         dependency_settings = {}
 
         # Validate and extract settings for each dependency type
         for dependency_type in self.dependencies.keys():
-            if dependency_type not in selected_deps or not selected_deps[dependency_type]:
-                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"No {dependency_type} plugin selected"})
-
             selected_plugin = selected_deps[dependency_type]
 
             # Selection existence check. Method-level validation is already guaranteed by pruned function_dict.
@@ -614,11 +611,33 @@ class DependencyManager:
         Args:
             settings (Dict[str, Any]): _description_
         """
-        selected_deps = self.get_selected_dependency_plugins()
+        status, selected_or_error = self._resolve_selected_dependencies(settings)
+        if status != 0:
+            return
+        selected_deps = selected_or_error  # type: ignore
 
         for dependency_type, plugin_name in selected_deps.items():
+            if not plugin_name:
+                continue
             settings_key = f"{dependency_type}_settings"
-            self._function_dict[dependency_type][plugin_name]["setSettings"](settings[settings_key])
+            if settings_key not in settings:
+                continue
+            plugin_functions = self._function_dict.get(dependency_type, {}).get(plugin_name, {})
+            if "setSettings" not in plugin_functions:
+                continue
+            plugin_functions["setSettings"](settings[settings_key])
+
+    def update_dep_guis(self, selected_dependencies: Optional[Dict[str, str]] = None) -> None:
+        """Call any GUI update functions for the selected dependencies to reflect any changes in their settings."""
+        selected_deps = selected_dependencies or self.selected_dependencies or self.last_selected
+
+        for dependency_type, plugin_name in selected_deps.items():
+            try:
+                if "set_gui_from_settings" in self._function_dict[dependency_type][plugin_name]:
+                    self._function_dict[dependency_type][plugin_name]["set_gui_from_settings"]()
+            except KeyError:
+                print(f"Function 'set_gui_from_settings' not found for {dependency_type} plugin '{plugin_name}'")
+                continue
 
 
 class LoggingHelper(QObject):

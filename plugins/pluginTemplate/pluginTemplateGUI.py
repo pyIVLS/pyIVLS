@@ -81,9 +81,7 @@ class pluginTemplateGUI(QObject):
         # initialize dependency manager
         self.dm = DependencyManager(
             "pluginTemplate",
-            {"camera": ["parse_settings_widget", "setSettings"]},
-            self.settingsWidget,
-            {"camera": "camBox"},
+            {"camera": ["parse_settings_widget", "setSettings", "set_gui_from_settings"]},
         )
         # initialize closelock if needed
         self.cl = CloseLockSignalProvider()
@@ -118,11 +116,29 @@ class pluginTemplateGUI(QObject):
 
     @pyqtSlot()
     def _update_gui(self):
-        # update GUI elements based on the internal state of the plugin
+        # update GUI elements based on the internal state of the plugin. No type checking here since the internal is always safe.
         self.settingsWidget.doubleSpinBox_float.setValue(self.settings["float"])
         self.settingsWidget.spinBox_integer.setValue(self.settings["int"])
         self.settingsWidget.lineEdit_str.setText(self.settings["str"])
         self.settingsWidget.comboBox_categorical.setCurrentText(self.settings["category"])
+
+        # update combobox for deps
+        self.dm.initialize_dependency_selection(self.settings)
+        self._refresh_dependency_comboboxes(self.settings)
+
+    def _refresh_dependency_comboboxes(self, settings: dict | None = None):
+        available = self.dm.get_available_dependency_plugins().get("camera", [])
+        self.settingsWidget.camBox.clear()
+        self.settingsWidget.camBox.addItems(available)
+
+        preferred = ""
+        if settings is not None:
+            preferred = settings.get("camera", "")
+        if not preferred:
+            preferred = self.settings.get("camera", "") if hasattr(self, "settings") else ""
+
+        if preferred and preferred in available:
+            self.settingsWidget.camBox.setCurrentText(preferred)
 
     @pyqtSlot()
     def _update_plot(self, x, y):
@@ -133,7 +149,7 @@ class pluginTemplateGUI(QObject):
     ########Functions
     ################################### internal
     def _validate_settings(self, settings: dict) -> tuple[int, str]:
-        """Validate settings dict
+        """Validate settings dict and convert values to correct dtype
 
         Args:
             settings (dict): settings dict with correct data types, so not the initial .ini dict
@@ -141,15 +157,21 @@ class pluginTemplateGUI(QObject):
         Returns:
             tuple[int, str]: status code, error message (empty if no error)
         """
-        if not (0 <= settings["float"] <= 1):
-            return (1, "Float value should be between 0 and 1.")
-        if settings["category"] not in ["option1", "option2", "option3"]:
-            return (1, "Category should be one of the following: option1, option2, option3.")
-        if settings["int"] < 0:
-            return (1, "Integer value should be non-negative.")
-        if len(settings["str"]) == 0:
-            return (1, "String value should not be empty.")
-        return (0, "")
+        try:
+            settings["float"] = float(settings["float"])
+            settings["int"] = int(settings["int"])
+            if not (0 <= settings["float"] <= 1):
+                return (1, "Float value should be between 0 and 1.")
+            if settings["category"] not in ["option1", "option2", "option3"]:
+                return (1, "Category should be one of the following: option1, option2, option3.")
+            if settings["int"] < 0:
+                return (1, "Integer value should be non-negative.")
+            if len(settings["str"]) == 0:
+                return (1, "String value should not be empty.")
+            return (0, "")
+        # catch conversion errors if values read from gui
+        except ValueError as e:
+            return (1, f"Invalid data type in settings: {e}")
 
     ########Functions
     ###############GUI setting up
@@ -168,6 +190,13 @@ class pluginTemplateGUI(QObject):
         """
         # initialize dependency manager with the provided settings to initialize combobox
         self.dm.initialize_dependency_selection(plugin_info)
+        self._refresh_dependency_comboboxes(plugin_info)
+
+        # These are unguarded, meaning that a user messing around in the .ini file
+        # can cause an unhandled exception here.
+        # IMO this is the best way to handle wrong settings on startup, since the crash happens early and before data loss and
+        # the error is fairly descriptive. Besides, handling these errors would involve
+        # guessing what the value should actually be which could just lead to more pain down the line.
 
         # set actual values to GUI from plugin info
         self.settingsWidget.doubleSpinBox_float.setValue(float(plugin_info["float"]))
@@ -181,7 +210,7 @@ class pluginTemplateGUI(QObject):
     ########Functions
     ########plugins interraction
     def _get_public_methods(self):
-        get_public_methods(self)
+        return get_public_methods(self)
 
     @public
     def setSettings(self, settings: dict):
@@ -190,9 +219,8 @@ class pluginTemplateGUI(QObject):
         Args:
             settings (dict): dictionary with settings for the templatePlugin.
         """
-        ok, error_message = self._validate_settings(settings)
-        if not ok:
-            self.notify_user(f"Error in settings: {error_message}")
+        status, error_message = self._validate_settings(settings)
+        if status != 0:
             return (1, {"Error message": error_message})
         self.settings = settings
 
@@ -206,6 +234,7 @@ class pluginTemplateGUI(QObject):
         """Set the GUI elements from the internal settings. This can be used after settings have been updated from an external plugin to update the GUI accordingly."""
         # Here we can assume that self.settings contains the values in correct datatype since they are checked before writing to settings.
         self.update_gui_signal.emit()
+        self.dm.update_dep_guis()
 
     ########Functions to be used externally
     ########Public API
@@ -224,6 +253,8 @@ class pluginTemplateGUI(QObject):
         ts["int"] = self.settingsWidget.spinBox_integer.value()  # spinbox returns int
         ts["str"] = self.settingsWidget.lineEdit_str.text()  # lineedit returns str
         ts["category"] = self.settingsWidget.comboBox_categorical.currentText()  # combobox returns str
+        ts["camera"] = self.settingsWidget.camBox.currentText()
+        self.dm.set_selected_dependency_plugins({"camera": ts["camera"]})
 
         # checking may not be necessary if widgets are selected/designed in a way that they do not allow wrong values
         # but checking here might be useful.

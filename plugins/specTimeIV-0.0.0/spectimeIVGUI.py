@@ -73,11 +73,6 @@ class specTimeIVGUI:
         self.dependency_manager = DependencyManager(
             plugin_name=self.__class__.__name__,
             dependencies=self.dependency,
-            widget=self.settingsWidget,
-            mapping={
-                "smu": "smuBox",
-                "spectrometer": "spectroBox",
-            },
         )
 
     def _connect_signals(self):
@@ -95,7 +90,7 @@ class specTimeIVGUI:
 
     def _update_smu_channels(self):
         self.logger.log_debug("Updating SMU channels in the GUI")
-        smu_plugin = self.dependency_manager.get_selected_dependency_plugins().get("smu")
+        smu_plugin = self.settingsWidget.smuBox.currentText()
         if smu_plugin:
             # fetch channels from the selected SMU plugin and update the channel combobox
             channels = self.dependency_manager.function_dict["smu"][smu_plugin]["smu_channelNames"]()
@@ -225,7 +220,10 @@ class specTimeIVGUI:
             Success with settings_dict or error with message
         """
         # Use dependency manager to handle all dependency validation and settings extraction
-        dependency_result = self.dependency_manager.parse_dependencies(self.settings)
+        parse_target = copy.deepcopy(self.settings)
+        parse_target["smu"] = self.settingsWidget.smuBox.currentText()
+        parse_target["spectrometer"] = self.settingsWidget.spectroBox.currentText()
+        dependency_result = self.dependency_manager.parse_dependencies(parse_target)
         if dependency_result.is_error:
             return dependency_result
 

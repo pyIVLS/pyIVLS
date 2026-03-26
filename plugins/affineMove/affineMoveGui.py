@@ -88,7 +88,7 @@ class affineMoveGUI(QObject):
             "camera": "cameraBox",
             "positioning": "positioningBox",
         }
-        self.dm = DependencyManager("affineMove", dependencies, self.settingsWidget, dependency_map)
+        self.dm = DependencyManager("affineMove", dependencies)
 
         # connect buttons to functions
         self.settingsWidget.findSutter.clicked.connect(self._find_sutter_functionality)
@@ -718,6 +718,7 @@ class affineMoveGUI(QObject):
         """Sets up the GUI for the plugin. This function is called by hook to initialize the GUI."""
         self.logger.log_debug("Setting up affineMove GUI")
         self.dm.initialize_dependency_selection(settings)
+        self._refresh_dependency_boxes(settings)
 
         # Store settings internally (maintain .ini format)
         self.settings = copy.deepcopy(settings)
@@ -727,6 +728,22 @@ class affineMoveGUI(QObject):
 
         self.logger.log_debug("AffineMove GUI setup completed")
         return self.settingsWidget
+
+    def _refresh_dependency_boxes(self, settings: dict | None = None) -> None:
+        dep_to_widget = {
+            "micromanipulator": self.micromanipulator_box,
+            "camera": self.camera_box,
+            "positioning": self.positioning_box,
+        }
+        settings = settings or {}
+        available_map = self.dm.get_available_dependency_plugins()
+        for dep_type, widget in dep_to_widget.items():
+            available = available_map.get(dep_type, [])
+            widget.clear()
+            widget.addItems(available)
+            selected = settings.get(dep_type, "")
+            if selected and selected in available:
+                widget.setCurrentText(selected)
 
     ########Functions
     ###############GUI react to change

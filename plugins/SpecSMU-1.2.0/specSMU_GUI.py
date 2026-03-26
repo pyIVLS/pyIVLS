@@ -88,8 +88,23 @@ class specSMU_GUI(QWidget):
         self.settings = {}
         self.last_integration_time: Optional[float] = None  # s
         self.logger = LoggingHelper(self)
-        self.dm = DependencyManager("specSMU", self.dependency, self.settingsWidget, {"smu": "smuBox", "spectrometer": "spectrometerBox"})
+        self.dm = DependencyManager("specSMU", self.dependency)
         self._connect_signals()
+
+    def _refresh_dependency_boxes(self, settings: dict | None = None) -> None:
+        smu_name = (settings or {}).get("smu", "")
+        spectro_name = (settings or {}).get("spectrometer", "")
+        available = self.dm.get_available_dependency_plugins()
+
+        self.settingsWidget.smuBox.clear()
+        self.settingsWidget.smuBox.addItems(available.get("smu", []))
+        if smu_name and smu_name in available.get("smu", []):
+            self.settingsWidget.smuBox.setCurrentText(smu_name)
+
+        self.settingsWidget.spectrometerBox.clear()
+        self.settingsWidget.spectrometerBox.addItems(available.get("spectrometer", []))
+        if spectro_name and spectro_name in available.get("spectrometer", []):
+            self.settingsWidget.spectrometerBox.setCurrentText(spectro_name)
 
     def _connect_signals(self) -> None:
         """
@@ -235,6 +250,7 @@ class specSMU_GUI(QWidget):
         # no checks here, since the plugin_info comes from a trusted source,
         # seqbuilder or .ini file
         self.dm.initialize_dependency_selection(plugin_info)
+        self._refresh_dependency_boxes(plugin_info)
         self.settings = plugin_info
         self.set_gui_from_settings()
 

@@ -25,7 +25,7 @@ try:
         PluginException,
         filter_to_valid_methods,
     )
-    from PyQt6.QtWidgets import QApplication, QComboBox
+    from PyQt6.QtWidgets import QApplication
     from PyQt6.QtCore import QObject
     import sys
 
@@ -198,13 +198,7 @@ class TestDependencyManager:
     def setup_method(self):
         self.plugin_name = "TestPlugin"
         self.dependencies = {"smu": ["connect", "init", "measure"], "spectro": ["scan", "get_spectrum"]}
-        self.mock_widget = Mock()
-        self.mapping = {"smu": "smuComboBox", "spectro": "spectroComboBox"}
-        self.mock_smu_combo = Mock()
-        self.mock_spectro_combo = Mock()
-        self.mock_widget.smuComboBox = self.mock_smu_combo
-        self.mock_widget.spectroComboBox = self.mock_spectro_combo
-        self.dependency_manager = DependencyManager(self.plugin_name, self.dependencies, self.mock_widget, self.mapping)
+        self.dependency_manager = DependencyManager(self.plugin_name, self.dependencies)
 
     def test_set_available_dependency_functions_prunes_and_reports_missing(self):
         function_dict = {
@@ -266,21 +260,15 @@ class TestDependencyManager:
         }
         self.dependency_manager.set_available_dependency_functions(function_dict)
         self.dependency_manager.initialize_dependency_selection({"smu": "smu_ok", "spectro": "spec_ok"})
-
-        self.mock_smu_combo.setCurrentText.assert_called_with("smu_ok")
-        self.mock_spectro_combo.setCurrentText.assert_called_with("spec_ok")
+        # initialize stores remembered selection only; active selection updates on parse.
+        assert self.dependency_manager.get_selected_dependency_plugins() == {}
 
     def test_get_selected_dependency_plugins(self):
-        self.mock_smu_combo.currentText.return_value = "selected_smu"
-        self.mock_spectro_combo.currentText.return_value = "selected_spec"
+        self.dependency_manager.set_selected_dependency_plugins({"smu": "selected_smu", "spectro": "selected_spec"})
 
         selected = self.dependency_manager.get_selected_dependency_plugins()
 
         assert selected == {"smu": "selected_smu", "spectro": "selected_spec"}
-
-    def test_get_selected_dependency_plugins_no_widget(self):
-        dependency_manager = DependencyManager("TestPlugin", self.dependencies, None, self.mapping)
-        assert dependency_manager.get_selected_dependency_plugins() == {}
 
     def test_parse_dependencies_success(self):
         """Test successful dependency settings extraction."""
@@ -292,11 +280,8 @@ class TestDependencyManager:
 
         # Set up dependency manager with both dependencies (list of required functions)
         dependencies = {"smu": ["parse_settings_widget"], "spectrometer": ["parse_settings_widget"]}
-        mapping = {"smu": "smu_combo", "spectrometer": "spec_combo"}
-        mock_widget = Mock()
-        mock_widget.smu_combo = mock_smu_combo
-        mock_widget.spec_combo = mock_spec_combo
-        dep_manager = DependencyManager("test_plugin", dependencies, mock_widget, mapping)
+        dep_manager = DependencyManager("test_plugin", dependencies)
+        dep_manager.set_selected_dependency_plugins({"smu": "smu_plugin", "spectrometer": "spec_plugin"})
 
         # Mock function dict with parse_settings_widget functions
         mock_function_dict = {
@@ -320,15 +305,13 @@ class TestDependencyManager:
     def test_parse_dependencies_no_function_dict(self):
         """Test error when function dict is not available."""
         dependencies = {"smu": ["parse_settings_widget"]}
-        mapping = {"smu": "smu_combo"}
-        mock_widget = Mock()
-        dep_manager = DependencyManager("test_plugin", dependencies, mock_widget, mapping)
+        dep_manager = DependencyManager("test_plugin", dependencies)
 
         target_settings = {}
         status, result = dep_manager.parse_dependencies(target_settings)
 
         assert status == 3
-        assert "Missing functions" in result
+        assert "Missing functions" in result["Error message"]
 
     def test_parse_dependencies_no_selection(self):
         """Test error when no dependency is selected."""
@@ -336,17 +319,14 @@ class TestDependencyManager:
         mock_smu_combo.currentText.return_value = ""
 
         dependencies = {"smu": ["parse_settings_widget"]}
-        mapping = {"smu": "smu_combo"}
-        mock_widget = Mock()
-        mock_widget.smu_combo = mock_smu_combo
-        dep_manager = DependencyManager("test_plugin", dependencies, mock_widget, mapping)
+        dep_manager = DependencyManager("test_plugin", dependencies)
         dep_manager.set_available_dependency_functions({"smu": {"smu_plugin": {"parse_settings_widget": Mock()}}})
 
         target_settings = {}
         status, result = dep_manager.parse_dependencies(target_settings)
 
         assert status == 3
-        assert "No smu plugin selected" in result
+        assert "No smu plugin selected" in result["Error message"]
 
     def test_parse_dependencies_plugin_not_available(self):
         """Test error when selected dependency plugin is not available."""
@@ -354,17 +334,15 @@ class TestDependencyManager:
         mock_smu_combo.currentText.return_value = "invalid_plugin"
 
         dependencies = {"smu": ["parse_settings_widget"]}
-        mapping = {"smu": "smu_combo"}
-        mock_widget = Mock()
-        mock_widget.smu_combo = mock_smu_combo
-        dep_manager = DependencyManager("test_plugin", dependencies, mock_widget, mapping)
+        dep_manager = DependencyManager("test_plugin", dependencies)
+        dep_manager.set_selected_dependency_plugins({"smu": "invalid_plugin"})
         dep_manager.set_available_dependency_functions({"smu": {"smu_plugin": {"parse_settings_widget": Mock()}}})
 
         target_settings = {}
         status, result = dep_manager.parse_dependencies(target_settings)
 
         assert status == 3
-        assert "not available" in result
+        assert "not available" in result["Error message"]
 
     def test_parse_dependencies_missing_function(self):
         """Test error when parse_settings_widget function is missing in selected plugin."""
@@ -372,10 +350,8 @@ class TestDependencyManager:
         mock_smu_combo.currentText.return_value = "smu_plugin"
 
         dependencies = {"smu": ["parse_settings_widget"]}
-        mapping = {"smu": "smu_combo"}
-        mock_widget = Mock()
-        mock_widget.smu_combo = mock_smu_combo
-        dep_manager = DependencyManager("test_plugin", dependencies, mock_widget, mapping)
+        dep_manager = DependencyManager("test_plugin", dependencies)
+        dep_manager.set_selected_dependency_plugins({"smu": "smu_plugin"})
 
         # Mock function dict without parse_settings_widget
         mock_function_dict = {
@@ -389,7 +365,7 @@ class TestDependencyManager:
         status, result = dep_manager.parse_dependencies(target_settings)
 
         assert status == 3
-        assert "smu plugin 'smu_plugin' not available" in result
+        assert "smu plugin 'smu_plugin' not available" in result["Error message"]
 
 
 class TestLoggingHelper:
@@ -446,15 +422,10 @@ class TestIntegration:
     """Simple integration tests for plugin components."""
 
     def test_dependency_manager_selection_integration(self):
-        """Test that DependencyManager selection is available from widget comboboxes."""
-        mock_widget = Mock()
-        mock_smu_combo = Mock(spec=QComboBox)
-        mock_widget.smuComboBox = mock_smu_combo
-        mock_smu_combo.currentText.return_value = "selected_smu"
-
+        """Test that explicit selections are preserved by DependencyManager."""
         dependencies = {"smu": ["connect", "init"]}
-        mapping = {"smu": "smuComboBox"}
-        dep_manager = DependencyManager("TestPlugin", dependencies, mock_widget, mapping)
+        dep_manager = DependencyManager("TestPlugin", dependencies)
+        dep_manager.set_selected_dependency_plugins({"smu": "selected_smu"})
 
         selected = dep_manager.get_selected_dependency_plugins()
         assert selected["smu"] == "selected_smu"
