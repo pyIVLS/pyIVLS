@@ -1,5 +1,3 @@
-# TODO: Add checks that return value errors if public functions are called while preview is happening.
-
 """
 This is a GUI plugin for CCS175 spectrometer
 
@@ -38,6 +36,10 @@ version 0.5
 implemented hw trigger in auto time
 2026 02 23
 ivarad
+
+version 0.6
+implemented non-blocking preview with QThread
+added public function guards during preview
 """
 
 from typing import Optional
@@ -47,27 +49,160 @@ import os
 import numpy as np
 from pathvalidate import is_valid_filename
 from PyQt6 import uic
-from PyQt6.QtCore import QObject, pyqtSignal, Qt, QTimer, pyqtSlot
+from PyQt6.QtCore import QObject, pyqtSignal, Qt, QTimer, pyqtSlot, QThread
 from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
 from MplCanvas import MplCanvas
 import copy
 from worker_thread import WorkerThread
-from plugin_components import public, get_public_methods, LoggingHelper, ConnectionIndicatorStyle, FileManager
+from plugin_components import (
+    public,
+    get_public_methods,
+    LoggingHelper,
+    ConnectionIndicatorStyle,
+    FileManager,
+)
 from TLCCS import CCSDRV
 
 
-class TLCCS_GUI(QObject):
+class PreviewThread(QThread):
+    """Background thread for non-blocking spectrometer preview polling.
+    
+    Handles continuous data acquisition and status monitoring without blocking the main GUI thread.
+    Emits signals for data updates, errors, and status changes.
+    """
+    
+    # Signals
+    data_ready = pyqtSignal(list)  # Emitted when data is available: [wavelengths, intensities]
+    error_occurred = pyqtSignal(str)  # Emitted on error with error message
+    status_changed = pyqtSignal(str)  # Emitted on status changes for logging
+    finished_normally = pyqtSignal()  # Emitted when thread finishes normally
+    
+    def __init__(self, driver, correction, settings, logger, interval_ms=50):
+        """Initialize the preview thread.
+        
+        Args:
+            driver: CCSDRV instance for hardware communication
+            correction: Wavelength calibration correction data
+            settings: Settings dictionary with integration time and other parameters
+            logger: Logger instance for verbose logging
+            interval_ms: Polling interval in milliseconds
+        """
+        super().__init__()
+        self.driver = driver
+        self.correction = correction
+        self.settings = settings
+        self.logger = logger
+        self.interval_ms = interval_ms
+        self._running = False
+        self._stop_requested = False
+        self._integration_time_changed = False
+        self._new_settings = None
+        
+    def run(self):
+        """Main thread loop: continuously poll hardware for data."""
+        self._running = True
+        self._stop_requested = False
+        self._preview_wait_started_at = None
+        
+        try:
+            self.status_changed.emit("Preview thread started")
+            
+            while self._running and not self._stop_requested:
+                try:
+                    # Handle pending integration time changes
+                    if self._integration_time_changed and self._new_settings:
+                        try:
+                            self.driver.set_integration_time(self._new_settings["integrationtime"])
+                            self._integration_time_changed = False
+                            self.driver.start_scan_continuous()
+                            self._preview_wait_started_at = time.monotonic()
+                            integration_ms = int(self._new_settings["integrationtime"] * 1000)
+                            self.interval_ms = int(max(20, integration_ms))
+                            self.status_changed.emit(f"Integration time updated to {integration_ms}ms")
+                        except Exception as e:
+                            self.error_occurred.emit(f"Failed to update integration time: {e}")
+                            continue
+                    
+                    # Poll device status
+                    statuses = self.driver.get_device_status()
+                    
+                    # Check if data is ready for transfer
+                    if "SCAN_TRANSFER" in statuses:
+                        try:
+                            data = self.driver.get_scan_data()
+                            self.data_ready.emit([self.correction[:, 0], data])
+                            self._preview_wait_started_at = time.monotonic()
+                        except Exception as e:
+                            self.error_occurred.emit(f"Failed to read scan data: {e}")
+                        self.msleep(self.interval_ms)
+                        continue
+                    
+                    # Watchdog: restart scan if no transfer within timeout
+                    if self._preview_wait_started_at is None:
+                        self._preview_wait_started_at = time.monotonic()
+                    
+                    waited_s = time.monotonic() - self._preview_wait_started_at
+                    int_time = float(self.settings.get("integrationtime", 0.05))
+                    wait_timeout_s = max(2.0, 2.0 * int_time + 0.5)
+                    
+                    if waited_s > wait_timeout_s and "SCAN_TRANSFER" not in statuses:
+                        self.logger.log_info(f"Preview watchdog: no transfer after {waited_s:.2f}s, restarting scan")
+                        try:
+                            self.driver.get_integration_time()
+                            self.driver.start_scan_continuous()
+                            self._preview_wait_started_at = time.monotonic()
+                        except Exception as e:
+                            self.error_occurred.emit(f"Watchdog recovery failed: {e}")
+                    
+                    self.msleep(self.interval_ms)
+                    
+                except Exception as e:
+                    self.error_occurred.emit(f"Unexpected error in preview thread: {e}")
+                    self.msleep(self.interval_ms)
+            
+            self.status_changed.emit("Preview thread stopped normally")
+            self.finished_normally.emit()
+            
+        except Exception as e:
+            self.error_occurred.emit(f"Critical error in preview thread: {e}")
+        finally:
+            self._running = False
+    
+    def update_integration_time(self, settings):
+        """Request integration time update in the running thread.
+        
+        Args:
+            settings: Updated settings dictionary with new integration time
+        """
+        self._new_settings = copy.deepcopy(settings)
+        self._integration_time_changed = True
+    
+    def stop_preview(self):
+        """Request graceful stop of the preview thread."""
+        self._stop_requested = True
+        self.wait()  # Wait for thread to finish
+    
+    def is_running_preview(self):
+        """Check if preview is currently running."""
+        return self._running and not self._stop_requested
+
+
+
     """spectrometer plugin for pyIVLS"""
 
     ########Signals
     closeLock = pyqtSignal(bool)
     connectionStateChanged = pyqtSignal(bool)  # signal to update state of connection
-    data_recieved_signal = pyqtSignal(list)  # signal emitted when new data is received, list includes [wavelengths, intensities]
+    data_recieved_signal = pyqtSignal(
+        list
+    )  # signal emitted when new data is received, list includes [wavelengths, intensities]
 
     # class variables
     #    filedelimeter = "\t"
     filedelimeter = ";"
-    default_timerInterval = 20  # ms, it is close to 24*2 fps (twice the standard for movies and TV)
+    default_timerInterval = (
+        20  # ms, it is close to 24*2 fps (twice the standard for movies and TV)
+    )
     # limits for auto time detection
     autoTime_min = 0.004  # s, used to be 4
     autoTime_max = 30  # s, used to be 10000
@@ -130,27 +265,45 @@ class TLCCS_GUI(QObject):
         # logger
         self.logger = LoggingHelper(self)
 
-        # timer-based preview
-        self._preview_timer = QTimer(self)
-        self._preview_timer.setSingleShot(False)
-        self._preview_timer.timeout.connect(self._on_preview_tick)
-        self._preview_wait_started_at = None
+        # Thread-based preview
+        self._preview_thread = None
 
     def _connect_signals(self):
         """Connect GUI signals to their respective slots."""
         self.settingsWidget.connectButton.clicked.connect(self.spectrometerConnect)
-        self.settingsWidget.disconnectButton.clicked.connect(self.spectrometerDisconnect)
-        self.settingsWidget.setIntegrationTimeButton.clicked.connect(self._setIntTimeAction)
+        self.settingsWidget.disconnectButton.clicked.connect(
+            self.spectrometerDisconnect
+        )
+        self.settingsWidget.setIntegrationTimeButton.clicked.connect(
+            self._setIntTimeAction
+        )
         self.settingsWidget.previewButton.clicked.connect(self._previewAction)
         self.settingsWidget.saveButton.clicked.connect(self._saveAction)
-        self.settingsWidget.correctionCheck.stateChanged.connect(self._correctionChanged)
+        self.settingsWidget.correctionCheck.stateChanged.connect(
+            self._correctionChanged
+        )
         self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
-        self.settingsWidget.getIntegrationTime_combo.currentIndexChanged.connect(self._integrationTime_mode_changed)
+        self.settingsWidget.getIntegrationTime_combo.currentIndexChanged.connect(
+            self._integrationTime_mode_changed
+        )
         self.settingsWidget.getTime_button.clicked.connect(self._getTimeAction)
         # https://stackoverflow.com/questions/11476267/segmentation-fault-while-emitting-signal-from-other-thread-in-qt
-        # if facing the dreaded segfault again, chekc the type of connection since we are not threading with qthread
         self.connectionStateChanged.connect(self._GUIchange_deviceConnected)
         self.data_recieved_signal.connect(self._on_data_recieved)
+
+    def _check_preview_running(self, func_name: str) -> bool:
+        """Check if preview is running and return error if it is.
+        
+        Args:
+            func_name: Name of the function calling this check (for logging)
+            
+        Returns:
+            True if preview is running, False otherwise
+        """
+        if self.preview_running:
+            self.log_verbose(f"Cannot call {func_name} while preview is running.")
+            return True
+        return False
 
     def _create_plt(self):
         """Inits the matplotlib canvas in the preview widget."""
@@ -158,7 +311,9 @@ class TLCCS_GUI(QObject):
         self.axes = self.sc.fig.add_subplot(111)
         self.axes.set_xlabel("Wavelength (nm)")
         self.axes.set_ylabel("Intensity (calib. arb. un.)")
-        self.axes.set_xlim(const.CCS175_MIN_WV, const.CCS175_MAX_WV)  # limits are given by spectral range of the device
+        self.axes.set_xlim(
+            const.CCS175_MIN_WV, const.CCS175_MAX_WV
+        )  # limits are given by spectral range of the device
         layout = QVBoxLayout()
         layout.addWidget(self.sc._create_toolbar(self.previewWidget))
         layout.addWidget(self.sc)
@@ -170,7 +325,9 @@ class TLCCS_GUI(QObject):
     def _render_preview(self, intensities):
         """Render the preview plot given intensities array."""
         if self.settings.get("previewCorrection", False):
-            preview_data = [m * n * 1000 for m, n in zip(intensities, self.correction[:, 1])]
+            preview_data = [
+                m * n * 1000 for m, n in zip(intensities, self.correction[:, 1])
+            ]
         else:
             preview_data = intensities
 
@@ -198,53 +355,96 @@ class TLCCS_GUI(QObject):
         except Exception as e:
             self.log_verbose(f"Failed updating preview from signal: {e}")
 
+    @pyqtSlot(list)
+    def _on_preview_data_ready(self, payload: list):
+        """Slot for PreviewThread data_ready signal."""
+        self.data_recieved_signal.emit(payload)
+
+    @pyqtSlot(str)
+    def _on_preview_error(self, error_msg: str):
+        """Slot for PreviewThread error_occurred signal."""
+        self.log_verbose(f"Preview thread error: {error_msg}")
+        self.notify_user(f"Preview error: {error_msg}")
+
+    @pyqtSlot(str)
+    def _on_preview_status_changed(self, status_msg: str):
+        """Slot for PreviewThread status_changed signal."""
+        self.log_verbose(f"Preview status: {status_msg}")
+
+    @pyqtSlot()
+    def _on_preview_finished(self):
+        """Slot for PreviewThread finished_normally signal."""
+        self.log_verbose("Preview thread finished normally")
+
     ########Functions
     ########GUI Slots
 
     def _previewAction(self) -> tuple[int, dict]:
         self.log_verbose("Preview button clicked.")
         if self.preview_running:
+            # Stop preview
             self.preview_running = False
-            if self._preview_timer.isActive():
-                self._preview_timer.stop()
-                # stop automatic scanning by issuing a command that isnt a fetch for data or status
-                _ = self.drv.get_integration_time()
+            if self._preview_thread is not None and self._preview_thread.isRunning():
+                self._preview_thread.stop_preview()
 
             statuses = self.drv.get_device_status()
             if "SCAN_TRANSFER" in statuses:
-                # read leftover data only when it is already available
-                self.log_verbose("Reading leftover data after stopping preview: statuses: " + str(statuses))
+                self.log_verbose(
+                    "Reading leftover data after stopping preview: statuses: "
+                    + str(statuses)
+                )
                 data = self.drv.get_scan_data()
                 self.data_recieved_signal.emit([self.correction[:, 0], data])
                 statuses_after = self.drv.get_device_status()
-                self.log_verbose("Statuses after reading leftover data: " + str(statuses_after))
+                self.log_verbose(
+                    "Statuses after reading leftover data: " + str(statuses_after)
+                )
             elif "SCAN_TRIGGERED" in statuses:
-                self.log_verbose("Skipping leftover read on stop because scan is still triggered and transfer is not ready.")
+                self.log_verbose(
+                    "Skipping leftover read on stop because scan is still triggered and transfer is not ready."
+                )
 
             self._enableSaveButton()
-            self._preview_wait_started_at = None
             self.closeLock.emit(self.preview_running)
             self.settingsWidget.previewButton.setText("Preview")
             return (0, {})
         else:
+            # Start preview
             self.log_verbose("Starting preview.")
             [status, info] = self.parse_settings_preview()
             if status:
                 self.notify_user("Failed to parse preview settings: " + str(info))
                 return (status, info)
 
-            self.integrationTimeChanged = True
             self.preview_running = True
             self.closeLock.emit(self.preview_running)
             self.settingsWidget.saveButton.setEnabled(False)
-            # request continous scan start from dev
+            
+            # Start continuous scan
             self.drv.start_scan_continuous()
-            self._preview_wait_started_at = time.monotonic()
 
+            # Create and start preview thread
             integration_ms = int(self.settings["integrationtime"] * 1000)
             interval_ms = int(max(self.default_timerInterval, integration_ms))
-            self._preview_timer.start(interval_ms + 50)
-            self.log_verbose(f"Preview started with timer interval {interval_ms} ms.")
+            
+            self._preview_thread = PreviewThread(
+                self.drv, 
+                self.correction, 
+                self.settings, 
+                self.logger,
+                interval_ms + 50
+            )
+            
+            # Connect thread signals to handle data and errors
+            self._preview_thread.data_ready.connect(self._on_preview_data_ready)
+            self._preview_thread.error_occurred.connect(self._on_preview_error)
+            self._preview_thread.status_changed.connect(self._on_preview_status_changed)
+            self._preview_thread.finished_normally.connect(self._on_preview_finished)
+            
+            self._preview_thread.start()
+            self.log_verbose(
+                f"Preview started with thread, interval {interval_ms + 50} ms."
+            )
             self.settingsWidget.previewButton.setText("Stop preview")
 
             return (0, {})
@@ -253,9 +453,16 @@ class TLCCS_GUI(QObject):
         if self.preview_running:  # this function is useful only in preview mode
             [status, info] = self._parse_settings_integrationTime()
             if status:
-                self.notify_user("Failed to parse integration time settings: " + str(info))
+                self.notify_user(
+                    "Failed to parse integration time settings: " + str(info)
+                )
                 return [status, info]
-            self.integrationTimeChanged = True
+            
+            # Update integration time in the running preview thread
+            if self._preview_thread is not None and self._preview_thread.isRunning():
+                self._preview_thread.update_integration_time(self.settings)
+                self.log_verbose("Integration time update requested in preview thread")
+            
             return [0, "OK"]
 
     def _saveAction(self):
@@ -271,7 +478,10 @@ class TLCCS_GUI(QObject):
         status, state = self.createFile(
             varDict,
             self.filedelimeter,
-            address=self.settings["address"] + os.sep + self.settings["filename"] + ".csv",
+            address=self.settings["address"]
+            + os.sep
+            + self.settings["filename"]
+            + ".csv",
             data=self.lastspectrum[0],
         )
         if status:
@@ -292,7 +502,9 @@ class TLCCS_GUI(QObject):
         preview_status = False
         [status, info] = self._parse_settings_autoTime()
         if status:
-            self.notify_user("Failed to parse auto integration time settings: " + str(info))
+            self.notify_user(
+                "Failed to parse auto integration time settings: " + str(info)
+            )
             return None
         if self.preview_running:
             # stop preview to safely get autotime
@@ -314,7 +526,9 @@ class TLCCS_GUI(QObject):
             return None
         else:
             self.closeLock.emit(False)
-            self.notify_user("Cannot calculate auto integration time while spectrometer is busy. Please stop any ongoing scans and try again.")
+            self.notify_user(
+                "Cannot calculate auto integration time while spectrometer is busy. Please stop any ongoing scans and try again."
+            )
             return None
 
     def _auto_time_worker(self, worker_thread) -> tuple[int, float | dict]:
@@ -328,7 +542,9 @@ class TLCCS_GUI(QObject):
 
         status, auto_time = result
         if status == 0 and isinstance(auto_time, (float, int)):
-            self.settingsWidget.lineEdit_Integ.setText(f"{round(float(auto_time) * 1000)}")
+            self.settingsWidget.lineEdit_Integ.setText(
+                f"{round(float(auto_time) * 1000)}"
+            )
         else:
             self.notify_user(f"Failed to calculate auto integration time: {auto_time}")
 
@@ -393,19 +609,32 @@ class TLCCS_GUI(QObject):
 
             # start iterating through integration times using guessIntTime as initial guess
             for iter in range(self.intTimeMaxIterations):
-                self.logger.log_debug(f"Iteration {iter + 1}: Current guess = {guessIntTime} s.")
-                self.settings["integrationtime"] = guessIntTime  # needed for keeping self.lastspectrum in order
+                self.logger.log_debug(
+                    f"Iteration {iter + 1}: Current guess = {guessIntTime} s."
+                )
+                self.settings["integrationtime"] = (
+                    guessIntTime  # needed for keeping self.lastspectrum in order
+                )
                 [status, info] = self.spectrometerSetIntegrationTime(guessIntTime)  # s
                 if status:
-                    self.logger.log_debug(f"getAutoTime: Failed to set integration time. {status}, {info}")
+                    self.logger.log_debug(
+                        f"getAutoTime: Failed to set integration time. {status}, {info}"
+                    )
                     return (status, info)
                 # charging the spectrometer in case of external trigger
                 if self.settings["externaltrigger"]:
                     self.logger.log_debug("Charging a new  HW trig scan.")
                     self.drv.start_scan_ext_trigger()
-                    time.sleep(0.02)  # just a precaution, duration does not mean anything specific, does not affect the measurement as smu is off
+                    time.sleep(
+                        0.02
+                    )  # just a precaution, duration does not mean anything specific, does not affect the measurement as smu is off
                     if external_action_args is None:
-                        return (1, {"Error message": "External action arguments are required for hardware trigger mode."})
+                        return (
+                            1,
+                            {
+                                "Error message": "External action arguments are required for hardware trigger mode."
+                            },
+                        )
                     mydict = external_action_args[0]
                     mydict["integrationtime"] = guessIntTime  # in s
                 # external action if needed
@@ -417,27 +646,42 @@ class TLCCS_GUI(QObject):
                         else:
                             status, info = external_action()
                         if status:
-                            self.log_verbose(f"getAutoTime: External action failed. {status}, {info}")
+                            self.log_verbose(
+                                f"getAutoTime: External action failed. {status}, {info}"
+                            )
                             return status, info
                     except TypeError:
-                        self.log_verbose("getAutoTime: External action completed without standard return value")
+                        self.log_verbose(
+                            "getAutoTime: External action completed without standard return value"
+                        )
 
                 [status, info] = self.spectrometerGetScan()
                 if status:
-                    self.log_verbose(f"getAutoTime: Failed to update spectrum. {status}, {info}")
-                    error_info = info if isinstance(info, dict) else {"Error message": str(info)}
+                    self.log_verbose(
+                        f"getAutoTime: Failed to update spectrum. {status}, {info}"
+                    )
+                    error_info = (
+                        info if isinstance(info, dict) else {"Error message": str(info)}
+                    )
                     return (status, error_info)
                 # save the spectrum if needed
                 if self.settings["saveattempts_check"]:
                     varDict = {}
                     varDict["integrationtime"] = guessIntTime
-                    varDict["triggermode"] = 1 if self.settings["externaltrigger"] else 0
+                    varDict["triggermode"] = (
+                        1 if self.settings["externaltrigger"] else 0
+                    )
                     varDict["name"] = self.settings["samplename"]
-                    varDict["comment"] = self.settings["comment"] + " Auto adjust of integration time."
+                    varDict["comment"] = (
+                        self.settings["comment"] + " Auto adjust of integration time."
+                    )
                     status, state = self.createFile(
                         varDict=varDict,
                         filedelimeter=self.filedelimeter,
-                        address=self.settings["address"] + os.sep + self.settings["filename"] + f"_{int(guessIntTime)}ms.csv",
+                        address=self.settings["address"]
+                        + os.sep
+                        + self.settings["filename"]
+                        + f"_{int(guessIntTime)}ms.csv",
                         data=info,
                     )
                     if status:
@@ -447,48 +691,73 @@ class TLCCS_GUI(QObject):
                 if external_cleanup:
                     self.logger.log_debug("getAutoTime: Executing external cleanup.")
                     if self.settings["externaltrigger"]:
-                        time.sleep(2 * mydict["postwait"])  # for the case if postwait is comparable with integration time, to make sure that the smu finished all the operations
+                        time.sleep(
+                            2 * mydict["postwait"]
+                        )  # for the case if postwait is comparable with integration time, to make sure that the smu finished all the operations
                     try:
                         if external_cleanup_args:
                             status, info = external_cleanup(*external_cleanup_args)
                         else:
                             status, info = external_cleanup()
                         if status:
-                            self.log_verbose(f"getAutoTime: External cleanup failed. {status}, {info}")
+                            self.log_verbose(
+                                f"getAutoTime: External cleanup failed. {status}, {info}"
+                            )
                     except TypeError:
-                        self.log_verbose("getAutoTime: External cleanup completed without standard return value")
+                        self.log_verbose(
+                            "getAutoTime: External cleanup completed without standard return value"
+                        )
                 # pause if needed
                 if pause_duration > 0:
-                    self.log_verbose(f"getAutoTime: Pausing for {pause_duration} seconds.")
+                    self.log_verbose(
+                        f"getAutoTime: Pausing for {pause_duration} seconds."
+                    )
                     time.sleep(pause_duration)
 
                 target = max(info)  # target value to optimize
                 # if spectrum is in the range, found good integration time
                 if low_spectrum <= target <= high_spectrum:
-                    self.logger.log_debug(f"Optimal integration time found: {guessIntTime} seconds.")
+                    self.logger.log_debug(
+                        f"Optimal integration time found: {guessIntTime} seconds."
+                    )
                     return [0, guessIntTime]  # return in seconds
                 # if spectrum is below the range, increase integration time
                 if target < low_spectrum:
-                    self.log_verbose(f"Spectrum value {target} is below the range ({low_spectrum}), increasing integration time.")
+                    self.log_verbose(
+                        f"Spectrum value {target} is below the range ({low_spectrum}), increasing integration time."
+                    )
                     if guessIntTime >= high:
-                        self.logger.log_debug(f"Integration time is too high, returning: {guessIntTime} seconds.")
+                        self.logger.log_debug(
+                            f"Integration time is too high, returning: {guessIntTime} seconds."
+                        )
                         return [1, {"Error message": "Integration time too high"}]
                     low = guessIntTime
                 # if spectrum is above the range, decrease integration time
                 else:
-                    self.log_verbose(f"Spectrum value {target} is above the range ({high_spectrum}), decreasing integration time.")
+                    self.log_verbose(
+                        f"Spectrum value {target} is above the range ({high_spectrum}), decreasing integration time."
+                    )
                     if guessIntTime <= low:
-                        self.logger.log_debug(f"Integration time is too low, returning: {guessIntTime} seconds.")
+                        self.logger.log_debug(
+                            f"Integration time is too low, returning: {guessIntTime} seconds."
+                        )
                         return [1, {"Error message": "Integration time too low"}]
                     high = guessIntTime
                 # Compute new guess in seconds as float midpoint for proper binary search resolution
                 guessIntTime = (low + high) / 2.0
 
-            self.logger.log_debug(f"Auto integration time calculation completed: {guessIntTime} seconds.")
+            self.logger.log_debug(
+                f"Auto integration time calculation completed: {guessIntTime} seconds."
+            )
             return [0, guessIntTime]  # return in seconds
         else:
-            self.log_verbose("Integration time mode is not set to auto, cannot calculate auto integration time.")
-            return (1, {"Error message": "TLCCSGUI: integration time mode is not set to auto"})  # error if not auto mode
+            self.log_verbose(
+                "Integration time mode is not set to auto, cannot calculate auto integration time."
+            )
+            return (
+                1,
+                {"Error message": "TLCCSGUI: integration time mode is not set to auto"},
+            )  # error if not auto mode
 
     ########Functions
     ###############GUI setting up
@@ -503,17 +772,24 @@ class TLCCS_GUI(QObject):
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
         integration_time_ms = int(float(plugin_info["integrationtime"]) * 1000)
         self.settingsWidget.lineEdit_Integ.setText(str(integration_time_ms))
-        self.log_verbose(f"Initializing GUI with integration time: {integration_time_ms} ms")
+        self.log_verbose(
+            f"Initializing GUI with integration time: {integration_time_ms} ms"
+        )
         if plugin_info["externaltrigger"] == "True":
             self.settingsWidget.extTriggerCheck.setChecked(True)
         if plugin_info["usecorrection"] == "True":
             self.settingsWidget.correctionCheck.setChecked(True)
-        currentIndex = self.settingsWidget.getIntegrationTime_combo.findText(plugin_info["integrationtimetype"], Qt.MatchFlag.MatchFixedString)
+        currentIndex = self.settingsWidget.getIntegrationTime_combo.findText(
+            plugin_info["integrationtimetype"], Qt.MatchFlag.MatchFixedString
+        )
         if currentIndex > -1:
             self.settingsWidget.getIntegrationTime_combo.setCurrentIndex(currentIndex)
         if plugin_info["useintegrationtimeguess"]:
             self.settingsWidget.useIntegrationTimeGuess_check.setChecked(True)
-        if plugin_info["saveattempts_check"] == "True" or plugin_info["saveattempts_check"] is True:
+        if (
+            plugin_info["saveattempts_check"] == "True"
+            or plugin_info["saveattempts_check"] is True
+        ):
             self.settingsWidget.saveAttempts_check.setChecked(True)
         self.settingsWidget.saveButton.setEnabled(False)
         self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
@@ -521,7 +797,9 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
         self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
 
-        self.setSettings(plugin_info)  # set settings dict from plugin_info for internal use
+        self.setSettings(
+            plugin_info
+        )  # set settings dict from plugin_info for internal use
 
     def _getAddress(self):
         address = self.settingsWidget.lineEdit_path.text()
@@ -531,7 +809,8 @@ class TLCCS_GUI(QObject):
             None,
             "Select directory for saving",
             address,
-            options=QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
+            options=QFileDialog.Option.ShowDirsOnly
+            | QFileDialog.Option.DontResolveSymlinks,
         )
         if address:
             self.settingsWidget.lineEdit_path.setText(address)
@@ -542,9 +821,13 @@ class TLCCS_GUI(QObject):
     def _GUIchange_deviceConnected(self, status):
         # NOTE: status is direct, i.e. when spectrometer is connected received status should True, when disconnected status should be False
         if status:
-            self.settingsWidget.connectionIndicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
+            self.settingsWidget.connectionIndicator.setStyleSheet(
+                ConnectionIndicatorStyle.GREEN_CONNECTED.value
+            )
         else:
-            self.settingsWidget.connectionIndicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
+            self.settingsWidget.connectionIndicator.setStyleSheet(
+                ConnectionIndicatorStyle.RED_DISCONNECTED.value
+            )
         self.settingsWidget.setIntegrationTimeButton.setEnabled(status)
         self.settingsWidget.previewBox.setEnabled(status)
         if status:
@@ -596,18 +879,41 @@ class TLCCS_GUI(QObject):
         try:
             integration_time_ms = int(self.settingsWidget.lineEdit_Integ.text())
         except ValueError:
-            return (1, {"Error message": "Value error in TLCCS plugin: integration time field should be integer"})
+            return (
+                1,
+                {
+                    "Error message": "Value error in TLCCS plugin: integration time field should be integer"
+                },
+            )
         if integration_time_ms > const.CCS_SERIES_MAX_INT_TIME * 1000:
-            return (1, {"Error message": f"Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"})
+            return (
+                1,
+                {
+                    "Error message": f"Value error in TLCCS plugin: integration time should can not be greater than maximum integration time {const.CCS_SERIES_MAX_INT_TIME} s"
+                },
+            )
         if integration_time_ms < 1:
-            return (1, {"Error message": "Value error in TLCCS plugin: integration time should can not be smaller than 1 ms"})
-        self.settings["integrationtime"] = integration_time_ms / 1000  # stored in seconds
+            return (
+                1,
+                {
+                    "Error message": "Value error in TLCCS plugin: integration time should can not be smaller than 1 ms"
+                },
+            )
+        self.settings["integrationtime"] = (
+            integration_time_ms / 1000
+        )  # stored in seconds
         return (0, {})
 
     def _parse_settings_autoTime(self) -> tuple[int, dict]:
-        self.settings["integrationtimetype"] = self.settingsWidget.getIntegrationTime_combo.currentText()
-        self.settings["saveattempts_check"] = self.settingsWidget.saveAttempts_check.isChecked()
-        self.settings["useintegrationtimeguess"] = self.settingsWidget.useIntegrationTimeGuess_check.isChecked()
+        self.settings["integrationtimetype"] = (
+            self.settingsWidget.getIntegrationTime_combo.currentText()
+        )
+        self.settings["saveattempts_check"] = (
+            self.settingsWidget.saveAttempts_check.isChecked()
+        )
+        self.settings["useintegrationtimeguess"] = (
+            self.settingsWidget.useIntegrationTimeGuess_check.isChecked()
+        )
         if self.settings["saveattempts_check"]:
             [status, info] = self._parseSaveData()
             if status:
@@ -628,8 +934,15 @@ class TLCCS_GUI(QObject):
     def _parseSaveData(self) -> tuple[int, dict]:
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            self.notify_user("Provided address is not valid. Please select a valid directory for saving data.")
-            return (1, {"Error message": "TLCCS plugin : address string should point to a valid directory"})
+            self.notify_user(
+                "Provided address is not valid. Please select a valid directory for saving data."
+            )
+            return (
+                1,
+                {
+                    "Error message": "TLCCS plugin : address string should point to a valid directory"
+                },
+            )
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
             self.notify_user("Filename is not valid. Please enter a valid filename")
@@ -637,7 +950,9 @@ class TLCCS_GUI(QObject):
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-        self.settings["externaltrigger"] = self.settingsWidget.extTriggerCheck.isChecked()  # this is here since this is written into the header
+        self.settings["externaltrigger"] = (
+            self.settingsWidget.extTriggerCheck.isChecked()
+        )  # this is here since this is written into the header
 
         return (0, {"Error message": "OK"})
 
@@ -714,18 +1029,25 @@ class TLCCS_GUI(QObject):
     ########device functions
     @public
     def spectrometerConnect(self, integrationTime=None):
+        if self._check_preview_running("spectrometerConnect"):
+            return (1, {"Error message": "Cannot connect while preview is running"})
+        
         # HOX: when using connect button, this function gets False as its argument. From the button?
         # Parse settings to ensure integration time and related flags are current
         parsed_status, info = self.parse_settings_widget()
         if parsed_status:
             return [parsed_status, info]
- 
+
         if integrationTime is not None and not isinstance(integrationTime, bool):
             print(f"Integration time provided as argument: {integrationTime} s")
             self.settings["integrationtime"] = integrationTime
 
-        print(f"Connecting to spectrometer with integration time: {self.settings['integrationtime']} s")
-        status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationtime"])
+        print(
+            f"Connecting to spectrometer with integration time: {self.settings['integrationtime']} s"
+        )
+        status = self.drv.open(
+            const.CCS175_VID, const.CCS175_PID, self.settings["integrationtime"]
+        )
         if not status:
             return (4, {"Error message": "Can not connect to spectrometer"})
 
@@ -746,6 +1068,9 @@ class TLCCS_GUI(QObject):
 
     @public
     def spectrometerSetIntegrationTime(self, integrationTime):
+        if self._check_preview_running("spectrometerSetIntegrationTime"):
+            return (1, {"Error message": "Cannot set integration time while preview is running"})
+        
         self.drv.set_integration_time(integrationTime)
         # single scan to make sure the time is correctly set
         self.spectrometerStartScan()
@@ -761,6 +1086,9 @@ class TLCCS_GUI(QObject):
 
     @public
     def spectrometerTrigScan(self):
+        if self._check_preview_running("spectrometerTrigScan"):
+            return (1, {"Error message": "Cannot trigger scan while preview is running"})
+        
         # arm the spectrometer to perform a scan on external trigger
         try:
             self.drv.start_scan_ext_trigger()
@@ -770,6 +1098,9 @@ class TLCCS_GUI(QObject):
 
     @public
     def spectrometerStartScan(self):
+        if self._check_preview_running("spectrometerStartScan"):
+            return (1, {"Error message": "Cannot start scan while preview is running"})
+        
         """Starts a spectro scan"""
         status = self.drv.get_device_status()
         if "SCAN_IDLE" not in status:
@@ -780,6 +1111,9 @@ class TLCCS_GUI(QObject):
 
     @public
     def spectrometerStartScanExternal(self):
+        if self._check_preview_running("spectrometerStartScanExternal"):
+            return (1, {"Error message": "Cannot start external scan while preview is running"})
+        
         """
         Starts an external trigger spectro scan
         returns:
@@ -794,6 +1128,9 @@ class TLCCS_GUI(QObject):
 
     @public
     def spectrometerGetSpectrum(self):
+        if self._check_preview_running("spectrometerGetSpectrum"):
+            return (1, {"Error message": "Cannot get spectrum while preview is running"})
+        
         """Reads the spectrum from the spectrometer, waits for the scan to finish if necessary."""
         iterations = 0
         MAX_ITER = 5
@@ -811,6 +1148,9 @@ class TLCCS_GUI(QObject):
 
     @public
     def spectrometerGetScan(self):
+        if self._check_preview_running("spectrometerGetScan"):
+            return (1, {"Error message": "Cannot get scan while preview is running"})
+        
         """Atomically get a spectrum to prevent weird behavior when a scan is already running."""
         self.drv.start_scan()
         data = self.drv.get_scan_data()
@@ -829,8 +1169,13 @@ class TLCCS_GUI(QObject):
     def createFile(self, varDict, filedelimeter, address, data):
         # check if the file already exists, if yes, return error
         if os.path.isfile(address):
-            return (1, {"Error message": "File already exists at the specified address."})
-        fileheader = self.fm.create_spectrometer_header(varDict, separator=filedelimeter)
+            return (
+                1,
+                {"Error message": "File already exists at the specified address."},
+            )
+        fileheader = self.fm.create_spectrometer_header(
+            varDict, separator=filedelimeter
+        )
         self.log_verbose(f"Creating file at {address} with data shape {data.shape}")
         np.savetxt(
             address,
@@ -843,45 +1188,3 @@ class TLCCS_GUI(QObject):
             comments="#",
         )
         return (0, {})
-
-    ######## Timer callback ########
-    def _on_preview_tick(self):
-        """Timer tick handler: apply pending integration time and non-blocking preview polling."""
-        try:
-            if not self.preview_running:
-                return
-
-            if self.integrationTimeChanged:
-                self.drv.set_integration_time(self.settings["integrationtime"])
-                self.integrationTimeChanged = False
-                # restart continuous scanning after integration time update
-                self.drv.start_scan_continuous()
-                self._preview_wait_started_at = time.monotonic()
-
-                # reset the timer interval in case integration time is higher than default interval
-                integration_ms = int(self.settings["integrationtime"] * 1000)
-                interval_ms = int(max(self.default_timerInterval, integration_ms))
-                self._preview_timer.start(interval_ms + 50)  # add a small buffer to ensure the scan is finished before next tick
-                return
-
-            statuses = self.drv.get_device_status()
-
-            if "SCAN_TRANSFER" in statuses:
-                data = self.drv.get_scan_data()
-                self.data_recieved_signal.emit([self.correction[:, 0], data])
-                self._preview_wait_started_at = time.monotonic()
-                return
-
-            if self._preview_wait_started_at is None:
-                self._preview_wait_started_at = time.monotonic()
-
-            # watchdog against stale trigger state during preview without blocking GUI thread
-            waited_s = time.monotonic() - self._preview_wait_started_at
-            wait_timeout_s = max(2.0, 2.0 * float(self.settings.get("integrationtime", 0.05)) + 0.5)
-            if waited_s > wait_timeout_s and "SCAN_TRANSFER" not in statuses:
-                self.log_verbose(f"Preview watchdog: no transfer after {waited_s:.2f} s, statuses={statuses}. Restarting continuous scan.")
-                _ = self.drv.get_integration_time()
-                self.drv.start_scan_continuous()
-                self._preview_wait_started_at = time.monotonic()
-        except Exception as e:
-            self.log_verbose(f"Preview timer error: {e}")
