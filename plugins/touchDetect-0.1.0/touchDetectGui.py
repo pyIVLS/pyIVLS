@@ -10,8 +10,8 @@ from plugin_components import (
     LoggingHelper,
     DependencyManager,
 )
-from components.worker_thread import WorkerThread
-from components.threadStopped import ThreadStopped
+from worker_thread import WorkerThread
+from threadStopped import ThreadStopped
 
 
 class touchDetectGUI:
@@ -37,7 +37,7 @@ class touchDetectGUI:
             "smu": "smuBox",
             "contacting": "condetBox",
         }
-        self.dm = DependencyManager("touchDetect", dependencies, self.settingsWidget, dependency_map)
+        self.dm = DependencyManager("touchDetect", dependencies)
 
         # Initialize the combo boxes for dependencies
         self.smu_box: QComboBox = self.settingsWidget.smuBox
@@ -102,20 +102,26 @@ class touchDetectGUI:
     def _fetch_dep_plugins(self):
         self.logger.log_debug("Fetching dependency plugins")
 
-        result = self.dm.validate_and_extract_dependency_settings(self.settings)
+        parse_target = copy.deepcopy(self.settings)
+        parse_target["micromanipulator"] = self.micromanipulator_box.currentText()
+        parse_target["smu"] = self.smu_box.currentText()
+        parse_target["contacting"] = self.condet_box.currentText()
+
+        result = self.dm.parse_dependencies(parse_target)
         status, state = result
         if status != 0:
             self.logger.log_warn(f"Dependency settings invalid: {state}")
             return None, None, None
+        self.settings.update(state)
         func_dict = self.dm.function_dict
         mm_functions = func_dict["micromanipulator"]
         contacting_functions = func_dict["contacting"]
         smu_functions = func_dict["smu"]
 
         # filter to just include the selected plugins of each type
-        mm_functions = mm_functions[self.settings["micromanipulator"]]
-        smu_functions = smu_functions[self.settings["smu"]]
-        contacting_functions = contacting_functions[self.settings["contacting"]]
+        mm_functions = mm_functions[state["micromanipulator"]]
+        smu_functions = smu_functions[state["smu"]]
+        contacting_functions = contacting_functions[state["contacting"]]
 
         return mm_functions, smu_functions, contacting_functions
 
@@ -210,6 +216,7 @@ class touchDetectGUI:
         """Sets up the GUI for the plugin. This function is called by hook to initialize the GUI."""
         self.logger.log_debug("Setting up touchDetect GUI")
         self.dm.initialize_dependency_selection(settings)
+        self._refresh_dependency_boxes(settings)
 
         # Hide all manipulator boxes initially
         for box, smu_box, con_box, res_spin in self.manipulator_boxes:
@@ -244,6 +251,22 @@ class touchDetectGUI:
 
         self.logger.log_debug("TouchDetect GUI setup completed")
         return self.settingsWidget
+
+    def _refresh_dependency_boxes(self, settings: dict | None = None) -> None:
+        dep_widgets = {
+            "micromanipulator": self.micromanipulator_box,
+            "smu": self.smu_box,
+            "contacting": self.condet_box,
+        }
+        settings = settings or {}
+        available_map = self.dm.get_available_dependency_plugins()
+        for dep_type, widget in dep_widgets.items():
+            available = available_map.get(dep_type, [])
+            widget.clear()
+            widget.addItems(available)
+            selected = settings.get(dep_type, "")
+            if selected and selected in available:
+                widget.setCurrentText(selected)
 
     def _create_manipulator_infos_from_settings(self, settings: dict) -> list[ManipulatorInfo]:
         """Convert settings dictionary to ManipulatorInfo objects for low-level functionality"""
@@ -407,13 +430,16 @@ class touchDetectGUI:
         settings["sample_width"] = self.sample_width.value()
         settings["spectrometer_height"] = self.spectro_height.value()
 
+        settings["micromanipulator"] = self.micromanipulator_box.currentText()
+        settings["smu"] = self.smu_box.currentText()
+        settings["contacting"] = self.condet_box.currentText()
+
         # add dependency settings
-        result = self.dm.validate_and_extract_dependency_settings(self.settings)
+        result = self.dm.parse_dependencies(settings)
         status, state = result
         if status != 0:
             return status, state
-        self.settings.update(state)
-        self.settings.update(settings)
+        self.settings = state
 
         self.logger.log_debug(f"Parsed settings: {self.settings}")
         return (0, self.settings)

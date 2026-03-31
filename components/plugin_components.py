@@ -15,8 +15,10 @@ This also helps in keeping the GUI implementation relatively clean.
 
 
 This file includes:
-- ConnectionIndicatorStyle: Enum for connection indicator styles
 - Manipulator colors: A list of colors for manipulators, defined as RGB tuples
+- load_widget: function to load widgets from .ui files in a specified directory, with options for settings and MDI widgets
+- ini_to_bool: function to convert ini string values to boolean, handles str and bool inputs
+- ConnectionIndicatorStyle: Enum for connection indicator styles
 - CloseLockSignalProvider: Component to provide closelock signal functionality without QObject inheritance
 - public: Decorator to mark a function as public in the plugin system. Also checks that the return type is annotated correctly.
 - get_public_methods: Function to get a dict of public methods in an object instance that are marked with the @public
@@ -29,16 +31,91 @@ This file includes:
 
 """
 
+import os
 import sys
 import traceback
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Literal, overload
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QColor as Qcolor
+from PyQt6.QtWidgets import QWidget
+from PyQt6 import uic
 
 # Qcolors for manipulators as list
 MANIPULATOR_COLORS = (Qcolor(255, 0, 0), Qcolor(0, 255, 0), Qcolor(0, 0, 255), Qcolor(255, 255, 0))
+
+
+@overload
+def load_widget(settings: Literal[True], mdi: Literal[True], path: str) -> tuple[QWidget, QWidget]: ...
+
+
+@overload
+def load_widget(settings: Literal[True], mdi: Literal[False], path: str) -> QWidget: ...
+
+
+@overload
+def load_widget(settings: Literal[False], mdi: Literal[True], path: str) -> QWidget: ...
+
+
+def load_widget(settings: bool, mdi: bool, path: str) -> QWidget | tuple[QWidget, QWidget]:
+    """Loads either an settings widget or mdi widget from the specified directory with a certain suffix.
+    Eww ugly return
+
+    Args:
+        settings (bool): load settings widget
+        mdi (bool): load MDI widget
+        path (str): path to directory which should contain the widget
+
+    Raises:
+        FileNotFoundError: No widget found
+        ValueError: Invalid Arguments
+
+    Returns:
+        QWidget: settings or MDI widget
+    """
+    if not (settings or mdi):
+        raise ValueError("At least one of settings or mdi must be True")
+
+    setwid = None
+    mdiwid = None
+
+    for _, _, files in os.walk(path):
+        for file in files:
+            if file.endswith(".ui"):
+                suffix = file.rsplit("_", 1)[-1].lower()
+                full_path = os.path.join(path, file)
+                if suffix == "settingswidget.ui" and settings:
+                    setwid: QWidget | None = uic.loadUi(full_path)  # type: ignore
+                elif suffix == "mdiwidget.ui" and mdi:
+                    mdiwid: QWidget | None = uic.loadUi(full_path)  # type: ignore
+
+    if settings and mdi:
+        if setwid is None:
+            raise FileNotFoundError("Could not find settings widgets in the specified path")
+        if mdiwid is None:
+            raise FileNotFoundError("Could not find MDI widgets in the specified path")
+        return setwid, mdiwid
+    elif settings:
+        if setwid is None:
+            raise FileNotFoundError("Could not find settings widget in the specified path")
+        return setwid
+    else:
+        if mdiwid is None:
+            raise FileNotFoundError("Could not find MDI widget in the specified path")
+        return mdiwid
+
+
+def ini_to_bool(val: str | bool) -> bool:
+    """Convert ini string to bool. Accepts "true" and "false" (case insensitive). Raises ValueError for invalid input."""
+    if isinstance(val, bool):
+        return val
+    if val.lower() == "true":
+        return True
+    elif val.lower() == "false":
+        return False
+    else:
+        raise ValueError(f"Invalid boolean value: {val}. Expected 'true' or 'false' (case insensitive).")
 
 
 class ConnectionIndicatorStyle(Enum):
@@ -359,18 +436,21 @@ class PluginException(Exception):
 
 class DependencyManager:
     """
-    Wrapper to manage gathering dependencies, parsing dep settings and providing a consistent interface for plugins to access the methods they need.
+    Wrapper to manage gathering dependencies, parsing dependency settings and providing
+    a consistent interface for plugins to access required methods.
     USAGE:
-    - Initialize with or without widget and with the declared dependencies.
-    - When loading data from .ini, call initialize_dependency_selection to set the initial state of the dependency comboboxes based on saved settings.
-    - When receiving the function dict from the plugin system, call set_available_dependency_functions to set the available functions and check for missing dependencies. This will also update the comboboxes to only show valid options.
-    - Access available function_dict through the property. This includes all plugins that satify the required method sets, and should be filtered after fetching
-    - "validate_and_extract_dependency_settings" is used to parse the settings widgets for plugins and add their settings to the settings dict.
+    - Initialize with the declared dependencies.
+    - When loading data from .ini, call initialize_dependency_selection to restore remembered selections.
+    - Plugin GUI code owns any comboboxes/widgets and calls set_selected_dependency_plugins.
+    - When receiving the function dict from the plugin system, call set_available_dependency_functions to set the available functions and check for missing dependencies.
+    - Use get_available_dependency_plugins to populate dependency combobox options.
+    - Access available function_dict through the property. This includes all plugins that satisfy the required method sets.
+    - "parse_dependencies" is used to parse the settings widgets for plugins and add their settings to the settings dict.
 
 
     """
 
-    def __init__(self, plugin_name: str, dependencies: Dict[str, list], widget, mapping: Dict[str, str]):
+    def __init__(self, plugin_name: str, dependencies: Dict[str, list]):
         """
         Initialize dependency manager.
 
@@ -378,17 +458,15 @@ class DependencyManager:
             plugin_name: Name of the plugin using this manager
             dependencies: Dict mapping dependency types to required function lists
                          e.g., {"smu": ["connect", "init"], "spectro": ["measure"]}
-            widget:  widget containing comboboxes for dependency selection
-            mapping: Dict mapping dependency type to combobox widget name
         """
         self.plugin_name = plugin_name
-        self.dependencies = dependencies
-        self.widget = widget
+        # Keep a local mutable copy.
+        self.dependencies = {dep: list(required) for dep, required in dependencies.items()}
         self._function_dict = {}
         self.missing_functions = []
         self.dependency_settings = {}
-        self.combobox_mapping = mapping
         self.last_selected = {}
+        self.selected_dependencies: Dict[str, str] = {}
 
     @property
     def function_dict(self) -> Dict[str, Any]:
@@ -401,7 +479,6 @@ class DependencyManager:
         pruned_function_dict, is_valid, missing_functions = self._prune_dependency_function_dict(value)
         self._function_dict = pruned_function_dict
         self.missing_functions = missing_functions
-        self._update_comboboxes()
 
     def _prune_dependency_function_dict(self, function_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], bool, List[str]]:
         """Keep only declared dependency types and plugins that satisfy required methods."""
@@ -419,49 +496,56 @@ class DependencyManager:
         return len(self.missing_functions) == 0, self.missing_functions
 
     def initialize_dependency_selection(self, settings: Dict[str, Any]):
-        """Initialize remembered dependency selections from settings and refresh comboboxes."""
-        self.last_selected = settings.copy()
-        self._update_comboboxes()
+        """Initialize remembered dependency selections from settings."""
+        self.last_selected = {dependency_type: settings.get(dependency_type, "") for dependency_type in self.dependencies.keys() if settings.get(dependency_type, "")}
         return (0, {})
 
-    def _update_comboboxes(self) -> None:
-        """Update all dependency comboboxes with available plugins."""
-        if not self.widget:
-            return
-
-        for dependency_type, combobox_name in self.combobox_mapping.items():
-            if dependency_type in self._function_dict:
-                combobox = getattr(self.widget, combobox_name)
-                combobox.clear()
-                available_plugins = list(self._function_dict[dependency_type].keys())
-                combobox.addItems(available_plugins)
-                # Try to restore previous selection if it's still available
-                if dependency_type in self.last_selected:
-                    last_selection = self.last_selected[dependency_type]
-                    if last_selection in available_plugins:
-                        combobox.setCurrentText(last_selection)
+    def set_selected_dependency_plugins(self, selected: Dict[str, str]) -> None:
+        """Set selected dependency plugins from caller-managed UI state."""
+        for dependency_type in self.dependencies.keys():
+            selected_plugin = selected.get(dependency_type, "")
+            if selected_plugin:
+                self.selected_dependencies[dependency_type] = selected_plugin
+                self.last_selected[dependency_type] = selected_plugin
 
     def get_selected_dependency_plugins(self) -> Dict[str, str]:
         """
-        Get currently selected dependencies from comboboxes.
+        Get currently selected dependencies.
 
         Returns:
             Dict mapping dependency type to selected plugin name
         """
-        selected = {}
-        if not self.widget:
-            return selected
+        return self.selected_dependencies.copy()
 
-        for dependency_type, combobox_name in self.combobox_mapping.items():
-            try:
-                combobox = getattr(self.widget, combobox_name)
-                selected[dependency_type] = combobox.currentText()
-            except AttributeError:
-                continue
+    def get_available_dependency_plugins(self) -> Dict[str, List[str]]:
+        """Get valid plugin names for each dependency type after filtering."""
+        return {dependency_type: list(self._function_dict.get(dependency_type, {}).keys()) for dependency_type in self.dependencies.keys()}
 
-        return selected
+    def _resolve_selected_dependencies(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, str] | Dict[str, Any]]:
+        selected_deps: Dict[str, str] = {}
+        for dependency_type in self.dependencies.keys():
+            selected_plugin = target_settings_dict.get(dependency_type, "")
+            if not selected_plugin:
+                selected_plugin = self.selected_dependencies.get(dependency_type, "")
+            if not selected_plugin:
+                selected_plugin = self.last_selected.get(dependency_type, "")
 
-    def validate_and_extract_dependency_settings(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+            if not selected_plugin:
+                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"No {dependency_type} plugin selected"})
+
+            if dependency_type not in self._function_dict:
+                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"No {dependency_type} plugins available"})
+
+            if selected_plugin not in self._function_dict[dependency_type]:
+                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"{dependency_type} plugin '{selected_plugin}' not available"})
+
+            selected_deps[dependency_type] = selected_plugin
+
+        self.selected_dependencies.update(selected_deps)
+        self.last_selected.update(selected_deps)
+        return (0, selected_deps)
+
+    def parse_dependencies(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
         """
         Validates all dependency selections and extracts their settings.
 
@@ -481,15 +565,14 @@ class DependencyManager:
         if not self._function_dict:
             return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"Missing functions in {self.plugin_name} plugin. Check log"})
 
-        # Get selected dependencies from GUI
-        selected_deps = self.get_selected_dependency_plugins()
+        status, selected_or_error = self._resolve_selected_dependencies(target_settings_dict)
+        if status != 0:
+            return status, selected_or_error  # type: ignore
+        selected_deps = selected_or_error  # type: ignore
         dependency_settings = {}
 
         # Validate and extract settings for each dependency type
         for dependency_type in self.dependencies.keys():
-            if dependency_type not in selected_deps or not selected_deps[dependency_type]:
-                return (PyIVLSReturnCode.MISSING_DEPENDENCY.value, {"Error message": f"No {dependency_type} plugin selected"})
-
             selected_plugin = selected_deps[dependency_type]
 
             # Selection existence check. Method-level validation is already guaranteed by pruned function_dict.
@@ -521,6 +604,40 @@ class DependencyManager:
         # combine the target settings dict with the dependency settings to return to the plugin.
         target_settings_dict.update(dependency_settings)
         return (0, target_settings_dict)
+
+    def set_dependency_settings(self, settings: Dict[str, Any]) -> None:
+        """Call setSettings for selected deps to update their internal state
+
+        Args:
+            settings (Dict[str, Any]): _description_
+        """
+        status, selected_or_error = self._resolve_selected_dependencies(settings)
+        if status != 0:
+            return
+        selected_deps = selected_or_error  # type: ignore
+
+        for dependency_type, plugin_name in selected_deps.items():
+            if not plugin_name:
+                continue
+            settings_key = f"{dependency_type}_settings"
+            if settings_key not in settings:
+                continue
+            plugin_functions = self._function_dict.get(dependency_type, {}).get(plugin_name, {})
+            if "setSettings" not in plugin_functions:
+                continue
+            plugin_functions["setSettings"](settings[settings_key])
+
+    def update_dep_guis(self, selected_dependencies: Optional[Dict[str, str]] = None) -> None:
+        """Call any GUI update functions for the selected dependencies to reflect any changes in their settings."""
+        selected_deps = selected_dependencies or self.selected_dependencies or self.last_selected
+
+        for dependency_type, plugin_name in selected_deps.items():
+            try:
+                if "set_gui_from_settings" in self._function_dict[dependency_type][plugin_name]:
+                    self._function_dict[dependency_type][plugin_name]["set_gui_from_settings"]()
+            except KeyError:
+                print(f"Function 'set_gui_from_settings' not found for {dependency_type} plugin '{plugin_name}'")
+                continue
 
 
 class LoggingHelper(QObject):

@@ -20,8 +20,7 @@ class verifyContactGUI:
 
         # Initialize DependencyManager
         dependencies = {"contactingmove": ["parse_settings_widget", "setSettings", "verify_contact"]}
-        dependency_mapper = {"contactingmove": "touchDetBox"}
-        self.dm = DependencyManager("verifyContact", dependencies, self.settingsWidget, dependency_mapper)
+        self.dm = DependencyManager("verifyContact", dependencies)
 
         # Internal settings storage
         self.settings = {}
@@ -57,8 +56,17 @@ class verifyContactGUI:
         self.settings = settings
         # Setup the UI elements with the provided settings
         self.dm.initialize_dependency_selection(settings)
+        self._refresh_dependency_box(settings)
 
         return self.settingsWidget
+
+    def _refresh_dependency_box(self, settings: dict | None = None) -> None:
+        available = self.dm.get_available_dependency_plugins().get("contactingmove", [])
+        self.settingsWidget.touchDetBox.clear()
+        self.settingsWidget.touchDetBox.addItems(available)
+        selected = (settings or {}).get("contactingmove", "")
+        if selected and selected in available:
+            self.settingsWidget.touchDetBox.setCurrentText(selected)
 
     @public
     def parse_settings_widget(self) -> tuple[int, dict]:
@@ -69,11 +77,13 @@ class verifyContactGUI:
                 status_code: 0 if successful, 1 if error
                 settings_dict: dictionary of current settings
         """
-        result = self.dm.validate_and_extract_dependency_settings(self.settings)
+        parsed = copy.deepcopy(self.settings)
+        parsed["contactingmove"] = self.settingsWidget.touchDetBox.currentText()
+        result = self.dm.parse_dependencies(parsed)
         status, state = result
         if status != 0:
             return status, state
-        self.settings.update(state)
+        self.settings = state
         return 0, self.settings
 
     @public

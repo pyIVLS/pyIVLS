@@ -361,7 +361,7 @@ class VenusUSB2GUI(QObject):
             self.logger.info_popup("VenusUSB2 plugin : filename is not valid")
             return [1, {"Error message": "VenusUSB2 plugin : filename is not valid"}]
         return [0, {"Error message": "OK"}]
-    
+
     @public
     def setSettings(self, settings: dict):
         """Sets the plugin settings from a dictionary.
@@ -370,3 +370,15 @@ class VenusUSB2GUI(QObject):
             settings (dict): A dictionary containing plugin settings.
         """
         self.settings = settings
+
+    @public
+    def set_gui_from_settings(self):
+        """Sets the GUI elements from the internal settings dictionary.
+
+        Args:
+            settings (dict): A dictionary containing plugin settings.
+        """
+        self.settingsWidget.cameraSource.setText(self.settings["source"])
+        self.settingsWidget.lineEdit_path.setText(self.settings["address"])
+        self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
+        self.settingsWidget.exposure.setCurrentText(str(self.settings["exposure"]))

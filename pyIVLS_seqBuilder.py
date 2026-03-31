@@ -120,8 +120,8 @@ class pyIVLS_seqBuilder(QObject):
         self.widget.stopButton.clicked.connect(self._stopAction)
         self.widget.testButton.clicked.connect(self._test_action)
         self._sigSeqEnd.connect(self._setNotRunning)
-        self.widget.updateSettings.clicked.connect(self._updateInstructionSettings)
-        self.widget.readSettingsButton.clicked.connect(self.read_and_update_instruction_settings)
+        self.widget.updateSettings.clicked.connect(self._update_settings_action)
+        self.widget.readSettingsButton.clicked.connect(self._read_settings_action)
 
         # connect the label click on gds to a function
         # add a custom context menu in the list widget to allow point deletion
@@ -148,16 +148,18 @@ class pyIVLS_seqBuilder(QObject):
             self.item = root_item.child(0)
 
         def update_settings_for_selected_item(row, idx_parent):
+            """Helper to update the settings of a single item from the GUI to the model."""
             item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
             if item is None:
                 raise ValueError("Selected item not found in the model.")
             self._updateInstructionSettings(item)
 
         def to_gui_settings_for_selected_item(row, idx_parent):
+            """Helper to update the settings of a single item from the model to the GUI."""
             item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
             if item is None:
                 raise ValueError("Selected item not found in the model.")
-            self.update_item_gui(item)
+            self.sequence_settings_to_gui(item)
 
         idx: QModelIndex = self.widget.treeView.indexAt(position)
         # get parent index
@@ -180,6 +182,101 @@ class pyIVLS_seqBuilder(QObject):
         menu.addAction(delete_action)
         menu.addAction(to_gui_action)
         menu.exec(self.widget.treeView.mapToGlobal(position))
+
+    def _iter_instruction_items(self, root_item=None):
+        """Yield all instruction items (column 0) in depth-first order."""
+        if root_item is None:
+            root_item = self.model.invisibleRootItem().child(0)
+        if root_item is None:
+            return
+
+        for row in range(root_item.rowCount()):
+            child = root_item.child(row, 0)
+            if child is None:
+                continue
+            yield child
+            yield from self._iter_instruction_items(child)
+
+    def _update_single_instruction_settings(self, item: QStandardItem) -> tuple[bool, list[str] | str]:
+        """Update one instruction's stored settings from the current plugin GUI state."""
+
+        def compare_dicts(old, new):
+            changes = []
+            for key, newValue in new.items():
+                if isinstance(newValue, dict):
+                    oldValue = old.get(key, None) if old else None
+                    nested_changes = compare_dicts(oldValue, newValue)
+                    changes.extend([f"{key}.{change}" for change in nested_changes])
+                    continue
+                oldValue = old.get(key, None) if old else None
+                if oldValue != newValue:
+                    changes.append(f"{key}: {oldValue} -> {newValue}")
+            return changes
+
+        instructionFunc = item.text()
+        if instructionFunc not in self.available_instructions:
+            return False, f"Instruction {instructionFunc} is not available."
+
+        status, possible_settings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
+        if status:
+            return False, f"Error parsing settings for {instructionFunc}: {possible_settings['Error message']}"
+
+        oldSettings = item.data(Qt.ItemDataRole.UserRole)
+        changes = compare_dicts(oldSettings, possible_settings)
+        item.setData(possible_settings, Qt.ItemDataRole.UserRole)
+        return True, changes
+
+    def _apply_single_instruction_settings_to_gui(self, item: QStandardItem) -> tuple[bool, str]:
+        """Push one instruction's saved settings into plugin internals and update its GUI."""
+        instruction_func = item.text()
+        if instruction_func not in self.available_instructions:
+            return False, f"Instruction {instruction_func} is not available."
+
+        saved_settings = item.data(Qt.ItemDataRole.UserRole)
+        if not saved_settings:
+            return False, f"No saved settings found for {instruction_func}."
+
+        plugin_functions = self.available_instructions[instruction_func]["functions"]
+        if "setSettings" in plugin_functions:
+            try:
+                ret = plugin_functions["setSettings"](saved_settings)
+                if isinstance(ret, tuple) and ret[0] != 0:
+                    print(ret)
+                    return False, f"Error sending settings to {instruction_func}: {ret[1]}"
+            except Exception as e:
+                return False, f"Error sending settings to {instruction_func}: {str(e)}"
+
+        if "set_gui_from_settings" in plugin_functions:
+            try:
+                plugin_functions["set_gui_from_settings"]()
+            except Exception as e:
+                detailed_error = traceback.format_exc()
+                return False, f"Error updating GUI for {instruction_func}: {str(e)}\n{detailed_error}"
+        else:
+            return False, f"set_gui_from_settings is not implemented for {instruction_func}."
+
+        return True, "OK"
+
+    def _update_settings_action(self):
+        """This updates all plugins from the current GUI state"""
+        changes = {}
+        for item in self._iter_instruction_items():
+            success, item_changes = self._update_single_instruction_settings(item)
+            if not success:
+                self.info_message.emit(item_changes)
+            else:
+                changes[item.text()] = item_changes
+
+        # emit a single message summarizing all changes
+        if changes:
+            self.info_message.emit("Updated settings for instructions:\n" + "\n".join([f"{key}: {change}" for key, val in changes.items() for change in val]))
+
+    def _read_settings_action(self):
+        """This reads the settings from internal model into the gui for all items in the sequence"""
+        for item in self._iter_instruction_items():
+            success, message = self._apply_single_instruction_settings_to_gui(item)
+            if not success:
+                self.info_message.emit(message)
 
     def _root_item_changed(self, idx):
         if idx.column() != 0:
@@ -334,7 +431,7 @@ class pyIVLS_seqBuilder(QObject):
         if self._is_in_ancestry(self.item, instructionFunc) or self.item.text() == instructionFunc:
             self.info_message.emit("Cannot add a plugin that already exists in its ancestry or as a direct child")
             return 1
-
+        print(f"selected instruction: {instructionFunc}, available: {self.available_instructions}")
         status, instructionSettings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
         if status:
             self.info_message.emit(instructionSettings["Error message"])
@@ -491,204 +588,3 @@ class pyIVLS_seqBuilder(QObject):
         else:
             self.info_message.emit("No running sequence to stop.")
         self._setRunStatus(False)
-
-    def _updateInstructionSettings(self, item=None):
-        """
-        Updates the settings for a single instruction or all instructions in the sequence.
-
-        Args:
-            item (QStandardItem, optional): The item to update. If None, updates all instructions.
-        """
-
-        def update_item_settings(item):
-            def compare_dicts(old, new):
-                changes = []
-                for key, newValue in new.items():
-                    # if nested dict, compare recursively
-                    if isinstance(newValue, dict):
-                        oldValue = old.get(key, None) if old else None
-                        nested_changes = compare_dicts(oldValue, newValue)
-                        changes.extend([f"{key}.{change}" for change in nested_changes])
-                        continue
-                    oldValue = old.get(key, None) if old else None
-                    if oldValue != newValue:
-                        changes.append(f"{key}: {oldValue} -> {newValue}")
-                return changes
-
-            instructionFunc = item.text()
-            if instructionFunc not in self.available_instructions:
-                self.info_message.emit(f"Instruction {instructionFunc} is not available.")
-                return
-
-            # Validate settings using parse_settings_widget
-            status, possible_settings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
-            if status:
-                self.info_message.emit(f"Error parsing settings for {instructionFunc}: {possible_settings['Error message']}")
-                return
-            else:
-                newSettings = possible_settings
-
-            # Compare old and new settings
-            oldSettings = item.data(Qt.ItemDataRole.UserRole)
-            changes = compare_dicts(oldSettings, newSettings)
-
-            # Update the item's settings
-            item.setData(newSettings, Qt.ItemDataRole.UserRole)
-
-            return changes
-
-        all_changes = {}
-
-        if item:
-            # Update a single item
-            changes = update_item_settings(item)
-            if changes:
-                all_changes[item.text()] = changes
-        else:
-            # Update all items in the sequence
-            def traverse_and_update(item):
-                for row in range(item.rowCount()):
-                    child = item.child(row, 0)
-                    changes = update_item_settings(child)
-                    if changes:
-                        all_changes[child.text()] = changes
-                    traverse_and_update(child)
-
-            root_item = self.model.invisibleRootItem()
-            if root_item is None:
-                self.info_message.emit("Error: The sequence tree is not properly initialized.")
-                return
-
-            first_child = root_item.child(0)
-            if first_child is None:
-                self.info_message.emit("Error: The sequence tree has no root item.")
-                return
-
-            traverse_and_update(first_child)
-
-        # Emit a single aggregated message
-        if all_changes:
-            message = "Settings updated with the following changes:\n"
-            for child_name, changes in all_changes.items():
-                message += f"\n{child_name}:\n"
-                for change in changes:
-                    message += f"  - {change}\n"
-            self.info_message.emit(message)
-        else:
-            self.info_message.emit("No changes were made.")
-
-    def update_item_gui(self, item):
-        instruction_func = item.text()
-        if instruction_func not in self.available_instructions:
-            self.info_message.emit(f"Instruction {instruction_func} is not available.")
-            return
-        
-        # retrieve the settings for the item in question
-        settings = item.data(Qt.ItemDataRole.UserRole)
-        if not settings:
-            self.info_message.emit(f"No settings found for {instruction_func}. Cannot update GUI.")
-            return
-        
-
-
-        # Get funcs
-        plugin_functions = self.available_instructions[instruction_func]["functions"]
-        # send the settings to the plugin
-        if "setSettings" in plugin_functions:
-            try:
-                plugin_functions["setSettings"](settings)
-            except Exception as e:
-                self.info_message.emit(f"Error sending settings to {instruction_func}: {str(e)}")
-                return
-
-        # update the gui based on the settings
-        if "set_gui_from_settings" in plugin_functions:
-            try:
-                plugin_functions["set_gui_from_settings"]()
-            except Exception as e:
-                self.info_message.emit(f"Error while updating GUI for {instruction_func}: {str(e)}")
-        else:
-            self.info_message.emit(f"set_gui_from_settings is not implemented for {instruction_func}.")
-            return
-
-    def update_all_instruction_guis(self):
-        """
-        THIS SEEMS TO BE DEAD CODE CURRENTLY; DEPRECATE!
-        Iterates through all instructions in the sequence and calls `set_gui_from_settings` for each instruction plugin.
-        Logs a message if `set_gui_from_settings` is not implemented for a plugin.
-        """
-        raise DeprecationWarning("update_all_instruction_guis is currently not used and may be removed in future versions.")
-
-        def traverse_and_update(item):
-            for row in range(item.rowCount()):
-                child = item.child(row, 0)
-                self.update_item_gui(child)
-                traverse_and_update(child)
-
-        root_item = self.model.invisibleRootItem()
-        if root_item is None:
-            self.info_message.emit("Error: The sequence tree is not properly initialized.")
-            return
-
-        first_child = root_item.child(0)
-        if first_child is None:
-            self.info_message.emit("Error: The sequence tree has no root item.")
-            return
-        
-        traverse_and_update(first_child)
-
-    def read_and_update_instruction_settings(self):
-        """
-        Sends the saved settings data for all instructions to the plugins,
-        and calls `set_gui_from_settings` to update the GUI fields based on the saved settings.
-        """
-
-        def process_item_settings(item):
-            instruction_func = item.text()
-            if instruction_func not in self.available_instructions:
-                self.info_message.emit(f"Instruction {instruction_func} is not available.")
-                return
-
-            # Retrieve saved settings from the item
-            saved_settings = item.data(Qt.ItemDataRole.UserRole)
-            print(f"Retrieved settings for {instruction_func}: {saved_settings}")
-            if not saved_settings:
-                self.info_message.emit(f"No saved settings found for {instruction_func}.")
-                return
-
-            # Send the saved settings to the plugin
-            plugin_functions = self.available_instructions[instruction_func]["functions"]
-            if "setSettings" in plugin_functions:
-                try:
-                    plugin_functions["setSettings"](saved_settings)
-                except Exception as e:
-                    self.info_message.emit(f"Error sending settings to {instruction_func}: {str(e)}")
-                    return
-
-            # Update the GUI fields using set_gui_from_settings
-            if "set_gui_from_settings" in plugin_functions:
-                try:
-                    plugin_functions["set_gui_from_settings"]()
-                except Exception as e:
-                    detailed_error = traceback.format_exc()
-                    self.info_message.emit(f"Error updating GUI for {instruction_func}: {str(e)}\n{detailed_error}")
-            else:
-                self.info_message.emit(f"set_gui_from_settings is not implemented for {instruction_func}.")
-
-        def traverse_and_process(item):
-            for row in range(item.rowCount()):
-                child = item.child(row, 0)
-                process_item_settings(child)
-                traverse_and_process(child)
-
-        root_item = self.model.invisibleRootItem()
-        if root_item is None:
-            self.info_message.emit("Error: The sequence tree is not properly initialized.")
-            return
-
-        first_child = root_item.child(0)
-        if first_child is None:
-            self.info_message.emit("Error: The sequence tree has no root item.")
-            return
-
-        traverse_and_process(first_child)

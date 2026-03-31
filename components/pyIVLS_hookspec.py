@@ -105,7 +105,7 @@ class pyIVLS_hookspec:
         """Reads the current settings from the settingswidget, returns a dict.
 
         Args:
-            args (dict??, optional): Spesifies if a response is needed, for instance when saving a spesific plugin's settings.
+            args (dict??, optional): Specifies if a response is needed, for instance when saving a specific plugin's settings.
         Returns:
             Tuple [str, int, dict]: name + error code + dict containing the current settings of the plugin. (naming should be consistent with the ini-file?)
         """

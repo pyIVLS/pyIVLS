@@ -18,7 +18,7 @@ from plugin_components import (
 )
 from collisionDetection import CollisionDetector
 from affineMoveVisualization import AffineMoveVisualization
-from components.threadStopped import ThreadStopped
+from threadStopped import ThreadStopped
 
 
 class ViewportClickCatcher(QObject):
@@ -88,7 +88,7 @@ class affineMoveGUI(QObject):
             "camera": "cameraBox",
             "positioning": "positioningBox",
         }
-        self.dm = DependencyManager("affineMove", dependencies, self.settingsWidget, dependency_map)
+        self.dm = DependencyManager("affineMove", dependencies)
 
         # connect buttons to functions
         self.settingsWidget.findSutter.clicked.connect(self._find_sutter_functionality)
@@ -208,7 +208,7 @@ class affineMoveGUI(QObject):
                 calibration_matrix_parts = calibration_matrix_str.strip("[]").split(", ")
                 calibration_matrix = np.array(calibration_matrix_parts, dtype=float).reshape(2, 3)
                 return calibration_matrix
-            except ValueError as e:
+            except ValueError:
                 return None
         else:
             print(f"No calibration found for manipulator {manipulator_idx} in settings.")
@@ -255,22 +255,33 @@ class affineMoveGUI(QObject):
 
     def _fetch_dep_plugins(self):
         """Returns the micromanipulator, camera and positioning plugins as dictionaries."""
-
-        result = self.dm.validate_and_extract_dependency_settings(self.settings)
-        status, state = result
-        if status != 0:
-            self.logger.log_warn(f"Dependency validation failed: {state}")
+        func_dict = self.dm.function_dict
+        if not func_dict:
+            self.logger.log_warn("Dependency function dictionary is empty.")
             return None, None, None
 
-        func_dict = self.dm.function_dict
-        mm_functions = func_dict["micromanipulator"]
-        camera_functions = func_dict["camera"]
-        positioning_functions = func_dict["positioning"]
+        mm_functions = func_dict.get("micromanipulator", {})
+        camera_functions = func_dict.get("camera", {})
+        positioning_functions = func_dict.get("positioning", {})
+
+        mm_name = self.micromanipulator_box.currentText() or self.settings.get("micromanipulator", "")
+        camera_name = self.camera_box.currentText() or self.settings.get("camera", "")
+        positioning_name = self.positioning_box.currentText() or self.settings.get("positioning", "")
+
+        if not mm_name or mm_name not in mm_functions:
+            self.logger.log_warn("Selected micromanipulator plugin is not available.")
+            return None, None, None
+        if not camera_name or camera_name not in camera_functions:
+            self.logger.log_warn("Selected camera plugin is not available.")
+            return None, None, None
+        if not positioning_name or positioning_name not in positioning_functions:
+            self.logger.log_warn("Selected positioning plugin is not available.")
+            return None, None, None
 
         # Filter to include only the selected plugins of each type
-        mm_functions = mm_functions[self.settings["micromanipulator"]]
-        camera_functions = camera_functions[self.settings["camera"]]
-        positioning_functions = positioning_functions[self.settings["positioning"]]
+        mm_functions = mm_functions[mm_name]
+        camera_functions = camera_functions[camera_name]
+        positioning_functions = positioning_functions[positioning_name]
 
         return mm_functions, camera_functions, positioning_functions
 
@@ -599,8 +610,8 @@ class affineMoveGUI(QObject):
         if pos is None:
             self.logger.log_warn("Positioning plugin is None in _fetch_mask_functionality")
             return
-        points, names = pos["positioning_measurement_points"]()
-        if points is None or names is None:
+        status, (points, names) = pos["positioning_measurement_points"]()
+        if status != 0 or points is None or names is None:
             self.logger.info_popup("AffineMove: No measurement points available in positioning plugin")
             self.logger.log_error("No measurement points or names returned from positioning plugin")
             return
@@ -707,6 +718,7 @@ class affineMoveGUI(QObject):
         """Sets up the GUI for the plugin. This function is called by hook to initialize the GUI."""
         self.logger.log_debug("Setting up affineMove GUI")
         self.dm.initialize_dependency_selection(settings)
+        self._refresh_dependency_boxes(settings)
 
         # Store settings internally (maintain .ini format)
         self.settings = copy.deepcopy(settings)
@@ -716,6 +728,22 @@ class affineMoveGUI(QObject):
 
         self.logger.log_debug("AffineMove GUI setup completed")
         return self.settingsWidget
+
+    def _refresh_dependency_boxes(self, settings: dict | None = None) -> None:
+        dep_to_widget = {
+            "micromanipulator": self.micromanipulator_box,
+            "camera": self.camera_box,
+            "positioning": self.positioning_box,
+        }
+        settings = settings or {}
+        available_map = self.dm.get_available_dependency_plugins()
+        for dep_type, widget in dep_to_widget.items():
+            available = available_map.get(dep_type, [])
+            widget.clear()
+            widget.addItems(available)
+            selected = settings.get(dep_type, "")
+            if selected and selected in available:
+                widget.setCurrentText(selected)
 
     ########Functions
     ###############GUI react to change
@@ -923,8 +951,9 @@ class affineMoveGUI(QObject):
                     if point and len(point) >= 2:
                         # Convert from mask coordinates to camera coordinates using positioning plugin
                         try:
-                            camera_x, camera_y = pos["positioning_coords"](point)
-                            target_coords[point_idx][device_idx] = (float(camera_x), float(camera_y))
+                            status, (camera_x, camera_y) = pos["positioning_coords"](point)
+                            if status == 0:
+                                target_coords[point_idx][device_idx] = (float(camera_x), float(camera_y))
                         except Exception as e:
                             self.logger.log_debug(f"Error converting mask coordinates {point} to camera coordinates: {e}")
 
@@ -950,8 +979,8 @@ class affineMoveGUI(QObject):
                     self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
                     self.logger.log_info(f"Manipulator {i} not calibrated")
                     break
-
-            if pos["positioning_coords"]((0, 0)) == (-1, -1):
+            status, _ = pos["positioning_coords"]((0, 0))
+            if status != 0:
                 self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
             else:
                 self.sample_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
@@ -996,22 +1025,19 @@ class affineMoveGUI(QObject):
         if not all(settings.values()):
             return 1, {"Error message": "AffineMove : Some dependencies are not set."}
 
-        # store targets in settings
-        settings["measurement_points"] = self.measurement_points
-        settings["measurement_point_names"] = self.measurement_point_names
-        mm, cam, pos = self._fetch_dep_plugins()
+        # Parse dependencies once. This already calls parse_settings_widget for selected dependencies.
+        status, dep_settings = self.dm.parse_dependencies(settings)
+        if status != 0:
+            return status, dep_settings
 
-        mm_settings = mm["parse_settings_widget"]()
-        pos_settings = pos["parse_settings_widget"]()
-        cam_settings = cam["parse_settings_widget"]()
+        # Store targets in settings and keep legacy keys for compatibility.
+        dep_settings["measurement_points"] = self.measurement_points
+        dep_settings["measurement_point_names"] = self.measurement_point_names
+        dep_settings["mm_settings"] = dep_settings.get("micromanipulator_settings", {})
+        dep_settings["cam_settings"] = dep_settings.get("camera_settings", {})
+        dep_settings["pos_settings"] = dep_settings.get("positioning_settings", {})
 
-        # extend settings with dep plugin settings
-        settings["mm_settings"] = mm_settings[1]
-        settings["pos_settings"] = pos_settings[1]
-        settings["cam_settings"] = cam_settings[1]
-
-        # extend self settings with settings
-        self.settings.update(settings)
+        self.settings.update(dep_settings)
         return 0, self.settings
 
     @public
@@ -1083,11 +1109,11 @@ class affineMoveGUI(QObject):
             camera_target_points = []
             for device_idx, mask_point in enumerate(points, 1):
                 # Convert mask coordinates to camera coordinates
-                camera_coords = pos["positioning_coords"](mask_point)
-                if camera_coords == (-1, -1):
+                status, (camera_x, camera_y) = pos["positioning_coords"](mask_point)
+                if status != 0:
                     self.logger.log_warn(f"Failed to convert mask coordinates {mask_point} for manipulator {device_idx}")
                     continue
-                camera_target_points.append((device_idx, camera_coords))
+                camera_target_points.append((device_idx, (float(camera_x), float(camera_y))))
 
             if not camera_target_points:
                 self.logger.log_warn("No valid target points after coordinate conversion")

@@ -2,19 +2,16 @@ import os
 
 
 from Affine_skimage import Affine, AffineError
-from PyQt6 import QtWidgets, uic
-from PyQt6.QtCore import Qt, pyqtSlot, QPointF
+from PyQt6 import QtWidgets
+from PyQt6.QtCore import Qt, pyqtSlot, QPointF, pyqtSignal, QObject
 from PyQt6.QtGui import QAction, QImage, QPixmap
-from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
+from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu, QGroupBox, QLabel
 import csv
 from affineDialog import dialog
-from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods
+from plugin_components import LoggingHelper, CloseLockSignalProvider, PyIVLSReturnCode, public, get_public_methods, ini_to_bool, DependencyManager, load_widget
 from gdsLoadFunctionality import gdsLoadDialog
-from PyQt6.QtCore import QObject
 from Affine_MDI import DualGraphicsWidget
 import numpy as np
-
-# TODO: connect signals and slots for inputting new points.
 
 
 def image_to_scene(image: np.ndarray) -> QGraphicsScene:
@@ -42,6 +39,9 @@ class AffineGUI(QObject):
 
     -positioning_coords(coords: tuple[float, float]) -> tuple[float, float]
 
+    rev 2.1.0
+    - Major refactoring and bugfixes
+
     revision 2.0.0
     -Added dialog for matching and manual mode. Added settings for preprocessing.
     -Formatted into proper pyIVLS plugin format.
@@ -55,124 +55,72 @@ class AffineGUI(QObject):
     """
 
     COORD_DATA = Qt.ItemDataRole.UserRole + 1
+    gui_update_signal = pyqtSignal()
 
-    def __init__(self, settings=None):
+    def __init__(
+        self,
+    ):
         super().__init__()
         # load ui files
         self.MDIWidget = DualGraphicsWidget()
-        self.settingsWidget = self._load_widgets()
-        # init settings if needed
-        self.settings = settings if settings is not None else {}
+        path = os.path.dirname(os.path.abspath(__file__))
+        self.path = path + os.path.sep
+        self.settingsWidget = load_widget(settings=True, mdi=False, path=path)
+        self._find_labels(self.settingsWidget)
+        self._connect_buttons(self.settingsWidget)
+
+        self.settings = {}
         # init core functionality
-        self.affine = Affine(self.settings)
-        self.dependency = ["camera"]
+        self.affine = Affine(None)
+
         self.logger = LoggingHelper(self)
         self.closelock = CloseLockSignalProvider()
+
+        # initialize dependencyManager
+        dependencies = {"camera": ["camera_capture_image", "parse_settings_widget", "setSettings"]}
+        self.dm = DependencyManager("affine", dependencies)
+
         # init dependency functions
-        self.functions = {}
         self.dialog = None
         self.temp_points = list[QPointF]()
         self.mask = None  # internal reference to the mask ndarray
 
-    # TODO: Read settings from file, for instance latest points and mask + default names for text inputs.
+        # connect gui update signal
+        self.gui_update_signal.connect(self._gui_update)
+
+    @property
+    def function_dict(self):
+        return self.dm.function_dict
+
     def _initGUI(self, settings):
         # Keep mask-related UI state aligned with whether a mask is currently loaded.
         self._gui_change_mask_uploaded(self.mask is not None)
-        self.settings = settings
-        settingsWidget: QtWidgets.QWidget = self.settingsWidget
-        MDIWidget = self.MDIWidget
-        pointcount = settings.get("pointcount", 2)
-        addpointscheck = settings.get("addpointscheck", "False")
-        centerclicks = settings.get("centerclicks", "False")
-        centerclicks = True if centerclicks == "True" else False
-        addpointscheck = True if addpointscheck == "True" else False
-        ratiotest = float(settings["ratiotest"])
-        residualthreshold = int(settings["residualthreshold"])
-        crosscheck = True if settings["crosscheck"] == "True" else False
-        backend = settings.get("backend", "SIFT")
-        default_camera = settings["cameracombobox"]
-        # set the camera combobox to the default camera
-        if default_camera:
-            cambox = settingsWidget.findChild(QtWidgets.QComboBox, "cameraComboBox")
-            cambox.setCurrentText(default_camera)
-        # set the settings widget values
-        self.settingsWidget.pointCount.setValue(int(pointcount))
-        self.settingsWidget.centerClicks.setChecked(centerclicks)
+        # init camerabox through dm
+        self.dm.initialize_dependency_selection(settings)
+        self._refresh_dependency_comboboxes(settings)
 
-        # read preprocessing settings
-        s = {}
-        s["sigmaimage"] = settings.get("sigmaimage")
-        s["sigmamask"] = settings.get("sigmamask")
-        s["sigmaimage"] = float(s["sigmaimage"])
-        s["sigmamask"] = float(s["sigmamask"])
-        s["blurmask"] = settings["blurmask"]
-        s["invertmask"] = settings["invertmask"]
-        s["equalizemask"] = settings["equalizemask"]
-        s["cannymask"] = settings["cannymask"]
-        s["otsumask"] = settings["otsumask"]
-        s["manualthresholdmask"] = settings.get("manualthresholdmask", "False")
-        s["thresholdmask"] = settings.get("thresholdmask", "128")
-        s["morphologymask"] = settings.get("morphologymask", "False")
-        s["morphologytypemask"] = settings.get("morphologytypemask", "erosion")
-        s["morphologystrengthmask"] = settings.get("morphologystrengthmask", "3")
-        s["blurimage"] = settings["blurimage"]
-        s["invertimage"] = settings["invertimage"]
-        s["equalizeimage"] = settings["equalizeimage"]
-        s["cannyimage"] = settings["cannyimage"]
-        s["otsuimage"] = settings["otsuimage"]
-        s["manualthresholdimage"] = settings.get("manualthresholdimage", "False")
-        s["thresholdimage"] = settings.get("thresholdimage", "128")
-        s["morphologyimage"] = settings.get("morphologyimage", "False")
-        s["morphologytypeimage"] = settings.get("morphologytypeimage", "erosion")
-        s["morphologystrengthimage"] = settings.get("morphologystrengthimage", "3")
-        # convert to boolean from string literals "True" and "False"
-        s["blurmask"] = True if s["blurmask"] == "True" else False
-        s["invertmask"] = True if s["invertmask"] == "True" else False
-        s["equalizemask"] = True if s["equalizemask"] == "True" else False
-        s["cannymask"] = True if s["cannymask"] == "True" else False
-        s["otsumask"] = True if s["otsumask"] == "True" else False
-        s["manualthresholdmask"] = True if s["manualthresholdmask"] == "True" else False
-        s["thresholdmask"] = int(s["thresholdmask"])
-        s["morphologymask"] = True if s["morphologymask"] == "True" else False
-        s["morphologystrengthmask"] = int(s["morphologystrengthmask"])
-        s["blurimage"] = True if s["blurimage"] == "True" else False
-        s["invertimage"] = True if s["invertimage"] == "True" else False
-        s["equalizeimage"] = True if s["equalizeimage"] == "True" else False
-        s["cannyimage"] = True if s["cannyimage"] == "True" else False
-        s["otsuimage"] = True if s["otsuimage"] == "True" else False
-        s["manualthresholdimage"] = True if s["manualthresholdimage"] == "True" else False
-        s["thresholdimage"] = int(s["thresholdimage"])
-        s["morphologyimage"] = True if s["morphologyimage"] == "True" else False
-        s["morphologystrengthimage"] = int(s["morphologystrengthimage"])
-        s["ratiotest"] = ratiotest
-        s["residualthreshold"] = residualthreshold
-        s["crosscheck"] = crosscheck
-        s["backend"] = backend
+        self.settings = settings
 
         # set the preprocessing settings to the affine object
-        self.affine.update_settings(s)
+        self.affine.update_settings(settings)
 
-        return settingsWidget, MDIWidget
+        # write to GUI elements from settings dict
+        self.set_gui_from_settings()
 
-    def _load_widgets(self):
-        """Load the widgets from the UI files."""
-        # Load the settings based on the name of this file.
-        settingsWidget = None
-        self.path = os.path.dirname(__file__) + os.path.sep
-        for _, _, files in os.walk(self.path):
-            for file in files:
-                if file.endswith(".ui"):
-                    try:
-                        if file.split("_")[1].lower() == "settingswidget.ui":
-                            settingsWidget = uic.loadUi(self.path + file)  # type: ignore
-                    except IndexError:
-                        continue
+        return self.settingsWidget, self.MDIWidget
 
-        if settingsWidget is None:
-            raise FileNotFoundError("Settings widget UI file not found in the plugin directory.")
-        self._find_labels(settingsWidget)
-        settingsWidget = self._connect_buttons(settingsWidget)
-        return settingsWidget
+    def _refresh_dependency_comboboxes(self, settings: dict | None = None):
+        available = self.dm.get_available_dependency_plugins().get("camera", [])
+        self.cameraComboBox.clear()
+        self.cameraComboBox.addItems(available)
+
+        preferred = ""
+        if settings is not None:
+            preferred = settings.get("camera", "")
+        if not preferred:
+            preferred = self.settings.get("camera", "") if hasattr(self, "settings") else ""
+        if preferred and preferred in available:
+            self.cameraComboBox.setCurrentText(preferred)
 
     def _find_labels(self, settingsWidget):
         """Finds the labels in the settings widget."""
@@ -188,6 +136,9 @@ class AffineGUI(QObject):
         self.definedPoints.setDragDropMode(QtWidgets.QAbstractItemView.DragDropMode.InternalMove)
         self.definedPoints.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.cameraComboBox: QtWidgets.QComboBox = settingsWidget.cameraComboBox
+        self.affineBox = settingsWidget.findChild(QGroupBox, "affineBox")
+        self.pointGroupBox = settingsWidget.findChild(QGroupBox, "groupBox")
+        self.maskLabel = settingsWidget.findChild(QLabel, "label")
 
     def _connect_buttons(self, settingsWidget):
         """Connects the buttons, checkboxes and label clicks to their actions.
@@ -241,25 +192,27 @@ class AffineGUI(QObject):
             except Exception as e:
                 self.logger.log_warn(f"Affine: could not center click on component: {str(e)}")
 
-        print(f"Mask point clicked: {point_to_store}")
         self.temp_points.append(point_to_store)
         # live-render points while inputting
         self._refresh_left_points_display()
+        # required num points reached
         if len(self.temp_points) == self.pointCount.value():
             # add points to list widget
             name = self.pointName.text() if self.pointName.text() != "" else f"Point set {self.definedPoints.count() + 1}"
             self.update_list_widget(self.temp_points, name)
             self.temp_points = []
             # refresh display to show only selected sets (no temp points)
-            self._refresh_left_points_display()
+            # self._refresh_left_points_display()
 
     @pyqtSlot(QPointF)
     def _on_image_point_clicked(self, point: QPointF):
         print(f"Image point clicked: {point}")
 
     def _gui_change_mask_uploaded(self, mask_loaded):
-        self.settingsWidget.affineBox.setEnabled(mask_loaded)
-        self.settingsWidget.groupBox.setEnabled(mask_loaded)
+        if self.affineBox is not None:
+            self.affineBox.setEnabled(mask_loaded)
+        if self.pointGroupBox is not None:
+            self.pointGroupBox.setEnabled(mask_loaded)
 
     def _list_widget_context_menu(self, pos):
         def delete_selected():
@@ -296,7 +249,7 @@ class AffineGUI(QObject):
             ".csv (*.csv);;All Files (*)",
         )
         if fileName:
-            points, names = self.positioning_measurement_points()
+            status, (points, names) = self.positioning_measurement_points()
             with open(fileName, "w", newline="") as csvfile:
                 cswriter = csv.writer(csvfile, delimiter=",")
                 fields = ["Name", "x_mask", "y_mask", "x_img", "y_img"]
@@ -382,7 +335,7 @@ class AffineGUI(QObject):
                 self.settingsWidget,
                 "Open .GDS, .png or .jpg file",
                 self.path + os.sep + "masks",
-                "Mask Files (*.gds);;Images (*.png *.jpg)",
+                "Mask Files or Images(*.gds *.png *.jpg);;All Files (*)",
             )
             # we now have a filename, try to load the mask
             if fileName:
@@ -402,7 +355,8 @@ class AffineGUI(QObject):
                 # mask is now a ndarray, convert to scene and set to mdi
                 mask_scene = image_to_scene(mask)
                 self.MDIWidget.set_scene("left", mask_scene)
-                self.settingsWidget.label.setText(f"Mask loaded: {os.path.basename(fileName)}")
+                if self.maskLabel is not None:
+                    self.maskLabel.setText(f"Mask loaded: {os.path.basename(fileName)}")
                 self._gui_change_mask_uploaded(mask_loaded=True)
                 self.mask = mask  # keep internal reference to the mask ndarray for passing to dialog
         except AffineError as e:
@@ -421,7 +375,13 @@ class AffineGUI(QObject):
                 self.logger.log_info("Affine: No transformation confirmed")
             self.dialog = None
 
-        img = self.functions["camera"][self.cameraComboBox.currentText()]["camera_capture_image"]()
+        selected_camera = self.cameraComboBox.currentText()
+        cameras = self.function_dict.get("camera", {})
+        if selected_camera not in cameras:
+            self.logger.log_error("Affine: No camera plugin selected or available.", include_trace=False)
+            return
+
+        img = cameras[selected_camera]["camera_capture_image"]()
         if img[0] != 0:
             self.logger.log_error(f"Affine: Error capturing image: {img[1]}")
             return
@@ -481,28 +441,10 @@ class AffineGUI(QObject):
         return self.closelock.closeLock
 
     def _fetch_dependency_functions(self, function_dict):
-        self.missing_functions = []
-        self.functions = {}
-
-        for dep_category in self.dependency:
-            if dep_category not in function_dict:
-                self.missing_functions.append(dep_category)
-
-            else:
-                self.functions[dep_category] = function_dict[dep_category]
-
-        # self.functions["camera"] is a list of nested dictionaries, iterate through every camera
-
-        self.cameraComboBox.clear()
-        cameras = self.functions.get("camera", {})
-        if not cameras:
-            return self.missing_functions
-        else:
-            for camera in self.functions["camera"]:
-                # get the camera name (key of the dictionary)
-                self.cameraComboBox.addItem(camera)
-
-        return self.missing_functions
+        """Set dependency methods from plugin manager and return missing dependency methods."""
+        _is_valid, missing = self.dm.set_available_dependency_functions(function_dict)
+        self._refresh_dependency_comboboxes(self.settings)
+        return missing
 
     def _get_public_methods(self, function: str) -> dict:
         """
@@ -510,17 +452,27 @@ class AffineGUI(QObject):
         """
         return get_public_methods(self)
 
+    @pyqtSlot()
+    def _gui_update(self):
+        """Emits a signal to update the GUI."""
+        self.pointCount.setValue(int(self.settings["pointcount"]))
+        self.centerCheckbox.setChecked(ini_to_bool(self.settings["centerclicks"]))
+
+    @pyqtSlot()
+    def set_gui_from_settings(self):
+        """Sets gui elemenets from internal dict"""
+        self.gui_update_signal.emit()
+
     # public API
 
-    # FIXME: non standard return type for plugin
     @public
-    def positioning_coords(self, coords: tuple[float, float]) -> tuple[float, float]:
+    def positioning_coords(self, coords: tuple[float, float]) -> tuple[int, tuple[float, float]]:
         """Returns the transformed coordinates."""
         try:
             transformed = self.affine.coords(coords)
-            return transformed
+            return (0, transformed)
         except AffineError:
-            return (-1, -1)
+            return (PyIVLSReturnCode.VALUE_ERROR.value, (-1, -1))
 
     @public
     def positioning_measurement_points(self):
@@ -534,70 +486,31 @@ class AffineGUI(QObject):
                 tuple_points = [(point.x(), point.y()) for point in raw_points]
                 points.append(tuple_points)
                 names.append(item.text())
-        return points, names
+        return 0, (points, names)
 
     @public
     def parse_settings_widget(self):
         """Parse settings widget, return dict"""
-        try:
-            base_settings = {
-                "pointcount": self.settingsWidget.pointCount.value(),
-                "cameracombobox": self.settingsWidget.cameraComboBox.currentText(),
-                "default_mask_path": getattr(self, "last_mask_path", None),
-                "centerclicks": self.centerCheckbox.isChecked(),
-            }
+        ts = {}  # temp settings
+        ts["pointcount"] = self.pointCount.value()
+        ts["centerclicks"] = self.centerCheckbox.isChecked()
+        ts["camera"] = self.cameraComboBox.currentText()
 
-            preprocessor_settings = dict(self.affine.preprocessor.settings)
+        self.dm.set_selected_dependency_plugins({"camera": ts["camera"]})
 
-            settings = {
-                **base_settings,
-                **preprocessor_settings,
-                "ratiotest": float(self.affine.ratio_test),
-                "residualthreshold": int(self.affine.residual_threshold),
-                "crosscheck": bool(self.affine.cross_check),
-                "backend": self.affine.backend,
-                "scalingfactor": self.affine.scalingfactor,
-            }
-        except Exception as e:
-            return 1, {
-                "error message": f"Affine value error: failed to parse settings: {str(e)}",
-                "exception": str(e),
-            }
+        status, ts = self.dm.parse_dependencies(ts)
+        if status != 0:
+            return status, ts
 
-        try:
-            sigma_image = float(settings["sigmaimage"])
-            sigma_mask = float(settings["sigmamask"])
-            threshold_image = int(settings["thresholdimage"])
-            threshold_mask = int(settings["thresholdmask"])
-            morphology_strength_image = int(settings["morphologystrengthimage"])
-            morphology_strength_mask = int(settings["morphologystrengthmask"])
-        except (KeyError, TypeError, ValueError) as e:
-            return 1, {
-                "error message": f"Affine value error: invalid preprocessing setting types: {str(e)}",
-                "exception": str(e),
-            }
+        internal_settings = self.affine.get_settings()
 
-        if sigma_image < 0:
-            return 1, {"error message": "Affine value error: sigmaImage must be non-negative"}
-        if sigma_mask < 0:
-            return 1, {"error message": "Affine value error: sigmaMask must be non-negative"}
-        if not 0 <= threshold_image <= 255:
-            return 1, {"error message": "Affine value error: thresholdImage must be between 0 and 255"}
-        if not 0 <= threshold_mask <= 255:
-            return 1, {"error message": "Affine value error: thresholdMask must be between 0 and 255"}
-        if not 1 <= morphology_strength_image <= 15:
-            return 1, {"error message": "Affine value error: morphologyStrengthImage must be between 1 and 15"}
-        if not 1 <= morphology_strength_mask <= 15:
-            return 1, {"error message": "Affine value error: morphologyStrengthMask must be between 1 and 15"}
+        # Internal affine settings must not override dependency selections from dm.
+        # to fix the bug where the camera can never be changed since the entire dict is read to core and later returned to overwrite parsed value xd
+        merged_settings = {**internal_settings, **ts}
+        # all tests pass, write to internal settings
+        self.settings.update(merged_settings)
 
-        settings["sigmaimage"] = sigma_image
-        settings["sigmamask"] = sigma_mask
-        settings["thresholdimage"] = threshold_image
-        settings["thresholdmask"] = threshold_mask
-        settings["morphologystrengthimage"] = morphology_strength_image
-        settings["morphologystrengthmask"] = morphology_strength_mask
-
-        return 0, settings
+        return 0, merged_settings
 
     @public
     def setSettings(self, settings: dict):
@@ -607,4 +520,6 @@ class AffineGUI(QObject):
             settings (dict): A dictionary containing plugin settings.
         """
         self.settings = settings
-        self._initGUI(settings)
+        self.affine.update_settings(settings)  # send settings to affine core
+        self.dm.set_dependency_settings(settings)  # set settings to selected deps through dm
+        self.set_gui_from_settings()

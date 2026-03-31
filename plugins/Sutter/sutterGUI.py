@@ -1,10 +1,9 @@
 from functools import wraps
-from multiprocessing import connection
 import os
 
 from PyQt6 import QtWidgets, uic
 from PyQt6 import QtCore
-from PyQt6.QtCore import QObject, pyqtSlot, pyqtSlot
+from PyQt6.QtCore import QObject, pyqtSlot
 import importlib.util
 from Sutter import Mpc325
 from plugin_components import (
@@ -15,9 +14,8 @@ from plugin_components import (
     CloseLockSignalProvider,
 )
 import copy
-from components.threadStopped import ThreadStopped
+from threadStopped import ThreadStopped
 import threading
-from typing import Optional
 
 """
 From readme:

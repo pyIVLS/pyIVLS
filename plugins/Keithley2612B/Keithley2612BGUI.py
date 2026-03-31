@@ -3,10 +3,8 @@ from typing import Optional
 
 # from Keithley2612B_test import Keithley2612B
 from Keithley2612B import Keithley2612B
-import time
 from PyQt6 import uic
 from PyQt6.QtCore import Qt, QObject, pyqtSlot
-from PyQt6.QtWidgets import QComboBox
 from plugin_components import LoggingHelper, public, get_public_methods
 
 """
@@ -361,7 +359,7 @@ class Keithley2612BGUI(QObject):
                 self.logger.info_popup(message["Error message"])
                 return [status, message]
 
-        self.logger.log_debug(f"Reset successful")
+        self.logger.log_debug("Reset successful")
         return [status, message]
 
     ###############providing access to SMU functions
@@ -569,6 +567,6 @@ class Keithley2612BGUI(QObject):
         """
         try:
             self.smu.keithley_run_trigpulse(s)
-            return (0, {"Error message": f"OK"})
+            return (0, {"Error message": "OK"})
         except Exception as e:
             return (4, {"Error message": f"HW issue in keithley trigpulse: {e}"})

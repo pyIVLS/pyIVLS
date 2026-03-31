@@ -389,8 +389,8 @@ class Keithley2612B:
         self.safewrite("format.asciiprecision = 14")
 
         ####reset channels
-        self.safewrite(f"smua.reset()")
-        self.safewrite(f"smub.reset()")
+        self.safewrite("smua.reset()")
+        self.safewrite("smub.reset()")
 
 
     def keithley_init(self, s: dict) -> int:
@@ -721,12 +721,12 @@ class Keithley2612B:
                         pulseduration = s['integrationtime'] + s['postwait']
                     ###### trigger.timer[2] for the second IV measurement
                     self.safewrite(f"trigger.timer[2].delay = {(pulseduration - (s['delayduration']+ nplc_s +s['postwait'])):.6f}") #duration of wait before second measurement in s
-                    self.safewrite(f"trigger.timer[2].count = 1")
-                    self.safewrite(f"trigger.timer[2].passthrough = false") ## if true the timer will trigger immediately after run
+                    self.safewrite("trigger.timer[2].count = 1")
+                    self.safewrite("trigger.timer[2].passthrough = false") ## if true the timer will trigger immediately after run
                     self.safewrite(f"trigger.timer[2].stimulus = {s['source']}.trigger.SWEEPING_EVENT_ID")
-                    self.safewrite(f"trigger.blender[1].orenable = true")
+                    self.safewrite("trigger.blender[1].orenable = true")
                     self.safewrite(f"trigger.blender[1].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
-                    self.safewrite(f"trigger.blender[1].stimulus[2] = trigger.timer[2].EVENT_ID")
+                    self.safewrite("trigger.blender[1].stimulus[2] = trigger.timer[2].EVENT_ID")
                     self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
                 else:
                     if s['delayduration']+nplc_s+s['postwait']>s['integrationtime']:
@@ -736,10 +736,10 @@ class Keithley2612B:
                     self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                 #Configure timer parameters to output a single pulseduration length pulse.
                 self.safewrite(f"trigger.timer[1].delay = {pulseduration:.6f}") #set duration of pulse in seconds
-                self.safewrite(f"trigger.timer[1].count = 1")
-                self.safewrite(f"trigger.timer[1].passthrough = false") ## if true the timer will trigger immediately after run
+                self.safewrite("trigger.timer[1].count = 1")
+                self.safewrite("trigger.timer[1].passthrough = false") ## if true the timer will trigger immediately after run
                 #Trigger timer when the SMU sets the power
-                self.safewrite(f"trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
+                self.safewrite("trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
                 #Configure source action to start immediately.
                 self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")                   
                 #Configure endpulse action to achieve a pulse.

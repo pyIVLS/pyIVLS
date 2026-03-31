@@ -25,7 +25,7 @@ from PyQt6.QtWidgets import QWidget
 import numpy as np
 import copy
 from typing import Optional
-from plugin_components import LoggingHelper, DependencyManager, public, get_public_methods
+from plugin_components import LoggingHelper, DependencyManager
 
 
 class specSMU_GUI(QWidget):
@@ -88,8 +88,23 @@ class specSMU_GUI(QWidget):
         self.settings = {}
         self.last_integration_time: Optional[float] = None  # s
         self.logger = LoggingHelper(self)
-        self.dm = DependencyManager("specSMU", self.dependency, self.settingsWidget, {"smu": "smuBox", "spectrometer": "spectrometerBox"})
+        self.dm = DependencyManager("specSMU", self.dependency)
         self._connect_signals()
+
+    def _refresh_dependency_boxes(self, settings: dict | None = None) -> None:
+        smu_name = (settings or {}).get("smu", "")
+        spectro_name = (settings or {}).get("spectrometer", "")
+        available = self.dm.get_available_dependency_plugins()
+
+        self.settingsWidget.smuBox.clear()
+        self.settingsWidget.smuBox.addItems(available.get("smu", []))
+        if smu_name and smu_name in available.get("smu", []):
+            self.settingsWidget.smuBox.setCurrentText(smu_name)
+
+        self.settingsWidget.spectrometerBox.clear()
+        self.settingsWidget.spectrometerBox.addItems(available.get("spectrometer", []))
+        if spectro_name and spectro_name in available.get("spectrometer", []):
+            self.settingsWidget.spectrometerBox.setCurrentText(spectro_name)
 
     def _connect_signals(self) -> None:
         """
@@ -235,6 +250,7 @@ class specSMU_GUI(QWidget):
         # no checks here, since the plugin_info comes from a trusted source,
         # seqbuilder or .ini file
         self.dm.initialize_dependency_selection(plugin_info)
+        self._refresh_dependency_boxes(plugin_info)
         self.settings = plugin_info
         self.set_gui_from_settings()
 
@@ -451,12 +467,12 @@ class specSMU_GUI(QWidget):
             self.settings["hwtrigpulse"] = float(raw_settings["hwtrigpulse"]) / 1000
             self.settings["prescaler"] = float(raw_settings["prescaler"])
             if self.settings["hwtrigpulse"] < 0:
-                self._log_verbose(f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative")
-                return [1, {"Error message": f"Value error in SpecSMU plugin: HW trigger pulse width can not be negative"}]
+                self._log_verbose("Value error in SpecSMU plugin: HW trigger pulse width can not be negative")
+                return [1, {"Error message": "Value error in SpecSMU plugin: HW trigger pulse width can not be negative"}]
             self.settings["powerpulseext"] = float(raw_settings["powerpulseext"]) / 1000
             if self.settings["powerpulseext"] < 0:
-                self._log_verbose(f"Value error in SpecSMU plugin: extension of the power pulse can not be negative")
-                return [1, {"Error message": f"Value error in SpecSMU plugin: extension of the power pulse can not be negative"}]
+                self._log_verbose("Value error in SpecSMU plugin: extension of the power pulse can not be negative")
+                return [1, {"Error message": "Value error in SpecSMU plugin: extension of the power pulse can not be negative"}]
             self.settings["ioline"] = int(raw_settings["ioline"])  # should already be an int from spinbox
 
             self._log_verbose("Settings successfully parsed and validated")
@@ -465,7 +481,7 @@ class specSMU_GUI(QWidget):
             return [1, {"Error message": f"Value error in SpecSMU plugin: {e}"}]
 
         # add dependency settings
-        result = self.dm.validate_and_extract_dependency_settings(self.settings)
+        result = self.dm.parse_dependencies(self.settings)
         status, possible_settings = result
         if status != 0:
             return status, possible_settings
