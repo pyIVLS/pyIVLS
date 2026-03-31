@@ -8,6 +8,7 @@ class MockCCSDRV:
         self.single_scan_requested = False
         self.continuous_scan_requested = False
         self.ext_scan_requested = False
+        self.scan_start_time = None
 
     def open(self, spectrometerVID, spectrometerPID, integration_time=0.01):
         self.integration_time = integration_time
@@ -59,7 +60,7 @@ class MockCCSDRV:
         # single scan simu
         self.single_scan_requested = True
         print("[Mock] Starting single scan...")
-        time.sleep(self.integration_time * 1)
+        self.scan_start_time = time.time()
 
     def start_scan_continuous(self):
         print("[Mock] Starting continuous scan...")
