@@ -134,6 +134,7 @@ class TLCCS_GUI(QObject):
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(False)
         self._preview_timer.timeout.connect(self._on_preview_tick)
+        self._preview_wait_started_at = None
 
     def _connect_signals(self):
         """Connect GUI signals to their respective slots."""
@@ -206,18 +207,22 @@ class TLCCS_GUI(QObject):
             self.preview_running = False
             if self._preview_timer.isActive():
                 self._preview_timer.stop()
-            # stop automatic scanning by issuing a command that isnt a fetch for data or status
-            _ = self.drv.get_integration_time()
+                # stop automatic scanning by issuing a command that isnt a fetch for data or status
+                _ = self.drv.get_integration_time()
 
             statuses = self.drv.get_device_status()
-            if "SCAN_TRANSFER" in statuses or "SCAN_TRIGGERED" in statuses:
-                # read leftover data
+            if "SCAN_TRANSFER" in statuses:
+                # read leftover data only when it is already available
                 self.log_verbose("Reading leftover data after stopping preview: statuses: " + str(statuses))
-                self.spectrometerGetSpectrum()
+                data = self.drv.get_scan_data()
+                self.data_recieved_signal.emit([self.correction[:, 0], data])
                 statuses_after = self.drv.get_device_status()
                 self.log_verbose("Statuses after reading leftover data: " + str(statuses_after))
+            elif "SCAN_TRIGGERED" in statuses:
+                self.log_verbose("Skipping leftover read on stop because scan is still triggered and transfer is not ready.")
 
             self._enableSaveButton()
+            self._preview_wait_started_at = None
             self.closeLock.emit(self.preview_running)
             self.settingsWidget.previewButton.setText("Preview")
             return (0, {})
@@ -234,10 +239,11 @@ class TLCCS_GUI(QObject):
             self.settingsWidget.saveButton.setEnabled(False)
             # request continous scan start from dev
             self.drv.start_scan_continuous()
+            self._preview_wait_started_at = time.monotonic()
 
             integration_ms = int(self.settings["integrationtime"] * 1000)
             interval_ms = int(max(self.default_timerInterval, integration_ms))
-            self._preview_timer.start(interval_ms)
+            self._preview_timer.start(interval_ms + 50)
             self.log_verbose(f"Preview started with timer interval {interval_ms} ms.")
             self.settingsWidget.previewButton.setText("Stop preview")
 
@@ -319,10 +325,6 @@ class TLCCS_GUI(QObject):
         if self._auto_time_result_handled:
             return
         self._auto_time_result_handled = True
-
-        if not isinstance(result, tuple) or len(result) != 2:
-            self.notify_user(f"Auto integration time returned unexpected result: {result}")
-            return
 
         status, auto_time = result
         if status == 0 and isinstance(auto_time, (float, int)):
@@ -479,8 +481,8 @@ class TLCCS_GUI(QObject):
                         self.logger.log_debug(f"Integration time is too low, returning: {guessIntTime} seconds.")
                         return [1, {"Error message": "Integration time too low"}]
                     high = guessIntTime
-                # Compute new guess in milliseconds, rounded to nearest millisecond
-                guessIntTime = int(round((low + high) / 2))
+                # Compute new guess in seconds as float midpoint for proper binary search resolution
+                guessIntTime = (low + high) / 2.0
 
             self.logger.log_debug(f"Auto integration time calculation completed: {guessIntTime} seconds.")
             return [0, guessIntTime]  # return in seconds
@@ -712,14 +714,17 @@ class TLCCS_GUI(QObject):
     ########device functions
     @public
     def spectrometerConnect(self, integrationTime=None):
+        # HOX: when using connect button, this function gets False as its argument. From the button?
         # Parse settings to ensure integration time and related flags are current
         parsed_status, info = self.parse_settings_widget()
         if parsed_status:
             return [parsed_status, info]
-
-        if integrationTime is not None:
+ 
+        if integrationTime is not None and not isinstance(integrationTime, bool):
+            print(f"Integration time provided as argument: {integrationTime} s")
             self.settings["integrationtime"] = integrationTime
 
+        print(f"Connecting to spectrometer with integration time: {self.settings['integrationtime']} s")
         status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationtime"])
         if not status:
             return (4, {"Error message": "Can not connect to spectrometer"})
@@ -841,19 +846,42 @@ class TLCCS_GUI(QObject):
 
     ######## Timer callback ########
     def _on_preview_tick(self):
-        """Timer tick handler: apply pending integration time and get data for new scan"""
+        """Timer tick handler: apply pending integration time and non-blocking preview polling."""
         try:
+            if not self.preview_running:
+                return
+
             if self.integrationTimeChanged:
-                self.spectrometerSetIntegrationTime(self.settings["integrationtime"])
+                self.drv.set_integration_time(self.settings["integrationtime"])
                 self.integrationTimeChanged = False
-                # since setting the integration time causes a SINGLE scan read, we need to restart continous scanning
+                # restart continuous scanning after integration time update
                 self.drv.start_scan_continuous()
+                self._preview_wait_started_at = time.monotonic()
 
                 # reset the timer interval in case integration time is higher than default interval
                 integration_ms = int(self.settings["integrationtime"] * 1000)
                 interval_ms = int(max(self.default_timerInterval, integration_ms))
-                self._preview_timer.start(interval_ms)
-            # trigger and emit via spectrometerGetScan
-            self.spectrometerGetSpectrum()
+                self._preview_timer.start(interval_ms + 50)  # add a small buffer to ensure the scan is finished before next tick
+                return
+
+            statuses = self.drv.get_device_status()
+
+            if "SCAN_TRANSFER" in statuses:
+                data = self.drv.get_scan_data()
+                self.data_recieved_signal.emit([self.correction[:, 0], data])
+                self._preview_wait_started_at = time.monotonic()
+                return
+
+            if self._preview_wait_started_at is None:
+                self._preview_wait_started_at = time.monotonic()
+
+            # watchdog against stale trigger state during preview without blocking GUI thread
+            waited_s = time.monotonic() - self._preview_wait_started_at
+            wait_timeout_s = max(2.0, 2.0 * float(self.settings.get("integrationtime", 0.05)) + 0.5)
+            if waited_s > wait_timeout_s and "SCAN_TRANSFER" not in statuses:
+                self.log_verbose(f"Preview watchdog: no transfer after {waited_s:.2f} s, statuses={statuses}. Restarting continuous scan.")
+                _ = self.drv.get_integration_time()
+                self.drv.start_scan_continuous()
+                self._preview_wait_started_at = time.monotonic()
         except Exception as e:
             self.log_verbose(f"Preview timer error: {e}")
