@@ -152,14 +152,14 @@ class pyIVLS_seqBuilder(QObject):
             item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
             if item is None:
                 raise ValueError("Selected item not found in the model.")
-            self._updateInstructionSettings(item)
+            self._update_single_instruction_settings(item)
 
         def to_gui_settings_for_selected_item(row, idx_parent):
             """Helper to update the settings of a single item from the model to the GUI."""
             item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
             if item is None:
                 raise ValueError("Selected item not found in the model.")
-            self.sequence_settings_to_gui(item)
+            self._apply_single_instruction_settings_to_gui(item)
 
         idx: QModelIndex = self.widget.treeView.indexAt(position)
         # get parent index
