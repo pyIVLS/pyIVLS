@@ -565,7 +565,7 @@ min-width: 20px;</string>
                 <enum>Qt::LayoutDirection::RightToLeft</enum>
                </property>
                <property name="text">
-                <string>Use time</string>
+                <string>Whole experiment</string>
                </property>
               </widget>
              </item>
