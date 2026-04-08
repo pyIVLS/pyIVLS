@@ -639,6 +639,13 @@ min-width: 20px;</string>
              <item row="3" column="2">
               <widget class="QLineEdit" name="commentLine"/>
              </item>
+             <item row="2" column="3">
+              <widget class="QPushButton" name="stopLogButton">
+               <property name="text">
+                <string>Stop logging</string>
+               </property>
+              </widget>
+             </item>
             </layout>
            </widget>
           </item>
