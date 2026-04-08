@@ -236,6 +236,8 @@ class itc503GUI(QObject):
 
 
     def _run_check(self):
+        self.arraytemp = []
+        self.arrayT = []
         timeNow = time.time()
         #timeDelta = 0  add in the future
         points = int(self.settings["periodpts"]/self.settings["period"])
@@ -249,6 +251,8 @@ class itc503GUI(QObject):
         self.run_thread.thread_stop()
     
     def _run_check_long(self):
+        self.arraytemp = []
+        self.arrayT = []
         timeNow = time.time()
         #timeDelta = 0  add in the future
         points = int(3600/self.settings["period"])
