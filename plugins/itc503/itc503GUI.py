@@ -438,6 +438,10 @@ class itc503GUI(QObject):
         self.settingsWidget.sweepEndEdit.setText(f"{self.settings['sweepend']}")
         self.settingsWidget.sweepPtsEdit.setText(f"{self.settings['sweeppts']}")
         self.settingsWidget.sweepStabilizationEdit.setText(f"{self.settings['sweepstabilization']}")
+        self.settingsWidget.addressLine.setText(f"{self.settings['address']}")
+        self.settingsWidget.sampleNameLine.setText(f"{self.settings['samplename']}")
+        self.settingsWidget.commentLine.setText(f"{self.settings['comment']}")
+        self.settingsWidget.fileNameLine.setText(f"{self.settings['filename']}")
 
     ########Functions
     ###############GUI react to change
