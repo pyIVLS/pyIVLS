@@ -69,6 +69,7 @@ class itc503GUI(QObject):
         # Set a timer for the temperature display
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_display)
+        self.parse_settings_widget()
 
     def _connect_signals(self):
         self.settingsWidget.connectButton.clicked.connect(self._connectAction)
@@ -312,6 +313,7 @@ class itc503GUI(QObject):
 
 
     def _createFile(self):
+        self.parse_settings_widget()
         fileheader = self._itcMakeHeader()
 
         saveAddress = self.settingsWidget.addressLine.text() + os.path.sep + self.settingsWidget.fileNameLine.text()+".txt"
