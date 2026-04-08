@@ -330,7 +330,7 @@ class itc503GUI(QObject):
     def _createFileLoop(self):
         fileheader = self._itcMakeHeader()
 
-        saveAddress = self.settings["address"] + os.path.sep + self.settings["filename"] + str(self.arrayT[1]) + "K" + ".txt"
+        saveAddress = self.settings["address"] + os.path.sep + self.settings["filename"] + "_" + str(self.arraytemp[0]) + "K" + ".txt"
         np.savetxt(
             saveAddress,
             list(zip(self.arrayT, self.arraytemp)),
