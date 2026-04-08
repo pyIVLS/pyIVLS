@@ -514,6 +514,10 @@ class itc503GUI(QObject):
             "sweepend": self.settingsWidget.sweepEndEdit.text(),
             "sweeppts": self.settingsWidget.sweepPtsEdit.text(),
             "sweepstabilization": self.settingsWidget.sweepStabilizationEdit.text(),
+            "address": self.settingsWidget.addressLine.text(),
+            "samplename": self.settingsWidget.sampleNameLine.text(),
+            "comment": self.settingsWidget.commentLine.text(),
+            "filename": self.settingsWidget.fileNameLine.text(),
         }
         return 0, values
 
