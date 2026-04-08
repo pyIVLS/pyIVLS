@@ -78,7 +78,7 @@ class itc503GUI(QObject):
         self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
         self.settingsWidget.periodCheck.clicked.connect(self._displayAction)
         self.settingsWidget.saveButton.clicked.connect(self._createFile)
-        self.settingsWidget.stopLogButton.clicked.connect(self._stopLog)
+        self.settingsWidget.stopLogButton.clicked.connect(self._closeThread)
 
 
     def _create_plt(self):
