@@ -792,6 +792,7 @@ class Keithley2612B:
                 #Turn on output and trigger SMU to output a single pulse.
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_ON")
+                    self.safewrite(f"{s['drain']}.trigger.initiate()")
                     time.sleep(0.1) ## let the drain settle if it's used
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
                 self.safewrite(f"{s['source']}.trigger.initiate()")
