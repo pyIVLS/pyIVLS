@@ -712,6 +712,7 @@ class Keithley2612B:
 
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)")
+                    self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.ENABLE")
                     self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ASYNC") ## enable asynchronous measurement action (to measure IV before and after the pulse)
 
 
@@ -734,7 +735,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
                     self.safewrite(f"{s['drain']}.source.levelv = {s['drainvalue']}")
                     self.safewrite(f"{s['drain']}.source.limiti = {s['drainlimit']}")
-                    self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
+                    #self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
                 
                 #Calculate duration of the pulse:
                 if s['delay']:
