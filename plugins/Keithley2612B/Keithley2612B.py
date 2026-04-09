@@ -736,6 +736,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
                     self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
                     self.safewrite(f"{s['drain']}.source.levelv = {s['drainvalue']}")
+                    print(s['drainvalue'])
                     self.safewrite(f"{s['drain']}.source.limiti = {s['drainlimit']}")
                     #self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
                 
