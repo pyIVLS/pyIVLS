@@ -799,6 +799,7 @@ class specSMU_GUI(QWidget):
                     readings = ",".join(map(str, IVdata.ravel()))
                     if not(self.settings["singlechannel"]):
                         IVdataDrain = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["drain"])
+                        print(f"Drain IV data: {IVdataDrain}")
                         readings += "," + ",".join(map(str, IVdataDrain.ravel()))
                     i_after, v_after = IVdata[-1]
                 else:

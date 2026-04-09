@@ -678,8 +678,6 @@ class Keithley2612B:
 
                 self.safewrite(f"{s['source']}.reset()")
                 ##### based on Single pulse example code (p.183) of Keithley manual
-                if s["usedrain"]:
-                    print("Using drain for IV measurement")
                 #drain
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.reset()")
