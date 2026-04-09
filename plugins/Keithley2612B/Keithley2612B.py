@@ -661,7 +661,8 @@ class Keithley2612B:
             power = math.floor(math.log10(abs(x)))
             factor = 10 ** power
             return math.ceil(x / factor) * factor
-        
+        print(s["source"])
+        print(s["drain"])
         # Try and acquire the lock to make sure nothing else is running
         ##IRtothink#### is locking really needed?
         with self.lock:
