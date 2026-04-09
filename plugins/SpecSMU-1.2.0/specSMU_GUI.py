@@ -306,6 +306,7 @@ class specSMU_GUI(QWidget):
             "lineEdit_End": "end",
             "lineEdit_Points": "points",
             "lineEdit_Limit": "limit",
+            "lineEdit_drainValue": "drainvalue",
         }
         for line_name, key in line_map.items():
             line_edit = getattr(self.settingsWidget, line_name, None)
