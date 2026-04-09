@@ -714,6 +714,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)")
                     self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.ENABLE")
                     self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ASYNC") ## enable asynchronous measurement action (to measure IV before and after the pulse)
+                    self.safewrite(f"{s['drain']}.measure.autozero = {s['drain']}.AUTOZERO_ONCE")
 
 
                 if s["type"] == 'v':
