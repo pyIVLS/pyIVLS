@@ -452,7 +452,10 @@ class specSMU_GUI(QWidget):
             self.settings["spectro_check_after"] = raw_settings["spectro_check_after"]  # bool
             self.settings["spectro_pause"] = raw_settings["spectro_pause"]  # bool
             self.settings["spectro_use_last_integ"] = raw_settings["spectro_use_last_integ"]  # bool
-            self.settings["drainchannel"] = ""  # PLACEHOLDER FIXME:
+            if raw_settings["channel"].lower() == "smua":
+                self.settings["drainchannel"] = "smub"
+            else:
+                self.settings["drainchannel"] = "smua" # kinda hacky but should work
 
             # Parse numeric fields
             self.settings["start"] = float(raw_settings["start"])
@@ -613,6 +616,8 @@ class specSMU_GUI(QWidget):
         
         trigpulse_dict["drainvalue"] = self.settings["drainvalue"] if "drainvalue" in self.settings else 0
         trigpulse_dict["drainlimit"] = self.settings["drainlimit"] if "drainlimit" in self.settings else 0.01
+        trigpulse_dict["drain"] = self.settings["drainchannel"]
+        trigpulse_dict["usedrain"] = not(self.settings["singlechannel"])
         trigpulse_dict["limit"] = self.settings["limit"]
         trigpulse_dict["spectro_check_after"] = self.settings["spectro_check_after"]
         trigpulse_dict["sourcenplc"] = self.settings["nplc"] * self.smu_settings["lineFrequency"]  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
@@ -791,7 +796,8 @@ class specSMU_GUI(QWidget):
                 varDict["name"] = self.spectrometer_settings["samplename"]
                 if self.settings["mode"] == "hw trigger":
                     IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
-                    if 
+                    if not(singlechannel):
+                        IVdata = IVdata + "," + self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["drain"])
                     readings = ",".join(map(str, IVdata.ravel()))
                     i_after, v_after = IVdata[-1]
                 else:
