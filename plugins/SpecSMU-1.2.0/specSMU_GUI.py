@@ -796,9 +796,10 @@ class specSMU_GUI(QWidget):
                 varDict["name"] = self.spectrometer_settings["samplename"]
                 if self.settings["mode"] == "hw trigger":
                     IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
-                    if not(self.settings["singlechannel"]):
-                        IVdata = IVdata + "," + self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["drain"])
                     readings = ",".join(map(str, IVdata.ravel()))
+                    if not(self.settings["singlechannel"]):
+                        IVdataDrain = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["drain"])
+                        readings += "," + ",".join(map(str, IVdataDrain.ravel()))
                     i_after, v_after = IVdata[-1]
                 else:
                     if after_flag:
