@@ -459,6 +459,8 @@ class specSMU_GUI(QWidget):
             self.settings["end"] = float(raw_settings["end"])
             self.settings["points"] = int(raw_settings["points"])
             self.settings["limit"] = float(raw_settings["limit"])
+            self.settings["drainlimit"] = float(raw_settings["drainlimit"])
+            self.settings["drainvalue"] = float(raw_settings["drainvalue"])
             self.settings["nplc"] = float(raw_settings["nplc"]) / 1000
             self.settings["delay"] = float(raw_settings["delay"]) / 1000
             self.settings["pause"] = float(raw_settings["pause"])
@@ -466,6 +468,7 @@ class specSMU_GUI(QWidget):
             self.settings["repeat"] = int(raw_settings["repeat"])  # will already be an int from spin box
             self.settings["hwtrigpulse"] = float(raw_settings["hwtrigpulse"]) / 1000
             self.settings["prescaler"] = float(raw_settings["prescaler"])
+
             if self.settings["hwtrigpulse"] < 0:
                 self._log_verbose("Value error in SpecSMU plugin: HW trigger pulse width can not be negative")
                 return [1, {"Error message": "Value error in SpecSMU plugin: HW trigger pulse width can not be negative"}]
@@ -607,6 +610,9 @@ class specSMU_GUI(QWidget):
         trigpulse_dict["sense"] = True if self.settings["sourcesensemode"] == "4 wire" else False
         trigpulse_dict["type"] = "v" if self.settings["inject"] == "voltage" else "i"
         trigpulse_dict["value"] = smuSetValue
+        
+        trigpulse_dict["drainvalue"] = self.settings["drainvalue"] if "drainvalue" in self.settings else 0
+        trigpulse_dict["drainlimit"] = self.settings["drainlimit"] if "drainlimit" in self.settings else 0.01
         trigpulse_dict["limit"] = self.settings["limit"]
         trigpulse_dict["spectro_check_after"] = self.settings["spectro_check_after"]
         trigpulse_dict["sourcenplc"] = self.settings["nplc"] * self.smu_settings["lineFrequency"]  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
@@ -785,6 +791,7 @@ class specSMU_GUI(QWidget):
                 varDict["name"] = self.spectrometer_settings["samplename"]
                 if self.settings["mode"] == "hw trigger":
                     IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
+                    if 
                     readings = ",".join(map(str, IVdata.ravel()))
                     i_after, v_after = IVdata[-1]
                 else:
@@ -844,4 +851,6 @@ class specSMU_GUI(QWidget):
         settings["powerpulseext"] = self.settingsWidget.lineEdit_powerPulse.text()
         settings["ioline"] = self.settingsWidget.spinBox_digio.value()
         settings["prescaler"] = self.settingsWidget.prescalerSpinBox.value()
+        settings["drainvalue"] = self.settingsWidget.lineEdit_drainValue.text()
+        settings["drainlimit"] = "0.01"  # PLACEHOLDER, may be added to GUI later if needed
         return settings
