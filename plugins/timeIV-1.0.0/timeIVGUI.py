@@ -21,7 +21,7 @@ from threadStopped import thread_with_exception, ThreadStopped
 from enum import Enum
 import copy
 import pandas as pd
-from plugins.plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods
+from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods
 
 
 class timeIVexception(Exception):

@@ -123,17 +123,6 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             self.model.appendRow(list_item)
         """
 
-    @pyqtSlot(str)
-    def state_changed_asfasfasfasf(self, plugin_name):
-        """NOTE: Currently unused. This function is planned called when a plugin is activated or deactivated.
-
-        Args:
-            plugin_name (str): plugin name
-        """
-        for i in range(self.model.rowCount()):
-            item = self.model.item(i)
-            if item.data(Qt.ItemDataRole.UserRole) == plugin_name:
-                item.setCheckState(Qt.CheckState.Checked)
 
     #### Button actions
     def refresh(self):

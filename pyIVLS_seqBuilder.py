@@ -38,6 +38,11 @@ class pyIVLS_seqBuilder(QObject):
         else:
             raise TypeError("seqBuilder: Tried to assign a non-QStandardItem")
 
+    # flags
+
+    skip_iteration = False
+    # should be set when a skippable exceptions occurs in the sequence
+
     #### Signals for communication
 
     info_message = pyqtSignal(str)
@@ -89,6 +94,7 @@ class pyIVLS_seqBuilder(QObject):
         ui_file_name = path + "components" + sep + "pyIVLS_seqBuilder.ui"
         self.widget = uic.loadUi(ui_file_name)
         self.path = path
+        self.skip_iteration = False
 
         self._connect_signals()
         self._init_treeView()
@@ -114,8 +120,8 @@ class pyIVLS_seqBuilder(QObject):
         self.widget.stopButton.clicked.connect(self._stopAction)
         self.widget.testButton.clicked.connect(self._test_action)
         self._sigSeqEnd.connect(self._setNotRunning)
-        self.widget.updateSettings.clicked.connect(self._updateInstructionSettings)
-        self.widget.readSettingsButton.clicked.connect(self.read_and_update_instruction_settings)
+        self.widget.updateSettings.clicked.connect(self._update_settings_action)
+        self.widget.readSettingsButton.clicked.connect(self._read_settings_action)
 
         # connect the label click on gds to a function
         # add a custom context menu in the list widget to allow point deletion
@@ -142,12 +148,18 @@ class pyIVLS_seqBuilder(QObject):
             self.item = root_item.child(0)
 
         def update_settings_for_selected_item(row, idx_parent):
+            """Helper to update the settings of a single item from the GUI to the model."""
             item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
-            self._updateInstructionSettings(item)
+            if item is None:
+                raise ValueError("Selected item not found in the model.")
+            self._update_single_instruction_settings(item)
 
         def to_gui_settings_for_selected_item(row, idx_parent):
+            """Helper to update the settings of a single item from the model to the GUI."""
             item = self.model.itemFromIndex(self.model.index(row, 0, idx_parent))
-            self.update_item_gui(item)
+            if item is None:
+                raise ValueError("Selected item not found in the model.")
+            self._apply_single_instruction_settings_to_gui(item)
 
         idx: QModelIndex = self.widget.treeView.indexAt(position)
         # get parent index
@@ -170,6 +182,101 @@ class pyIVLS_seqBuilder(QObject):
         menu.addAction(delete_action)
         menu.addAction(to_gui_action)
         menu.exec(self.widget.treeView.mapToGlobal(position))
+
+    def _iter_instruction_items(self, root_item=None):
+        """Yield all instruction items (column 0) in depth-first order."""
+        if root_item is None:
+            root_item = self.model.invisibleRootItem().child(0)
+        if root_item is None:
+            return
+
+        for row in range(root_item.rowCount()):
+            child = root_item.child(row, 0)
+            if child is None:
+                continue
+            yield child
+            yield from self._iter_instruction_items(child)
+
+    def _update_single_instruction_settings(self, item: QStandardItem) -> tuple[bool, list[str] | str]:
+        """Update one instruction's stored settings from the current plugin GUI state."""
+
+        def compare_dicts(old, new):
+            changes = []
+            for key, newValue in new.items():
+                if isinstance(newValue, dict):
+                    oldValue = old.get(key, None) if old else None
+                    nested_changes = compare_dicts(oldValue, newValue)
+                    changes.extend([f"{key}.{change}" for change in nested_changes])
+                    continue
+                oldValue = old.get(key, None) if old else None
+                if oldValue != newValue:
+                    changes.append(f"{key}: {oldValue} -> {newValue}")
+            return changes
+
+        instructionFunc = item.text()
+        if instructionFunc not in self.available_instructions:
+            return False, f"Instruction {instructionFunc} is not available."
+
+        status, possible_settings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
+        if status:
+            return False, f"Error parsing settings for {instructionFunc}: {possible_settings['Error message']}"
+
+        oldSettings = item.data(Qt.ItemDataRole.UserRole)
+        changes = compare_dicts(oldSettings, possible_settings)
+        item.setData(possible_settings, Qt.ItemDataRole.UserRole)
+        return True, changes
+
+    def _apply_single_instruction_settings_to_gui(self, item: QStandardItem) -> tuple[bool, str]:
+        """Push one instruction's saved settings into plugin internals and update its GUI."""
+        instruction_func = item.text()
+        if instruction_func not in self.available_instructions:
+            return False, f"Instruction {instruction_func} is not available."
+
+        saved_settings = item.data(Qt.ItemDataRole.UserRole)
+        if not saved_settings:
+            return False, f"No saved settings found for {instruction_func}."
+
+        plugin_functions = self.available_instructions[instruction_func]["functions"]
+        if "setSettings" in plugin_functions:
+            try:
+                ret = plugin_functions["setSettings"](saved_settings)
+                if isinstance(ret, tuple) and ret[0] != 0:
+                    print(ret)
+                    return False, f"Error sending settings to {instruction_func}: {ret[1]}"
+            except Exception as e:
+                return False, f"Error sending settings to {instruction_func}: {str(e)}"
+
+        if "set_gui_from_settings" in plugin_functions:
+            try:
+                plugin_functions["set_gui_from_settings"]()
+            except Exception as e:
+                detailed_error = traceback.format_exc()
+                return False, f"Error updating GUI for {instruction_func}: {str(e)}\n{detailed_error}"
+        else:
+            return False, f"set_gui_from_settings is not implemented for {instruction_func}."
+
+        return True, "OK"
+
+    def _update_settings_action(self):
+        """This updates all plugins from the current GUI state"""
+        changes = {}
+        for item in self._iter_instruction_items():
+            success, item_changes = self._update_single_instruction_settings(item)
+            if not success:
+                self.info_message.emit(item_changes)
+            else:
+                changes[item.text()] = item_changes
+
+        # emit a single message summarizing all changes
+        if changes:
+            self.info_message.emit("Updated settings for instructions:\n" + "\n".join([f"{key}: {change}" for key, val in changes.items() for change in val]))
+
+    def _read_settings_action(self):
+        """This reads the settings from internal model into the gui for all items in the sequence"""
+        for item in self._iter_instruction_items():
+            success, message = self._apply_single_instruction_settings_to_gui(item)
+            if not success:
+                self.info_message.emit(message)
 
     def _root_item_changed(self, idx):
         if idx.column() != 0:
@@ -222,6 +329,7 @@ class pyIVLS_seqBuilder(QObject):
         if not is_valid_filename(filename):
             self.info_message.emit("Can not save sequence. Filename is invalid.")
             return 1
+        print("Saving recipe to " + self.widget.lineEdit_path.text() + sep + filename)
         with open(self.widget.lineEdit_path.text() + sep + filename, "w") as file:
             json.dump(
                 self.extract_data(self.model.invisibleRootItem().child(0)),
@@ -323,7 +431,7 @@ class pyIVLS_seqBuilder(QObject):
         if self._is_in_ancestry(self.item, instructionFunc) or self.item.text() == instructionFunc:
             self.info_message.emit("Cannot add a plugin that already exists in its ancestry or as a direct child")
             return 1
-
+        print(f"selected instruction: {instructionFunc}, available: {self.available_instructions}")
         status, instructionSettings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
         if status:
             self.info_message.emit(instructionSettings["Error message"])
@@ -377,6 +485,8 @@ class pyIVLS_seqBuilder(QObject):
     def _runParser(self):
         """Runs the sequence parser, iterates through the sequence and executes the steps."""
         try:
+            # Ensure a previous stop/error does not leak skip state into a new run.
+            self.skip_iteration = False
             ###############Main logic of iteration: 0 - no iterations, 1 - only start point, 2 - start end end point, iterstep = (end-start)/(iternum -1).The same is used in sweepCommon for drainVoltage. !!!Adapt to logic of iteration, do not modify it!!!
             self.log_message.emit("pyIVLS_seqBuilder: Running sequence parser")
             data = self.extract_data(self.model.invisibleRootItem().child(0))
@@ -399,6 +509,8 @@ class pyIVLS_seqBuilder(QObject):
                         looping[-1]["namePostfix"] = iterText
                         looping[-1]["currentIteration"] = looping[-1]["currentIteration"] + 1
                         looping[-1]["currentStep"] = looping[-1]["currentStep"] + 1
+                        # Reset skip flag at the start of each new iteration
+                        self.skip_iteration = False
                     elif looping[-1]["currentStep"] == looping[-1]["totalSteps"]:
                         if looping[-1]["currentIteration"] < looping[-1]["totalIterations"]:
                             looping[-1]["currentStep"] = 0
@@ -414,18 +526,19 @@ class pyIVLS_seqBuilder(QObject):
                 nextStepClass = stackItem["class"]
                 self.available_instructions[nextStepFunction]["functions"]["setSettings"](nextStepSettings)
                 if nextStepClass == "step":
+                    # If skip flag is set, skip all steps until next iteration boundary
+                    if self.skip_iteration:
+                        continue
                     namePostfix = ""
                     for loopItem in looping:
                         namePostfix = namePostfix + loopItem["namePostfix"]
                     [status, message] = self.available_instructions[nextStepFunction]["functions"]["sequenceStep"](namePostfix)
                     if status:
-                        raise ValueError(message)
-                        """
-                        print(f"Error: {message}")
-                        self._sigSeqEnd.emit()  # Added
-                        self._setNotRunning()  # Added
-                        """
-                        break
+                        # Set skip flag and continue skipping steps until next iteration
+                        self.skip_iteration = True
+                        # Inform user and continue to process control flow
+                        self.log_message.emit(f"Skipping iteration due to step error: {message}")
+                        continue
                 if nextStepClass == "loop":
                     iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
                     looping.append(
@@ -444,8 +557,10 @@ class pyIVLS_seqBuilder(QObject):
             self._sigSeqEnd.emit()
         except ThreadStopped as ts:
             print(f"Sequence stopped: {ts}")
-        except Exception as e:
-            print(f"Error occurred: {e}")
+            # this eats threadstopped
+        except Exception:
+            print(traceback.format_exc())
+            # this eats other exceptions
         finally:
             self._setNotRunning()
             self._sigSeqEnd.emit()
@@ -473,164 +588,3 @@ class pyIVLS_seqBuilder(QObject):
         else:
             self.info_message.emit("No running sequence to stop.")
         self._setRunStatus(False)
-
-    def _updateInstructionSettings(self, item=None):
-        """
-        Updates the settings for a single instruction or all instructions in the sequence.
-
-        Args:
-            item (QStandardItem, optional): The item to update. If None, updates all instructions.
-        """
-
-        def update_item_settings(item):
-            instructionFunc = item.text()
-            if instructionFunc not in self.available_instructions:
-                return [f"Instruction {instructionFunc} is not available."]
-
-            # Validate settings using parse_settings_widget
-            status, newSettings = self.available_instructions[instructionFunc]["functions"]["parse_settings_widget"]()
-            if status:
-                return [newSettings["Error message"]]
-
-            # Compare old and new settings
-            oldSettings = item.data(Qt.ItemDataRole.UserRole)
-            changes = []
-            for key, newValue in newSettings.items():
-                oldValue = oldSettings.get(key, None) if oldSettings else None
-                if oldValue != newValue:
-                    changes.append(f"{key}: {oldValue} -> {newValue}")
-
-            # Update the item's settings
-            item.setData(newSettings, Qt.ItemDataRole.UserRole)
-
-            return changes
-
-        all_changes = []
-
-        if item:
-            # Update a single item
-            changes = update_item_settings(item)
-            if changes:
-                all_changes.extend(changes)
-        else:
-            # Update all items in the sequence
-            def traverse_and_update(item):
-                for row in range(item.rowCount()):
-                    child = item.child(row, 0)
-                    changes = update_item_settings(child)
-                    if changes:
-                        all_changes.extend(changes)
-                    traverse_and_update(child)
-
-            root_item = self.model.invisibleRootItem()
-            if root_item is None:
-                self.info_message.emit("Error: The sequence tree is not properly initialized.")
-                return
-
-            first_child = root_item.child(0)
-            if first_child is None:
-                self.info_message.emit("Error: The sequence tree has no root item.")
-                return
-
-            traverse_and_update(first_child)
-
-        # Emit a single aggregated message
-        if all_changes:
-            self.info_message.emit("Settings updated with the following changes:\n" + "\n".join(all_changes))
-        else:
-            self.info_message.emit("No changes were made.")
-
-    def update_item_gui(self, item):
-        instruction_func = item.text()
-        if instruction_func not in self.available_instructions:
-            self.info_message.emit(f"Instruction {instruction_func} is not available.")
-            return
-
-        # Get the plugin's set_gui_from_settings function
-        plugin_functions = self.available_instructions[instruction_func]["functions"]
-        if "set_gui_from_settings" in plugin_functions:
-            try:
-                plugin_functions["set_gui_from_settings"]()
-            except Exception as e:
-                self.info_message.emit(f"Error while updating GUI for {instruction_func}: {str(e)}")
-        else:
-            self.info_message.emit(f"set_gui_from_settings is not implemented for {instruction_func}.")
-
-    def update_all_instruction_guis(self):
-        """
-        Iterates through all instructions in the sequence and calls `set_gui_from_settings` for each instruction plugin.
-        Logs a message if `set_gui_from_settings` is not implemented for a plugin.
-        """
-
-        def traverse_and_update(item):
-            for row in range(item.rowCount()):
-                child = item.child(row, 0)
-                self.update_item_gui(child)
-                traverse_and_update(child)
-
-        root_item = self.model.invisibleRootItem()
-        if root_item is None:
-            self.info_message.emit("Error: The sequence tree is not properly initialized.")
-            return
-
-        first_child = root_item.child(0)
-        if first_child is None:
-            self.info_message.emit("Error: The sequence tree has no root item.")
-            return
-
-        traverse_and_update(first_child)
-
-    def read_and_update_instruction_settings(self):
-        """
-        Sends the saved settings data for all instructions to the plugins,
-        and calls `set_gui_from_settings` to update the GUI fields based on the saved settings.
-        """
-
-        def process_item_settings(item):
-            instruction_func = item.text()
-            if instruction_func not in self.available_instructions:
-                self.info_message.emit(f"Instruction {instruction_func} is not available.")
-                return
-
-            # Retrieve saved settings from the item
-            saved_settings = item.data(Qt.ItemDataRole.UserRole)
-            if not saved_settings:
-                self.info_message.emit(f"No saved settings found for {instruction_func}.")
-                return
-
-            # Send the saved settings to the plugin
-            plugin_functions = self.available_instructions[instruction_func]["functions"]
-            if "setSettings" in plugin_functions:
-                try:
-                    plugin_functions["setSettings"](saved_settings)
-                except Exception as e:
-                    self.info_message.emit(f"Error sending settings to {instruction_func}: {str(e)}")
-                    return
-
-            # Update the GUI fields using set_gui_from_settings
-            if "set_gui_from_settings" in plugin_functions:
-                try:
-                    plugin_functions["set_gui_from_settings"]()
-                except Exception as e:
-                    detailed_error = traceback.format_exc()
-                    self.info_message.emit(f"Error updating GUI for {instruction_func}: {str(e)}\n{detailed_error}")
-            else:
-                self.info_message.emit(f"set_gui_from_settings is not implemented for {instruction_func}.")
-
-        def traverse_and_process(item):
-            for row in range(item.rowCount()):
-                child = item.child(row, 0)
-                process_item_settings(child)
-                traverse_and_process(child)
-
-        root_item = self.model.invisibleRootItem()
-        if root_item is None:
-            self.info_message.emit("Error: The sequence tree is not properly initialized.")
-            return
-
-        first_child = root_item.child(0)
-        if first_child is None:
-            self.info_message.emit("Error: The sequence tree has no root item.")
-            return
-
-        traverse_and_process(first_child)

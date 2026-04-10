@@ -36,11 +36,12 @@ class pyIVLS_GUI(QObject):
 
     # signal plugincontainer to read new config file
     update_config_signal = pyqtSignal(str)
+    export_config_signal = pyqtSignal(str)  # parameter: path to save to
 
     ############################### Slots
     @pyqtSlot(str)
     def show_message(self, str):
-        msg = QtWidgets.QMessageBox()
+        msg = QtWidgets.QMessageBox()  # cannot use parent = self.window, because the message simply does not work then ????
         msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
@@ -152,9 +153,20 @@ class pyIVLS_GUI(QObject):
     def action_read_config_file(self) -> None:
         """Prompts user to select a configuration file through QFileDialog. Path emitted as signal(str)"""
         # https://forum.qt.io/topic/143116/qfiledialog-getopenfilename-causing-program-to-crash/14
-        path, _ = QFileDialog.getOpenFileName(self.window, "Select Configuration File", self.path, "Configuration Files (*.ini)", options=QFileDialog.Option.DontUseNativeDialog | QFileDialog.Option.ReadOnly)
+        path, _ = QFileDialog.getOpenFileName(
+            self.window, "Select Configuration File", self.path, "Configuration Files (*.ini)", options=QFileDialog.Option.DontUseNativeDialog | QFileDialog.Option.ReadOnly
+        )
         if path:
             self.update_config_signal.emit(path)
+
+    def action_export_config_file(self) -> None:
+        """Prompts user to select a configuration file through QFileDialog. Path emitted as signal(str)"""
+        path, _ = QFileDialog.getSaveFileName(self.window, "Select Configuration File", self.path, "Configuration Files (*.ini)", options=QFileDialog.Option.DontUseNativeDialog)
+        if path:
+            # check file type and add if needed
+            if not path.lower().endswith(".ini"):
+                path += ".ini"
+            self.export_config_signal.emit(path)
 
     ############### Settings Widget
 
@@ -240,6 +252,7 @@ class pyIVLS_GUI(QObject):
         self.window.menuShow.aboutToShow.connect(self.action_MDIShow_to_open)
         self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
         self.window.actionRead_config_file.triggered.connect(self.action_read_config_file)
+        self.window.actionExport_config_file.triggered.connect(self.action_export_config_file)
         self.window.closeSignal.connect(self.reactClose)
         self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
         self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)

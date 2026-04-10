@@ -5,40 +5,49 @@ import numpy as np
 import struct
 import time
 
-### Thorspec constants
-THORSPEC_VID = 0x1313
-THORSPEC_PID = 0x8087
 
 
 class CCSDRV:
-    #    def __init__(self):
-    #
-    #    	return 0
+    def __init__(self):
+        self._io = None
+
+    @property
+    def io(self):
+        if self._io is None:
+            raise ValueError("IO not initialized. Call open() first.")
+        return self._io
 
     def open(
         self,
         spectrometerVID,
         spectrometerPID,
         integration_time=const.CCS_SERIES_DEF_INT_TIME,
-    ):
+    ) -> bool:
         """Opens a connection through LLIO.
 
         Args:
-            vid (hexadecimal, optional): vendor ID. Defaults to 0x1313 (ThorLabs).
-            pid (hexadecimal, optional): product ID. Defaults to 0x8087 (CCS175).
+            vid (hexadecimal, optional): vendor ID. 
+            pid (hexadecimal, optional): product ID.
+            integration_time (float, optional): integration time in seconds. Defaults to CCS_SERIES_DEF_INT_TIME.
+        Returns:
+            bool: True if connection was successful, False otherwise. Returns True also if already connected to the desired device.
         """
-        # Set class vars
-        self.io = LLIO(spectrometerVID, spectrometerPID)
+        if self._io is not None and self._io.connected and self.io.vid == spectrometerVID and self.io.pid == spectrometerPID:
+            # Already connected to the desired device, just update integration time
+            self.set_integration_time(integration_time)
+            return True
+
+        # must not be connected to the correct device, create new LLIO. 
+        self._io = LLIO(spectrometerVID, spectrometerPID)
         if self.io.open():
-            self.dev = self.io.dev
             self.set_integration_time(integration_time)
             state = self.get_device_status()
             self.integration_time = integration_time
 
             if "SCAN_IDLE" not in state:
-                # FIXME: This is a workaround for the device not being in idle state
+                # This is a workaround for the device not being in idle state
                 # after opening connection for first time. Look into reset.
-                time.sleep(3)
+                time.sleep(2)
                 self.start_scan()
                 self.get_scan_data()
             return True
@@ -77,7 +86,6 @@ class CCSDRV:
     def pipe_status(self):
         return self.io.get_bulk_in_status()
 
-    # FIXME: Add better error checking.
     def set_integration_time(self, intg_time: float) -> bool:
         """Sets the integration time.
 
@@ -130,47 +138,31 @@ class CCSDRV:
         self.integration_time = intg_time
         return True
 
-    def get_device_status(self, debug=False):
+    def get_device_status(self):
         """Gets device status and parses the status bytes
 
         Returns:
             array: A list of set status bits in a readable form.
         """
-        # TODO: CHECK THAT THE STATUSES ARE ACTUALLY CORRECT, SINCE I CANT REALLY KNOW IF THEY WERE CORRECTLY PARSED
         status = np.int32(0xFFFF)
         readTo = usb.util.create_buffer(2)  # 16 bits to get status.
         self.io.control_in(const.CCS_SERIES_RCMD_GET_STATUS, readTo)
         status = np.frombuffer(readTo, dtype=np.int16)[0]
-        if debug:
-            print(f"status(binary): {format(status, '016b')}")
+
 
         statuses = []
-        if debug:
-            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_IDLE, '016b')} for scan_idle")
+
         if status & const.CCS_SERIES_STATUS_SCAN_IDLE:
             statuses.append("SCAN_IDLE")
-
-        if debug:
-            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_TRIGGERED, '016b')} for scan_triggered")
         if status & const.CCS_SERIES_STATUS_SCAN_TRIGGERED:
             statuses.append("SCAN_TRIGGERED")
-
-        if debug:
-            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_START_TRANS, '016b')} for scan_start_trans")
         if status & const.CCS_SERIES_STATUS_SCAN_START_TRANS:
             statuses.append("SCAN_START_TRANS")
-
-        if debug:
-            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_SCAN_TRANSFER, '016b')} for scan_transfer")
         if status & const.CCS_SERIES_STATUS_SCAN_TRANSFER:
             statuses.append("SCAN_TRANSFER")
-
-        if debug:
-            print(f"comparing: {format(status, '016b')} and {format(const.CCS_SERIES_STATUS_WAIT_FOR_EXT_TRIG, '016b')} for wait_for_ext_trig")
         if status & const.CCS_SERIES_STATUS_WAIT_FOR_EXT_TRIG:
             statuses.append("WAIT_FOR_EXT_TRIG")
-        if debug:
-            print(f"statuses: {statuses}")
+
         return statuses
 
     def start_scan(self):
@@ -197,7 +189,7 @@ class CCSDRV:
         raw = self._get_raw_data()
 
         # Process raw data
-        data = self._acquire_raw_scan_data(raw)
+        data = self._process_raw_scan_data(raw)
         return data
 
     def _get_raw_data(self) -> np.ndarray:
@@ -217,7 +209,7 @@ class CCSDRV:
 
         return readTo
 
-    def _acquire_raw_scan_data(self, raw: np.ndarray) -> np.ndarray:
+    def _process_raw_scan_data(self, raw: np.ndarray) -> np.ndarray:
         """Process raw scan data to normalize it.
 
         This method calculates the dark current average, normalizing factor, and processes the raw data to produce normalized scan data.

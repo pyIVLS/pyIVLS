@@ -39,8 +39,7 @@ plugin functionality implemented in a low level class that works by itself. The 
 
 ## GUI
 plugin GUI functionality implemented in a separate class that uses the low level class. The plugin GUI class can use the components provided by plugin_components. GUIs should not raise exceptions(?), but return PyIVLSReturn objects. This allows for handling inter-plugin errors in a standardized way.
-plugin GUIs shouldn't inherit from any base class nor from QObject. I would prefer to keep it that way and offload all qt-related functionality to components. 
-This also helps in keeping the GUI implementation relatively clean.
+
 Most of the common functionality should be moved to a component, since:
 1. Reduce repetitive code, make it easier to maintain with a single point of change (not rewriting all plugins on all changes)
 2. Make it easier to implement new plugins, since the common functionality is already implemented
@@ -52,5 +51,5 @@ TODO
 ## FOOTGUNS:
 Dont use uppercase in naming, since:
 When creating a field in the .ini file to save last saved plugins, the names are compressed to all lowercase.
-Don't use spaces. in the "function" field. This is because the dependencies are saved under the type field name, and the ini file does not allow spaced in the names with the current configuration.
+Don't use spaces in the "function" field. This is because the dependencies are saved under the type field name, and the ini file does not allow spaced in the names with the current configuration.
  

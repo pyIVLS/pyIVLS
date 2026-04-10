@@ -5,7 +5,7 @@ This is a class for peltier controller
 
 import pyvisa
 from threading import Lock
-
+import random
 
 class itc503:
     def __init__(self):
@@ -28,6 +28,10 @@ class itc503:
             self.device.write("Q2")
             # "C3" tells instrument to be at REMOTE UNLOCKED state different numbers after C tell ITC to be at different states -> see ITC503 user manual
             self.device.write("C3")
+            self.device.read_bytes(3)
+            self.device.clear()
+            # set heater on auto
+            self.device.write("A1")
             self.device.read_bytes(3)
             self.device.clear()
         return 0
@@ -78,3 +82,12 @@ class itc503:
             else:
                 temp = float(str[1:-2])
             return temp
+        
+    def getDataTest(self):
+        """get the data for testing and return it as a float
+
+        Returns:
+            temperature as a float
+        """
+        return random.uniform(10, 320)
+        

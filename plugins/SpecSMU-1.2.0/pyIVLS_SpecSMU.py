@@ -60,7 +60,7 @@ class pyIVLS_SpecSMU_plugin:
         if "function_dict" in plugin_data[self.name]:
             self.specsmu.function_dict = plugin_data[self.name]["function_dict"]
         self.specsmu._initGUI(plugin_data[self.name]["settings"])
-        return {self.name: self.specsmu}
+        return {self.name: self.specsmu.settingsWidget}
 
     @hookimpl
     def get_functions(self, args=None):
@@ -70,18 +70,23 @@ class pyIVLS_SpecSMU_plugin:
 
     @hookimpl
     def set_function(self, function_dict):
-        """Provides a list of available public functions from other plugins as a nested list"""
-        pruned = {k: function_dict[k] for k in self.dependencies if k in function_dict}
-        self.specsmu.function_dict = pruned
-        if hasattr(self.specsmu, "set_dependencies"):
-            self.specsmu.set_dependencies(self.dependencies)
-        return self.specsmu.function_dict
+        """Hook to set methods from other plugins to this plugins function dictionary
+        Returns: Missing methods
+        """
+        # set functions to DependencyManager
+        is_valid, missing = self.specsmu.dm.set_available_dependency_functions(function_dict)
+
+        return {self.name: missing}
 
     @hookimpl
     def get_plugin_settings(self, args=None):
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
         if args is None or args.get("function") == self.function:
-            settings = self.specsmu.get_settings_dict_raw()
+            # Use the raw getter for saving settings
+            #settings = self.specsmu.get_settings_dict_raw()
+            # Optionally, you can still parse/validate if needed:
+            status, settings = self.specsmu.parse_settings_widget()
+            # return (self.name, status, parsed_settings)
             return (self.name, 0, settings)
 
     @hookimpl
@@ -92,3 +97,13 @@ class pyIVLS_SpecSMU_plugin:
         """
         if args is None or args.get("function") == self.function:
             return {self.name: self.specsmu.logger.logger_signal}
+
+    @hookimpl
+    def get_info(self, args=None):
+        """provides the signal for logging to main app
+
+        :return: dict that includes the log signal
+        """
+
+        if args is None or args.get("function") == self.function:
+            return {self.name: self.specsmu.logger.info_popup_signal}

@@ -1,8 +1,8 @@
 """Module for the MPC-325 abstraction layer"""
 
 import struct  # Handling binary
-import time  # for device-spesified wait-times
-from typing import Final  # for constants
+import time  # for device-specified wait-times
+from typing import Final, Optional  # for constants and options
 import threading  # for thread safety
 
 import numpy as np  # for better typing
@@ -54,10 +54,8 @@ class Mpc325:
     _M2SCONV: Final = np.float64(16.0)
     _MINIMUM_MS: Final = 0
     _MAXIMUM_M: Final = 25000
-    _MAXIMUM_S: Final = 400000  # Manual says 266667, this is the actual maximum. UPDATE 23.5.2025: This has been updated in the manual as well.
+    _MAXIMUM_S: Final = 400000
     _TIMEOUT: Final = 120  # seconds, to allow for long moves.
-    # WARNING: TOO SHORT TIMEOUT WILL LEAD TO COMPLETION INDICATORS BEING LEFT IN THE BUFFER. This results in the move functions returning a completed move
-    # even though the move has not been completed yet. This leads to further commands being sent before the move is completed, which leads to missed commands.
 
     def __init__(self):
         # vars for a single instance
@@ -70,7 +68,7 @@ class Mpc325:
         self.end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
         self._stop_event = threading.Event()  # Event to signal stop request
 
-    def update_internal_state(self, quick_move: bool = None, speed: int = None, source: str = None):
+    def update_internal_state(self, quick_move: Optional[bool] = None, speed: Optional[int] = None, source: Optional[str] = None):
         """Update the internal state of the micromanipulator.
 
         Args:
@@ -89,7 +87,7 @@ class Mpc325:
         if source is not None:
             self.port = source
 
-    def open(self, port: str = None):
+    def open(self, port: Optional[str] = None):
         with self._comm_lock:
             # Open port
             if port is None:
@@ -130,29 +128,16 @@ class Mpc325:
             name (str, optional): unused
 
         Returns:
-           Tuple : unpacked data based on format, without the end marker. If end marker is invalid, throws assertion error.
+           Tuple : unpacked data based on format, without the end marker. If end marker is invalid, throws.
         """
         unpacked_data = struct.unpack(format_str, output)
         # Check last byte for simple validation.
-        assert unpacked_data[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {unpacked_data[-1]}"
+        if unpacked_data[-1] != 0x0D:
+            raise ValueError(f"Invalid end marker sent from Sutter. Expected 0x0D, got {unpacked_data[-1]}")
         return unpacked_data[:-1]
 
     def _flush(self):
         """Flushes i/o buffers. Also applies a wait time between commands. Every method should call this before sending a command."""
-        """
-        input_waiting = self.ser.in_waiting
-        output_waiting = self.ser.out_waiting
-        if input_waiting > 0:
-            print(f"WARNING: Input buffer was not empty. {input_waiting} bytes were waiting to be read.")
-            print(f"Timeout is {self.ser.timeout} seconds, which seems to be too short for the move to complete")
-            stuff = self.ser.read(input_waiting)
-            print(stuff)
-        if output_waiting > 0:
-            print(f"WARNING: Output buffer was not empty. {output_waiting} bytes were waiting to be read.")
-            print(f"Timeout is {self.ser.timeout} seconds, which seems to be too short for the move to complete")
-            stuff = self.ser.read(output_waiting)
-            print(stuff)
-        """
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         self.ser.flush()
@@ -232,7 +217,8 @@ class Mpc325:
                 self._flush()
                 self.ser.write(bytes([78]))  # Send command (ASCII: N)
                 output = self._read_with_stop_check(until_marker=self.end_marker_bytes)
-                assert output[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {output[-1]}"
+                if output[-1] != 0x0D:
+                    raise ValueError(f"Invalid end marker sent from Sutter. Expected 0x0D, got {output[-1]}")
                 return True
 
     def _read_with_stop_check(self, until_marker=struct.pack("<B", 13)):
@@ -246,9 +232,11 @@ class Mpc325:
 
         Raises:
             InterruptedError: If stop event is set during reading
+            TimeoutError: If read operation times out
         """
         timeout = self.ser.timeout
-        assert timeout is not None, "Serial timeout must be set for reading"
+        if timeout is None:
+            raise ValueError("Serial timeout must be set for reading")
         start_time = time.monotonic()
         # Read until marker
         data = bytearray()
@@ -267,15 +255,13 @@ class Mpc325:
             elif time.monotonic() - start_time > timeout:
                 raise TimeoutError("Read timed out")
             else:
-                time.sleep(0.001)  # Small delay to prevent busy waiting
+                time.sleep(0.1)
 
     def stop(self):
         """Stop the current movement"""
         self._stop_event.set()  # Signal that a stop is requested
         # self.ser.write(bytes([3]))  # Send command (ASCII: <ETX>).
-        time.sleep(
-            0.1
-        )  # sleep for some time before resetting the stop event just so that the next move isn't immediately queued.
+        time.sleep(0.1)  # sleep for some time before resetting the stop event just so that the next move isn't immediately queued.
         # self.ser.read(1) # read the return from stop write
         self._flush()  # clear the buffers
         self._stop_event.clear()
@@ -298,11 +284,7 @@ class Mpc325:
             z = curr_pos[2]
 
         # If the position after handrails is the same, do nothing.
-        if (
-            (curr_pos[0] == self._handrail_micron(x))
-            and (curr_pos[1] == self._handrail_micron(y))
-            and (curr_pos[2] == self._handrail_micron(z))
-        ):
+        if (curr_pos[0] == self._handrail_micron(x)) and (curr_pos[1] == self._handrail_micron(y)) and (curr_pos[2] == self._handrail_micron(z)):
             return
         if self.quick_move:
             self.quick_move_to(x, y, z)
@@ -326,9 +308,7 @@ class Mpc325:
             y_s = self._handrail_step(self._m2s(self._handrail_micron(y)))
             z_s = self._handrail_step(self._m2s(self._handrail_micron(z)))
 
-            command2 = struct.pack(
-                "<3I", x_s, y_s, z_s
-            )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
+            command2 = struct.pack("<3I", x_s, y_s, z_s)  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
 
             self.ser.write(command1)
             self.ser.write(command2)
@@ -374,12 +354,10 @@ class Mpc325:
             x_s = self._handrail_step(self._m2s(self._handrail_micron(x)))
             y_s = self._handrail_step(self._m2s(self._handrail_micron(y)))
             z_s = self._handrail_step(self._m2s(self._handrail_micron(z)))
-            command2 = struct.pack(
-                "<3I", x_s, y_s, z_s
-            )  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
+            command2 = struct.pack("<3I", x_s, y_s, z_s)  # < to enforce little endianness. Just in case someone tries to run this on an IBM S/360
 
             self.ser.write(command1)
-            time.sleep(0.035)  # wait period specified in the manual (30 ms) Updated to 35 ms on recommendation from Sutter instr 
+            time.sleep(0.035)  # wait period specified in the manual (30 ms) Updated to 35 ms on recommendation from Sutter instr
             self.ser.write(command2)
             if debug:
                 print(f"Moving to ({x}, {y}, {z}) at speed {speed}")
@@ -390,7 +368,8 @@ class Mpc325:
                 print(f"Command 2 in hex: {command2.hex()} with size of {len(command2)} bytes")
             try:
                 byt = self._read_with_stop_check(until_marker=self.end_marker_bytes)
-                assert byt[-1] == 0x0D, f"Invalid end marker sent from Sutter. Expected 0x0D, got {byt[-1]}"
+                if byt[-1] != 0x0D:
+                    raise ValueError(f"Invalid end marker sent from Sutter. Expected 0x0D, got {byt[-1]}")
             except InterruptedError:
                 # The stop command was already sent in the stop() method
                 # Just read any remaining data to clear the buffer
@@ -398,11 +377,11 @@ class Mpc325:
                 raise
 
     # Handrails for microns/microsteps. Realistically would be enough just to check the microsteps, but CATCH ME LETTING A MISTAKE BREAK THESE
-    def _handrail_micron(self, microns) -> np.uint32:
-        return max(self._MINIMUM_MS, min(microns, self._MAXIMUM_M))
+    def _handrail_micron(self, microns: np.float64) -> np.float64:
+        return np.float64(max(self._MINIMUM_MS, min(microns, self._MAXIMUM_M)))
 
-    def _handrail_step(self, steps) -> np.uint32:
-        return max(self._MINIMUM_MS, min(steps, self._MAXIMUM_S))
+    def _handrail_step(self, steps: np.uint32) -> np.uint32:
+        return np.uint32(max(self._MINIMUM_MS, min(steps, self._MAXIMUM_S)))
 
     # Function to convert microns to microsteps.
     def _m2s(self, microns: np.float64) -> np.uint32:
@@ -412,7 +391,7 @@ class Mpc325:
     def _s2m(self, steps: np.uint32) -> np.float64:
         return np.float64(steps * self._S2MCONV)
 
-    def _calculate_wait_time(self, speed, x, y, z):
+    def _calculate_wait_time(self, speed: int, x: np.float64, y: np.float64, z: np.float64):
         """Approximates time of travel. NOTE: make sure to pass microns, not microsteps to this
 
         Args:

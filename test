@@ -1,0 +1,17 @@
+[
+    {
+        "function": "affineMove",
+        "class": "loop",
+        "settings": {
+            "camera": "VenusUSB2",
+            "man1_calib": "-15.098445595854926, 0.4870466321243575, 31125.33063471503, 0.2557570523891634, 14.822394933793905, 15132.756980426033",
+            "man2_calib": "14.899256312694572, -0.17528536838464198, 4949.498616395708, -0.4363542026980311, -14.836042891732967, 18347.385852646148",
+            "man3_calib": "",
+            "man4_calib": "",
+            "measurement_point_names": [],
+            "measurement_points": [],
+            "micromanipulator": "Sutter",
+            "positioning": "Affine"
+        }
+    }
+]

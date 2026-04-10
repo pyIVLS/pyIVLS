@@ -10,9 +10,9 @@ from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, Qt, pyqtSlot
 from PyQt6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
-from plugins.plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods
-from sweepCommon import create_file_header, create_sweep_reciepe, prescaler_stop_check
-from threadStopped import (  # this should be moved to some pluginsShare
+from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, filter_to_valid_methods, PyIVLSReturnCode
+from sweepCommon import create_file_header, create_sweep_reciepe
+from threadStopped import (
     ThreadStopped,
     thread_with_exception,
 )
@@ -139,7 +139,7 @@ class sweepGUI(QObject):
         # set default SMU
         if default_smu in self.function_dict["smu"]:
             self.settingsWidget.smuBox.setCurrentText(default_smu)
-        self.parse_settings_widget()
+        # self.parse_settings_widget() #parse settings widgets asks all the other plugins to parse their widgets, should not be done immediately
         self.settings.update(plugin_info)
         self.logger.log_debug(f"Settings after update: {self.settings}")
         self.set_gui_from_settings()
@@ -283,7 +283,6 @@ class sweepGUI(QObject):
         smu_selection = self.settingsWidget.smuBox.currentText()
         if smu_selection in self.function_dict["smu"]:
             # update smu:
-            self.function_dict["smu"][smu_selection]["parse_settings_widget"]()
             available_channels = self.function_dict["smu"][smu_selection]["smu_channelNames"]()
             # get channel names from the selected SMU plugin
             self.settingsWidget.comboBox_channel.clear()
@@ -302,21 +301,14 @@ class sweepGUI(QObject):
     ########Functions
     ########plugins interraction
 
-    def _getPublicFunctions(self, function_dict):
-        self.missing_functions = []
-        for dependency_plugin in list(self.dependency.keys()):
-            if dependency_plugin not in function_dict:
-                self.missing_functions.append(dependency_plugin)
-                continue
-            for dependency_function in self.dependency[dependency_plugin]:
-                if dependency_function not in function_dict[dependency_plugin]:
-                    self.missing_functions.append(f"{dependency_plugin}:{dependency_function}")
-        if not self.missing_functions:
-            self.function_dict = function_dict
-        else:
-            self.function_dict = {}
-
-        return self.missing_functions
+    def fill_function_dict(self, function_dict):
+        """Functionality for set_function. Filters the available functions to a valid selection. Updates internal func dict"""
+        valid, missing = filter_to_valid_methods(function_dict, self.dependency)
+        if not valid:
+            self.logger.info_popup("Missing functions for sweep plugin. Check log for details.")
+            self.logger.log_warn("Missing functions for sweep plugin: " + str(missing))
+        self.function_dict = function_dict
+        return missing
 
     def _get_public_methods(self):
         return get_public_methods(self)
@@ -343,84 +335,84 @@ class sweepGUI(QObject):
         smu_selection = self.settingsWidget.smuBox.currentText()
         if not self.function_dict:
             return [
-                3,
+                PyIVLSReturnCode.MISSING_DEPENDENCY,
                 {
                     "Error message": "Missing functions in sweep plugin. Check log",
                     "Missing functions": self.missing_functions,
                 },
             ]
         if smu_selection not in self.function_dict["smu"]:
-            return [3, {"Error message": "SMU plugin not found in function_dict"}]
+            return [PyIVLSReturnCode.MISSING_DEPENDENCY, {"Error message": "SMU plugin not found in function_dict"}]
 
-        self.settings = {}
-        self.settings["smu"] = smu_selection
-        [status, self.smu_settings] = self.function_dict["smu"][self.settings["smu"]]["parse_settings_widget"]()
+        new_settings = {}
+        new_settings["smu"] = smu_selection
+        [status, smu_settings] = self.function_dict["smu"][new_settings["smu"]]["parse_settings_widget"]()
         if status:
-            return [2, self.smu_settings]
+            return [PyIVLSReturnCode.DEPENDENCY_ERROR, smu_settings]
 
-        self.settings["smu_settings"] = self.smu_settings
+        new_settings["smu_settings"] = smu_settings
 
         # Determine source channel: may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
-        self.settings["channel"] = (self.settingsWidget.comboBox_channel.currentText()).lower()
+        new_settings["channel"] = (self.settingsWidget.comboBox_channel.currentText()).lower()
         currentIndex = self.settingsWidget.comboBox_channel.currentIndex()
         if self.settingsWidget.comboBox_channel.count() > 1:
             if currentIndex == 0:
-                self.settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(1)
+                new_settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(1)
             else:
-                self.settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(0)
+                new_settings["drainchannel"] = self.settingsWidget.comboBox_channel.itemText(0)
         else:
-            self.settings["drainchannel"] = "xxx"  # for compatability if the smu does not support second channel
+            new_settings["drainchannel"] = "xxx"  # for compatability if the smu does not support second channel
         # Determine source type: may take values [current, voltage]
-        self.settings["inject"] = (self.settingsWidget.comboBox_inject.currentText()).lower()
+        new_settings["inject"] = (self.settingsWidget.comboBox_inject.currentText()).lower()
         # Determine pulse/continuous mode: may take values [continuous, pulsed, mixed]
-        self.settings["mode"] = (self.settingsWidget.comboBox_mode.currentText()).lower()
+        new_settings["mode"] = (self.settingsWidget.comboBox_mode.currentText()).lower()
         # Determine delay mode for continuous sweep: may take values [auto, manual]
-        self.settings["continuousdelaymode"] = (self.settingsWidget.comboBox_continuousDelayMode.currentText()).lower()
+        new_settings["continuousdelaymode"] = (self.settingsWidget.comboBox_continuousDelayMode.currentText()).lower()
         # Determine delay mode for pulsed sweep: may take values [auto, manual]
-        self.settings["pulseddelaymode"] = (self.settingsWidget.comboBox_pulsedDelayMode.currentText()).lower()
+        new_settings["pulseddelaymode"] = (self.settingsWidget.comboBox_pulsedDelayMode.currentText()).lower()
         # Determine delay mode for drain: may take values [auto, manual]
-        self.settings["draindelaymode"] = (self.settingsWidget.comboBox_drainDelayMode.currentText()).lower()
+        new_settings["draindelaymode"] = (self.settingsWidget.comboBox_drainDelayMode.currentText()).lower()
         # Determine source sence mode: may take values [2 wire, 4 wire, 2 & 4 wire]
-        self.settings["sourcesensemode"] = (self.settingsWidget.comboBox_sourceSenseMode.currentText()).lower()
+        new_settings["sourcesensemode"] = (self.settingsWidget.comboBox_sourceSenseMode.currentText()).lower()
         # Determine drain sence mode: may take values [2 wire, 4 wire, 2 & 4 wire]
-        self.settings["drainsensemode"] = (self.settingsWidget.comboBox_drainSenseMode.currentText()).lower()
+        new_settings["drainsensemode"] = (self.settingsWidget.comboBox_drainSenseMode.currentText()).lower()
 
         # Determine a single channel mode: may be True or False
         if self.settingsWidget.checkBox_singleChannel.isChecked():
-            self.settings["singlechannel"] = True
+            new_settings["singlechannel"] = True
         else:
-            self.settings["singlechannel"] = False
+            new_settings["singlechannel"] = False
 
         # Determine repeat count: should be int >0
         try:
-            self.settings["repeat"] = int(self.settingsWidget.lineEdit_repeat.text())
+            new_settings["repeat"] = int(self.settingsWidget.lineEdit_repeat.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: repeat field should be integer"}]
-        if self.settings["repeat"] < 1:
+        if new_settings["repeat"] < 1:
             return [1, {"Error message": "Value error in sweep plugin: repeat field can not be less than 1"}]
 
         # Determine settings for continuous mode
         # start should be float
         try:
-            self.settings["continuousstart"] = float(self.settingsWidget.lineEdit_continuousStart.text())
+            new_settings["continuousstart"] = float(self.settingsWidget.lineEdit_continuousStart.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: continuous start field should be numeric"}]
 
         # end should be float
         try:
-            self.settings["continuousend"] = float(self.settingsWidget.lineEdit_continuousEnd.text())
+            new_settings["continuousend"] = float(self.settingsWidget.lineEdit_continuousEnd.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: continuous end field should be numeric"}]
 
         # number of points should be int >0
         try:
-            self.settings["continuouspoints"] = int(self.settingsWidget.lineEdit_continuousPoints.text())
+            new_settings["continuouspoints"] = int(self.settingsWidget.lineEdit_continuousPoints.text())
         except ValueError:
             return [
                 1,
                 {"Error message": "Value error in sweep plugin: continuous number of points field should be integer"},
             ]
-        if self.settings["continuouspoints"] < 1:
+        if new_settings["continuouspoints"] < 1:
             return [
                 1,
                 {"Error message": "Value error in sweep plugin: continuous number of points field can not be less than 1"},
@@ -428,53 +420,56 @@ class sweepGUI(QObject):
 
         # limit should be float >0
         try:
-            self.settings["continuouslimit"] = float(self.settingsWidget.lineEdit_continuousLimit.text())
+            new_settings["continuouslimit"] = float(self.settingsWidget.lineEdit_continuousLimit.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: continuous limit field should be numeric"}]
-        if self.settings["continuouslimit"] <= 0:
+        if new_settings["continuouslimit"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: continuous limit field should be positive"}]
 
         # continuous nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            if "lineFrequency" not in self.smu_settings:
-                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
-            line_freq = self.smu_settings["lineFrequency"]
-            self.settings["continuousnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_continuousNPLC.text())
+            #            if "lineFrequency" not in self.smu_settings:
+            #                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
+            #            line_freq = self.smu_settings["lineFrequency"]
+            #            self.settings["continuousnplc"] = (
+            #                0.001 * line_freq * float(self.settingsWidget.lineEdit_continuousNPLC.text())
+            #            )
+            new_settings["continuousnplc"] = float(self.settingsWidget.lineEdit_continuousNPLC.text()) / 1000  # value in settings is in s; value in GUI is in ms
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: continuous nplc field should be numeric"}]
-        if self.settings["continuousnplc"] <= 0:
+        if new_settings["continuousnplc"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: continuous nplc field should be positive"}]
 
         # delay (in fact it is stabilization time before the measurement), should be >0:
         try:
-            self.settings["continuousdelay"] = float(self.settingsWidget.lineEdit_continuousDelay.text()) / 1000
+            new_settings["continuousdelay"] = float(self.settingsWidget.lineEdit_continuousDelay.text()) / 1000
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: continuous delay field should be numeric"}]
-        if self.settings["continuousdelay"] <= 0:
+        if new_settings["continuousdelay"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: continuous delay field should be positive"}]
 
         # Determine settings for pulsed mode
         # start should be float
         try:
-            self.settings["pulsedstart"] = float(self.settingsWidget.lineEdit_pulsedStart.text())
+            new_settings["pulsedstart"] = float(self.settingsWidget.lineEdit_pulsedStart.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: pulsed start field should be numeric"}]
 
         # end should be float
         try:
-            self.settings["pulsedend"] = float(self.settingsWidget.lineEdit_pulsedEnd.text())
+            new_settings["pulsedend"] = float(self.settingsWidget.lineEdit_pulsedEnd.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: pulsed end field should be numeric"}]
 
         # number of points should be int >0
         try:
-            self.settings["pulsedpoints"] = int(self.settingsWidget.lineEdit_pulsedPoints.text())
+            new_settings["pulsedpoints"] = int(self.settingsWidget.lineEdit_pulsedPoints.text())
         except ValueError:
             return [
                 1,
                 {"Error message": "Value error in sweep plugin: pulsed number of points field should be integer"},
             ]
-        if self.settings["pulsedpoints"] < 1:
+        if new_settings["pulsedpoints"] < 1:
             return [
                 1,
                 {"Error message": "Value error in sweep plugin: pulsed number of points field can not be less than 1"},
@@ -482,58 +477,59 @@ class sweepGUI(QObject):
 
         # limit should be float >0
         try:
-            self.settings["pulsedlimit"] = float(self.settingsWidget.lineEdit_pulsedLimit.text())
+            new_settings["pulsedlimit"] = float(self.settingsWidget.lineEdit_pulsedLimit.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: pulsed limit field should be numeric"}]
-        if self.settings["pulsedlimit"] <= 0:
+        if new_settings["pulsedlimit"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: pulsed limit field should be positive"}]
 
         # pulsed nplc (in fact it is integration time for the measurement) is calculated from line frequency, should be float >0
         try:
-            if "lineFrequency" not in self.smu_settings:
-                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
-            line_freq = self.smu_settings["lineFrequency"]
-            self.settings["pulsednplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_pulsedNPLC.text())
+            #            if "lineFrequency" not in self.smu_settings:
+            #                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
+            #            line_freq = self.smu_settings["lineFrequency"]
+            #            self.settings["pulsednplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_pulsedNPLC.text())
+            new_settings["pulsednplc"] = float(self.settingsWidget.lineEdit_pulsedNPLC.text()) / 1000  # value in settings is in s; value in GUI is in ms
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: pulsed nplc field should be numeric"}]
-        if self.settings["pulsednplc"] <= 0:
+        if new_settings["pulsednplc"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: pulsed nplc field should be positive"}]
 
         # delay (in fact it is stabilization time before the measurement) should be >0
         try:
-            self.settings["pulseddelay"] = float(self.settingsWidget.lineEdit_pulsedDelay.text()) / 1000
+            new_settings["pulseddelay"] = float(self.settingsWidget.lineEdit_pulsedDelay.text()) / 1000
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: pulsed delay field should be numeric"}]
-        if self.settings["pulseddelay"] <= 0:
+        if new_settings["pulseddelay"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: pulsed delay field should be positive"}]
 
         # pause between pulses should be >0
         try:
-            self.settings["pulsedpause"] = float(self.settingsWidget.lineEdit_pulsedPause.text())
+            new_settings["pulsedpause"] = float(self.settingsWidget.lineEdit_pulsedPause.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: pulse pause field should be numeric"}]
-        if self.settings["pulsedpause"] <= 0:
+        if new_settings["pulsedpause"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: pulse pause field should be positive"}]
 
         # Determine settings for drain mode
         # start should be float
         try:
-            self.settings["drainstart"] = float(self.settingsWidget.lineEdit_drainStart.text())
+            new_settings["drainstart"] = float(self.settingsWidget.lineEdit_drainStart.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: drain start field should be numeric"}]
 
         # end should be float
         try:
-            self.settings["drainend"] = float(self.settingsWidget.lineEdit_drainEnd.text())
+            new_settings["drainend"] = float(self.settingsWidget.lineEdit_drainEnd.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: drain end field should be numeric"}]
 
         # number of points should be int >0
         try:
-            self.settings["drainpoints"] = int(self.settingsWidget.lineEdit_drainPoints.text())
+            new_settings["drainpoints"] = int(self.settingsWidget.lineEdit_drainPoints.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: drain number of points field should be integer"}]
-        if self.settings["drainpoints"] < 1:
+        if new_settings["drainpoints"] < 1:
             return [
                 1,
                 {"Error message": "Value error in sweep plugin: drain number of points field can not be less than 1"},
@@ -541,54 +537,61 @@ class sweepGUI(QObject):
 
         # limit should be float >0
         try:
-            self.settings["drainlimit"] = float(self.settingsWidget.lineEdit_drainLimit.text())
+            new_settings["drainlimit"] = float(self.settingsWidget.lineEdit_drainLimit.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: drain limit field should be numeric"}]
-        if self.settings["drainlimit"] <= 0:
+        if new_settings["drainlimit"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: drain limit field should be positive"}]
 
         # drain nplc (in fact it is integration time for the measurement) should be float >0
         try:
-            if "lineFrequency" not in self.smu_settings:
-                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
-            line_freq = self.smu_settings["lineFrequency"]
-            self.settings["drainnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_drainNPLC.text())
+            #            if "lineFrequency" not in self.smu_settings:
+            #                return [1, {"Error message": "Missing lineFrequency in SMU settings"}]
+            #            line_freq = self.smu_settings["lineFrequency"]
+            #            self.settings["drainnplc"] = 0.001 * line_freq * float(self.settingsWidget.lineEdit_drainNPLC.text())
+            new_settings["drainnplc"] = float(self.settingsWidget.lineEdit_drainNPLC.text()) / 1000  # value in settings is in s; value in GUI is in ms
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: drain nplc field should be numeric"}]
-        if self.settings["drainnplc"] <= 0:
+        if new_settings["drainnplc"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: drain nplc field should be positive"}]
 
         # delay (in fact it is stabilization time before the measurement) should be >0
         try:
-            self.settings["draindelay"] = float(self.settingsWidget.lineEdit_drainDelay.text()) / 1000
+            new_settings["draindelay"] = float(self.settingsWidget.lineEdit_drainDelay.text()) / 1000
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: drain delay field should be numeric"}]
-        if self.settings["draindelay"] <= 0:
+        if new_settings["draindelay"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: drain delay field should be positive"}]
 
-        self.settings["plotupdate"] = self.settingsWidget.spinBox_plotUpdate.value()
+        new_settings["plotupdate"] = self.settingsWidget.spinBox_plotUpdate.value()
         try:
-            self.settings["prescaler"] = float(self.settingsWidget.prescalerEdit.text())
+            new_settings["prescaler"] = float(self.settingsWidget.prescalerEdit.text())
         except ValueError:
             return [1, {"Error message": "Value error in sweep plugin: SMU limit prescaler field should be numeric"}]
-        if self.settings["prescaler"] > 1:
+        if new_settings["prescaler"] > 1:
             return [1, {"Error message": "Value error in sweep plugin: SMU limit prescaler can not be greater than 1"}]
-        if self.settings["prescaler"] <= 0:
+        if new_settings["prescaler"] <= 0:
             return [1, {"Error message": "Value error in sweep plugin: SMU limit prescaler should be greater than 0"}]
 
-        self.settings["address"] = self.settingsWidget.lineEdit_path.text()
-        if not os.path.isdir(self.settings["address"] + os.sep):
+        new_settings["address"] = self.settingsWidget.lineEdit_path.text()
+        if not os.path.isdir(new_settings["address"] + os.sep):
             return [
                 1,
                 {"Error message": "Value error in sweep plugin: address string should point to a valid directory"},
             ]
-        self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
-        if not is_valid_filename(self.settings["filename"]):
+        new_settings["filename"] = self.settingsWidget.lineEdit_filename.text()
+        if not is_valid_filename(new_settings["filename"]):
             return [1, {"Error message": "Value error in sweep plugin: File name is not valid"}]
 
-        self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
-        self.settings["comment"] = self.settingsWidget.lineEdit_comment.text()
-        return [0, self.settings]
+        new_settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
+        new_settings["comment"] = self.settingsWidget.lineEdit_comment.text()
+
+        # Commit internal state only after all validation passed.
+        self.settings = copy.deepcopy(new_settings)
+        self.smu_settings = copy.deepcopy(smu_settings)
+
+        # Return a copy so callers cannot mutate plugin state by reference.
+        return [0, copy.deepcopy(self.settings)]
 
     @public
     def setSettings(self, settings):
@@ -596,7 +599,10 @@ class sweepGUI(QObject):
         # the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
         self.settings = {}
         self.settings = copy.deepcopy(settings)
-        self.smu_settings = settings["smu_settings"]
+        try:
+            self.smu_settings.update(settings["smu_settings"])
+        except Exception:
+            self.smu_settings = settings["smu_settings"]
 
         # this function is called not from the main thread. Direct addressing of qt elements not from te main thread causes segmentation fault crash. Using a signal-slot interface between different threads should make it work
         #        self._setGUIfromSettings()
@@ -614,6 +620,7 @@ class sweepGUI(QObject):
         self.settingsWidget.runButton.setEnabled(not status)
         self.settingsWidget.groupBox_dep.setEnabled(not status)
         self.closelock.emit_close_lock(status)
+        self.settingsWidget.update()
 
     ########sweep implementation
 
@@ -625,32 +632,24 @@ class sweepGUI(QObject):
         # NOTE: smu set running was moved here since parsing needs to be done before setting running on the smu. It shouldn't cause issues since changing to the smu widget
         # is not possible while this is running.
         self.set_running(True)
-        [status, message] = self.parse_settings_widget()
         self.function_dict["smu"][self.settings["smu"]]["set_running"](True)
 
-        if status:
-            if status == 1:
-                self.logger.log_warn(str(message))
-            else:
-                self.logger.log_info(str(message))
-            self.logger.log_info(message["Error message"])
-            self.set_running(False)
-            self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
+        steps = [
+            self.parse_settings_widget,
+            self.function_dict["smu"][self.settings["smu"]]["smu_connect"],
+        ]
 
-            return [status, message]
-
-        # check the needed devices are connected
-        [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
-        if status:
-            if status == 1:
-                self.logger.log_warn(str(message))
-            else:
-                self.logger.log_info(str(message))
-            self.logger.log_info(message["Error message"])
-            self.set_running(False)
-            self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
-
-            return [status, message]
+        for step in steps:
+            status, message = step()
+            if status:
+                if status == 1:
+                    self.logger.log_warn(str(message))
+                else:
+                    self.logger.log_info(str(message))
+                self.logger.info_popup(message["Error message"])
+                self.set_running(False)
+                self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
+                return [status, message]
 
         ##IRtodo#### check that the new file will not overwrite existing data -> implement dialog
 
@@ -729,8 +728,9 @@ class sweepGUI(QObject):
                     self.axes.relim()
                     self.axes.autoscale_view()
                     self.sc.draw()
-                    if prescaler_stop_check(recipe=measurement, settings=self.settings, lastV=lastV, lastI=lastI):
-                        self.logger.log_info("Prescaler limit reached, stopping sweep")
+                    if (measurement["type"] == "i" and (abs(lastV) > self.settings["prescaler"] * abs(measurement["limit"]))) or (
+                        measurement["type"] == "v" and (abs(lastI) > self.settings["prescaler"] * abs(measurement["limit"]))
+                    ):
                         self.function_dict["smu"][self.settings["smu"]]["smu_abort"](measurement["source"])
                         break
                     buffer_prev = lastPoints
@@ -766,6 +766,10 @@ class sweepGUI(QObject):
                 fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + f"{measurement['drainvoltage']}V" + ".dat"
             else:
                 fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
+
+            # check wheter the file already exists. If it does, prevent writing
+            if os.path.exists(fulladdress):
+                raise sweepException(f"file {fulladdress} already exists. Aborting to prevent overwriting data.")
             with open(fulladdress, "w") as f:
                 f.write(fileheader + f"{columnheader[1:-1]}" + "\n")
                 pd.DataFrame(data).to_csv(f, index=False, header=False, float_format="%.12e", sep=",")
@@ -778,13 +782,40 @@ class sweepGUI(QObject):
         [status, message] = self.function_dict["smu"][self.settings["smu"]]["smu_connect"]()
         if status:
             return [status, message]
-        self._sweepImplementation()
-        self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
-        return [0, "sweep finished"]
+        # init exception flag
+        exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
+        try:
+            self._sweepImplementation()
+            return (0, {})
+        except sweepException as e:
+            self.logger.log_info(f"Sweep stopped because of exception: {e}")
+            self.logger.info_popup(f"Sweep stopped because of exception: {e}")
+            exception = 1
+            return (1, {"Error message": f"{e}"})
+
+        except ThreadStopped:
+            self.logger.log_info("sweep plugin implementation aborted by user request")
+            exception = 2
+            raise
+
+        except Exception as e:
+            self.logger.log_info(f"sweep plugin implementation stopped because of unexpected exception: {e}")
+            self.logger.info_popup(f"sweep plugin implementation stopped because of unexpected exception: {e}")
+            exception = 3
+            return (1, {"Error message": f"Unexpected error: {e}"})
+
+        finally:
+            # abort if in exception state
+            if exception > 1:
+                self.function_dict["smu"][self.settings["smu"]]["smu_abort"](self.settings["channel"])
+                if not self.settings["singlechannel"]:
+                    self.function_dict["smu"][self.settings["smu"]]["smu_abort"](self.settings["drainchannel"])
+            self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
+            self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
 
     def _sequenceImplementation(self):
         """
-        Performs an IV sweep on SMU, saves the result in a file
+        Performs an IV sweep on SMU, saves the result in a file. THIS IS ONLY USED BY THE BUTTON; not the sequence builder.
 
         Returns [status, message]:
                status: 0 - no error, ~0 - error
@@ -793,7 +824,7 @@ class sweepGUI(QObject):
             exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
             self._sweepImplementation()
         except sweepException as e:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f"{e}")
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f"Sweep stopped because of exception: {e}")
             exception = 1
         except ThreadStopped:
             self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")
@@ -815,6 +846,7 @@ class sweepGUI(QObject):
                 self.logger.log_error(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")
                 self.logger.info_popup("SMU turn off failed. Check log")
             self.set_running(False)
+            self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
 
     @public
     def set_gui_from_settings(self):
@@ -834,7 +866,6 @@ class sweepGUI(QObject):
             Returns:
                 bool: True if the value was found and set, False otherwise.
             """
-            self.logger.log_debug(f"Setting combobox {combobox.objectName()} to value: {value}")
             index = combobox.findText(value, Qt.MatchFlag.MatchFixedString)
             if index != -1:
                 combobox.setCurrentIndex(index)
@@ -856,13 +887,38 @@ class sweepGUI(QObject):
         set_combobox_value(self.settingsWidget.comboBox_sourceSenseMode, self.settings["sourcesensemode"])
         set_combobox_value(self.settingsWidget.comboBox_drainSenseMode, self.settings["drainsensemode"])
 
-        line_freq = self.smu_settings["lineFrequency"]
-        self.settingsWidget.lineEdit_continuousNPLC.setText(str(float(self.settings["continuousnplc"]) * 1000 / line_freq))
-        self.settingsWidget.lineEdit_continuousDelay.setText(str(float(self.settings["continuousdelay"]) * 1000))
-        self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"]) * 1000 / line_freq))
-        self.settingsWidget.lineEdit_pulsedDelay.setText(str(float(self.settings["pulseddelay"]) * 1000))
-        self.settingsWidget.lineEdit_drainNPLC.setText(str(float(self.settings["drainnplc"]) * 1000 / line_freq))
-        self.settingsWidget.lineEdit_drainDelay.setText(str(float(self.settings["draindelay"]) * 1000))
+        #        line_freq = self.smu_settings["lineFrequency"]
+        try:
+            self.settingsWidget.lineEdit_continuousNPLC.setText(str(float(self.settings["continuousnplc"]) * 1000))  # value in settings is in s; value in GUI is in ms
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. continuousnplc is set as it is in settings")
+            self.settingsWidget.lineEdit_continuousNPLC.setText(str(self.settings["continuousnplc"]))
+        try:
+            self.settingsWidget.lineEdit_continuousDelay.setText(str(float(self.settings["continuousdelay"]) * 1000))  # value in settings is in s; value in GUI is in ms
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. continuousdelay is set as it is in settings")
+            self.settingsWidget.lineEdit_continuousDelay.setText(str(self.settings["continuousdelay"]))
+        try:
+            self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"]) * 1000))  # value in settings is in s; value in GUI is in ms
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. pulsednplc is set as it is in settings")
+            self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"])))
+        try:
+            self.settingsWidget.lineEdit_pulsedDelay.setText(str(float(self.settings["pulseddelay"]) * 1000))
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. pulseddelay is set as it is")
+            self.settingsWidget.lineEdit_pulsedDelay.setText(str(self.settings["pulseddelay"]))
+        try:
+            self.settingsWidget.lineEdit_drainNPLC.setText(str(float(self.settings["drainnplc"]) * 1000))  # value in settings is in s; value in GUI is in ms
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. drainnplc is set as it is")
+            self.settingsWidget.lineEdit_drainNPLC.setText(str(self.settings["drainnplc"]))
+        try:
+            self.settingsWidget.lineEdit_drainDelay.setText(str(float(self.settings["draindelay"]) * 1000))
+        except:
+            self.logger.log_warn("Setting GUI from settings conversion failed. draindelay is set as it is")
+            self.settingsWidget.lineEdit_drainDelay.setText(str(self.settings["draindelay"]))
+
         self.settingsWidget.spinBox_plotUpdate.setValue(int(self.settings["plotupdate"]))
         self.settingsWidget.prescalerEdit.setText(str(self.settings["prescaler"]))
 

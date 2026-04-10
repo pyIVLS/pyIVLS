@@ -1,3 +1,5 @@
+"""Registration dialog for affine plugin"""
+
 from PyQt6.QtWidgets import QDialog
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -15,10 +17,10 @@ from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
 from PyQt6.QtCore import pyqtSignal, Qt, pyqtSlot
-from plugin_components import LoggingHelper
+from plugin_components import LoggingHelper, ini_to_bool
 from typing import Optional
 import time
-from components.worker_thread import WorkerThread
+from worker_thread import WorkerThread
 
 
 class dialog(QDialog):
@@ -85,33 +87,33 @@ class dialog(QDialog):
             self.ui.backendCombo.addItem(backend)
 
         # Set initial values from settings
-        self.ui.blurMask.setChecked(settings["blurmask"])
-        self.ui.invertMask.setChecked(settings["invertmask"])
-        self.ui.equalizeMask.setChecked(settings["equalizemask"])
-        self.ui.cannyMask.setChecked(settings["cannymask"])
-        self.ui.blurImage.setChecked(settings["blurimage"])
-        self.ui.invertImage.setChecked(settings["invertimage"])
-        self.ui.equalizeImage.setChecked(settings["equalizeimage"])
-        self.ui.cannyImage.setChecked(settings["cannyimage"])
-        self.ui.otsuMask.setChecked(settings["otsumask"])
-        self.ui.otsuImage.setChecked(settings["otsuimage"])
-        self.ui.manualThresholdMask.setChecked(settings["manualthresholdmask"])
-        self.ui.manualThresholdImage.setChecked(settings["manualthresholdimage"])
-        self.ui.morphologyMask.setChecked(settings["morphologymask"])
-        self.ui.morphologyImage.setChecked(settings["morphologyimage"])
+        self.ui.blurMask.setChecked(ini_to_bool(settings["blurmask"]))
+        self.ui.invertMask.setChecked(ini_to_bool(settings["invertmask"]))
+        self.ui.equalizeMask.setChecked(ini_to_bool(settings["equalizemask"]))
+        self.ui.cannyMask.setChecked(ini_to_bool(settings["cannymask"]))
+        self.ui.blurImage.setChecked(ini_to_bool(settings["blurimage"]))
+        self.ui.invertImage.setChecked(ini_to_bool(settings["invertimage"]))
+        self.ui.equalizeImage.setChecked(ini_to_bool(settings["equalizeimage"]))
+        self.ui.cannyImage.setChecked(ini_to_bool(settings["cannyimage"]))
+        self.ui.otsuMask.setChecked(ini_to_bool(settings["otsumask"]))
+        self.ui.otsuImage.setChecked(ini_to_bool(settings["otsuimage"]))
+        self.ui.manualThresholdMask.setChecked(ini_to_bool(settings["manualthresholdmask"]))
+        self.ui.manualThresholdImage.setChecked(ini_to_bool(settings["manualthresholdimage"]))
+        self.ui.morphologyMask.setChecked(ini_to_bool(settings["morphologymask"]))
+        self.ui.morphologyImage.setChecked(ini_to_bool(settings["morphologyimage"]))
         self.ui.sigmaImage.setCurrentText(str(settings["sigmaimage"]))
         self.ui.sigmaMask.setCurrentText(str(settings["sigmamask"]))
-        self.ui.thresholdImage.setValue(settings["thresholdimage"])
-        self.ui.thresholdMask.setValue(settings["thresholdmask"])
+        self.ui.thresholdImage.setValue(int(settings["thresholdimage"]))
+        self.ui.thresholdMask.setValue(int(settings["thresholdmask"]))
         self.ui.morphologyTypeMask.setCurrentText(settings["morphologytypemask"])
         self.ui.morphologyTypeImage.setCurrentText(settings["morphologytypeimage"])
-        self.ui.morphologyStrengthMask.setValue(settings["morphologystrengthmask"])
-        self.ui.morphologyStrengthImage.setValue(settings["morphologystrengthimage"])
-        self.ui.crossCheck.setChecked(settings["crosscheck"])
-        self.ui.ratioTestSpinBox.setValue(settings["ratiotest"])
-        self.ui.residualTestSpinBox.setValue(settings["residualthreshold"])
+        self.ui.morphologyStrengthMask.setValue(int(settings["morphologystrengthmask"]))
+        self.ui.morphologyStrengthImage.setValue(int(settings["morphologystrengthimage"]))
+        self.ui.crossCheck.setChecked(ini_to_bool(settings["crosscheck"]))
+        self.ui.ratioTestSpinBox.setValue(float(settings["ratiotest"]))
+        self.ui.residualTestSpinBox.setValue(int(settings["residualthreshold"]))
         self.ui.backendCombo.setCurrentText(settings["backend"])
-        self.ui.scalingSpinBox.setValue(settings["scalingfactor"])
+        self.ui.scalingSpinBox.setValue(float(settings["scalingfactor"]))
 
         # Set up conditional enabling connections
         self.ui.manualThresholdMask.stateChanged.connect(self._update_threshold_mask_state)

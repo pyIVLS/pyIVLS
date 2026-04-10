@@ -95,8 +95,10 @@ class pyIVLS_timeIV_plugin:
             dict: name, widget
         """
         pruned = {function_dict_key: function_dict[function_dict_key] for function_dict_key in self.dependencies if function_dict_key in function_dict}
+        missing = [dependency_key for dependency_key in self.dependencies if dependency_key not in pruned]
+
         self.pluginClass.function_dict = pruned
-        return self.pluginClass.function_dict
+        return {self.name: missing}
 
     @hookimpl
     def get_plugin_settings(self, args=None):

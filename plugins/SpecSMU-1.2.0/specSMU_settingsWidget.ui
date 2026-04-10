@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1374</width>
-    <height>968</height>
+    <width>1161</width>
+    <height>1022</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -30,8 +30,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>1360</width>
-        <height>954</height>
+        <width>1141</width>
+        <height>1002</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -211,12 +211,35 @@
                    <property name="currentIndex">
                     <number>-1</number>
                    </property>
+                   <item>
+                    <property name="text">
+                     <string>smuA</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>smuB</string>
+                    </property>
+                   </item>
                   </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_4">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
                  </item>
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="HBoxLayout_inject" stretch="0,0">
+                <layout class="QHBoxLayout" name="HBoxLayout_inject" stretch="0,0,0">
                  <item>
                   <widget class="QLabel" name="label_inject">
                    <property name="sizePolicy">
@@ -264,6 +287,19 @@
                     </property>
                    </item>
                   </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_5">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
                  </item>
                 </layout>
                </item>
@@ -317,15 +353,28 @@
                    </item>
                    <item>
                     <property name="text">
-                     <string>Mixed</string>
+                     <string>HW trigger</string>
                     </property>
                    </item>
                   </widget>
                  </item>
+                 <item>
+                  <spacer name="horizontalSpacer_6">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="HBoxLayout_sourceSenseMode" stretch="0,0">
+                <layout class="QHBoxLayout" name="HBoxLayout_sourceSenseMode" stretch="0,0,0">
                  <item>
                   <widget class="QLabel" name="label_sourceSenseMode">
                    <property name="sizePolicy">
@@ -379,12 +428,25 @@
                    </item>
                   </widget>
                  </item>
+                 <item>
+                  <spacer name="horizontalSpacer_7">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
                 </layout>
                </item>
                <item>
                 <spacer name="horizontalSpacer">
                  <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
+                  <enum>Qt::Orientation::Horizontal</enum>
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>
@@ -397,49 +459,38 @@
               </layout>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_8">
+              <layout class="QHBoxLayout" name="HBoxLayout_singleChannel">
                <item>
-                <layout class="QHBoxLayout" name="HBoxLayout_singleChannel">
-                 <item>
-                  <widget class="QCheckBox" name="checkBox_singleChannel">
-                   <property name="text">
-                    <string>Use single channel</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                <widget class="QLabel" name="label_6">
+                 <property name="text">
+                  <string>Drain voltage</string>
+                 </property>
+                </widget>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_7">
-                 <item>
-                  <widget class="QLabel" name="label_5">
-                   <property name="text">
-                    <string>Limit prescaler</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QDoubleSpinBox" name="prescaler_spinbox">
-                   <property name="minimum">
-                    <double>0.000000000000000</double>
-                   </property>
-                   <property name="maximum">
-                    <double>1.000000000000000</double>
-                   </property>
-                   <property name="singleStep">
-                    <double>0.100000000000000</double>
-                   </property>
-                   <property name="stepType">
-                    <enum>QAbstractSpinBox::StepType::DefaultStepType</enum>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                <widget class="QLineEdit" name="lineEdit_drainValue">
+                 <property name="maximumSize">
+                  <size>
+                   <width>100</width>
+                   <height>100</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>0</string>
+                 </property>
+                </widget>
                </item>
                <item>
-                <spacer name="horizontalSpacer_2">
+                <widget class="QLabel" name="label_7">
+                 <property name="text">
+                  <string>V</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_8">
                  <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
+                  <enum>Qt::Orientation::Horizontal</enum>
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>
@@ -448,6 +499,200 @@
                   </size>
                  </property>
                 </spacer>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="checkBox_singleChannel">
+                 <property name="text">
+                  <string>Use single channel</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_9">
+                 <property name="orientation">
+                  <enum>Qt::Orientation::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_7">
+                 <item>
+                  <widget class="QLabel" name="label_5">
+                   <property name="text">
+                    <string>Prescaler</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QDoubleSpinBox" name="prescalerSpinBox">
+                   <property name="maximum">
+                    <double>1.000000000000000</double>
+                   </property>
+                   <property name="singleStep">
+                    <double>0.100000000000000</double>
+                   </property>
+                   <property name="value">
+                    <double>1.000000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupBox_HWtrigger">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="title">
+             <string>HW Trigger</string>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_6">
+             <item>
+              <layout class="QHBoxLayout" name="HLayoutBox_HWtrigger" stretch="2,2,2">
+               <item>
+                <layout class="QHBoxLayout" name="HLyoutBox_HWtrig_pulse">
+                 <property name="sizeConstraint">
+                  <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+                 </property>
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="label_HWtrig_pulse">
+                   <property name="text">
+                    <string>HW trigger pulse width</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit_HWtrig_pulse">
+                   <property name="text">
+                    <string>1</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_HWtrig_pulse_units">
+                   <property name="text">
+                    <string>ms</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="HLayoutBox_digio" stretch="0,0,0">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="label_digio">
+                   <property name="minimumSize">
+                    <size>
+                     <width>75</width>
+                     <height>0</height>
+                    </size>
+                   </property>
+                   <property name="text">
+                    <string>SMU IO line</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QSpinBox" name="spinBox_digio">
+                   <property name="minimumSize">
+                    <size>
+                     <width>50</width>
+                     <height>0</height>
+                    </size>
+                   </property>
+                   <property name="minimum">
+                    <number>1</number>
+                   </property>
+                   <property name="maximum">
+                    <number>8</number>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_2">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="HLayoutBox_powerPulse">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="label_powerPulse">
+                   <property name="text">
+                    <string>Extension of the power pulse</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit_powerPulse">
+                   <property name="text">
+                    <string>0,5</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_powerPulse_unit">
+                   <property name="text">
+                    <string>ms</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_3">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
                </item>
               </layout>
              </item>
@@ -466,7 +711,7 @@
              </size>
             </property>
             <property name="title">
-             <string>Control</string>
+             <string>SMU Control</string>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_5">
              <item>
@@ -773,7 +1018,7 @@
                <item>
                 <spacer name="horizontalSpacer_3">
                  <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
+                  <enum>Qt::Orientation::Horizontal</enum>
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>
@@ -786,7 +1031,7 @@
               </layout>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="HBoxLayout_pulsedLine2" stretch="10,10,0">
+              <layout class="QHBoxLayout" name="HBoxLayout_pulsedLine2" stretch="10,10">
                <item>
                 <layout class="QHBoxLayout" name="HBoxLayout_pulsedDelayMode">
                  <item>
@@ -906,39 +1151,26 @@
                  </item>
                 </layout>
                </item>
-               <item>
-                <spacer name="horizontalSpacer_4">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
               </layout>
              </item>
             </layout>
            </widget>
           </item>
-          <item>
-           <spacer name="verticalSpacer">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>40</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
          </layout>
         </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
        </item>
       </layout>
      </widget>
