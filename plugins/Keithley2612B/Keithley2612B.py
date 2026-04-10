@@ -648,6 +648,7 @@ class Keithley2612B:
             s['integrationtime'] duration of spectrometer integration time in s (float)
             s['linen'] DIGIO line to use (int)
             s['digiopulse'] DIGIO pulse width in s (float)
+            s["usedrain"] True if drain should be used for IV measurement, False if only source (bool)
         Returns:
             0 - no error
             ~0 - error (add error code later on if needed)
@@ -660,7 +661,8 @@ class Keithley2612B:
             power = math.floor(math.log10(abs(x)))
             factor = 10 ** power
             return math.ceil(x / factor) * factor
-        
+        print(s["source"])
+        print(s["drain"])
         # Try and acquire the lock to make sure nothing else is running
         ##IRtothink#### is locking really needed?
         with self.lock:
@@ -677,15 +679,29 @@ class Keithley2612B:
 
                 self.safewrite(f"{s['source']}.reset()")
                 ##### based on Single pulse example code (p.183) of Keithley manual
-                
+                #drain
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.reset()")
+
+
                 if s["sense"]:
                     self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_REMOTE")
                 else:
                     self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
 
+                if s["usedrain"]:
+                    if s["sense"]:
+                        self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_REMOTE")
+                    else:
+                        self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_LOCAL")
+
                 #Clear buffers, set repeats and steps, set sweep range.
                 self.safewrite(f"{s['source']}.nvbuffer1.clear()")
                 self.safewrite(f"{s['source']}.nvbuffer2.clear()")
+
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.nvbuffer1.clear()")
+                    self.safewrite(f"{s['drain']}.nvbuffer2.clear()")
 
                 #Configure a single-point list sweep
                 self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE") ## enable source action
@@ -694,6 +710,14 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})") ##
                 #Configure other source parameters for best timing possible.
                 self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_ONCE") #see p. 585 of Keithley manual
+
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)")
+                    self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")  # do not sweep the drain
+                    self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ASYNC") ## enable asynchronous measurement action (to measure IV before and after the pulse)
+                    self.safewrite(f"{s['drain']}.measure.autozero = {s['drain']}.AUTOZERO_ONCE")
+
+
                 if s["type"] == 'v':
                     self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
                     self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
@@ -707,6 +731,15 @@ class Keithley2612B:
                     self.safewrite(f"{s['source']}.source.rangei = {ceil_to_power_of_10(s['value'])}")
                     self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
                     self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
+
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
+                    self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
+                    self.safewrite(f"{s['drain']}.source.levelv = {s['drainvalue']}")
+                    print(s['drainvalue'])
+                    self.safewrite(f"{s['drain']}.source.limiti = {s['drainlimit']}")
+                    #self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
+                
                 #Calculate duration of the pulse:
                 if s['delay']:
                     self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
@@ -754,7 +787,17 @@ class Keithley2612B:
                 #Set appropriate counts of trigger model.
                 self.safewrite(f"{s['source']}.trigger.count = 1")
                 self.safewrite(f"{s['source']}.trigger.arm.count = 1")
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.trigger.count = 1")
+                    self.safewrite(f"{s['drain']}.trigger.arm.count = 1")
+                    self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                    self.safewrite(f"{s['drain']}.trigger.endpulse.action = {s['drain']}.SOURCE_IDLE")
+                    self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
                 #Turn on output and trigger SMU to output a single pulse.
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_ON")
+                    self.safewrite(f"{s['drain']}.trigger.initiate()")
+                    time.sleep(0.1) ## let the drain settle if it's used
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
                 self.safewrite(f"{s['source']}.trigger.initiate()")
                 return 0
@@ -763,6 +806,9 @@ class Keithley2612B:
                 # if something fails, abort the measurement and turn off the source.
                 self.safewrite(f"{s['source']}.abort()")
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.abort()")
+                    self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
                 print(f"Caught exception during keithley_run_sweep : {e}")
                 raise e
                 return 1

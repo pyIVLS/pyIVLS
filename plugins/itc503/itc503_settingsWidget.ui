@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>826</width>
-    <height>613</height>
+    <height>687</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -31,7 +31,7 @@
         <x>0</x>
         <y>0</y>
         <width>806</width>
-        <height>593</height>
+        <height>667</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -213,7 +213,7 @@ min-width: 20px;</string>
              <bool>false</bool>
             </property>
             <property name="title">
-             <string>Display</string>
+             <string>Check/Log</string>
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout_3">
              <item>
@@ -265,7 +265,7 @@ min-width: 20px;</string>
                 </sizepolicy>
                </property>
                <property name="text">
-                <string>Points to show</string>
+                <string>Time to show</string>
                </property>
               </widget>
              </item>
@@ -293,7 +293,7 @@ min-width: 20px;</string>
               <widget class="QPushButton" name="periodCheck">
                <property name="minimumSize">
                 <size>
-                 <width>100</width>
+                 <width>120</width>
                  <height>0</height>
                 </size>
                </property>
@@ -326,6 +326,12 @@ min-width: 20px;</string>
              </item>
              <item>
               <widget class="QLineEdit" name="sweepStartEdit">
+               <property name="minimumSize">
+                <size>
+                 <width>50</width>
+                 <height>0</height>
+                </size>
+               </property>
                <property name="maximumSize">
                 <size>
                  <width>40</width>
@@ -340,7 +346,7 @@ min-width: 20px;</string>
              <item>
               <widget class="QLabel" name="sweepStartUnitsLabel">
                <property name="text">
-                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; vertical-align:super;&quot;&gt;o&lt;/span&gt;C&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;K&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
               </widget>
              </item>
@@ -366,6 +372,12 @@ min-width: 20px;</string>
              </item>
              <item>
               <widget class="QLineEdit" name="sweepEndEdit">
+               <property name="minimumSize">
+                <size>
+                 <width>50</width>
+                 <height>0</height>
+                </size>
+               </property>
                <property name="maximumSize">
                 <size>
                  <width>40</width>
@@ -380,7 +392,7 @@ min-width: 20px;</string>
              <item>
               <widget class="QLabel" name="sweepEndUnitsLabel">
                <property name="text">
-                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; vertical-align:super;&quot;&gt;o&lt;/span&gt;C&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;K&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
               </widget>
              </item>
@@ -406,6 +418,12 @@ min-width: 20px;</string>
              </item>
              <item>
               <widget class="QLineEdit" name="sweepPtsEdit">
+               <property name="minimumSize">
+                <size>
+                 <width>50</width>
+                 <height>0</height>
+                </size>
+               </property>
                <property name="maximumSize">
                 <size>
                  <width>40</width>
@@ -439,6 +457,12 @@ min-width: 20px;</string>
              </item>
              <item>
               <widget class="QLineEdit" name="sweepStabilizationEdit">
+               <property name="minimumSize">
+                <size>
+                 <width>90</width>
+                 <height>0</height>
+                </size>
+               </property>
                <property name="maximumSize">
                 <size>
                  <width>60</width>
@@ -454,6 +478,125 @@ min-width: 20px;</string>
               <widget class="QLabel" name="sweepStabilizationUnitLabel">
                <property name="text">
                 <string>s</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="logBox">
+            <property name="title">
+             <string>Temperature log</string>
+            </property>
+            <layout class="QHBoxLayout" name="horizontalLayout_5">
+             <item>
+              <widget class="QCheckBox" name="logCheckBox">
+               <property name="layoutDirection">
+                <enum>Qt::LayoutDirection::RightToLeft</enum>
+               </property>
+               <property name="text">
+                <string>Log</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_11">
+               <property name="orientation">
+                <enum>Qt::Orientation::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="logWholeBox">
+               <property name="layoutDirection">
+                <enum>Qt::LayoutDirection::RightToLeft</enum>
+               </property>
+               <property name="text">
+                <string>Whole experiment</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="saveBox">
+            <property name="title">
+             <string>Save</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_3">
+             <item row="1" column="2">
+              <widget class="QLineEdit" name="fileNameLine"/>
+             </item>
+             <item row="0" column="3">
+              <widget class="QPushButton" name="directoryButton">
+               <property name="text">
+                <string>Select directory</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLabel" name="label_3">
+               <property name="text">
+                <string>Filename</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QLineEdit" name="addressLine"/>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLabel" name="label_2">
+               <property name="text">
+                <string>Path to save</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QLabel" name="label_5">
+               <property name="text">
+                <string>Comment</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="2">
+              <widget class="QLineEdit" name="sampleNameLine"/>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QPushButton" name="saveButton">
+               <property name="text">
+                <string>Save</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLabel" name="label_4">
+               <property name="text">
+                <string>Sample name</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="2">
+              <widget class="QLineEdit" name="commentLine"/>
+             </item>
+             <item row="2" column="3">
+              <widget class="QPushButton" name="stopLogButton">
+               <property name="text">
+                <string>Stop logging</string>
                </property>
               </widget>
              </item>
