@@ -790,7 +790,10 @@ class Keithley2612B:
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.trigger.count = 1")
                     self.safewrite(f"{s['drain']}.trigger.arm.count = 1")
-                    self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                    if s["spectro_check_after"]:
+                        self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
+                    else:
+                        self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                     self.safewrite(f"{s['drain']}.trigger.endpulse.action = {s['drain']}.SOURCE_IDLE")
                     self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
                 #Turn on output and trigger SMU to output a single pulse.
