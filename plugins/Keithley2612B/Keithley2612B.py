@@ -781,7 +781,7 @@ class Keithley2612B:
                             self.safewrite(f"trigger.timer[3].delay = {s['timeafter']:.6f}")
                             self.safewrite("trigger.timer[3].count = 1")
                             self.safewrite("trigger.timer[3].passthrough = false")
-                            self.safewrite("trigger.timer[3].stimulus = trigger.blender[1].EVENT_ID")
+                            self.safewrite("trigger.timer[3].stimulus = trigger.timer[2].EVENT_ID")
                             self.safewrite("trigger.blender[2].orenable = true")
                             self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                             self.safewrite("trigger.blender[2].stimulus[2] = trigger.timer[3].EVENT_ID")
