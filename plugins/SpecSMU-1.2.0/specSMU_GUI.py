@@ -861,5 +861,5 @@ class specSMU_GUI(QWidget):
         settings["ioline"] = self.settingsWidget.spinBox_digio.value()
         settings["prescaler"] = self.settingsWidget.prescalerSpinBox.value()
         settings["drainvalue"] = self.settingsWidget.lineEdit_drainValue.text()
-        settings["drainlimit"] = "0.01"  # PLACEHOLDER, may be added to GUI later if needed
+        settings["drainlimit"] = "0.0001"  # PLACEHOLDER, may be added to GUI later if needed
         return settings
