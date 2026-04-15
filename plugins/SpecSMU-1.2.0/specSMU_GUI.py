@@ -648,6 +648,7 @@ class specSMU_GUI(QWidget):
             status, state = self.smuInit()
             assert status == 0, f"Error in initializing SMU: {state}"
         smuLoop = self.settings["points"]
+        print(smuLoop)
         if smuLoop > 1:
             smuChange = (self.settings["end"] - self.settings["start"]) / (smuLoop - 1)
         else:
