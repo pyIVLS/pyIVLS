@@ -307,6 +307,7 @@ class specSMU_GUI(QWidget):
             "lineEdit_Points": "points",
             "lineEdit_Limit": "limit",
             "lineEdit_drainValue": "drainvalue",
+            "lineEdit_timeAfter": "timeafter",
         }
         for line_name, key in line_map.items():
             line_edit = getattr(self.settingsWidget, line_name, None)
@@ -340,6 +341,7 @@ class specSMU_GUI(QWidget):
         set_checkbox("spectroCheckAfter", "spectro_check_after")
         set_checkbox("spectroPause", "spectro_pause")
         set_checkbox("checkBox_singleChannel", "singlechannel")
+        set_checkbox("checkBox_useTimeAfter", "use_timeafter")
 
         # set spinboxes
         spectro_pause_time = settings["spectro_pause_time"]
