@@ -621,7 +621,7 @@ class specSMU_GUI(QWidget):
         trigpulse_dict["value"] = smuSetValue
         
         trigpulse_dict["drainvalue"] = self.settings["drainvalue"] if "drainvalue" in self.settings else 0
-        trigpulse_dict["drainlimit"] = self.settings["drainlimit"] if "drainlimit" in self.settings else 0.01
+        trigpulse_dict["drainlimit"] = self.settings["drainlimit"] if "drainlimit" in self.settings else 0.0005
         trigpulse_dict["drain"] = self.settings["drainchannel"]
         trigpulse_dict["usedrain"] = not(self.settings["singlechannel"])
         trigpulse_dict["limit"] = self.settings["limit"]
@@ -648,7 +648,6 @@ class specSMU_GUI(QWidget):
             status, state = self.smuInit()
             assert status == 0, f"Error in initializing SMU: {state}"
         smuLoop = self.settings["points"]
-        print(smuLoop)
         if smuLoop > 1:
             smuChange = (self.settings["end"] - self.settings["start"]) / (smuLoop - 1)
         else:
