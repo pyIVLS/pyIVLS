@@ -453,6 +453,7 @@ class specSMU_GUI(QWidget):
             self.settings["spectro_check_after"] = raw_settings["spectro_check_after"]  # bool
             self.settings["spectro_pause"] = raw_settings["spectro_pause"]  # bool
             self.settings["spectro_use_last_integ"] = raw_settings["spectro_use_last_integ"]  # bool
+            self.settings["use_timeafter"] = raw_settings["use_timeafter"]  # bool
             if raw_settings["channel"].lower() == "smua":
                 self.settings["drainchannel"] = "smub"
             else:
@@ -472,6 +473,8 @@ class specSMU_GUI(QWidget):
             self.settings["repeat"] = int(raw_settings["repeat"])  # will already be an int from spin box
             self.settings["hwtrigpulse"] = float(raw_settings["hwtrigpulse"]) / 1000
             self.settings["prescaler"] = float(raw_settings["prescaler"])
+            self.settings["timeafter"] = float(raw_settings["timeafter"]) / 1000
+
 
             if self.settings["hwtrigpulse"] < 0:
                 self._log_verbose("Value error in SpecSMU plugin: HW trigger pulse width can not be negative")
@@ -631,6 +634,8 @@ class specSMU_GUI(QWidget):
         trigpulse_dict["integrationtime"] = None  # this in any case will be set in spectrometer plugin
         trigpulse_dict["linen"] = self.settings["ioline"]
         trigpulse_dict["digiopulse"] = self.settings["hwtrigpulse"]
+        trigpulse_dict["use_timeafter"] = self.settings["use_timeafter"]
+        trigpulse_dict["timeafter"] = self.settings["timeafter"]
         return trigpulse_dict
 
     def _SpecSMUImplementation(self):
@@ -862,4 +867,6 @@ class specSMU_GUI(QWidget):
         settings["prescaler"] = self.settingsWidget.prescalerSpinBox.value()
         settings["drainvalue"] = self.settingsWidget.lineEdit_drainValue.text()
         settings["drainlimit"] = "0.0001"  # PLACEHOLDER, may be added to GUI later if needed
+        settings["timeafter"] = self.settingsWidget.lineEdit_timeAfter.text()
+        settings["use_timeafter"] = self.settingsWidget.checkBox_useTimeAfter.isChecked()
         return settings

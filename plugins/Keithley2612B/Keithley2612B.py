@@ -775,6 +775,16 @@ class Keithley2612B:
                 self.safewrite("trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
                 #Configure source action to start immediately.
                 self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")                   
+                if s["usedrain"]:
+                    if s["spectro_check_after"]:
+                        if s["use_timeafter"]:
+                            self.safewrite(f"trigger.timer[3].delay = {s['timeafter']:.6f}")
+                            self.safewrite("trigger.timer[3].count = 1")
+                            self.safewrite("trigger.timer[3].passthrough = false")
+                            self.safewrite("trigger.timer[3].stimulus = trigger.blender[2].EVENT_ID")
+                            self.safewrite("trigger.blender[2].orenable = true")
+                            self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                            self.safewrite("trigger.blender[2].stimulus[2] = trigger.timer[3].EVENT_ID")
                 #Configure endpulse action to achieve a pulse.
                 self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
                 self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
@@ -791,7 +801,10 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.trigger.count = 1")
                     self.safewrite(f"{s['drain']}.trigger.arm.count = 1")
                     if s["spectro_check_after"]:
-                        self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
+                        if s["use_timeafter"]:
+                            self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.blender[2].EVENT_ID")    
+                        else:
+                            self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
                     else:
                         self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                     self.safewrite(f"{s['drain']}.trigger.endpulse.action = {s['drain']}.SOURCE_IDLE")
