@@ -804,10 +804,10 @@ class Keithley2612B:
                     if s["spectro_check_after"]:
                         if s["use_timeafter"]:
                             self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.blender[2].EVENT_ID")  
-                            self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID")
+                            self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.timer[3].EVENT_ID")
                         else:
                             self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
-                            self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.blender[1].EVENT_ID")
+                            self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
                     else:
                         self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                         self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
