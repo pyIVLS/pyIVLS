@@ -778,6 +778,7 @@ class Keithley2612B:
                 if s["usedrain"]:
                     if s["spectro_check_after"]:
                         if s["use_timeafter"]:
+                            print(f"Using time after time: {s['timeafter']}")
                             self.safewrite(f"trigger.timer[3].delay = {s['timeafter']:.6f}")
                             self.safewrite("trigger.timer[3].count = 1")
                             self.safewrite("trigger.timer[3].passthrough = false")
@@ -802,13 +803,15 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.trigger.arm.count = 1")
                     if s["spectro_check_after"]:
                         if s["use_timeafter"]:
-                            self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.blender[2].EVENT_ID")    
+                            self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.blender[2].EVENT_ID")  
+                            self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID")
                         else:
                             self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.blender[1].EVENT_ID")
+                            self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.blender[1].EVENT_ID")
                     else:
                         self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                        self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
                     self.safewrite(f"{s['drain']}.trigger.endpulse.action = {s['drain']}.SOURCE_IDLE")
-                    self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
                 #Turn on output and trigger SMU to output a single pulse.
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_ON")
