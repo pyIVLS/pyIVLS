@@ -752,6 +752,8 @@ class Keithley2612B:
                         pulseduration = 2*(s['delayduration']+nplc_s+s['postwait'])
                     else:
                         pulseduration = s['integrationtime'] + s['postwait']
+                    
+                    print(f"Calculated pulse duration: {pulseduration}")
                     ###### trigger.timer[2] for the second IV measurement
                     self.safewrite(f"trigger.timer[2].delay = {(pulseduration - (s['delayduration']+ nplc_s +s['postwait'])):.6f}") #duration of wait before second measurement in s
                     self.safewrite("trigger.timer[2].count = 1")
