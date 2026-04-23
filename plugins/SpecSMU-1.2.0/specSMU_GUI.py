@@ -633,7 +633,7 @@ class specSMU_GUI(QWidget):
             0.360 if trigpulse_dict["delay"] else self.settings["delay"]
         )  # duration of the delay before measurement if manual in s, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
         trigpulse_dict["postwait"] = self.settings["powerpulseext"]
-        trigpulse_dict["integrationtime"] = None  # this in any case will be set in spectrometer plugin
+        trigpulse_dict["integrationtime"] = self.spectrometer_settings["integrationtime"]
         trigpulse_dict["linen"] = self.settings["ioline"]
         trigpulse_dict["digiopulse"] = self.settings["hwtrigpulse"]
         trigpulse_dict["use_timeafter"] = self.settings["use_timeafter"]
