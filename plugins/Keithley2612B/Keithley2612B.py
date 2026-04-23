@@ -661,8 +661,6 @@ class Keithley2612B:
             power = math.floor(math.log10(abs(x)))
             factor = 10 ** power
             return math.ceil(x / factor) * factor
-        print(s["source"])
-        print(s["drain"])
         # Try and acquire the lock to make sure nothing else is running
         ##IRtothink#### is locking really needed?
         with self.lock:
@@ -736,7 +734,6 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
                     self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_OFF") #see p. 585 of Keithley manual
                     self.safewrite(f"{s['drain']}.source.levelv = {s['drainvalue']}")
-                    print(s['drainvalue'])
                     self.safewrite(f"{s['drain']}.source.limiti = {s['drainlimit']}")
                     #self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
                 
@@ -753,7 +750,6 @@ class Keithley2612B:
                     else:
                         pulseduration = s['integrationtime'] + s['postwait']
                     
-                    print(f"Calculated pulse duration: {pulseduration}")
                     ###### trigger.timer[2] for the second IV measurement
                     self.safewrite(f"trigger.timer[2].delay = {(pulseduration - (s['delayduration']+ nplc_s +s['postwait'])):.6f}") #duration of wait before second measurement in s
                     self.safewrite("trigger.timer[2].count = 1")

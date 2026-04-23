@@ -660,11 +660,10 @@ class specSMU_GUI(QWidget):
             for smuLoopStep in range(smuLoop):
                 smuSetValue = self.settings["start"] + smuLoopStep * smuChange
 
-                if self.settings["mode"] == "continuous":
-                    self._log_verbose(f"Setting SMU output to {smuSetValue}")
-                    # set output on SMU
-                    self.function_dict["smu"][smu_name]["smu_setOutput"](self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue)
-                    self._log_verbose("SMU output set")
+                self._log_verbose(f"Setting SMU output to {smuSetValue}")
+                # set output on SMU
+                self.function_dict["smu"][smu_name]["smu_setOutput"](self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue)
+                self._log_verbose("SMU output set")
 
                 # set filename
                 self.spectrometer_settings["filename"] = specFilename + f"_{smuSetValue:.4f}" + f"_{rep}" + " iv.csv"
@@ -773,6 +772,7 @@ class specSMU_GUI(QWidget):
                 # HW trig mode
                 else:
                     # arm spectrometer
+                    self.function_dict["spectrometer"][spectro_name]["spectrometerSetIntegrationTime"](integration_time_setting)  # make sure that integration time is set, even if it is the same as before, to make sure that spectrometer is ready for the trigger
                     self.function_dict["spectrometer"][spectro_name]["spectrometerTrigScan"]()
                     time.sleep(0.02)  # just a precaution, duration does not mean anything specific, does not affect the measurement as smu is off
                     # make dict for smu, as we do not know if autotime was used
@@ -783,10 +783,10 @@ class specSMU_GUI(QWidget):
                     if status:
                         self._log_verbose(f"Error running smupulse: {info}")
                         raise NotImplementedError(f"Error in smu_trigpulse: {info}, no handling provided")
-                    time.sleep(5)  # probably not needed
+                    time.sleep(2)  # probably not needed
 
                     # spectrum
-                    status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetScan"]()
+                    status, spectrum = self.function_dict["spectrometer"][spectro_name]["spectrometerGetSpectrum"]()
                     if status:
                         self._log_verbose(f"Error getting spectrum: {spectrum}")
                         raise NotImplementedError(f"Error in getting spectrum: {spectrum}, no handling provided")
@@ -807,7 +807,6 @@ class specSMU_GUI(QWidget):
                     readings = ",".join(map(str, IVdata.ravel()))
                     if not(self.settings["singlechannel"]):
                         IVdataDrain = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["drain"])
-                        print(f"Drain IV data: {IVdataDrain}")
                         readings += "," + ",".join(map(str, IVdataDrain.ravel()))
                     i_after, v_after = IVdata[-1]
                 else:
