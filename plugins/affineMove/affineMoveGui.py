@@ -1,4 +1,7 @@
+from math import e
 import os
+import re
+from turtle import st
 import numpy as np
 import cv2
 import copy
@@ -19,6 +22,13 @@ from plugin_components import (
 from collisionDetection import CollisionDetector
 from affineMoveVisualization import AffineMoveVisualization
 from threadStopped import ThreadStopped
+
+# TODO: Refactor to clean up collision detection code.
+
+HARDCODED_SPECTRO_NUM = 3  # FIXME: get this from somewhere.
+HARDCODED_SPECTRO_Z = 0
+HARDCODED_MANI_z = 3000
+HARDCODED_MANI_OFFSET = 2000
 
 
 class ViewportClickCatcher(QObject):
@@ -82,12 +92,7 @@ class affineMoveGUI(QObject):
             "micromanipulator": ["parse_settings_widget", "mm_get_num_manipulators", "setSettings"],
             "camera": ["parse_settings_widget", "setSettings"],
             "positioning": ["parse_settings_widget", "setSettings"],
-        }
-        dependency_map = {
-            "micromanipulator": "micromanipulatorBox",
-            "camera": "cameraBox",
-            "positioning": "positioningBox",
-        }
+        }  # TODO: Missing deps
         self.dm = DependencyManager("affineMove", dependencies)
 
         # connect buttons to functions
@@ -129,7 +134,6 @@ class affineMoveGUI(QObject):
 
         # Initialize collision detection system
         self.collision_detector = CollisionDetector()
-        self.bounding_boxes_path = os.path.join(self.path, "bounding_boxes_data.npy")
 
         # Initialize position caching system
         self.cached_manipulator_positions = {}
@@ -1152,17 +1156,6 @@ class affineMoveGUI(QObject):
                 return [3, f"Invalid iteration {currentIteration}"]
 
             # Use collision detection to determine safe movement sequence
-
-            # Log bounding box information
-            bbox_info = []
-            for manip_idx in moves_dict.keys():
-                bbox = self.collision_detector.get_bounding_box(manip_idx)
-                if bbox:
-                    corners = bbox.get_absolute_corners()
-                    bbox_info.append(f"M{manip_idx}: tip=({bbox.tip_x:.1f},{bbox.tip_y:.1f}), bbox={corners}")
-                else:
-                    bbox_info.append(f"M{manip_idx}: no bounding box")
-
             safe_sequence = self.collision_detector.generate_safe_movement_sequence(moves_dict)
 
             if not safe_sequence:
@@ -1171,6 +1164,8 @@ class affineMoveGUI(QObject):
 
             # Preview the planned sequence before execution
             self._preview_planned_sequence(safe_sequence)
+
+            # move manipulator to safe z-levels
 
             # Execute the moves in the safe sequence
             status, message = self.execute_move_list(safe_sequence)
@@ -1198,16 +1193,15 @@ class affineMoveGUI(QObject):
 
     # endregion public API
     def execute_move_list(self, move_sequence: list[tuple[int, tuple[float, float]]]) -> tuple[int, str]:
-        """
-        Execute a list of manipulator movements in the specified order.
+        """Excecute a list of moves defined in a sequence for a single manipulator
 
         Args:
-            move_sequence: List of (manipulator_idx, target_position) tuples from collision detector.
-                          target_position is (x, y) in camera coordinates.
+            move_sequence (list[tuple[int, tuple[float, float]]]): sequence of moves defined as a list of tuples (manipulator_index, (target_cam_x, target_cam_y))
 
         Returns:
-            tuple: (status, message) where status is 0 for success, 1+ for errors
+            tuple[int, str]: _description_
         """
+
         mm, _, _ = self._fetch_dep_plugins()
         if mm is None:
             return 1, "Micromanipulator plugin not available"
@@ -1232,7 +1226,7 @@ class affineMoveGUI(QObject):
             target_mm_x, target_mm_y = target_mm_coords
 
             # Execute the move using the wrapper that updates bounding box
-            status, state = self.move_manipulator_and_update_bounding_box(manip_idx, target_mm_x, target_mm_y, z=0)
+            status, state = self.move_manipulator_and_update_bounding_box(manip_idx, target_mm_x, target_mm_y)
 
             if status == 0:  # Success
                 successful_moves += 1
@@ -1306,3 +1300,68 @@ class affineMoveGUI(QObject):
         if preview_moves:
             # Emit signal to show preview
             self.update_planned_moves_signal.emit(preview_moves)
+
+    def _mans_to_safe_z(self, currentIteration: int, man_count: int, mm) -> tuple[int, dict]:
+        """Move manipulators to defined flight levels.
+
+        Args:
+            currentIteration (int): current looping iteration
+            man_count (int): number of manipulators
+
+        Returns:
+            tuple[int, dict]: status and state dict from the move operation
+        """
+
+        def _spectro_safe(mm):
+            status, state = mm["mm_change_active_device"](HARDCODED_SPECTRO_NUM)
+            if status != 0:
+                return status, state
+            # move spectrometer to its safe z-level
+            status, state = mm["mm_move"](z=HARDCODED_SPECTRO_Z)
+            if status != 0:
+                return status, state
+            return status, state
+
+        if currentIteration == 0:
+            # start with spectro movement, since it has the highest flight level
+            if HARDCODED_SPECTRO_NUM in range(1, man_count + 1):
+                status, state = _spectro_safe(mm)
+                if status != 0:
+                    return status, state
+            # we assume NOTHING about the starting z positions.
+            for manip_idx in range(1, man_count + 1):
+                # change active manipulator
+                status, state = mm["mm_change_active_device"](manip_idx)
+                if status != 0:
+                    return status, state
+                if manip_idx == HARDCODED_SPECTRO_NUM:
+                    pass  # already moved above
+                else:
+                    status, state = mm["mm_move"](z=HARDCODED_MANI_z)
+                if status != 0:
+                    return status, state
+                else:
+                    return 0, {"Error message": "Moved manipulators to safe z-levels for iteration 0"}
+        else:
+            # start with spectro movement, since it has the highest flight level
+            if HARDCODED_SPECTRO_NUM in range(1, man_count + 1):
+                status, state = _spectro_safe(mm)
+                if status != 0:
+                    return status, state
+            # for subsequent iterations we assume that manipulators are in contact, and therefore an offset is sufficient.
+            for manip_idx in range(1, man_count + 1):
+                # change active manipulator
+                status, state = mm["mm_change_active_device"](manip_idx)
+                if status != 0:
+                    return status, state
+                pos = mm["mm_current_position"]()
+                if manip_idx == HARDCODED_SPECTRO_NUM:
+                    pass  # already moved above
+                else:
+                    # normal mani gets offset
+                    z_abs = pos[2] - HARDCODED_MANI_OFFSET  # smaller values are higher
+                    status, state = mm["mm_move"](z=z_abs)
+                if status != 0:
+                    return status, state
+                else:
+                    return 0, {"Error message": "Moved manipulators to safe z-levels for iteration 0"}

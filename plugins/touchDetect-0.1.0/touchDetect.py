@@ -360,7 +360,10 @@ class touchDetect:
             manipulator_info = validated
             self._log(f"Filtered manipulators to {len(manipulator_info)} valid configurations")
 
-            # PHASE 1: Move all manipulators to initial contact
+            manipulator_info = [info for info in manipulator_info if info.function == "normal"]
+            spectrometer_info = [info for info in manipulator_info if info.function == "spectrometer"]
+
+            # PHASE 1: Move all manipulators of type normal to contact:
             self._log("PHASE 1: Moving all manipulators to initial contact")
 
             for info in manipulator_info:
@@ -409,8 +412,31 @@ class touchDetect:
                     else:
                         self._log(f"Failed to correct contact for manipulator {info.mm_number}: {result}")
 
-            # ADD LOGIC TO MOVE THE SPECTEROMETER DOWN
             self._log("Move to contact operation completed successfully - all contacts verified and stable")
+
+            # move spectrometer to position:
+            # get the positions of the contacting manipulators
+            if spectrometer_info:
+                zs = []
+                for info in manipulator_info:
+                    idx = info.mm_number
+                    position_data = mm["mm_current_position"](manipulator_name=idx)
+                    x, y, z_position = position_data
+                    zs.append(z_position)
+                avg_z = sum(zs) / len(zs)
+                self._log(f"Moving spectrometer to average Z position of contacting manipulators: {avg_z} with offset {spectrometer_info[0].spectrometer_height}")
+                for info in spectrometer_info:  # loop just in case multiple spectros are configured.
+                    status, state = mm["mm_change_active_device"](info.mm_number)
+                    if status != 0:
+                        error_msg = f"Failed to change active device for spectrometer {info.mm_number}: {state}"
+                        return (status, {"Error message": error_msg})
+                    target_z = avg_z - info.spectrometer_height
+                    self._log(f"Moving spectrometer {info.mm_number} to Z={target_z}")
+                    status, state = mm["mm_zmove"](z=target_z, absolute=True)
+                    if status != 0:
+                        error_msg = f"Failed to move spectrometer {info.mm_number} to Z={target_z}: {state}"
+                        return (status, {"Error message": error_msg})
+                    self._log(f"Spectrometer {info.mm_number} moved to Z={target_z}")
             return (0, {"Error message": "OK"})
 
         except Exception as e:

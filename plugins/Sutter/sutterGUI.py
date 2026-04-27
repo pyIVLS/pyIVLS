@@ -45,16 +45,8 @@ def handle_sutter_exceptions(func):
     def wrapper(self, *args, **kwargs):
         try:
             return func(self, *args, **kwargs)
-        except ThreadStopped:
-            # Re-raise ThreadStopped without catching it
-            raise
-        except InterruptedError as e:
-            # Handle move interruption as a successful stop operation
-            return (0, {"Error message": f"Sutter move interrupted: {str(e)}"})
         except ValueError as e:
             return (1, {"Error message": f"Value error in Sutter plugin: {str(e)}", "Exception": str(e)})
-        except Exception as e:
-            return (4, {"Error message": f"Sutter HW error: {str(e)}", "Exception": str(e)})
 
     return wrapper
 
@@ -111,7 +103,6 @@ class SutterGUI(QObject):
         self.settings = {}
         path = os.path.dirname(__file__) + os.path.sep
         self._settingsWidget = uic.loadUi(path + "Sutter_settingsWidget.ui")  # type: ignore
-
 
     def setup(self, settings):
         """

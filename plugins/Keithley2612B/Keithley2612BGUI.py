@@ -78,7 +78,7 @@ class Keithley2612BGUI(QObject):
         "smu_disconnect",
         "smu_connect",
         "smu_channelNames",
-        "smu_trigpulse"
+        "smu_trigpulse",
     ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
     ####################################  threads
@@ -172,7 +172,7 @@ class Keithley2612BGUI(QObject):
         """
         self.settings = {}
         self._parse_settings_address()
-        #Get source settings
+        # Get source settings
         self.settings["sourcefiltertype"] = self.settingsWidget.comboBox_sourceFilter.currentText()
         # Determine if a filter is used
         if self.settings["sourcefiltertype"] == "Off":
@@ -550,8 +550,9 @@ class Keithley2612BGUI(QObject):
         """
         self.smu.set_digio(id, value)
         return (0, {"Error message": "Digital output set successfully"})
+
     @public
-    def smu_trigpulse (self, s):
+    def smu_trigpulse(self, s):
         """an interface for an externall calling function to run trigger pulse on Keithley
         s: dictionary containing the settings to run the sweep. It is different from the self.settings and from dictionary for normal sweep
         the structure is given in header to keithley_run_trigpulse
