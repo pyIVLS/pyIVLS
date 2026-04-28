@@ -49,7 +49,6 @@ def handle_sutter_exceptions(func):
         except ValueError as e:
             return (1, {"Error message": f"Value error in Sutter plugin: {str(e)}", "Exception": str(e)})
         except ThreadStopped as ts:
-            print("ThreadStopped exception caught in Sutter plugin method; attempting to stop movement and re-raise")
             self.hal.stop()  # Attempt to stop any ongoing movement if a ThreadStopped exception is raised
             raise ts  # re-raise to be caught by outer layers that handle thread stopping
 
@@ -156,7 +155,6 @@ class SutterGUI(QObject):
 
         # Store settings internally in .ini format
         self.settings = copy.deepcopy(settings)
-        print(f"Sutter plugin setup with settings: {self.settings}")
         # Apply settings to GUI from internal settings
         self.update_gui_signal.emit()
         # update gui based on connection status
@@ -168,10 +166,6 @@ class SutterGUI(QObject):
     @pyqtSlot()
     def _apply_settings_to_gui(self):
         """Apply internal settings to GUI controls."""
-        print("Applying settings to GUI...")
-        print(f"Current settings: {self.settings}")
-        print(f"Parsed quickmove value: {ini_to_bool(self.settings['quickmove'])}")
-        print(f"Parsed segment_move value: {ini_to_bool(self.settings['segment_move'])}")
         # Handle quickmove setting - can be boolean or string
         self.quickmove_input.setChecked(ini_to_bool(self.settings["quickmove"]))
         self.segment_checkbox.setChecked(ini_to_bool(self.settings["segment_move"]))
@@ -256,7 +250,6 @@ class SutterGUI(QObject):
 
     @pyqtSlot(bool)
     def _gui_change_device_connected(self, connected: bool):
-        print(f"Updating GUI for connection status: {'connected' if connected else 'disconnected'}")
         if connected:
             self.connectionIndicator.setStyleSheet(self.GREEN_STYLE)
 
@@ -287,7 +280,6 @@ class SutterGUI(QObject):
     # The following methods handle GUI events, but also update the internal state of the plugin.
     # kind of non-standard.
     def _quickmove_changed(self, checked: QtCore.Qt.CheckState):
-        print(f"Quickmove checkbox changed: {'checked' if checked else 'unchecked'}")
         """Called when the quickmove checkbox is changed,
         sets visibility of the speed combobox."""
         is_checked = self.quickmove_input.isChecked()
@@ -295,7 +287,6 @@ class SutterGUI(QObject):
 
 
     def _devnum_changed(self):
-        print(f"Device number combobox changed: {self.devnum_combo.currentText()}")
         """Called when the device number combobox is changed, sets the device number in the hal."""
         curr_text = self.devnum_combo.currentText()
         if curr_text == "":
@@ -314,7 +305,6 @@ class SutterGUI(QObject):
     ## Button functionality:
 
     def _connect_button(self):
-        print("Connect button pressed.")
         """Called when the connect button is pressed. Opens the device and sets the connection indicator color."""
         try:
             if self.hal.is_connected():
@@ -326,7 +316,6 @@ class SutterGUI(QObject):
                 self.hal.open(address)
 
         except SerialException as e:
-            print(f"Sutter connection error: {str(e)}")
             self.logger.info_popup(f"Sutter SerialException: {str(e)}")
 
         finally:
@@ -336,7 +325,6 @@ class SutterGUI(QObject):
                 self.connection_status_signal.emit(False)
 
     def _stop_button(self):
-        print("Stop button pressed.")
         """Called when the stop button is pressed. Stops any ongoing movement."""
         status, result = self.mm_stop()
         if status == 0:
@@ -346,13 +334,11 @@ class SutterGUI(QObject):
 
 
     def _calibrate_button(self):
-        print("Calibrate button pressed.")
         self.mm_calibrate()
 
     ## hook functionality
 
     def _get_public_methods(self):
-        print("Getting public methods for Sutter plugin.")
         """
         Returns a a list of public methods of the class.
         """
@@ -361,7 +347,6 @@ class SutterGUI(QObject):
     ## API
     @public
     def setSettings(self, settings: dict) -> None:
-        print("Setting plugin settings from external call...")
         """Set plugin settings from sequence-builder style configuration.
 
         Args:
@@ -383,7 +368,6 @@ class SutterGUI(QObject):
 
     @public
     def set_gui_from_settings(self) -> tuple[int, dict]:
-        print("Scheduling GUI update from settings...")
         """Schedule a GUI refresh from internal settings.
 
         Args:
@@ -402,7 +386,6 @@ class SutterGUI(QObject):
     @public
     @handle_sutter_exceptions
     def mm_open(self) -> tuple[int, dict]:
-        print("mm_open called.")
         """Open the configured Sutter serial connection.
 
         Args:
@@ -432,7 +415,6 @@ class SutterGUI(QObject):
     @public
     @handle_sutter_exceptions
     def mm_change_active_device(self, dev_num: int) -> tuple[int, dict]:
-        print(f"mm_change_active_device called with dev_num={dev_num}")
         """Changes active device.
 
         Args:

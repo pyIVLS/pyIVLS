@@ -94,7 +94,6 @@ class Mpc325:
         """
         
     def open(self, port: Optional[str] = None):
-        print(f"Opening Sutter MPC-325 on port {port}..."   )
         with self._comm_lock:
             # Open port
             if not self.is_connected():
@@ -243,10 +242,8 @@ class Mpc325:
         """
         def _interal_move(x, y, z, quick_move, speed):
             if quick_move:
-                print(f"Quick moving to ({x}, {y}, {z})")
                 self.quick_move_to(x, y, z)
             else:
-                print(f"Slow moving to ({x}, {y}, {z}) at speed {speed}")
                 self.slow_move_to(x, y, z, speed)
 
         curr_pos = self.get_current_position()
@@ -265,7 +262,6 @@ class Mpc325:
         self.ser.timeout = self._TIMEOUT * 10 
         if segment:
             segments = self.segment_move(curr_pos, (x, y, z), length=segment_length)
-            print(f"Segmenting move into {len(segments)} segments of max length {segment_length} microns.") 
             for segment_target in segments:
                 _interal_move(*segment_target, quick_move=quick_move, speed=speed)  # Move to each segment target without further segmentation
         else:
