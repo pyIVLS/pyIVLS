@@ -43,7 +43,8 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6 import uic
 
 # Qcolors for manipulators as list
-MANIPULATOR_COLORS = (Qcolor(255, 0, 0), Qcolor(0, 255, 0), Qcolor(0, 0, 255), Qcolor(255, 255, 0))
+# yellow, Red, Green, Blue
+MANIPULATOR_COLORS = (Qcolor(255, 255, 0), Qcolor(255, 0, 0), Qcolor(0, 255, 0), Qcolor(0, 0, 255))
 
 
 @overload
