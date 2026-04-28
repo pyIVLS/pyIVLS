@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsEllipseItem,
 from PyQt6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QFont
 from PyQt6.QtCore import Qt
 from plugins.affineMove.collisionDetection import AABB
+from plugin_components import MANIPULATOR_COLORS
 
 
 class AffineMoveVisualization:
@@ -17,12 +18,7 @@ class AffineMoveVisualization:
         self.graphics_view = graphics_view
         self.graphics_scene = graphics_scene
 
-        self.manipulator_colors = [
-            QColor(255, 0, 0),  # Red
-            QColor(0, 255, 0),  # Green
-            QColor(0, 0, 255),  # Blue
-            QColor(255, 255, 0),  # Yellow
-        ]
+        self.manipulator_colors = MANIPULATOR_COLORS
 
         # Camera image bounds for preventing view expansion
         self.camera_image_bounds = (0, 0, 800, 600)  # Default bounds
@@ -194,7 +190,9 @@ class AffineMoveVisualization:
 
     def _get_manipulator_color(self, mm_idx):
         """Get the color for a specific manipulator index."""
-        return self.manipulator_colors[mm_idx % len(self.manipulator_colors)]
+        if mm_idx < 1 or mm_idx > len(self.manipulator_colors):
+            raise ValueError(f"Manipulator index {mm_idx} is out of range. Must be between 1 and {len(self.manipulator_colors)}.")
+        return self.manipulator_colors[mm_idx - 1]
 
     def clear_overlays(self):
         """Clear all overlays while keeping the background image."""
