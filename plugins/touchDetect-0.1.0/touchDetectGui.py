@@ -13,7 +13,7 @@ from plugin_components import (
 from worker_thread import WorkerThread
 from threadStopped import ThreadStopped
 
-
+# TODO: dont try to catch exceptions where you have no way to handle them.
 class touchDetectGUI:
     green_style = ConnectionIndicatorStyle.GREEN_CONNECTED.value
     red_style = ConnectionIndicatorStyle.RED_DISCONNECTED.value
@@ -531,6 +531,10 @@ class touchDetectGUI:
 
             self.logger.log_info("Move to contact operation completed successfully")
             return (status, state)
+        
+        except ThreadStopped as ts:
+            self.logger.log_info("Move to contact operation stopped by user")
+            raise ts # re-raise to be caught by outer layers that handle thread stopping
 
         except Exception as e:
             error_msg = f"Exception in move_to_contact: {str(e)}"
@@ -554,8 +558,8 @@ class touchDetectGUI:
                 0,
                 {"Error message": "TouchDetect sequence step completed successfully"},
             )
-        except ThreadStopped as _:
-            return (3, {"Error message": "Thread stopped by user"})
+        except ThreadStopped as ts:
+            raise ts # re-raise to be caught by outer layers that handle thread stopping
 
     @public
     def verify_contact(self) -> tuple[int, dict]:

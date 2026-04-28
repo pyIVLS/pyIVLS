@@ -1,6 +1,7 @@
 import time
 from dataclasses import dataclass
 from typing import Optional
+from threadStopped import ThreadStopped
 
 
 # both custom exceptions remain unused, but in the future it would be best to use them for internal error handling.
@@ -182,8 +183,10 @@ class touchDetect:
                 progress_callback("All devices connected successfully")
 
             # Filter to only configured manipulators
-            print(f"Manis inside low level {manipulator_infos}")
             configured_manipulators = [info for info in manipulator_infos if info.is_configured()]
+
+            # remove manipulators which do not need z-positions:
+            configured_manipulators = [info for info in configured_manipulators if info.needs_z_pos()]
 
             if not configured_manipulators:
                 error_msg = "No configured manipulators found"
@@ -278,26 +281,24 @@ class touchDetect:
 
     def _setup_and_move_to_contact(self, mm: dict, smu: dict, con: dict, info: ManipulatorInfo) -> tuple[int, dict]:
         """Helper method to setup measurement and move to contact for a single manipulator."""
-        try:
-            # Set up for resistance measurement
-            status, state = self._manipulator_measurement_setup(mm, smu, con, info)
-            if status != 0:
-                return status, {"Error message": f"Failed to set up measurement: {state}"}
+        # Set up for resistance measurement
+        status, state = self._manipulator_measurement_setup(mm, smu, con, info)
+        if status != 0:
+            return status, {"Error message": f"Failed to set up measurement: {state}"}
 
-            # move to last known position
-            status, state = self._move_manipulator_to_last_contact(mm, info)
-            if status != 0:
-                return status, {"Error message": f"Failed to move to last contact position: {state}"}
+        # move to last known position
+        status, state = self._move_manipulator_to_last_contact(mm, info)
+        if status != 0:
+            return status, {"Error message": f"Failed to move to last contact position: {state}"}
 
-            # compute the maximum move distance for the initial move
-            effective_max_distance = self.APPROACH_MARGIN + info.sample_width
+        # compute the maximum move distance for the initial move
+        effective_max_distance = self.APPROACH_MARGIN + info.sample_width
 
-            # move down until contact is detected
-            status, result = self._move_until_contact(mm, smu, info, effective_max_distance)
-            return status, result
+        # move down until contact is detected
+        status, result = self._move_until_contact(mm, smu, info, effective_max_distance)
+        return status, result
 
-        except Exception as e:
-            return 1, {"Error message": f"Exception in setup and move: {str(e)}"}
+
 
     def move_to_contact(self, mm: dict, con: dict, smu: dict, manipulator_info: list[ManipulatorInfo]):
         """Moves the specified micromanipulators to contact with the sample.
@@ -357,11 +358,13 @@ class touchDetect:
                     self._log(f"Manipulator {info.mm_number} has validation errors: {errors}")
                 else:
                     validated.append(info)
-            manipulator_info = validated
-            self._log(f"Filtered manipulators to {len(manipulator_info)} valid configurations")
+            self._log(f"Filtered manipulators to {len(validated)} valid configurations")
 
-            manipulator_info = [info for info in manipulator_info if info.function == "normal"]
-            spectrometer_info = [info for info in manipulator_info if info.function == "spectrometer"]
+            manipulator_info = [info for info in validated if info.function == "normal"]
+            spectrometer_info = [info for info in validated if info.function == "spectrometer"]
+
+            self._log(f"Manipulators to move to contact: {[info.mm_number for info in manipulator_info]}")
+            self._log(f"Spectrometers to position: {[info.mm_number for info in spectrometer_info]}")
 
             # PHASE 1: Move all manipulators of type normal to contact:
             self._log("PHASE 1: Moving all manipulators to initial contact")
@@ -432,13 +435,16 @@ class touchDetect:
                         return (status, {"Error message": error_msg})
                     target_z = avg_z - info.spectrometer_height
                     self._log(f"Moving spectrometer {info.mm_number} to Z={target_z}")
-                    status, state = mm["mm_zmove"](z=target_z, absolute=True)
+                    status, state = mm["mm_zmove"](target_z, absolute=True)
                     if status != 0:
                         error_msg = f"Failed to move spectrometer {info.mm_number} to Z={target_z}: {state}"
                         return (status, {"Error message": error_msg})
                     self._log(f"Spectrometer {info.mm_number} moved to Z={target_z}")
             return (0, {"Error message": "OK"})
 
+        except ThreadStopped as ts:
+            print("touchDETECT CAUGHT THREADSTOPPED EXCEPTION, ATTEMPTING TO STOP MOVEMENT AND CLEAN UP")
+            raise ts  # re-raise to be caught by outer layers that handle thread stopping
         except Exception as e:
             error_msg = f"Exception in move_to_contact: {str(e)}"
             self._log(error_msg)
@@ -534,17 +540,14 @@ class touchDetect:
                 # raised here instead of returning since _get_uncontacting is expected to return a list.
                 raise RuntimeError(error_msg)
 
-            try:
-                contacting = self._monitor_contact_stability(smu, info, duration_seconds=self.MONITORING_DURATION)
-                if not contacting:
-                    self._log(f"Manipulator {info.mm_number} not contacting (above threshold)")
-                    contact_status.append(info)
-                else:
-                    self._log(f"Manipulator {info.mm_number} is contacting")
-
-            except Exception as e:
-                self._log(f"Error checking contact for manipulator {info.mm_number}: {str(e)}")
+            contacting = self._monitor_contact_stability(smu, info, duration_seconds=self.MONITORING_DURATION)
+            if not contacting:
+                self._log(f"Manipulator {info.mm_number} not contacting (above threshold)")
                 contact_status.append(info)
+            else:
+                self._log(f"Manipulator {info.mm_number} is contacting")
+
+
 
         return contact_status
 
@@ -606,54 +609,48 @@ class touchDetect:
 
     def _manipulator_measurement_setup(self, mm: dict, smu: dict, con: dict, mi: ManipulatorInfo) -> tuple[int, dict]:
         """Set up SMU for resistance measurement on a specific manipulator channel."""
-        try:
-            # setup smu for resistance measurement
-            smu_status, smu_state = smu["smu_setup_resmes"](mi.smu_channel)
-            if smu_status != 0:
-                error_msg = f"SMU setup for manipulator {mi.mm_number} failed: {smu_state}"
-                return (smu_status, {"Error message": error_msg})
+        # setup smu for resistance measurement
+        smu_status, smu_state = smu["smu_setup_resmes"](mi.smu_channel)
+        if smu_status != 0:
+            error_msg = f"SMU setup for manipulator {mi.mm_number} failed: {smu_state}"
+            return (smu_status, {"Error message": error_msg})
 
-            # set active manipulator
-            mm_status, mm_state = mm["mm_change_active_device"](mi.mm_number)
-            if mm_status != 0:
-                error_msg = f"Failed to change active device for manipulator {mi.mm_number}: {mm_state}"
-                return (mm_status, {"Error message": error_msg})
+        # set active manipulator
+        mm_status, mm_state = mm["mm_change_active_device"](mi.mm_number)
+        if mm_status != 0:
+            error_msg = f"Failed to change active device for manipulator {mi.mm_number}: {mm_state}"
+            return (mm_status, {"Error message": error_msg})
 
-            # setup contact detection channel
-            con["deviceLoCheck"](False)
-            con["deviceHiCheck"](False)
-            if mi.condet_channel == "Hi":
-                con["deviceHiCheck"](True)
-            elif mi.condet_channel == "Lo":
-                con["deviceLoCheck"](True)
-            else:
-                raise ValueError(f"Invalid contact detection channel {mi.condet_channel}")
+        # setup contact detection channel
+        con["deviceLoCheck"](False)
+        con["deviceHiCheck"](False)
+        if mi.condet_channel == "Hi":
+            con["deviceHiCheck"](True)
+        elif mi.condet_channel == "Lo":
+            con["deviceLoCheck"](True)
+        else:
+            raise ValueError(f"Invalid contact detection channel {mi.condet_channel}")
 
-            return (0, {"Error message": f"SMU setup successful for manipulator {mi.mm_number}"})
-        except Exception as e:
-            return (1, {"Error message": f"Error setting up SMU for manipulator {mi.mm_number}: {str(e)}"})
+        return (0, {"Error message": f"SMU setup successful for manipulator {mi.mm_number}"})
+
 
     def _channels_off(self, con: dict, smu: dict):
         """Cleanup function to reset contact detection and SMU state."""
-        try:
-            con["deviceLoCheck"](False)
-            con["deviceHiCheck"](False)
-            smu["smu_outputOFF"]()
-            smu["smu_disconnect"]()
-            con["deviceDisconnect"]()
-            self._log("Cleanup completed successfully")
+        con["deviceLoCheck"](False)
+        con["deviceHiCheck"](False)
+        smu["smu_outputOFF"]()
+        smu["smu_disconnect"]()
+        con["deviceDisconnect"]()
+        self._log("Cleanup completed successfully")
 
-        except Exception as e:
-            self._log(f"Error during cleanup: {str(e)}")
+
 
     def _channels_off_single_manipulator(self, con: dict, smu: dict):
         """Cleanup function for a single manipulator without disconnecting devices."""
-        try:
-            con["deviceLoCheck"](False)
-            con["deviceHiCheck"](False)
-            smu["smu_outputOFF"]()
-        except Exception as e:
-            self._log(f"Error during single manipulator cleanup: {str(e)}")
+        con["deviceLoCheck"](False)
+        con["deviceHiCheck"](False)
+        smu["smu_outputOFF"]()
+
 
     def verify_contact(self, mm: dict, smu: dict, con: dict, infos: list[ManipulatorInfo]) -> tuple[int, dict]:
         """Verifies contact for all manipulators."""
