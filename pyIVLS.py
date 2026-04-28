@@ -2,15 +2,17 @@
 import sys
 from os.path import dirname, sep
 
+IVLS_path = dirname(__file__) + sep
+sys.path.append(IVLS_path)
+sys.path.append(dirname(__file__) + sep + "components" + sep)
+
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot
 
 from pyIVLS_container import pyIVLS_container
 from pyIVLS_GUI import pyIVLS_GUI
 
-IVLS_path = dirname(__file__) + sep
-sys.path.append(IVLS_path)
-sys.path.append(dirname(__file__) + sep + "components" + sep)
+
 
 
 ###################################### slots
