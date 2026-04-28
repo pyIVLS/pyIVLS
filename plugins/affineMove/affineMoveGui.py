@@ -1348,11 +1348,18 @@ class affineMoveGUI(QObject):
 
         z_target_dict = {}
         for manip_idx in man_list:
+            pos = mm["mm_current_position"](manip_idx)
             if currentIteration == 0:
                 z_target_dict[manip_idx] = HARDCODED_MANI_z
             else:
-                pos = mm["mm_current_position"](manip_idx)
-                z_target_dict[manip_idx] = pos[2] - HARDCODED_MANI_OFFSET  # smaller values are higher
+                # check wheter we are still at the starting z:
+                if pos[2] == HARDCODED_MANI_z:
+                    # if we are, dont offset to prevent upward drift over multiple iterations.
+                    z_target_dict[manip_idx] = HARDCODED_MANI_z
+                else:
+                    # we are not at the starting z, so the manipulators have been moved to contact. 
+                    # Just use a offset to reduce total movement time and maximize clearance.
+                    z_target_dict[manip_idx] = pos[2] - HARDCODED_MANI_OFFSET  # smaller values are higher
 
         print(f"Calculated target z-levels for manipulators for iteration {currentIteration}: {z_target_dict}")
 
