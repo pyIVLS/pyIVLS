@@ -1,7 +1,5 @@
 from math import e
 import os
-import re
-from turtle import st
 import numpy as np
 import cv2
 import copy
@@ -27,7 +25,7 @@ from threadStopped import ThreadStopped
 
 HARDCODED_SPECTRO_NUM = 3  # FIXME: get this from somewhere.
 HARDCODED_SPECTRO_Z = 0
-HARDCODED_MANI_z = 3000
+HARDCODED_MANI_z = 21000 # default z 
 HARDCODED_MANI_OFFSET = 2000
 
 
@@ -978,6 +976,7 @@ class affineMoveGUI(QObject):
             self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
 
             num_manipulators = mm["mm_get_num_manipulators"]()
+            print(f"Number of manipulators detected: {num_manipulators}")
             for i in range(1, num_manipulators + 1):
                 if self.get_calibration_from_settings(i) is None:
                     self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
@@ -1166,6 +1165,13 @@ class affineMoveGUI(QObject):
             self._preview_planned_sequence(safe_sequence)
 
             # move manipulator to safe z-levels
+            print(f"Safe movement sequence determined: {safe_sequence}")
+            print(f"safe sequence length: {len(safe_sequence)}")
+            print(f"moves dict: {moves_dict}")
+            print(f"moves dict length: {len(moves_dict)}")
+            man_list = moves_dict.keys()
+            man_list = list(man_list)
+            status, state = self._mans_to_safe_z(currentIteration=currentIteration, man_list=man_list , mm=mm)
 
             # Execute the moves in the safe sequence
             status, message = self.execute_move_list(safe_sequence)
@@ -1301,12 +1307,13 @@ class affineMoveGUI(QObject):
             # Emit signal to show preview
             self.update_planned_moves_signal.emit(preview_moves)
 
-    def _mans_to_safe_z(self, currentIteration: int, man_count: int, mm) -> tuple[int, dict]:
+    def _mans_to_safe_z(self, currentIteration: int, man_list: list, mm) -> tuple[int, dict]:
         """Move manipulators to defined flight levels.
 
         Args:
             currentIteration (int): current looping iteration
-            man_count (int): number of manipulators
+            man_list (list): list of manipulator indices to move. Sutter indexed, so starting at 1
+            mm: micromanipulator plugin functions
 
         Returns:
             tuple[int, dict]: status and state dict from the move operation
@@ -1315,53 +1322,50 @@ class affineMoveGUI(QObject):
         def _spectro_safe(mm):
             status, state = mm["mm_change_active_device"](HARDCODED_SPECTRO_NUM)
             if status != 0:
+                print(f"Failed to change active device to spectrometer manipulator {HARDCODED_SPECTRO_NUM}: {state.get('Error message', str(state))}")
                 return status, state
             # move spectrometer to its safe z-level
             status, state = mm["mm_move"](z=HARDCODED_SPECTRO_Z)
+            print(f"Moving spectrometer manipulator {HARDCODED_SPECTRO_NUM} to safe z-level {HARDCODED_SPECTRO_Z} for iteration {currentIteration}")
             if status != 0:
                 return status, state
+                print(f"Failed to move spectrometer manipulator {HARDCODED_SPECTRO_NUM} to safe z-level {HARDCODED_SPECTRO_Z}: {state.get('Error message', str(state))}")
             return status, state
+        
+        print(f"Moving manipulators to safe z-levels for iteration {currentIteration}. Manipulators to move: {man_list}")
+        print(f"list contains spectro manipulator {HARDCODED_SPECTRO_NUM}: {HARDCODED_SPECTRO_NUM in man_list}")
+        # always move spectro first if present. 
+        if HARDCODED_SPECTRO_NUM in man_list:
+            print(f"Moving spectrometer manipulator {HARDCODED_SPECTRO_NUM} to safe z-level {HARDCODED_SPECTRO_Z} for iteration {currentIteration}")
+            status, state = _spectro_safe(mm)
+            if status != 0:
+                return status, state
+            
+        # man list without spectro:
+        man_list = [manip_idx for manip_idx in man_list if manip_idx != HARDCODED_SPECTRO_NUM]
+        print(f"Moving manipulators to safe z-levels for iteration {currentIteration}. Manipulators to move: {man_list}")
+        print(f"list contains spectro manipulator {HARDCODED_SPECTRO_NUM}: {HARDCODED_SPECTRO_NUM in man_list}")
 
-        if currentIteration == 0:
-            # start with spectro movement, since it has the highest flight level
-            if HARDCODED_SPECTRO_NUM in range(1, man_count + 1):
-                status, state = _spectro_safe(mm)
-                if status != 0:
-                    return status, state
-            # we assume NOTHING about the starting z positions.
-            for manip_idx in range(1, man_count + 1):
-                # change active manipulator
-                status, state = mm["mm_change_active_device"](manip_idx)
-                if status != 0:
-                    return status, state
-                if manip_idx == HARDCODED_SPECTRO_NUM:
-                    pass  # already moved above
-                else:
-                    status, state = mm["mm_move"](z=HARDCODED_MANI_z)
-                if status != 0:
-                    return status, state
-                else:
-                    return 0, {"Error message": "Moved manipulators to safe z-levels for iteration 0"}
-        else:
-            # start with spectro movement, since it has the highest flight level
-            if HARDCODED_SPECTRO_NUM in range(1, man_count + 1):
-                status, state = _spectro_safe(mm)
-                if status != 0:
-                    return status, state
-            # for subsequent iterations we assume that manipulators are in contact, and therefore an offset is sufficient.
-            for manip_idx in range(1, man_count + 1):
-                # change active manipulator
-                status, state = mm["mm_change_active_device"](manip_idx)
-                if status != 0:
-                    return status, state
-                pos = mm["mm_current_position"]()
-                if manip_idx == HARDCODED_SPECTRO_NUM:
-                    pass  # already moved above
-                else:
-                    # normal mani gets offset
-                    z_abs = pos[2] - HARDCODED_MANI_OFFSET  # smaller values are higher
-                    status, state = mm["mm_move"](z=z_abs)
-                if status != 0:
-                    return status, state
-                else:
-                    return 0, {"Error message": "Moved manipulators to safe z-levels for iteration 0"}
+        z_target_dict = {}
+        for manip_idx in man_list:
+            if currentIteration == 0:
+                z_target_dict[manip_idx] = HARDCODED_MANI_z
+            else:
+                pos = mm["mm_current_position"](manip_idx)
+                z_target_dict[manip_idx] = pos[2] - HARDCODED_MANI_OFFSET  # smaller values are higher
+
+        print(f"Calculated target z-levels for manipulators for iteration {currentIteration}: {z_target_dict}")
+
+
+        for manip_idx, target_z in z_target_dict.items():
+            print(f"Moving manipulator {manip_idx} to safe z-level {target_z} for iteration {currentIteration}")
+            status, state = mm["mm_change_active_device"](manip_idx)
+            if status != 0:                
+                print(f"Failed to change active device to manipulator {manip_idx}: {state.get('Error message', str(state))}")
+                return status, state
+            status, state = mm["mm_move"](z=target_z)
+            if status != 0:                
+                print(f"Failed to move manipulator {manip_idx} to safe z-level {target_z}: {state.get('Error message', str(state))}")
+                return status, state
+        return 0, {"message": f"Successfully moved manipulators to safe z-levels for iteration {currentIteration}"}
+
