@@ -15,8 +15,8 @@ from PyQt6.QtGui import QStandardItemModel, QStandardItem, QAction
 from PyQt6.QtWidgets import QFileDialog, QMenu
 from PyQt6.QtCore import QModelIndex
 
-from components.threadStopped import thread_with_exception
-from components.threadStopped import ThreadStopped
+from threadStopped import thread_with_exception
+from threadStopped import ThreadStopped
 from pathvalidate import is_valid_filename
 import json
 
@@ -564,6 +564,7 @@ class pyIVLS_seqBuilder(QObject):
         finally:
             self._setNotRunning()
             self._sigSeqEnd.emit()
+
 
     def _runAction(self):
         # disable controls

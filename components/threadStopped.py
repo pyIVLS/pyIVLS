@@ -2,6 +2,16 @@
 
 import ctypes
 import threading
+import sys
+
+
+# Keep a single module object even if imported as either
+# `threadStopped` or `components.threadStopped`.
+# janky workaround
+if __name__ == "components.threadStopped":
+    sys.modules.setdefault("threadStopped", sys.modules[__name__])
+elif __name__ == "threadStopped":
+    sys.modules.setdefault("components.threadStopped", sys.modules[__name__])
 
 
 class ThreadStopped(Exception):
