@@ -41,7 +41,6 @@ dependencies = [
     "setuptools>=78.1.1",
     "six==1.17.0",
     "typing-extensions==4.12.2",
-    "uv>=0.11.6",
     "zeroconf==0.137.2",
     "zope-interface==7.2",
 ]
