@@ -1,0 +1,202 @@
+"""
+This is a template for a plugin GUI implementation in pyIVLS
+
+This file should provide
+- functions for interaction with other plugins (those that will be exported on get_functions hook call, these should not start with "_")
+- functions that will implement functionality of the hooks (see pyIVLS_pluginTemplate)
+- GUI functionality - code that interracts with Qt GUI elements from widgets
+
+The standard implementation may (but not must) include
+- GUI a Qt widget implementation
+- GUI functionality (e.g. pluginTemplateGUI.py) - code that interracts with Qt GUI elements from widgets
+- plugin core implementation - a set of functions that may be used outside of GUI
+"""
+
+import os
+from PyQt6 import QtWidgets
+from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtWidgets import QWidget
+from pluginTemplate import pluginTemplate
+from plugin_components import (
+    CloseLockSignalProvider,
+    public,
+    get_public_methods,
+    load_widget,
+    LoggingHelper,
+    DependencyManager,
+)
+from MplCanvas import MplCanvas
+from schema import SchemaPOCSettings
+from widget_builder import pyIVLS_settings_widget
+# this is loade from components directory that contains shared classes
+
+
+class pluginTemplateGUI(QObject):
+    @property
+    def MDIWidget(self) -> QWidget:
+        if not hasattr(self, "_mdiWidget"):
+            raise NotImplementedError("MDI widget not implemented, remove this function if MDI widget is not needed.")
+        if self._mdiWidget is None:
+            raise RuntimeError("MDI widget not initialized.")
+        return self._mdiWidget
+
+    def notify_user(self, message: str):
+        """Utility to create popup and corresponding log entry for events that should be clearly visible"""
+        self.logger.log_info(message)
+        self.logger.info_popup(message)
+
+    update_gui_signal = pyqtSignal()
+
+    ########Functions
+    def __init__(self):
+        super(pluginTemplateGUI, self).__init__()  ### this is needed if the class is a child of QObject
+
+        self.path = os.path.dirname(__file__) + os.path.sep
+        # remove load_widget if no widgets are needed
+        self._mdiWidget = load_widget(settings=False, mdi=True, path=self.path)
+        self.abs = pyIVLS_settings_widget(SchemaPOCSettings)
+        self.settingsWidget = self.abs
+        print(f"Settings widget built from SchemaPOCSettings: {self.settingsWidget}")
+        # Initialize the functionality core that should be independent on GUI
+        self.templateFunctionality = pluginTemplate()
+
+        # init settings
+        self.settings = {}
+
+        # print components of the GUI for debugging
+        print(f"Components of the GUI for {self.__class__.__name__}:")
+        for child in self.settingsWidget.findChildren(QtWidgets.QWidget):
+            print(f"Child widget: {child.objectName()} of type: {type(child)}")
+
+        # create plot
+        self._create_plt()
+
+        # initialize logger
+        self.logger = LoggingHelper(self)
+
+        # initialize dependency manager
+        self.dm = DependencyManager(
+            "pluginTemplate",
+            {"camera": []},
+        )
+        # initialize closelock if needed
+        self.cl = CloseLockSignalProvider()
+
+        # prepare GUI
+
+        # HOX: things such as adding items for comboboxes MUST be done here to prevent duplicate entries
+        # when initGUI is repeatedly called from pyIVLS_container when plugin list is updated.
+
+    def _create_plt(self):
+        self.sc = MplCanvas(self, width=5, height=4, dpi=100)
+        self.axes = self.sc.fig.add_subplot(111)
+        self.axes.set_xlabel("time (HH:MM)")
+        self.axes.set_ylabel(r"Temperature ($^\circ$C)")
+
+        # self.MDIWidget.previewForm.addWidget(self.sc._create_toolbar(self.MDIWidget))
+        # self.MDIWidget.previewForm.addWidget(self.sc)
+
+    ########Functions
+    ########GUI Slots
+    # This section should contain functions that should react to GUI events.
+
+    ########Functions
+    ################################### internal
+    def _validate_settings(self, settings: dict) -> tuple[int, str]:
+        """Validate settings dict and convert values to correct dtype
+
+        Args:
+            settings (dict): settings dict with correct data types, so not the initial .ini dict
+
+        Returns:
+            tuple[int, str]: status code, error message (empty if no error)
+        """
+        try:
+            settings["float"] = float(settings["float"])
+            settings["int"] = int(settings["int"])
+            if not (0 <= settings["float"] <= 1):
+                return (1, "Float value should be between 0 and 1.")
+            if settings["category"] not in ["option1", "option2", "option3"]:
+                return (1, "Category should be one of the following: option1, option2, option3.")
+            if settings["int"] < 0:
+                return (1, "Integer value should be non-negative.")
+            if len(settings["str"]) == 0:
+                return (1, "String value should not be empty.")
+            return (0, "")
+        # catch conversion errors if values read from gui
+        except ValueError as e:
+            return (1, f"Invalid data type in settings: {e}")
+
+    ########Functions
+    ###############GUI setting up
+    def _initGUI(
+        self,
+        plugin_info: dict,
+    ):
+        """Initialize the GUI components with the provided plugin information.
+        This should not set the internal state of the plugin, but only set the GUI elements.
+        It should be possible to call this function multiple times without
+        side effects. This will in fact be called multiple times, since pyIVLS_container calls get_setup_interface
+        every time the pluginlist is updated.
+
+        Args:
+            plugin_info (dict): dictionary with settings obtained from plugin_data in pyIVLS_
+        """
+        # initialize dependency manager with the provided settings to initialize combobox
+        self.dm.initialize_dependency_selection(plugin_info)
+
+        # These are unguarded, meaning that a user messing around in the .ini file
+        # can cause an unhandled exception here.
+        # IMO this is the best way to handle wrong settings on startup, since the crash happens early and before data loss and
+        # the error is fairly descriptive. Besides, handling these errors would involve
+        # guessing what the value should actually be which could just lead to more pain down the line.
+
+        # set actual values to GUI from plugin info
+
+    ########Functions
+    ###############GUI react to change
+
+    ########Functions
+    ########plugins interraction
+    def _get_public_methods(self):
+        return get_public_methods(self)
+
+    @public
+    def setSettings(self, settings: dict):
+        """Set the settings for the templatePlugin.
+
+        Args:
+            settings (dict): dictionary with settings for the templatePlugin.
+        """
+        status, error_message = self._validate_settings(settings)
+        if status != 0:
+            return (1, {"Error message": error_message})
+        self.settings = settings
+
+        # update settings for deps:
+        self.dm.set_dependency_settings(settings)
+
+        return (0, {"Error message": "ok"})
+
+    @public
+    def set_gui_from_settings(self):
+        """Set the GUI elements from the internal settings. This can be used after settings have been updated from an external plugin to update the GUI accordingly."""
+        # Here we can assume that self.settings contains the values in correct datatype since they are checked before writing to settings.
+        self.update_gui_signal.emit()
+        self.dm.update_dep_guis()
+
+    ########Functions to be used externally
+    ########Public API
+    @public
+    def parse_settings_widget(self) -> tuple[int, dict]:
+        """Parses the settings widget for the templatePlugin. Extracts current values.
+        Checks if values are allowed. Provides settings of template plugin to an external plugin
+
+        Returns (status, settings_dict):
+            status: 0 - no error, ~0 - error (add error code later on if needed)
+            self.settings
+        """
+        m = self.abs.to_model()
+        ts = m.model_dump()
+
+        return (0, ts)

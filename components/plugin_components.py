@@ -36,7 +36,7 @@ import sys
 import traceback
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Literal, overload
+from typing import Any, Optional, Literal, overload
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QColor as Qcolor
 from PyQt6.QtWidgets import QWidget
@@ -154,7 +154,7 @@ def public(func):
     return func
 
 
-def get_public_methods(obj) -> Dict:
+def get_public_methods(obj) -> dict:
     """
     Get a dict of public methods in an object instance that are marked with the @public decorator.
 
@@ -167,7 +167,7 @@ def get_public_methods(obj) -> Dict:
     return {name: getattr(obj, name) for name in dir(obj) if callable(getattr(obj, name, None)) and getattr(getattr(obj, name, None), "_is_public", False)}
 
 
-def filter_to_valid_methods(function_dict: Dict[str, Any], required_functions: Dict[str, list]) -> Tuple[bool, List[str]]:
+def filter_to_valid_methods(function_dict: dict[str, Any], required_functions: dict[str, list]) -> tuple[bool, list[str]]:
     """
     Filter a function dictionary to only include valid methods based on required functions. UPDATING IS DONE IN PLACE FOR FUNCTION_DICT ARGUMENT.
 
@@ -181,7 +181,7 @@ def filter_to_valid_methods(function_dict: Dict[str, Any], required_functions: D
         unresolved methods per dependency type. A method is unresolved when no single plugin
         can satisfy the full required method set for that dependency type.
     """
-    missing_functions: List[str] = []
+    missing_functions: list[str] = []
     is_valid = True
 
     for dependency_type, required_funcs in required_functions.items():
@@ -233,11 +233,11 @@ class FileManager:
     """Component that builds standard file headers for plugins. Provides headers for standard IV and standard spectro."""
 
     @staticmethod
-    def create_file_header(settings: Dict[str, Any], smu_settings: Dict[str, Any]) -> str:
+    def create_file_header(settings: dict[str, Any], smu_settings: dict[str, Any]) -> str:
         """Creates a legacy compatible SMU file header. The args accept standard SWEEP settings dict and SMU settings dict.
 
         Args:
-            settings (Dict[str, Any]): Dictionary with keys:
+            settings (dict[str, Any]): Dictionary with keys:
                 - samplename: str, name of the sample
                 - channel: str, source channel used
                 - inject: str, injection mode for source (voltage or current)
@@ -359,7 +359,7 @@ class FileManager:
         return comment
 
     @staticmethod
-    def create_spectrometer_header(varDict: Optional[Dict[str, Any]] = None, separator: str = ";") -> str:
+    def create_spectrometer_header(varDict: Optional[dict[str, Any]] = None, separator: str = ";") -> str:
         """Build a standard spectrometer header from a dictionary
 
         Args:
@@ -459,14 +459,14 @@ class DependencyManager:
     - Access available function_dict through the property. This includes all plugins that satisfy the required method sets.
     - "parse_dependencies" is used to parse the settings widgets for plugins and add their settings to the settings dict.
 
-    Idea to clarify this: 
-    1. This should only do update on a hook (initGUI?). I say this because that time is the only time when the list of method actually can change.  
+    Idea to clarify this:
+    1. This should only do update on a hook (initGUI?). I say this because that time is the only time when the list of method actually can change.
     2. This should not deal with the GUI, i think. It should only take in the info dicts and return function dicts.
-    3. It should be possible to provide the current settings dict to this, and this would parse the selected plugins. 
+    3. It should be possible to provide the current settings dict to this, and this would parse the selected plugins.
 
     """
 
-    def __init__(self, plugin_name: str, dependencies: Dict[str, list]):
+    def __init__(self, plugin_name: str, dependencies: dict[str, list]):
         """
         Initialize dependency manager.
 
@@ -482,27 +482,27 @@ class DependencyManager:
         self.missing_functions = []
         self.dependency_settings = {}
         self.last_selected = {}
-        self.selected_dependencies: Dict[str, str] = {}
+        self.selected_dependencies: dict[str, str] = {}
 
     @property
-    def function_dict(self) -> Dict[str, Any]:
+    def function_dict(self) -> dict[str, Any]:
         """Get the current function dictionary."""
         return self._function_dict
 
     @function_dict.setter
-    def function_dict(self, value: Dict[str, Any]) -> None:
+    def function_dict(self, value: dict[str, Any]) -> None:
         """Set available dependency functions, pruning invalid providers first."""
         pruned_function_dict, is_valid, missing_functions = self._prune_dependency_function_dict(value)
         self._function_dict = pruned_function_dict
         self.missing_functions = missing_functions
 
-    def _prune_dependency_function_dict(self, function_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], bool, List[str]]:
+    def _prune_dependency_function_dict(self, function_dict: dict[str, Any]) -> tuple[dict[str, Any], bool, list[str]]:
         """Keep only declared dependency types and plugins that satisfy required methods."""
         dependency_function_dict = {dependency_type: function_dict.get(dependency_type, {}) for dependency_type in self.dependencies.keys()}
         is_valid, missing_functions = filter_to_valid_methods(dependency_function_dict, self.dependencies)
         return dependency_function_dict, is_valid, missing_functions
 
-    def set_available_dependency_functions(self, function_dict: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    def set_available_dependency_functions(self, function_dict: dict[str, Any]) -> tuple[bool, list[str]]:
         """Set and validate dependency functions from the plugin system.
 
         Returns:
@@ -511,12 +511,12 @@ class DependencyManager:
         self.function_dict = function_dict
         return len(self.missing_functions) == 0, self.missing_functions
 
-    def initialize_dependency_selection(self, settings: Dict[str, Any]):
+    def initialize_dependency_selection(self, settings: dict[str, Any]):
         """Initialize remembered dependency selections from settings."""
         self.last_selected = {dependency_type: settings.get(dependency_type, "") for dependency_type in self.dependencies.keys() if settings.get(dependency_type, "")}
         return (0, {})
 
-    def set_selected_dependency_plugins(self, selected: Dict[str, str]) -> None:
+    def set_selected_dependency_plugins(self, selected: dict[str, str]) -> None:
         """Set selected dependency plugins from caller-managed UI state."""
         for dependency_type in self.dependencies.keys():
             selected_plugin = selected.get(dependency_type, "")
@@ -524,7 +524,7 @@ class DependencyManager:
                 self.selected_dependencies[dependency_type] = selected_plugin
                 self.last_selected[dependency_type] = selected_plugin
 
-    def get_selected_dependency_plugins(self) -> Dict[str, str]:
+    def get_selected_dependency_plugins(self) -> dict[str, str]:
         """
         Get currently selected dependencies.
 
@@ -533,12 +533,12 @@ class DependencyManager:
         """
         return self.selected_dependencies.copy()
 
-    def get_available_dependency_plugins(self) -> Dict[str, List[str]]:
+    def get_available_dependency_plugins(self) -> dict[str, list[str]]:
         """Get valid plugin names for each dependency type after filtering."""
         return {dependency_type: list(self._function_dict.get(dependency_type, {}).keys()) for dependency_type in self.dependencies.keys()}
 
-    def _resolve_selected_dependencies(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, str] | Dict[str, Any]]:
-        selected_deps: Dict[str, str] = {}
+    def _resolve_selected_dependencies(self, target_settings_dict: dict[str, Any]) -> tuple[int, dict[str, str] | dict[str, Any]]:
+        selected_deps: dict[str, str] = {}
         for dependency_type in self.dependencies.keys():
             selected_plugin = target_settings_dict.get(dependency_type, "")
             if not selected_plugin:
@@ -561,7 +561,7 @@ class DependencyManager:
         self.last_selected.update(selected_deps)
         return (0, selected_deps)
 
-    def parse_dependencies(self, target_settings_dict: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+    def parse_dependencies(self, target_settings_dict: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         """
         Validates all dependency selections and extracts their settings.
 
@@ -621,11 +621,11 @@ class DependencyManager:
         target_settings_dict.update(dependency_settings)
         return (0, target_settings_dict)
 
-    def set_dependency_settings(self, settings: Dict[str, Any]) -> None:
+    def set_dependency_settings(self, settings: dict[str, Any]) -> None:
         """Call setSettings for selected deps to update their internal state
 
         Args:
-            settings (Dict[str, Any]): _description_
+            settings (dict      [str, Any]): _description_
         """
         status, selected_or_error = self._resolve_selected_dependencies(settings)
         if status != 0:
@@ -643,7 +643,7 @@ class DependencyManager:
                 continue
             plugin_functions["setSettings"](settings[settings_key])
 
-    def update_dep_guis(self, selected_dependencies: Optional[Dict[str, str]] = None) -> None:
+    def update_dep_guis(self, selected_dependencies: Optional[dict[str, str]] = None) -> None:
         """Call any GUI update functions for the selected dependencies to reflect any changes in their settings."""
         selected_deps = selected_dependencies or self.selected_dependencies or self.last_selected
 
@@ -718,7 +718,7 @@ class LoggingHelper(QObject):
         self.info_popup_signal.emit(message)
 
 
-def handle_ret(pyIVLS_return: Tuple[int, Dict[str, Any]]) -> Any:
+def handle_ret(pyIVLS_return: tuple[int, dict[str, Any]]) -> Any:
     """Return the dict on success, otherwise raise an exception. dont integrate this, this is just a tester"""
     ret_code, ret_dict = pyIVLS_return
     print("Warn: unstable handle_ret used in 'production' code.")
@@ -736,4 +736,3 @@ def handle_ret(pyIVLS_return: Tuple[int, Dict[str, Any]]) -> Any:
         raise RuntimeError(f"Plugin returned THREAD_STOPPED: {ret_dict.get('Error message', 'No error message provided')}")
     else:
         raise RuntimeError(f"Plugin returned unknown error code {ret_code}: {ret_dict.get('Error message', 'No error message provided')}")
-
