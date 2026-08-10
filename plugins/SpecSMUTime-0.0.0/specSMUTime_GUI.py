@@ -405,7 +405,6 @@ class specSMUTime_GUI(QWidget):
             self.settings["spectrometer"] = raw_settings["spectrometer"]
             self.settings["channel"] = raw_settings["channel"].lower()
             self.settings["inject"] = raw_settings["inject"].lower()
-            self.settings["mode"] = raw_settings["mode"].lower()
             self.settings["delaymode"] = raw_settings["delaymode"].lower()
             self.settings["sourcesensemode"] = raw_settings["sourcesensemode"].lower()
             self.settings["singlechannel"] = raw_settings["singlechannel"]  # bool
