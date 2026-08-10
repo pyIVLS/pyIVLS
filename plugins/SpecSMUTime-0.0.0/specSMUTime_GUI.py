@@ -504,7 +504,7 @@ class specSMUTime_GUI(QWidget):
         self._log_verbose("Entering smuInit")
         s = {}
 
-        s["pulse"] = self.settings["mode"] == False  # pulsed mode: may be True or False
+        s["pulse"] = False  # pulsed mode: may be True or False
         s["source"] = self.settings["channel"]  # may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
         s["drain"] = self.settings["drainchannel"]
         s["type"] = "v" if self.settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
