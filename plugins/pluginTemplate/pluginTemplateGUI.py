@@ -13,18 +13,20 @@ The standard implementation may (but not must) include
 """
 
 import os
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
-from PyQt6.QtWidgets import QWidget
-from pluginTemplate import pluginTemplate
+
+from MplCanvas import MplCanvas
 from plugin_components import (
     CloseLockSignalProvider,
-    public,
+    DependencyManager,
+    LoggingHelper,
     get_public_methods,
     load_widget,
-    LoggingHelper,
-    DependencyManager,
+    public,
 )
-from MplCanvas import MplCanvas
+from pluginTemplate import pluginTemplate
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtWidgets import QWidget
+
 # this is loade from components directory that contains shared classes
 
 
@@ -54,7 +56,7 @@ class pluginTemplateGUI(QObject):
 
     ########Functions
     def __init__(self):
-        super(pluginTemplateGUI, self).__init__()  ### this is needed if the class is a child of QObject
+        super().__init__()  ### this is needed if the class is a child of QObject
 
         self.path = os.path.dirname(__file__) + os.path.sep
         # remove load_widget if no widgets are needed

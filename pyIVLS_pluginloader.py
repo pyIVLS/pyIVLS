@@ -2,12 +2,15 @@
 # dialog and functionality for the plugins action from the Tools menu
 # This represents the single window opened.
 
+import logging
+import os
 import sys
 from os.path import sep
-import os
 
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
+
+logger = logging.getLogger(__name__)
 
 
 class pyIVLS_pluginloader(QtWidgets.QDialog):
@@ -20,7 +23,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         ui_file_name = path + "components" + sep + "pyIVLS_pluginloader.ui"
         window_option = uic.loadUi(ui_file_name, self)
         if window_option is None:
-            print("Cannot open pyIVLS_pluginloader")
+            logger.error("Cannot open pyIVLS_pluginloader")
             sys.exit(-1)
         else:
             self.window: QtWidgets.QDialog = window_option
@@ -34,9 +37,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         msg.setText(str)
         msg.setWindowTitle("Warning")
         msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-        msg.setWindowFlags(
-            Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint
-        )
+        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint)
         msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
         msg.exec()
 
@@ -62,9 +63,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         self.table_widget.setColumnCount(7)
 
         # set header labels
-        self.table_widget.setHorizontalHeaderLabels(
-            ["load", "hidden", "Plugin Name", "Type", "Version", "Function", "Dependencies"]
-        )
+        self.table_widget.setHorizontalHeaderLabels(["load", "hidden", "Plugin Name", "Type", "Version", "Function", "Dependencies"])
 
         for row, (item, properties) in enumerate(plugins.items()):
             # Create the items for each column
@@ -80,9 +79,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             load_item.setFlags(load_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             load_item.setCheckState(Qt.CheckState.Checked if properties["load"] == "True" else Qt.CheckState.Unchecked)
             hidden_item.setFlags(hidden_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            hidden_item.setCheckState(
-                Qt.CheckState.Checked if properties["hidden"] == "True" else Qt.CheckState.Unchecked
-            )
+            hidden_item.setCheckState(Qt.CheckState.Checked if properties["hidden"] == "True" else Qt.CheckState.Unchecked)
 
             # Set the items in the row
             self.table_widget.setItem(row, 0, load_item)
@@ -94,34 +91,6 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             self.table_widget.setItem(row, 6, dependencies_item)
         self.table_widget.resizeColumnsToContents()
         # self.table_widget.resizeRowsToContents()
-        """        
-        self.model.clear()  # Clear the existing items in the model
-
-        for item, properties in plugins.items():
-            dependencies = properties.get("dependencies", "")
-            if not dependencies:
-                dependencies = "None"
-            plugin_name = f"{properties.get('type')}: {item} {properties.get('version', '')} ({properties.get('function')}) - Dependencies: {dependencies}"
-            list_item = QtGui.QStandardItem(plugin_name)
-            list_item.setCheckable(True)
-            list_item.setUserTristate(True)  # Allow tristate for checkboxes
-            list_item.setCheckState(Qt.CheckState.Unchecked)
-            list_item.setFlags(list_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            print(f"Plugin: {item}, Load: {properties.get('load')}, Load Widget: {properties.get('load_widget')}")
-            if properties.get("load") == "True":
-                if properties.get("load_widget") == "True":
-                    list_item.setCheckState(Qt.CheckState.Checked)
-                else:
-                    list_item.setCheckState(Qt.CheckState.PartiallyChecked)
-
-
-            
-
-            list_item.setToolTip(item)
-            list_item.setData(item, Qt.ItemDataRole.UserRole)
-
-            self.model.appendRow(list_item)
-        """
 
 
     #### Button actions
@@ -153,9 +122,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         """Uploads a plugin from a directory. Opens a file dialog to select the plugin directory."""
 
         start_dir = os.path.join(self.path, "plugins")
-        plugin_dir = QtWidgets.QFileDialog.getExistingDirectory(
-            self, "Select Plugin Directory", start_dir, QtWidgets.QFileDialog.Option.ShowDirsOnly
-        )
+        plugin_dir = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Plugin Directory", start_dir, QtWidgets.QFileDialog.Option.ShowDirsOnly)
         if not plugin_dir:
             return  # if no directory is selected, return
 

@@ -3,9 +3,11 @@ This is a class for peltier controller
 
 """
 
-import pyvisa
-from threading import Lock
 import random
+from threading import Lock
+
+import pyvisa
+
 
 class itc503:
     def __init__(self):

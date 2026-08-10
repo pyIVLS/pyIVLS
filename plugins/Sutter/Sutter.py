@@ -1,9 +1,9 @@
 """Module for the MPC-325 abstraction layer"""
 
 import struct  # Handling binary
-import time  # for device-specified wait-times
-from typing import Final, Optional  # for constants and options
 import threading  # for thread safety
+import time  # for device-specified wait-times
+from typing import Final  # for constants and options
 
 import numpy as np  # for better typing
 import serial  # Accessing sutter device through serial port
@@ -91,7 +91,7 @@ class Mpc325:
         return bytes_read
         """
 
-    def open(self, port: Optional[str] = None):
+    def open(self, port: str | None = None):
         with self._comm_lock:
             # Open port
             if not self.is_connected():

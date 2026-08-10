@@ -3,7 +3,10 @@ This is a class for peltier controller
 
 """
 
+import logging
 from threading import Lock
+
+logger = logging.getLogger(__name__)
 
 
 class itc503:
@@ -16,7 +19,7 @@ class itc503:
         Returns status
             0 - no error
         """
-        print("WARNING; USING MOCK")
+        logger.warning("WARNING; USING MOCK")
         return 0
 
     def close(self):
@@ -25,7 +28,7 @@ class itc503:
         Returns status
             0 - no error
         """
-        print("WARNING; USING MOCK")
+        logger.warning("WARNING; USING MOCK")
 
         return 0
 
@@ -35,7 +38,7 @@ class itc503:
         Returns status
             0 - no error
         """
-        print("WARNING; USING MOCK")
+        logger.warning("WARNING; USING MOCK")
 
         return 0
 
@@ -46,6 +49,6 @@ class itc503:
             temperature as a float
         """
         with self.lock:
-            print("WARNING; USING MOCK")
+            logger.warning("WARNING; USING MOCK")
 
             return 0.0

@@ -1,6 +1,8 @@
-import pluggy
-import os
 import configparser
+import os
+
+import pluggy
+
 from plugins.trace.TraceGUI import TraceGui
 
 

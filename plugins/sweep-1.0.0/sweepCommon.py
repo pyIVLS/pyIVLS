@@ -1,5 +1,8 @@
-from datetime import datetime
 import copy
+import logging
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 def create_file_header(settings, smu_settings, backVoltage=None):
@@ -145,7 +148,7 @@ def create_sweep_reciepe(settings, settings_smu):
         nplc = nplc_seconds * line_frequency
         if nplc > 25:
             nplc = 25
-            print(f"NPLC value is too high, setting to 25 PLC to avoid errors. NPLC was set to {nplc_seconds} seconds, which corresponds to {nplc} PLC at line frequency {line_frequency} Hz.")
+            logger.warning(f"NPLC value is too high, setting to 25 PLC to avoid errors. NPLC was set to {nplc_seconds} seconds, which corresponds to {nplc} PLC at line frequency {line_frequency} Hz.")
         return nplc
 
     recipe = []
@@ -234,7 +237,6 @@ def create_sweep_reciepe(settings, settings_smu):
                     s["delay"] = True  # stabilization time mode for source: may take values [True - Auto, False - manual]
                 else:
                     s["delay"] = False  # stabilization time mode for source: may take values [True - Auto, False - manual]
-                print(f"Delay mode for pulsed sweep is {s['delay']}, with datatype {type(s['delay'])}")
                 s["delayduration"] = settings["pulseddelay"]  # stabilization time duration if manual
                 s["steps"] = settings["pulsedpoints"]  # number of points in sweep
                 s["start"] = settings["pulsedstart"]  # start point of sweep

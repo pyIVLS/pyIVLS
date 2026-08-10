@@ -1,11 +1,11 @@
-import sys
-import os
-import pytest
+import configparser
 import importlib
 import logging
-from pluggy import PluginManager
-import configparser
+import os
+import sys
 
+import pytest
+from pluggy import PluginManager
 from plugins.pyIVLS_hookspec import pyIVLS_hookspec
 
 # Ensure a Qt application exists for plugins that create Qt objects
@@ -14,7 +14,7 @@ try:
 
     HAVE_QT = True
     QT_IMPORT_ERROR = None
-except Exception as e:
+except ImportError as e:
     HAVE_QT = False
     QT_IMPORT_ERROR = e
 
@@ -162,7 +162,7 @@ class TestPluginAPI:
         assert name is not None
 
         # Provide minimal function_dict to plugins prior to setup
-        plugin_data, plg_name, plg_function = build_plugin_data(plugin_dir)
+        plugin_data, plg_name, _ = build_plugin_data(plugin_dir)
         pm.hook.set_function(function_dict=plugin_data[plg_name]["function_dict"])
 
         setup_intf = pm.hook.get_setup_interface(plugin_data=plugin_data)
@@ -199,7 +199,7 @@ class TestPluginAPI:
                     assert isinstance(status, int), f"Function {func_name} did not return int status"
                     assert isinstance(state, dict), f"Function {func_name} did not return dict state"
                 except TypeError:
-                    pass # some functions may require arguments, skip these
+                    pass  # some functions may require arguments, skip these
                 # assert "Error message" in state, f"Function {func_name} state dict missing 'Error message' key"
 
         missed = pm.hook.set_function(function_dict={})

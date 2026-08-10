@@ -9,29 +9,29 @@ This file should provide
 
 """
 
+import copy
 import os
 import time
 from datetime import datetime
-from pathvalidate import is_valid_filename
-from PyQt6 import uic
-from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
-from PyQt6.QtCore import QObject, Qt
-from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
-from threadStopped import thread_with_exception, ThreadStopped
 from enum import Enum
-import copy
+
 import pandas as pd
-from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, PyIVLSRetCo
+from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
+from pathvalidate import is_valid_filename
+from plugin_components import CloseLockSignalProvider, LoggingHelper, get_public_methods, public
+from PyQt6 import uic
+from PyQt6.QtCore import QObject, Qt
+from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
+from threadStopped import ThreadStopped, thread_with_exception
 
 
 class timeIVexception(Exception):
     pass
 
 
-#
 class dataOrder(Enum):
     V = 1
-    I = 0  # noqa: E741
+    I = 0
 
 
 class timeIVGUI(QObject):
@@ -65,7 +65,7 @@ class timeIVGUI(QObject):
 
     ########Functions
     def __init__(self):
-        super(timeIVGUI, self).__init__()
+        super().__init__()
         self.verbose = True  # Enable verbose logging
         self.logger = LoggingHelper(self)
         self.closelock = CloseLockSignalProvider()
@@ -490,7 +490,6 @@ class timeIVGUI(QObject):
 
     def _source_inject_changed(self, index):
         """Changes the unit labels based on the selected injection type."""
-        print("source inject changed")
         inject_type = self.settingsWidget.comboBox_inject.currentText()
         if inject_type == "voltage":
             self.settingsWidget.label_sourceSetValue.setText("U")
@@ -503,7 +502,6 @@ class timeIVGUI(QObject):
 
     def _drain_inject_changed(self, index):
         """Changes the unit labels based on the selected injection type."""
-        print("drain inject changed")
         inject_type = self.settingsWidget.comboBox_drainInject.currentText()
         if inject_type == "voltage":
             self.settingsWidget.label_drainSetValue.setText("U")

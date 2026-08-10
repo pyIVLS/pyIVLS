@@ -1,19 +1,20 @@
-import os
 import copy
-from touchDetect import touchDetect, ManipulatorInfo
-from PyQt6 import uic
-from PyQt6.QtWidgets import QWidget, QComboBox, QGroupBox, QSpinBox
-from plugin_components import (
-    public,
-    ConnectionIndicatorStyle,
-    get_public_methods,
-    LoggingHelper,
-    DependencyManager,
-)
-from worker_thread import WorkerThread
-from threadStopped import ThreadStopped
+import os
 
-# TODO: dont try to catch exceptions where you have no way to handle them.
+from plugin_components import (
+    ConnectionIndicatorStyle,
+    DependencyManager,
+    LoggingHelper,
+    get_public_methods,
+    public,
+)
+from PyQt6 import uic
+from PyQt6.QtWidgets import QComboBox, QGroupBox, QSpinBox, QWidget
+from threadStopped import ThreadStopped
+from touchDetect import ManipulatorInfo, touchDetect
+from worker_thread import WorkerThread
+
+
 class touchDetectGUI:
     green_style = ConnectionIndicatorStyle.GREEN_CONNECTED.value
     red_style = ConnectionIndicatorStyle.RED_DISCONNECTED.value
@@ -32,11 +33,7 @@ class touchDetectGUI:
             "smu": ["parse_settings_widget"],
             "contacting": ["parse_settings_widget"],
         }
-        dependency_map = {
-            "micromanipulator": "micromanipulatorBox",
-            "smu": "smuBox",
-            "contacting": "condetBox",
-        }
+
         self.dm = DependencyManager("touchDetect", dependencies)
 
         # Initialize the combo boxes for dependencies
@@ -162,7 +159,7 @@ class touchDetectGUI:
             if status == 0:
                 self.mm_indicator.setStyleSheet(self.green_style)
                 self.logger.log_debug(f"Micromanipulator devices detected: {state}")
-                num_dev, active_list = state
+                _, active_list = state
                 for i, is_active in enumerate(active_list):
                     if is_active:
                         self.logger.log_debug(f"Enabling manipulator {i + 1} controls")
@@ -344,7 +341,7 @@ class touchDetectGUI:
             return (status, result)
 
         except Exception as e:
-            error_msg = f"Exception during monitoring: {str(e)}"
+            error_msg = f"Exception during monitoring: {e!s}"
             self.logger.log_warn(error_msg)
             worker_thread.error.emit(error_msg)
             return (2, {"Error message": error_msg, "Exception": str(e)})
@@ -453,54 +450,48 @@ class touchDetectGUI:
     @public
     def set_gui_from_settings(self) -> tuple[int, dict]:
         """Updates the GUI controls based on the internal settings."""
-        try:
-            self.logger.log_debug("Updating GUI from internal settings")
+        self.logger.log_debug("Updating GUI from internal settings")
 
-            # Update global settings
-            self.stride.setValue(int(self.settings["stride"]))
-            self.sample_width.setValue(int(self.settings["sample_width"]))
-            self.spectro_height.setValue(int(self.settings["spectrometer_height"]))
+        # Update global settings
+        self.stride.setValue(int(self.settings["stride"]))
+        self.sample_width.setValue(int(self.settings["sample_width"]))
+        self.spectro_height.setValue(int(self.settings["spectrometer_height"]))
 
-            # Update manipulator settings in GUI
-            for i, (box, smu_box, con_box, res_spin) in enumerate(self.manipulator_boxes):
-                manipulator_key = str(i + 1)
-                smu_key = f"{manipulator_key}_smu"
-                con_key = f"{manipulator_key}_con"
-                res_key = f"{manipulator_key}_res"
+        # Update manipulator settings in GUI
+        for i, (box, smu_box, con_box, res_spin) in enumerate(self.manipulator_boxes):
+            manipulator_key = str(i + 1)
+            smu_key = f"{manipulator_key}_smu"
+            con_key = f"{manipulator_key}_con"
+            res_key = f"{manipulator_key}_res"
 
-                if smu_key in self.settings:
-                    smu_channel = self.settings[smu_key]
-                    if smu_channel:
-                        index = smu_box.findText(smu_channel)
-                        if index >= 0:
-                            smu_box.setCurrentIndex(index)
-                        else:
-                            smu_box.addItem(smu_channel)
-                            smu_box.setCurrentText(smu_channel)
+            if smu_key in self.settings:
+                smu_channel = self.settings[smu_key]
+                if smu_channel:
+                    index = smu_box.findText(smu_channel)
+                    if index >= 0:
+                        smu_box.setCurrentIndex(index)
+                    else:
+                        smu_box.addItem(smu_channel)
+                        smu_box.setCurrentText(smu_channel)
 
-                if con_key in self.settings:
-                    con_channel = self.settings[con_key]
-                    if con_channel:
-                        index = con_box.findText(con_channel)
-                        if index >= 0:
-                            con_box.setCurrentIndex(index)
-                        else:
-                            con_box.addItem(con_channel)
-                            con_box.setCurrentText(con_channel)
+            if con_key in self.settings:
+                con_channel = self.settings[con_key]
+                if con_channel:
+                    index = con_box.findText(con_channel)
+                    if index >= 0:
+                        con_box.setCurrentIndex(index)
+                    else:
+                        con_box.addItem(con_channel)
+                        con_box.setCurrentText(con_channel)
 
-                if res_key in self.settings:
-                    try:
-                        res_spin.setValue(int(self.settings[res_key]))
-                    except (ValueError, TypeError):
-                        self.logger.log_warn(f"Invalid resistance threshold for manipulator {i + 1}: {self.settings[res_key]}")
+            if res_key in self.settings:
+                try:
+                    res_spin.setValue(int(self.settings[res_key]))
+                except (ValueError, TypeError):
+                    self.logger.log_warn(f"Invalid resistance threshold for manipulator {i + 1}: {self.settings[res_key]}")
 
-            self.logger.log_debug("GUI updated from internal settings successfully")
-            return (0, {"Error message": "GUI updated from settings"})
-
-        except Exception as e:
-            error_msg = f"Error updating GUI from settings: {str(e)}"
-            self.logger.log_warn(error_msg)
-            return (1, {"Error message": error_msg, "Exception": str(e)})
+        self.logger.log_debug("GUI updated from internal settings successfully")
+        return (0, {"Error message": "GUI updated from settings"})
 
     def move_to_contact(self):
         """Moves all configured manipulators to contact with the sample."""
@@ -531,35 +522,27 @@ class touchDetectGUI:
 
             self.logger.log_info("Move to contact operation completed successfully")
             return (status, state)
-        
+
         except ThreadStopped as ts:
             self.logger.log_info("Move to contact operation stopped by user")
-            raise ts # re-raise to be caught by outer layers that handle thread stopping
-
-        except Exception as e:
-            error_msg = f"Exception in move_to_contact: {str(e)}"
-            self.logger.log_warn(error_msg)
-            return (2, {"Error message": error_msg, "Exception": str(e)})
+            raise ts  # re-raise to be caught by outer layers that handle thread stopping
 
     @public
     def sequenceStep(self, postfix: str) -> tuple[int, dict]:
         """Performs the sequence step by moving all configured manipulators to contact."""
         self.logger.log_info(f"Starting touchDetect sequence step with postfix: {postfix}")
-        try:
-            # Execute move to contact for all configured manipulators
-            status, state = self.move_to_contact()
+        # Execute move to contact for all configured manipulators
+        status, state = self.move_to_contact()
 
-            if status != 0:
-                self.logger.log_warn(f"TouchDetect sequence step failed: {state}")
-                return (status, state)
+        if status != 0:
+            self.logger.log_warn(f"TouchDetect sequence step failed: {state}")
+            return (status, state)
 
-            self.logger.log_info("TouchDetect sequence step completed successfully")
-            return (
-                0,
-                {"Error message": "TouchDetect sequence step completed successfully"},
-            )
-        except ThreadStopped as ts:
-            raise ts # re-raise to be caught by outer layers that handle thread stopping
+        self.logger.log_info("TouchDetect sequence step completed successfully")
+        return (
+            0,
+            {"Error message": "TouchDetect sequence step completed successfully"},
+        )
 
     @public
     def verify_contact(self) -> tuple[int, dict]:

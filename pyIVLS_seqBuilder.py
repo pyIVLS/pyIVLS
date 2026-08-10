@@ -4,21 +4,20 @@
 # ver. 0.1
 # ivarad
 # 25.05.21
-from os.path import sep
-import os
 import copy
-import traceback
-
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, Qt
-from PyQt6.QtGui import QStandardItemModel, QStandardItem, QAction
-from PyQt6.QtWidgets import QFileDialog, QMenu
-from PyQt6.QtCore import QModelIndex
-
-from threadStopped import thread_with_exception
-from threadStopped import ThreadStopped
-from pathvalidate import is_valid_filename
 import json
+import logging
+import os
+from os.path import sep
+
+from pathvalidate import is_valid_filename
+from PyQt6 import uic
+from PyQt6.QtCore import QModelIndex, QObject, Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QAction, QStandardItem, QStandardItemModel
+from PyQt6.QtWidgets import QFileDialog, QMenu
+from threadStopped import ThreadStopped, thread_with_exception
+
+logger = logging.getLogger(__name__)
 
 
 class pyIVLS_seqBuilder(QObject):
@@ -62,7 +61,7 @@ class pyIVLS_seqBuilder(QObject):
         self.available_instructions = {}
         self.widget.comboBox_function.clear()
         for plugin in plugin_dict:
-            if not plugin_dict[plugin]["load"] == "True":
+            if plugin_dict[plugin]["load"] != "True":
                 continue
             if ("step" in plugin_dict[plugin]["class"]) or ("loop" in plugin_dict[plugin]["class"]):
                 self.widget.comboBox_function.addItem(plugin)
@@ -95,6 +94,7 @@ class pyIVLS_seqBuilder(QObject):
         self.widget = uic.loadUi(ui_file_name)
         self.path = path
         self.skip_iteration = False
+        self.logger = logger
 
         self._connect_signals()
         self._init_treeView()
@@ -108,7 +108,6 @@ class pyIVLS_seqBuilder(QObject):
         # set the item as active
         self.update_treeView()
         self.widget.treeView.setCurrentIndex(self.model.index(0, 0))
-        #
 
     def _connect_signals(self):
         self.widget.comboBox_function.currentIndexChanged.connect(self.update_classView)
@@ -238,21 +237,16 @@ class pyIVLS_seqBuilder(QObject):
 
         plugin_functions = self.available_instructions[instruction_func]["functions"]
         if "setSettings" in plugin_functions:
-            try:
-                ret = plugin_functions["setSettings"](saved_settings)
-                if isinstance(ret, tuple) and ret[0] != 0:
-                    return False, f"Error sending settings to {instruction_func}: {ret[1]}"
-            except Exception as e:
-                return False, f"Error sending settings to {instruction_func}: {str(e)}"
+            ret = plugin_functions["setSettings"](saved_settings)
+            if isinstance(ret, tuple) and ret[0] != 0:
+                return False, f"Error sending settings to {instruction_func}: {ret[1]}"
+
         else:
             return False, f"setSettings is not implemented for {instruction_func}."
 
         if "set_gui_from_settings" in plugin_functions:
-            try:
-                plugin_functions["set_gui_from_settings"]()
-            except Exception as e:
-                detailed_error = traceback.format_exc()
-                return False, f"Error updating GUI for {instruction_func}: {str(e)}\n{detailed_error}"
+            plugin_functions["set_gui_from_settings"]()
+
         else:
             return False, f"set_gui_from_settings is not implemented for {instruction_func}."
 
@@ -346,9 +340,9 @@ class pyIVLS_seqBuilder(QObject):
         self._init_treeView()
         stack = copy.deepcopy(data)  #### it is necessary to make sure that we did not modify original data
         looping = []  # this will keep track of the steps inside the loop, every element is +1 depth to hierarchy level, value of the element is amount of steps left on the hierechy level
-        while not stack == []:
+        while stack != []:
             stackItem = stack.pop(0)
-            if not looping == []:
+            if looping != []:
                 if looping[-1] == 0:
                     self.item = self.item.parent()
                     looping.pop(-1)
@@ -402,10 +396,9 @@ class pyIVLS_seqBuilder(QObject):
             for row in range(item.rowCount()):
                 child_func = item.child(row, 0)
                 child_class = item.child(row, 1)
-                if child_class and child_class.text() == "loop":
-                    if not loop_has_step_descendant(child_func):
-                        self.info_message.emit(f"Error: Loop '{child_func.text()}' does not contain any step instructions.")
-                        return True
+                if child_class and child_class.text() == "loop" and not loop_has_step_descendant(child_func):
+                    self.info_message.emit(f"Error: Loop '{child_func.text()}' does not contain any step instructions.")
+                    return True
                 check_empty_loops(child_func)
                 return False
 
@@ -487,24 +480,18 @@ class pyIVLS_seqBuilder(QObject):
             # Ensure a previous stop/error does not leak skip state into a new run.
             self.skip_iteration = False
             ###############Main logic of iteration: 0 - no iterations, 1 - only start point, 2 - start end end point, iterstep = (end-start)/(iternum -1).The same is used in sweepCommon for drainVoltage. !!!Adapt to logic of iteration, do not modify it!!!
-            self.log_message.emit("pyIVLS_seqBuilder: Running sequence parser")
+            self.logger.info("sequence parser started")
             data = self.extract_data(self.model.invisibleRootItem().child(0))
             stackData = copy.deepcopy(data)  #### it is necessary to make sure that we did not modify original data
             looping = []  # this will keep track of the steps inside the loop, every element is a dict[{looping -the steps to repeat, loopFunction - looping Function, totalSteps - number of steps in loop, currentStep, totalIterations, currentIteration}]
             # stackData has the extracted data from the model
             # looping has the current loop
-            while (not stackData == []) or (not looping == []):
-                if not looping == []:
+            while (stackData != []) or (looping != []):
+                if looping != []:
                     if looping[-1]["currentStep"] == 0:
                         [status, iterText] = self.available_instructions[looping[-1]["loopFunction"]]["functions"]["loopingIteration"](looping[-1]["currentIteration"])
                         if status:
                             raise ValueError(iterText)
-                            """
-                            print(f"Error: {iterText}")
-                            self._sigSeqEnd.emit()  # Added
-                            self._setNotRunning()  # Added
-                            break
-                            """
                         looping[-1]["namePostfix"] = iterText
                         looping[-1]["currentIteration"] = looping[-1]["currentIteration"] + 1
                         looping[-1]["currentStep"] = looping[-1]["currentStep"] + 1
@@ -536,7 +523,7 @@ class pyIVLS_seqBuilder(QObject):
                         # Set skip flag and continue skipping steps until next iteration
                         self.skip_iteration = True
                         # Inform user and continue to process control flow
-                        self.log_message.emit(f"Skipping iteration due to step error: {message}")
+                        self.logger.info(f"Skipping iteration due to step error: {message}")
                         continue
                 if nextStepClass == "loop":
                     iter = self.available_instructions[nextStepFunction]["functions"]["getIterations"]()
@@ -552,14 +539,11 @@ class pyIVLS_seqBuilder(QObject):
                         }
                     )
                     stackData = stackItem["looping"] + stackData
-            self.log_message.emit("pyIVLS_seqBuilder: Sequence parser finished")
+            self.logger.info("Sequence parser finished")
             self._sigSeqEnd.emit()
         except ThreadStopped as ts:
-            print(f"Sequence stopped: {ts}")
+            self.logger.info(f"Sequence stopped: {ts}")
             # this eats threadstopped
-        except Exception:
-            print(traceback.format_exc())
-            # this eats other exceptions
         finally:
             self._setNotRunning()
             self._sigSeqEnd.emit()
@@ -579,11 +563,8 @@ class pyIVLS_seqBuilder(QObject):
     def _stopAction(self):
         """Stops the running sequence thread."""
         if hasattr(self, "run_thread") and self.run_thread.is_alive():
-            try:
-                result = self.run_thread.thread_stop()
-                self.info_message.emit("Stop requested: " + result[1])
-            except Exception as e:
-                self.info_message.emit(f"Failed to stop thread: {e}")
+            result = self.run_thread.thread_stop()
+            self.info_message.emit("Stop requested: " + result[1])
         else:
             self.info_message.emit("No running sequence to stop.")
         self._setRunStatus(False)

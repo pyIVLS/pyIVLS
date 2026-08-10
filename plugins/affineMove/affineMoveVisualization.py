@@ -3,12 +3,18 @@ Visualization and drawing functionality for affineMove plugin.
 Separated from main GUI class to improve modularity and maintainability.
 """
 
+import logging
+
 import numpy as np
-from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsTextItem, QGraphicsRectItem
-from PyQt6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QFont
-from PyQt6.QtCore import Qt
-from plugins.affineMove.collisionDetection import AABB
 from plugin_components import MANIPULATOR_COLORS
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QBrush, QFont, QImage, QPen, QPixmap
+from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsRectItem, QGraphicsScene, QGraphicsTextItem, QGraphicsView
+
+from plugins.affineMove.collisionDetection import AABB
+
+logger = logging.getLogger(__name__)
+
 
 
 class AffineMoveVisualization:
@@ -166,7 +172,7 @@ class AffineMoveVisualization:
                 try:
                     self._draw_bounding_box(bbox, manipulator_idx)
                 except Exception as e:
-                    print(f"Error drawing bounding box for manipulator {manipulator_idx}: {e}")
+                    logger.info(f"Error drawing bounding box for manipulator {manipulator_idx}: {e}")
 
     def _draw_bounding_box(self, aabb: AABB, mm_idx):
         """Draw bounding box for a manipulator."""
@@ -186,7 +192,7 @@ class AffineMoveVisualization:
             self.graphics_scene.addItem(rect)
 
         except Exception as e:
-            print(f"Error drawing bounding box for manipulator {mm_idx}: {e}")
+            logger.info(f"Error drawing bounding box for manipulator {mm_idx}: {e}")
 
     def _get_manipulator_color(self, mm_idx):
         """Get the color for a specific manipulator index."""

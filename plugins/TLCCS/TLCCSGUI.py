@@ -42,27 +42,26 @@ implemented non-blocking preview with QThread
 added public function guards during preview
 """
 
-from typing import Optional
-import TLCCS_const as const
-import time
-import os
-import numpy as np
-from pathvalidate import is_valid_filename
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, pyqtSignal, Qt, pyqtSlot, QThread
-from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
-from MplCanvas import MplCanvas
 import copy
-from worker_thread import WorkerThread
+import os
+import time
+
+import numpy as np
+import TLCCS_const as const
+from MplCanvas import MplCanvas
+from pathvalidate import is_valid_filename
 from plugin_components import (
-    public,
-    get_public_methods,
-    LoggingHelper,
     ConnectionIndicatorStyle,
     FileManager,
+    LoggingHelper,
+    get_public_methods,
+    public,
 )
+from PyQt6 import uic
+from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal, pyqtSlot
+from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
 from TLCCS import CCSDRV
-from mock_tlccs import MockCCSDRV  # for testing without hardware
+from worker_thread import WorkerThread
 
 
 class PreviewThread(QThread):
@@ -462,13 +461,13 @@ class TLCCS_GUI(QObject):
         """
         if self.auto_time_thread is not None and self.auto_time_thread.isRunning():
             self.notify_user("Auto integration time is already running.")
-            return None
+            return
 
         preview_status = False
         [status, info] = self._parse_settings_autoTime()
         if status:
             self.notify_user("Failed to parse auto integration time settings: " + str(info))
-            return None
+            return
         if self.preview_running:
             # stop preview to safely get autotime
             preview_status = self.preview_running
@@ -486,11 +485,11 @@ class TLCCS_GUI(QObject):
             self.auto_time_thread.error.connect(self._on_auto_time_error)
             self.auto_time_thread.finished.connect(self._on_auto_time_finished)
             self.auto_time_thread.start()
-            return None
+            return
         else:
             self.closeLock.emit(False)
             self.notify_user("Cannot calculate auto integration time while spectrometer is busy. Please stop any ongoing scans and try again.")
-            return None
+            return
 
     def _auto_time_worker(self, worker_thread) -> tuple[int, float | dict]:
         return self.getAutoTime()
@@ -531,7 +530,7 @@ class TLCCS_GUI(QObject):
         external_cleanup=None,
         external_cleanup_args=None,
         pause_duration: float = 0.0,
-        last_integration_time: Optional[float] = None,
+        last_integration_time: float | None = None,
     ) -> tuple[int, float | dict]:
         """
         Calculates the optimal integration time, allowing external actions and cleanup with arguments.
@@ -902,7 +901,6 @@ class TLCCS_GUI(QObject):
 
     @public
     def set_gui_from_settings(self):
-        print("TODO SET GUI FROM SETTINGS")
 
     ########Functions
     ########device functions
@@ -918,7 +916,6 @@ class TLCCS_GUI(QObject):
             return [parsed_status, info]
 
         if integrationTime is not None and not isinstance(integrationTime, bool):
-            print(f"Integration time provided as argument: {integrationTime} s")
             self.settings["integrationtime"] = integrationTime
 
         print(f"Connecting to spectrometer with integration time: {self.settings['integrationtime']} s")

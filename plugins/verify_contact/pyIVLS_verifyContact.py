@@ -1,10 +1,11 @@
 #!/usr/bin/python3.8
 
 
-import pluggy
 import configparser
-from verifyContactGui import verifyContactGUI
 import os
+
+import pluggy
+from verifyContactGui import verifyContactGUI
 
 
 class pyIVLS_verifyContact_plugin:
@@ -75,7 +76,7 @@ class pyIVLS_verifyContact_plugin:
         Returns: Missing methods
         """
         # set functions to DependencyManager
-        is_valid, missing = self.plg.dm.set_available_dependency_functions(function_dict)
+        _, missing = self.plg.dm.set_available_dependency_functions(function_dict)
 
         return {self.name: missing}
 

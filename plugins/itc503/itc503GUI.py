@@ -17,20 +17,22 @@ version 0.2
 ivarad
 """
 
+import logging
 import os
-from datetime import datetime, timedelta
-import matplotlib.dates as mdates
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
-from itc503 import itc503
-from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
-from worker_thread import WorkerThread
-from threadStopped import ThreadStopped, thread_with_exception
-import numpy as np
 
 # from mock import itc503  # for testing without the real device
 import time
+from datetime import datetime
+
+import numpy as np
+from itc503 import itc503
+from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
+from PyQt6 import uic
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
+from threadStopped import thread_with_exception
+
+logger = logging.getLogger(__name__)
 
 
 class itc503GUI(QObject):
@@ -54,7 +56,7 @@ class itc503GUI(QObject):
 
     ########Functions
     def __init__(self):
-        super(itc503GUI, self).__init__()
+        super().__init__()
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
 
@@ -307,7 +309,7 @@ class itc503GUI(QObject):
         try:
             self.run_thread.thread_stop()
         except:
-            print("Temperature log is not running.")
+            logger.info("Temperature log is not running.")
         self._createFileLoop()
 
     def _createFile(self):
@@ -504,7 +506,7 @@ class itc503GUI(QObject):
                 info = self.itc503.getData()
             except Exception as e:
                 return [4, {"Error message": f"{e}"}]
-            print(info)
+            logger.info(info)
         return [0, f"_{info}K"]
 
     ########Functions to be used externally
@@ -601,10 +603,10 @@ class itc503GUI(QObject):
             except Exception as e:
                 return [4, {"Error message": f"{e}"}]
             if abs(info - self.settings["sett"]) > 0.2:
-                print(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")
+                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")
                 tic = time.time()
             else:
-                print(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")
+                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")
             time.sleep(20)
         if self.settings["log"]:
             if self.settings["wholetime"]:
@@ -634,9 +636,9 @@ class itc503GUI(QObject):
             except Exception as e:
                 return [4, {"Error message": f"{e}"}]
             if abs(info - self.settings["sett"]) > 0.2:
-                print(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")
+                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")
                 tic = time.time()
             else:
-                print(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")
+                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")
             time.sleep(20)
         return [0, f"_{info}K"]

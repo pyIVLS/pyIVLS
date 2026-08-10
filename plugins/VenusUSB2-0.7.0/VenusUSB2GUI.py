@@ -26,20 +26,21 @@ version 0.7
 otsoha
 """
 
-import numpy as np
 import os
+
+import numpy as np
 from pathvalidate import is_valid_filename
 from plugin_components import (
-    public,
-    get_public_methods,
-    LoggingHelper,
     CloseLockSignalProvider,
     ConnectionIndicatorStyle,
+    LoggingHelper,
+    get_public_methods,
+    public,
 )
-from PyQt6 import uic, QtWidgets
-from PyQt6.QtWidgets import QFileDialog
-from PyQt6.QtCore import QObject, pyqtSignal, Qt, QThread
+from PyQt6 import QtWidgets, uic
+from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtWidgets import QFileDialog
 from VenusUSB2 import VenusUSB2
 
 ##IRtothink#### should some kind of zoom to the image part be added for the preview?
@@ -93,7 +94,7 @@ class VenusUSB2GUI(QObject):
     ########Functions
 
     def __init__(self):
-        super(VenusUSB2GUI, self).__init__()
+        super().__init__()
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
         ##IRtothink#### I do not like have filename hardly coded,
@@ -336,7 +337,7 @@ class VenusUSB2GUI(QObject):
                     img = {"Error message": f"VenusUSB2 plugin : {img}"}
             except Exception as e:
                 status = 4
-                img = {"Error message": f"VenusUSB2 plugin : exception in capturing image: {str(e)}"}
+                img = {"Error message": f"VenusUSB2 plugin : exception in capturing image: {e!s}"}
         else:
             status = 1
             img = {"Error message": "value error in parsing settings"}

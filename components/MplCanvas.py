@@ -4,6 +4,8 @@ matplotlib.use("QtAgg")
 
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg,
+)
+from matplotlib.backends.backend_qt5agg import (
     NavigationToolbar2QT as NavigationToolbar,
 )
 from matplotlib.figure import Figure
@@ -12,7 +14,7 @@ from matplotlib.figure import Figure
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
-        super(MplCanvas, self).__init__(self.fig)
+        super().__init__(self.fig)
 
     def _create_toolbar(self, parentWindow):
         ########### changing the color in toolbar has bug due to change in the PyQT6 opion convention  https://github.com/matplotlib/matplotlib/issues/22471/

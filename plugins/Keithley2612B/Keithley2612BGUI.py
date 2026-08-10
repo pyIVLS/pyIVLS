@@ -1,11 +1,10 @@
 import os
-from typing import Optional
 
 # from Keithley2612B_test import Keithley2612B
 from Keithley2612B import Keithley2612B
+from plugin_components import LoggingHelper, get_public_methods, public
 from PyQt6 import uic
-from PyQt6.QtCore import Qt, QObject, pyqtSlot
-from plugin_components import LoggingHelper, public, get_public_methods
+from PyQt6.QtCore import QObject, Qt, pyqtSlot
 
 """
             settings dictionary for class
@@ -91,7 +90,7 @@ class Keithley2612BGUI(QObject):
 
     ########Functions
     def __init__(self):
-        super(Keithley2612BGUI, self).__init__()
+        super().__init__()
         self.verbose = True  # Enable verbose logging
         self.logger = LoggingHelper(self)
         # Load the settings based on the name of this file.
@@ -99,7 +98,6 @@ class Keithley2612BGUI(QObject):
         self.settingsWidget = uic.loadUi(self.path + "Keithley2612B_settingsWidget.ui")
 
         # Initialize Keithley module
-        ##IRtodo#### move Keithley address to GUI
         self.smu = Keithley2612B()
         self._connect_signals()
         self.settings = {}
@@ -216,28 +214,16 @@ class Keithley2612BGUI(QObject):
             try:
                 self.settings["drainfiltervalue"] = int(self.settingsWidget.lineEdit_drainFilter.text())
             except ValueError:
-                return [
-                    1,
-                    {"Error message": "Value error in Keithley2612B plugin: number in drain filter value field should be integer"},
-                ]
+                return [1, {"Error message": "Value error in Keithley2612B plugin: number in drain filter value field should be integer"}]
             if self.settings["drainfiltervalue"] < 1:
-                return [
-                    1,
-                    {"Error message": "Value error in Keithley2612B plugin: number in drain filter value field can not be less than 1"},
-                ]
+                return [1, {"Error message": "Value error in Keithley2612B plugin: number in drain filter value field can not be less than 1"}]
         # drain dealy factor
         try:
             self.settings["draindelayfactor"] = float(self.settingsWidget.lineEdit_drainDelayFactor.text())
         except ValueError:
-            return [
-                1,
-                {"Error message": "Value error in Keithley2612B plugin: drain delay factor field should be a number"},
-            ]
+            return [1, {"Error message": "Value error in Keithley2612B plugin: drain delay factor field should be a number"}]
         if self.settings["draindelayfactor"] < 0:
-            return [
-                1,
-                {"Error message": "Value error in Keithley2612B plugin: number in drain delay factor field can not be negative"},
-            ]
+            return [1, {"Error message": "Value error in Keithley2612B plugin: number in drain delay factor field can not be negative"}]
 
         # Determine a HighC mode for drain: may be True or False
         self.settings["drainhighc"] = self.settingsWidget.checkBox_drainHighC.isChecked()
@@ -425,7 +411,7 @@ class Keithley2612BGUI(QObject):
         self.smu.abort_sweep(channel)
 
     @public
-    def smu_outputON(self, source: Optional[str] = None, drain: Optional[str] = None) -> None:
+    def smu_outputON(self, source: str | None = None, drain: str | None = None) -> None:
         """An interface for an externall calling function to switch on the output
 
         source and drain are "smua" or "smub"

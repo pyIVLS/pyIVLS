@@ -1,17 +1,19 @@
+import csv
+import logging
 import os
 
-
-from Affine_skimage import Affine, AffineError
-from PyQt6 import QtWidgets
-from PyQt6.QtCore import Qt, pyqtSlot, QPointF, pyqtSignal, QObject
-from PyQt6.QtGui import QAction, QImage, QPixmap
-from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu, QGroupBox, QLabel
-import csv
-from affineDialog import dialog
-from plugin_components import LoggingHelper, CloseLockSignalProvider, PyIVLSReturnCode, public, get_public_methods, ini_to_bool, DependencyManager, load_widget
-from gdsLoadFunctionality import gdsLoadDialog
-from Affine_MDI import DualGraphicsWidget
 import numpy as np
+from Affine_MDI import DualGraphicsWidget
+from Affine_skimage import Affine, AffineError
+from affineDialog import dialog
+from gdsLoadFunctionality import gdsLoadDialog
+from plugin_components import CloseLockSignalProvider, DependencyManager, LoggingHelper, PyIVLSReturnCode, get_public_methods, ini_to_bool, load_widget, public
+from PyQt6 import QtWidgets
+from PyQt6.QtCore import QObject, QPointF, Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QAction, QImage, QPixmap
+from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGroupBox, QLabel, QMenu
+
+logger = logging.getLogger(__name__)
 
 
 def image_to_scene(image: np.ndarray) -> QGraphicsScene:
@@ -190,7 +192,7 @@ class AffineGUI(QObject):
                     centered_x, centered_y = self.affine.center_on_component(x, y)
                     point_to_store = QPointF(float(centered_x), float(centered_y))
             except Exception as e:
-                self.logger.log_warn(f"Affine: could not center click on component: {str(e)}")
+                self.logger.log_warn(f"Affine: could not center click on component: {e!s}")
 
         self.temp_points.append(point_to_store)
         # live-render points while inputting
@@ -206,7 +208,7 @@ class AffineGUI(QObject):
 
     @pyqtSlot(QPointF)
     def _on_image_point_clicked(self, point: QPointF):
-        print(f"Image point clicked: {point}")
+        logger.info(f"Affine: Image point clicked at ({point.x()}, {point.y()})")
 
     def _gui_change_mask_uploaded(self, mask_loaded):
         if self.affineBox is not None:

@@ -11,7 +11,7 @@ class pyIVLS_dockWindow(QtWidgets.QDockWidget):
         position is initial docking position, i.e.
         Qt.DockWidgetArea.RightDockWidgetArea, Qt.DockWidgetArea.BottomDockWidgetArea, etc.
         """
-        super(pyIVLS_dockWindow, self).__init__(parent)
+        super().__init__(parent)
         self.setFloating(False)
         self.setDockLocation(position)
 

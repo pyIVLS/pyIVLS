@@ -3,8 +3,9 @@ This is a class for peltier controller
 
 """
 
-import serial
 from threading import Lock
+
+import serial
 
 
 class peltierController:
@@ -36,7 +37,7 @@ class peltierController:
                     self.device.open()
                     self.device.reset_input_buffer()
                     self.device.reset_output_buffer()
-                    self.device.write("SETP 0\r".encode())
+                    self.device.write(b"SETP 0\r")
                 return [0, "device connected"]
             except serial.SerialException:
                 return [4, "can not connect the device"]
@@ -53,7 +54,7 @@ class peltierController:
         else:
             try:
                 with self.lock:
-                    self.device.write("SETP 0\r".encode())
+                    self.device.write(b"SETP 0\r")
                     self.device.reset_input_buffer()
                     self.device.reset_output_buffer()
                     self.device.close()
@@ -165,7 +166,7 @@ class peltierController:
         dataOutput["raw"] = ""
         try:
             with self.lock:
-                self.device.write(" \r".encode())
+                self.device.write(b" \r")
                 for cnt, _ in enumerate(dataOrder):
                     response = self.device.readline().decode("utf-8")
                     if len(dataOrder[cnt]) < 1:

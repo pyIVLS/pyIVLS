@@ -6,11 +6,33 @@ IVLS_path = dirname(__file__) + sep
 sys.path.append(IVLS_path)
 sys.path.append(dirname(__file__) + sep + "components" + sep)
 
+import logging
+from logging.handlers import RotatingFileHandler
+
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot
 
 from pyIVLS_container import pyIVLS_container
 from pyIVLS_GUI import pyIVLS_GUI
+
+format = logging.Formatter("%(asctime)s : %(name)s : %(levelname)s : %(message)s")
+
+# Create file handler (logs everything)
+file_handler = RotatingFileHandler("pyIVLS.log", maxBytes=1024 * 1024, backupCount=2)
+file_handler.setLevel(logging.DEBUG)
+# file_handler.setFormatter(logging.Formatter("%(asctime)s : %(levelname)s : %(message)s"))
+file_handler.setFormatter(format)
+
+# Create stream handler (logs INFO and above)
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+# stream_handler.setFormatter(logging.Formatter("%(asctime)s : %(levelname)s : %(message)s"))
+stream_handler.setFormatter(format)
+
+# Configure logger, print all to file and info and above to the console
+logging.basicConfig(level=logging.DEBUG, handlers=[file_handler, stream_handler])
+# logger for this:
+logger = logging.getLogger(__name__)
 
 
 ###################################### slots
@@ -47,7 +69,7 @@ def update_settings_widget():
     plugin_closeLockSignals = pluginsContainer.pm.hook.get_closeLock()
     for closeLockSignal_dict in plugin_closeLockSignals:
         try:
-            plugin_name = list(closeLockSignal_dict.keys())[0]
+            plugin_name = next(iter(closeLockSignal_dict))
             signal = closeLockSignal_dict[plugin_name]
             # Use lambda to capture plugin_name
             signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name), type=Qt.ConnectionType.UniqueConnection)
@@ -70,7 +92,7 @@ if __name__ == "__main__":
     GUI_mainWindow.pluginloader.update_config_signal.connect(pluginsContainer.update_config)
     pluginsContainer.available_plugins_signal.connect(GUI_mainWindow.pluginloader.populate_list)
     GUI_mainWindow.pluginloader.register_plugins_signal.connect(pluginsContainer.update_registration)
-    # signals to the main window 
+    # signals to the main window
     pluginsContainer.plugins_updated_signal.connect(update_settings_widget)
     pluginsContainer.show_message_signal.connect(GUI_mainWindow.show_message)
     pluginsContainer.log_message.connect(GUI_mainWindow.addDataLog)

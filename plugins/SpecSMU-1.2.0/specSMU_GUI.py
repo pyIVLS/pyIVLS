@@ -16,16 +16,15 @@ ivarad
 26.02.20
 """
 
+import copy
 import os
-
 import time
+
+import numpy as np
+from plugin_components import DependencyManager, LoggingHelper
 from PyQt6 import uic
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
-import numpy as np
-import copy
-from typing import Optional
-from plugin_components import LoggingHelper, DependencyManager
 
 
 class specSMU_GUI(QWidget):
@@ -53,7 +52,7 @@ class specSMU_GUI(QWidget):
 
     ########Functions
     def __init__(self):
-        super(specSMU_GUI, self).__init__()
+        super().__init__()
         self.path = os.path.dirname(__file__) + os.path.sep
         self.dependency = {
             "smu": [
@@ -86,7 +85,7 @@ class specSMU_GUI(QWidget):
         self.settingsWidget = uic.loadUi(self.path + "specSMU_settingsWidget.ui")
 
         self.settings = {}
-        self.last_integration_time: Optional[float] = None  # s
+        self.last_integration_time: float | None = None  # s
         self.logger = LoggingHelper(self)
         self.dm = DependencyManager("specSMU", self.dependency)
         self._connect_signals()
@@ -134,7 +133,7 @@ class specSMU_GUI(QWidget):
         # Update spectrometer selection
         self._spectrometer_plugin_changed()
 
-    def _smu_plugin_changed(self, index: Optional[int] = None) -> None:
+    def _smu_plugin_changed(self, index: int | None = None) -> None:
         """
         Handle changes in the selected SMU plugin. Updates the available channels in the channel combo box.
 
@@ -152,7 +151,7 @@ class specSMU_GUI(QWidget):
         else:
             self.settingsWidget.comboBox_channel.clear()
 
-    def _spectrometer_plugin_changed(self, index: Optional[int] = None) -> None:
+    def _spectrometer_plugin_changed(self, index: int | None = None) -> None:
         """
         Handle changes in the selected spectrometer plugin. Updates any relevant GUI elements if needed.
 
@@ -504,9 +503,7 @@ class specSMU_GUI(QWidget):
             dependency_settings = possible_settings
             self.settings.update(dependency_settings)
             self.smu_settings = self.settings["smu_settings"]
-            print(f"SMU settings extracted: {self.smu_settings}")
             self.spectrometer_settings = self.settings["spectrometer_settings"]
-            print(f"Spectrometer settings extracted: {self.spectrometer_settings}")
 
         self._log_verbose("Exiting parse_settings_widget with success")
         return [0, self.settings]

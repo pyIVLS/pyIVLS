@@ -1,9 +1,11 @@
-from typing import Optional
+
+from plugin_components import MANIPULATOR_COLORS
+from PyQt6 import QtGui
 from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
-    QGraphicsItem,
     QGraphicsEllipseItem,
+    QGraphicsItem,
     QGraphicsScene,
     QGraphicsView,
     QHBoxLayout,
@@ -11,20 +13,18 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PyQt6 import QtGui
-from plugin_components import MANIPULATOR_COLORS
 
 
 class GraphicsView(QGraphicsView):
     # signal for added points
     point_clicked = pyqtSignal(QPointF)
 
-    def __init__(self, scene: QGraphicsScene, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, scene: QGraphicsScene, parent: QWidget | None = None) -> None:
         super().__init__(scene, parent)
         self._mode: str = "none"  # one of: 'none' | 'pan' | 'points'
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
         self._mmb_dragging: bool = False
-        self._mmb_last_pos: Optional[QPointF] = None
+        self._mmb_last_pos: QPointF | None = None
         self.drawn_points: list[QGraphicsItem] = []
 
         # get size of skene
@@ -106,7 +106,7 @@ class GraphicsView(QGraphicsView):
 
         super().mouseReleaseEvent(event)
 
-    def draw_point_list(self, points: list[list[QPointF]], colors=MANIPULATOR_COLORS, size: Optional[float] = None) -> None:
+    def draw_point_list(self, points: list[list[QPointF]], colors=MANIPULATOR_COLORS, size: float | None = None) -> None:
         # Takes in a list of point lists and draws them all
         skene = self.scene()
         # skenettääkö
@@ -147,7 +147,7 @@ class GraphicsView(QGraphicsView):
 class DualGraphicsWidget(QWidget):
     """Two QGraphicsViews with a shared toolbar of common tools."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Dual Graphics Views!!!!!!! WITH BUTTONS!!!!!")
 
