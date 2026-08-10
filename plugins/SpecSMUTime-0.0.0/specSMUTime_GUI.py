@@ -456,10 +456,7 @@ class specSMUTime_GUI(QWidget):
         self.settings = {}
         self.settings.update(copy.deepcopy(settings))
         self.smu_settings = self.settings["smu_settings"]
-        if self.settings["mode"] == "hw trigger":
-            self.settings["spectrometer_settings"]["externaltrigger"] = True
-        else:
-            self.settings["spectrometer_settings"]["externaltrigger"] = False
+        self.settings["spectrometer_settings"]["externaltrigger"] = False
         self.spectrometer_settings = self.settings["spectrometer_settings"]
         spectro_name = self.settings["spectrometer"]
         self.function_dict["spectrometer"][spectro_name]["setSettings"](self.spectrometer_settings)
