@@ -1,6 +1,5 @@
 #!/usr/bin/python3.8
 import pluggy
-
 from AffineGUI import AffineGUI
 
 

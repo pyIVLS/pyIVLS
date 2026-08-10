@@ -1,13 +1,13 @@
-from gdsLoadDialog import Ui_Dialog
-from PyQt6.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QEvent, QRect, QRectF
-from PyQt6.QtWidgets import QDialog, QPushButton
-from PyQt6.QtGui import QPixmap, QImage, QMouseEvent
-from PyQt6.QtWidgets import QGraphicsScene, QRubberBand
-from klayout import lay
 import os
+
 import cv2 as cv
 import numpy as np
+from gdsLoadDialog import Ui_Dialog
+from klayout import lay
 from matplotlib import cm as mpl_cm
+from PyQt6.QtCore import QEvent, QObject, QRect, QRectF, Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QImage, QMouseEvent, QPixmap
+from PyQt6.QtWidgets import QDialog, QGraphicsScene, QPushButton, QRubberBand
 
 
 class wrapperSettings:

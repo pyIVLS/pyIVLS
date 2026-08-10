@@ -1,8 +1,9 @@
 #!/usr/bin/python3.8
+import configparser
+import os
+
 import pluggy
 from sweepGUI import sweepGUI
-import os
-import configparser
 
 
 class pyIVLS_sweep_plugin:

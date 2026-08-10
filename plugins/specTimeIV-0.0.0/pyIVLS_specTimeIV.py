@@ -13,10 +13,11 @@ The standard implementation may (but not must) include
 - plugin core implementation - a set of functions that may be used outside of GUI
 """
 
+import configparser
+import os
+
 import pluggy
 from spectimeIVGUI import specTimeIVGUI
-import os
-import configparser
 
 
 class pyIVLS_specTimeIV_plugin:

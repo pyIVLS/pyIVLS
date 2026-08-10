@@ -9,25 +9,27 @@ This module tests the following classes:
 - PluginException: Custom exception class
 """
 
-import sys
 import os
-import pytest
+import sys
 from unittest.mock import Mock, patch
+
+import pytest
 
 # Add the components directory to the path so we can import the module
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "components"))
 
 try:
+    import sys
+
     from plugin_components import (
-        FileManager,
         DependencyManager,
+        FileManager,
         LoggingHelper,
         PluginException,
         filter_to_valid_methods,
     )
-    from PyQt6.QtWidgets import QApplication
     from PyQt6.QtCore import QObject
-    import sys
+    from PyQt6.QtWidgets import QApplication
 
     # Create QApplication if it doesn't exist (needed for Qt widgets)
     if not QApplication.instance():

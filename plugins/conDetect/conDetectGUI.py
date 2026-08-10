@@ -19,19 +19,19 @@ version 0.2
 ivarad
 """
 
-import os
 import copy
+import os
 
-from PyQt6.QtCore import QObject
-from PyQt6 import uic
-from plugin_components import (
-    LoggingHelper,
-    CloseLockSignalProvider,
-    public,
-    get_public_methods,
-    ConnectionIndicatorStyle,
-)
 from conDetect import conDetect
+from plugin_components import (
+    CloseLockSignalProvider,
+    ConnectionIndicatorStyle,
+    LoggingHelper,
+    get_public_methods,
+    public,
+)
+from PyQt6 import uic
+from PyQt6.QtCore import QObject
 
 
 class conDetectGUI(QObject):

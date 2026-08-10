@@ -6,9 +6,10 @@ to the instrument based on different configuration parameters, with special
 attention to conditional commands that depend on specific settings.
 """
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 # Add the plugins directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "plugins", "Keithley2612B"))

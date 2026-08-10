@@ -1,9 +1,9 @@
 #!/usr/bin/python3.8
+import configparser
+import os
+
 import pluggy
 from TLCCSGUI import TLCCS_GUI
-import os
-import configparser
-
 
 
 class pyIVLS_TLCCS_plugin:

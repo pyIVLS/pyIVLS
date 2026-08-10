@@ -1,8 +1,9 @@
-import os
 import copy
+import os
+
+from plugin_components import ConnectionIndicatorStyle, DependencyManager, LoggingHelper, get_public_methods, public
 from PyQt6 import uic
 from PyQt6.QtWidgets import QWidget
-from plugin_components import public, ConnectionIndicatorStyle, get_public_methods, LoggingHelper, DependencyManager
 
 
 class verifyContactGUI:

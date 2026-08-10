@@ -19,7 +19,6 @@ The itc503 contains
 """
 
 import pluggy
-
 from itc503GUI import itc503GUI
 
 

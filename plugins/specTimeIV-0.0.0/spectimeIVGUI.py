@@ -9,22 +9,19 @@ This file should provide
 
 """
 
+import copy
 import os
 import time
-import copy
-from pathvalidate import is_valid_filename
-from PyQt6 import uic
-from PyQt6.QtWidgets import QVBoxLayout, QFileDialog, QWidget
-from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
-from threadStopped import thread_with_exception, ThreadStopped
-from plugin_components import LoggingHelper, FileManager, DataOrder, PluginException, DependencyManager, load_widget
-import PyQt6.QtCore as Qt
-from typing import Any
-import pandas as pd
+from typing import Annotated, Any, Literal
 
-from typing import Annotated, Literal
-from annotated_types import Gt, Lt, Le, Ge
+import pandas as pd
+from annotated_types import Gt
+from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
+from pathvalidate import is_valid_filename
+from plugin_components import DataOrder, DependencyManager, FileManager, LoggingHelper, PluginException, load_widget
 from pydantic import BaseModel
+from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
+from threadStopped import ThreadStopped, thread_with_exception
 
 
 class SpecTimeIVSettings(BaseModel):
@@ -120,7 +117,6 @@ class specTimeIVGUI:
 
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        print(f"Loading GUI for {self.__class__.__name__} from path: {self.path}")
 
         self._settingsWidget, self._mdiWidget = load_widget(settings=True, mdi=True, path=self.path)
 
@@ -481,7 +477,6 @@ class specTimeIVGUI:
     ):
         # test validation of settings briefly:
         m = SpecTimeIVSettings.model_validate(plugin_info)
-        print("Settings validated successfully:", m)
         ##settings are not initialized here, only GUI
         ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
         self.logger.log_debug("Initializing GUI with plugin_info: " + str(plugin_info))
@@ -729,7 +724,7 @@ class specTimeIVGUI:
             nplc = nplc_seconds * line_frequency
             if nplc > 25:
                 nplc = 25
-                print(f"NPLC value is too high, setting to 25 PLC to avoid errors. NPLC was set to {nplc_seconds} seconds, which corresponds to {nplc} PLC at line frequency {line_frequency} Hz.")
+                self.logger.log_warn("NPLC value exceeds 25, setting to 25")
             return nplc
 
         freq = self.smu_settings["lineFrequency"]
@@ -914,7 +909,6 @@ class specTimeIVGUI:
         if status:
             self.logger.log_warn(f"Error connecting Spectrometer: {state}")
             return [2, {"Error message": state}]
-        print(status, state)
         # check what mode spectrometer is in for integration time
         auto_mode = self.spectrometer_settings["integrationtimetype"] == "auto"
         if auto_mode:
@@ -1106,15 +1100,12 @@ class specTimeIVGUI:
             self._timeIVimplementation()
         except PluginException as e:
             self.logger.log_error(f"timeIV plugin implementation stopped because of exception: {e}")
-            print("sajfiasjfas")
             exception = 1
         except ThreadStopped:
             self.logger.log_error("timeIV plugin implementation aborted")
-            print("sajfiasjfas")
             exception = 2
         except Exception as e:
             self.logger.log_error(f"timeIV plugin implementation stopped because of unexpected exception: {e}")
-            print("sajfiasjfas 3")
             exception = 3
         finally:
             try:

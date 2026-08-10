@@ -19,11 +19,12 @@ ivarad
 
 import os
 from datetime import datetime, timedelta
+
 import matplotlib.dates as mdates
+from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
+from peltierController import peltierController
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from peltierController import peltierController
-from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 
 
 class peltierControllerGUI(QObject):
@@ -37,7 +38,7 @@ class peltierControllerGUI(QObject):
 
     ########Functions
     def __init__(self):
-        super(peltierControllerGUI, self).__init__()
+        super().__init__()
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
 

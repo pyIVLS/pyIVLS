@@ -1,9 +1,11 @@
-import numpy as np
+import os
+
 import cv2 as cv
+import numpy as np
 import pytest
 from skimage.transform import AffineTransform, warp
+
 from plugins.Affine.Affine_skimage import Affine, AffineError
-import os
 
 
 def create_synthetic_image(size=(200, 200), square_pos=(50, 50), square_size=40):
@@ -117,14 +119,17 @@ def test_img_matches_refled(caplog):
             caplog.set_level("INFO")
             import logging
 
-            logging.info(f"[MATCH] {os.path.basename(img_path)}: matches found = {aff.result['matches'].shape[0]}")
+            logger = logging.getLogger(__name__)
+
+            logger.info(f"[MATCH] {os.path.basename(img_path)}: matches found = {aff.result['matches'].shape[0]}")
             assert aff.A is not None
             assert aff.result["matches"].shape[0] >= aff.MIN_MATCHES
         except AffineError as e:
             caplog.set_level("WARNING")
             import logging
 
-            logging.warning(f"[FAIL] {os.path.basename(img_path)}: {e}")
+            logger = logging.getLogger(__name__)
+            logger.warning(f"[FAIL] {os.path.basename(img_path)}: {e}")
             pytest.skip(f"Could not match {img_path} with refLED_v3_flat.png: {e}")
 
 
@@ -146,14 +151,16 @@ def test_img_does_not_match_bob(caplog):
             caplog.set_level("INFO")
             import logging
 
-            logging.info(f"[NONMATCH] {os.path.basename(img_path)}: matches found = {aff.result['matches'].shape[0]}")
+            logger = logging.getLogger(__name__)
+            logger.info(f"[NONMATCH] {os.path.basename(img_path)}: matches found = {aff.result['matches'].shape[0]}")
             assert aff.result["matches"].shape[0] < aff.MIN_MATCHES
         except AffineError:
             caplog.set_level("INFO")
             import logging
 
-            logging.info(f"[NONMATCH] {os.path.basename(img_path)}: AffineError (expected)")
-            pass  # Expected: should not match
+            logger = logging.getLogger(__name__)
+            logger.info(f"[NONMATCH] {os.path.basename(img_path)}: AffineError (expected)")
+            # Expected: should not match
 
 
 def test_affine_transform_of_mask_matches():
