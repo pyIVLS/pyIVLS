@@ -461,6 +461,10 @@ class DependencyManager:
     - Access available function_dict through the property. This includes all plugins that satisfy the required method sets.
     - "parse_dependencies" is used to parse the settings widgets for plugins and add their settings to the settings dict.
 
+    Idea to clarify this: 
+    1. This should only do update on a hook (initGUI?). I say this because that time is the only time when the list of method actually can change.  
+    2. This should not deal with the GUI, i think. It should only take in the info dicts and return function dicts.
+    3. It should be possible to provide the current settings dict to this, and this would parse the selected plugins. 
 
     """
 
@@ -716,3 +720,24 @@ class LoggingHelper(QObject):
         """show info popup, if provided"""
         message = f"{self.plugin_name}: {message}"
         self.info_popup_signal.emit(message)
+
+
+def handle_ret(pyIVLS_return: Tuple[int, Dict[str, Any]]) -> Any:
+    """Return the dict on success, otherwise raise an exception. dont integrate this, this is just a tester"""
+    ret_code, ret_dict = pyIVLS_return
+    print("Warn: unstable handle_ret used in 'production' code.")
+    if ret_code == PyIVLSReturnCode.SUCCESS.value:
+        return ret_dict
+    elif ret_code == PyIVLSReturnCode.VALUE_ERROR.value:
+        raise ValueError(f"Plugin returned VALUE_ERROR: {ret_dict.get('Error message', 'No error message provided')}")
+    elif ret_code == PyIVLSReturnCode.DEPENDENCY_ERROR.value:
+        raise RuntimeError(f"Plugin returned DEPENDENCY_ERROR: {ret_dict.get('Error message', 'No error message provided')}")
+    elif ret_code == PyIVLSReturnCode.MISSING_DEPENDENCY.value:
+        raise RuntimeError(f"Plugin returned MISSING_DEPENDENCY: {ret_dict.get('Error message', 'No error message provided')}")
+    elif ret_code == PyIVLSReturnCode.HARDWARE_ERROR.value:
+        raise RuntimeError(f"Plugin returned HARDWARE_ERROR: {ret_dict.get('Error message', 'No error message provided')}")
+    elif ret_code == PyIVLSReturnCode.THREAD_STOPPED.value:
+        raise RuntimeError(f"Plugin returned THREAD_STOPPED: {ret_dict.get('Error message', 'No error message provided')}")
+    else:
+        raise RuntimeError(f"Plugin returned unknown error code {ret_code}: {ret_dict.get('Error message', 'No error message provided')}")
+

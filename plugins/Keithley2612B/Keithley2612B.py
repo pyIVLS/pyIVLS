@@ -293,7 +293,12 @@ class Keithley2612B:
         """
         assert channel in self.channel_names(self.backend), f"Invalid channel {channel}"
         assert outputType in ["i", "v"], f"Invalid output type {outputType}"
+        if outputType == "i":
+            self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
+        if outputType == "v":
+            self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCVOLTS")
         self.safewrite(f"{channel}.source.level{outputType} = {value}")
+        print(f"Set {channel} output to {value} {outputType}")
 
     def get_last_buffer_value(self, channel, readings=None) -> list[float | None]:
         """
