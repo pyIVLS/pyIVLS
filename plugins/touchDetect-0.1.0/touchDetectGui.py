@@ -1,5 +1,6 @@
 import copy
 import os
+from typing import Any
 
 from plugin_components import (
     ConnectionIndicatorStyle,
@@ -19,13 +20,19 @@ class touchDetectGUI:
     green_style = ConnectionIndicatorStyle.GREEN_CONNECTED.value
     red_style = ConnectionIndicatorStyle.RED_DISCONNECTED.value
 
+    @property
+    def settingsWidget(self) -> Any:
+        if self._settingsWidget is None:
+            raise ValueError("Settings widget has not been initialized")
+        return self._settingsWidget
+
     def __init__(self):
         self.path = os.path.dirname(__file__) + os.path.sep
 
         # Initialize LoggingHelper, functionality, ui
         self.logger = LoggingHelper(self)
         self.functionality = touchDetect(log=self.logger.log_debug)
-        self.settingsWidget = uic.loadUi(self.path + "touchDetect_Settings.ui")
+        self._settingsWidget = uic.loadUi(self.path + "touchDetect_Settings.ui")
 
         # initialize dependencyManager
         dependencies = {
@@ -108,7 +115,7 @@ class touchDetectGUI:
         status, state = result
         if status != 0:
             self.logger.log_warn(f"Dependency settings invalid: {state}")
-            return None, None, None
+            raise ValueError(f"Dependency settings invalid: {state}")
         self.settings.update(state)
         func_dict = self.dm.function_dict
         mm_functions = func_dict["micromanipulator"]
@@ -304,47 +311,40 @@ class touchDetectGUI:
 
     def _monitor_worker(self, worker_thread):
         """Worker function that runs the monitoring in a separate thread."""
-        try:
-            self.logger.log_debug("Starting monitoring worker thread")
-            mm, smu, con = self._fetch_dep_plugins()
+        self.logger.log_debug("Starting monitoring worker thread")
+        mm, smu, con = self._fetch_dep_plugins()
 
-            # Get configured manipulators and convert to ManipulatorInfo objects
-            status, settings = self.parse_settings_widget()
-            if status != 0:
-                self.logger.log_debug("Settings parsing failed in monitor worker")
-                worker_thread.error.emit(f"Settings parsing failed: {settings}")
-                return (status, settings)
+        # Get configured manipulators and convert to ManipulatorInfo objects
+        status, settings = self.parse_settings_widget()
+        if status != 0:
+            self.logger.log_debug("Settings parsing failed in monitor worker")
+            worker_thread.error.emit(f"Settings parsing failed: {settings}")
+            return (status, settings)
 
-            manipulator_infos = self._create_manipulator_infos_from_settings(settings)
+        manipulator_infos = self._create_manipulator_infos_from_settings(settings)
 
-            # Define callbacks for the monitoring
-            def progress_callback(message):
-                worker_thread.progress.emit(message)
+        # Define callbacks for the monitoring
+        def progress_callback(message):
+            worker_thread.progress.emit(message)
 
-            def error_callback(message):
-                worker_thread.error.emit(message)
+        def error_callback(message):
+            worker_thread.error.emit(message)
 
-            def stop_requested_callback():
-                return worker_thread.is_stop_requested()
+        def stop_requested_callback():
+            return worker_thread.is_stop_requested()
 
-            # Use the touchDetect monitor_manual_contact_detection method
-            status, result = self.functionality.monitor_manual_contact_detection(
-                mm=mm,
-                smu=smu,
-                con=con,
-                manipulator_infos=manipulator_infos,
-                progress_callback=progress_callback,
-                error_callback=error_callback,
-                stop_requested_callback=stop_requested_callback,
-            )
+        # Use the touchDetect monitor_manual_contact_detection method
+        status, result = self.functionality.monitor_manual_contact_detection(
+            mm=mm,
+            smu=smu,
+            con=con,
+            manipulator_infos=manipulator_infos,
+            progress_callback=progress_callback,
+            error_callback=error_callback,
+            stop_requested_callback=stop_requested_callback,
+        )
 
-            return (status, result)
-
-        except Exception as e:
-            error_msg = f"Exception during monitoring: {e!s}"
-            self.logger.log_warn(error_msg)
-            worker_thread.error.emit(error_msg)
-            return (2, {"Error message": error_msg, "Exception": str(e)})
+        return (status, result)
 
     def _monitor_threaded(self):
         """Starts or stops the monitoring process in a separate thread."""
@@ -523,9 +523,9 @@ class touchDetectGUI:
             self.logger.log_info("Move to contact operation completed successfully")
             return (status, state)
 
-        except ThreadStopped as ts:
+        except ThreadStopped:
             self.logger.log_info("Move to contact operation stopped by user")
-            raise ts  # re-raise to be caught by outer layers that handle thread stopping
+            raise  # re-raise to be caught by outer layers that handle thread stopping
 
     @public
     def sequenceStep(self, postfix: str) -> tuple[int, dict]:
