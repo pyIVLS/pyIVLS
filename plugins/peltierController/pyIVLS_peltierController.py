@@ -19,7 +19,6 @@ The peltierController contains
 """
 
 import pluggy
-
 from peltierControllerGUI import peltierControllerGUI
 
 

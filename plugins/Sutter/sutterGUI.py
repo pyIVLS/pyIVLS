@@ -1,21 +1,20 @@
-from functools import wraps
-import os
-
-from PyQt6 import QtWidgets, uic
-from PyQt6 import QtCore
-from PyQt6.QtCore import QObject, pyqtSlot
-from Sutter import Mpc325
-from plugin_components import (
-    LoggingHelper,
-    ConnectionIndicatorStyle,
-    public,
-    get_public_methods,
-    CloseLockSignalProvider,
-    ini_to_bool,
-)
 import copy
-from threadStopped import ThreadStopped
+import os
+from functools import wraps
+
+from plugin_components import (
+    CloseLockSignalProvider,
+    ConnectionIndicatorStyle,
+    LoggingHelper,
+    get_public_methods,
+    ini_to_bool,
+    public,
+)
+from PyQt6 import QtCore, QtWidgets, uic
+from PyQt6.QtCore import QObject, pyqtSlot
 from serial import SerialException
+from Sutter import Mpc325
+from threadStopped import ThreadStopped
 
 """
 From readme:
@@ -46,9 +45,9 @@ def handle_sutter_exceptions(func):
         try:
             return func(self, *args, **kwargs)
         except ValueError as e:
-            return (1, {"Error message": f"Value error in Sutter plugin: {str(e)}", "Exception": str(e)})
+            return (1, {"Error message": f"Value error in Sutter plugin: {e!s}", "Exception": str(e)})
         except SerialException as e:
-            return (4, {"Error message": f"Sutter SerialException: {str(e)}", "Exception": str(e)})
+            return (4, {"Error message": f"Sutter SerialException: {e!s}", "Exception": str(e)})
         except ThreadStopped as ts:
             self.hal.stop()  # Attempt to stop any ongoing movement if a ThreadStopped exception is raised
             raise ts  # re-raise to be caught by outer layers that handle thread stopping
@@ -310,7 +309,7 @@ class SutterGUI(QObject):
                 self.hal.open(address)
 
         except SerialException as e:
-            self.logger.info_popup(f"Sutter SerialException: {str(e)}")
+            self.logger.info_popup(f"Sutter SerialException: {e!s}")
 
         finally:
             if self.hal.is_connected():

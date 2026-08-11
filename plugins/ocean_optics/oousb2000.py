@@ -1,9 +1,9 @@
-import numpy as np
-import seabreeze.spectrometers as sb
-import oo_utils as utils
-from oo_utils import s_to_micros
-from typing import Optional
 from enum import Enum
+
+import numpy as np
+import oo_utils as utils
+import seabreeze.spectrometers as sb
+from oo_utils import s_to_micros
 
 """
 Ocean Optics USB2000 spectrometer driver.
@@ -22,8 +22,8 @@ class trigger_mode(Enum):
 
 class OODRV:
     integration_time: int = s_to_micros(utils.DEFAULT_INTEGRATION_TIME)  # microseconds
-    _integ_limits: Optional[tuple[int, int]] = None  # (min, max) integration time in µs, set in open()
-    _spectro: Optional[sb.Spectrometer] = None
+    _integ_limits: tuple[int, int] | None = None  # (min, max) integration time in µs, set in open()
+    _spectro: sb.Spectrometer | None = None
 
     @property
     def spectro(self) -> sb.Spectrometer:

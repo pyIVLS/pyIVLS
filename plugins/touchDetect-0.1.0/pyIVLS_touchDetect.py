@@ -1,10 +1,11 @@
 #!/usr/bin/python3.8
 
 
-import pluggy
 import configparser
-from touchDetectGui import touchDetectGUI
 import os
+
+import pluggy
+from touchDetectGui import touchDetectGUI
 
 
 class pyIVLS_touchDetect_plugin:

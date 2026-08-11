@@ -1,14 +1,13 @@
 import os
 from datetime import datetime
-from typing import Any, Optional, Tuple, Dict
+from typing import Any
 
 import cv2 as cv
 import numpy as np
 import skimage as ski
 
-
 # Sift detection moved over to skimage since I prefer it.
-from skimage.feature import SIFT, ORB, match_descriptors
+from skimage.feature import ORB, SIFT, match_descriptors
 
 
 def str_to_bool(value: Any) -> bool:
@@ -64,7 +63,7 @@ class Preprocessor:
     """
 
     def __init__(self) -> None:
-        self.settings: Dict[str, Any] = {}
+        self.settings: dict[str, Any] = {}
 
     PREPROCESSOR_KEYS = {
         "blurmask",
@@ -91,7 +90,7 @@ class Preprocessor:
         "sigmamask",
     }
 
-    def update_settings(self, settings_dict: Dict[str, Any]) -> None:
+    def update_settings(self, settings_dict: dict[str, Any]) -> None:
         """
         Update preprocessing settings from a dictionary.
         Args:
@@ -100,7 +99,7 @@ class Preprocessor:
         filtered = {key: value for key, value in settings_dict.items() if key in self.PREPROCESSOR_KEYS}
         self.settings.update(filtered)
 
-    def get_settings(self) -> Dict[str, Any]:
+    def get_settings(self) -> dict[str, Any]:
         """
         Get the current preprocessing settings.
         Returns:
@@ -237,7 +236,7 @@ class Affine_IO:
     def __init__(self, path: str) -> None:
         self.path: str = path
 
-    def load_image(self, path: str) -> Tuple[np.ndarray, str]:
+    def load_image(self, path: str) -> tuple[np.ndarray, str]:
         """
         Loads a mask image from the specified path.
         Args:
@@ -269,10 +268,10 @@ class Affine:
     """
 
     path: str
-    result: Dict[str, Any]
-    A: Optional[np.ndarray]
-    internal_img: Optional[np.ndarray]
-    internal_mask: Optional[np.ndarray]
+    result: dict[str, Any]
+    A: np.ndarray | None
+    internal_img: np.ndarray | None
+    internal_mask: np.ndarray | None
     MIN_MATCHES: int
     preprocessor: Preprocessor
     io: Affine_IO
@@ -282,7 +281,7 @@ class Affine:
     backend: str
     scalingfactor: float
 
-    def __init__(self, settings: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, settings: dict[str, Any] | None = None) -> None:
         """
         Initializes an instance of Affine. Optionally takes a settings dict.
         Args:
@@ -304,7 +303,7 @@ class Affine:
         if settings is not None:
             self.update_settings(settings)
 
-    def update_settings(self, settings: Dict[str, Any]) -> None:
+    def update_settings(self, settings: dict[str, Any]) -> None:
         """
         Update algorithmic and preprocessing settings from a dictionary.
         Accepts keys: ratiotest, residualthreshold, crosscheck, and preprocessing keys.
@@ -318,7 +317,7 @@ class Affine:
         self.scalingfactor = float(settings["scalingfactor"])
 
         # Normalize known preprocessor setting types and ignore unrelated keys.
-        normalized_preproc: Dict[str, Any] = {}
+        normalized_preproc: dict[str, Any] = {}
         bool_keys = {
             "blurmask",
             "invertmask",
@@ -356,7 +355,7 @@ class Affine:
 
         self.preprocessor.update_settings(normalized_preproc)
 
-    def get_settings(self) -> Dict[str, Any]:
+    def get_settings(self) -> dict[str, Any]:
         """
         Get the current algorithmic and preprocessing settings.
         Returns:
@@ -468,7 +467,7 @@ class Affine:
         self.result["transform"] = model
         return True
 
-    def get_transformation(self, src: np.ndarray, dst: np.ndarray, residual_threshold: int = 10) -> Tuple[Any, np.ndarray]:
+    def get_transformation(self, src: np.ndarray, dst: np.ndarray, residual_threshold: int = 10) -> tuple[Any, np.ndarray]:
         """
         Estimate the affine transformation using RANSAC.
         Args:
@@ -530,7 +529,7 @@ class Affine:
         except Exception as e:
             raise AffineError(f"Error during manual transformation: {e}", 3) from e
 
-    def coords(self, point: Tuple[float, float]) -> Tuple[float, float]:
+    def coords(self, point: tuple[float, float]) -> tuple[float, float]:
         """
         Transforms a point from the mask to the corresponding point on the image using the affine transformation.
         Args:
@@ -584,7 +583,7 @@ class Affine:
         self.result.clear()
         return mask
 
-    def center_on_component(self, x: int, y: int) -> Tuple[int, int]:
+    def center_on_component(self, x: int, y: int) -> tuple[int, int]:
         """
         Finds the centroid of a connected component in the mask image based on the color at (x, y).
         Args:

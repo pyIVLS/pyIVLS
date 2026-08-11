@@ -1,5 +1,6 @@
-import numpy as np
 import time
+
+import numpy as np
 
 
 class MockCCSDRV:
@@ -20,7 +21,6 @@ class MockCCSDRV:
         self.continuous_scan_requested = False
         self.ext_scan_requested = False
         self.single_scan_requested = False
-        pass
 
     def get_integration_time(self):
         print(f"[Mock] Current integration time: {self.integration_time}s")
@@ -44,9 +44,7 @@ class MockCCSDRV:
         statuses = []
         if self.ext_scan_requested:
             statuses.append("SCAN_EXT_TRIGGER")
-        elif self.continuous_scan_requested:
-            statuses.append("SCAN_TRANSFER")
-        elif self.single_scan_requested:
+        elif self.continuous_scan_requested or self.single_scan_requested:
             statuses.append("SCAN_TRANSFER")
         else:
             statuses.append("SCAN_IDLE")

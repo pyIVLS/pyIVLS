@@ -1,10 +1,10 @@
-import usb
-from lowLevel import LLIO
-import TLCCS_const as const
-import numpy as np
 import struct
 import time
 
+import numpy as np
+import TLCCS_const as const
+import usb
+from lowLevel import LLIO
 
 
 class CCSDRV:
@@ -107,8 +107,7 @@ class CCSDRV:
 
         # Calculate prescaler value
         presc = int(np.log10(integ) / np.log10(2)) - 11
-        if presc < 0:
-            presc = 0
+        presc = max(presc, 0)
 
         # Calculate filling value
         if integ <= 3800:

@@ -6,10 +6,11 @@ This module tests the following classes:
 - CollisionDetector: Multi-manipulator collision detection and safe movement generation
 """
 
-import sys
 import os
-import pytest
+import sys
 from unittest.mock import Mock
+
+import pytest
 
 # Add the plugins directory to the path so we can import the module
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "plugins", "affineMove"))

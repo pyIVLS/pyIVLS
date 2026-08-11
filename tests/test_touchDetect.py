@@ -13,19 +13,20 @@ Focus areas:
 - Thread-based monitoring functionality
 """
 
-import sys
 import os
-import pytest
+import sys
 from unittest.mock import Mock, patch
+
+import pytest
 
 # Add the plugins directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "plugins", "touchDetect-0.1.0"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "plugins"))
 
 try:
-    from touchDetect import touchDetect, ManipulatorInfo
-    from touchDetectGui import touchDetectGUI, ManipulatorInfoWrapper
     from PyQt6.QtWidgets import QApplication, QComboBox, QGroupBox, QSpinBox
+    from touchDetect import ManipulatorInfo, touchDetect
+    from touchDetectGui import ManipulatorInfoWrapper, touchDetectGUI
 
     # Create QApplication if it doesn't exist (needed for Qt widgets)
     if not QApplication.instance():
@@ -419,7 +420,7 @@ class TestTouchDetect:
         self.mock_smu.smu_setup_resmes.return_value = (0, {"message": "Setup successful"})
         self.mock_mm.mm_change_active_device.return_value = (0, {"message": "Device changed"})
 
-        status, result = self.touch_detect._manipulator_measurement_setup(
+        status, _ = self.touch_detect._manipulator_measurement_setup(
             self.mock_mm, self.mock_smu, self.mock_con, info
         )
 
@@ -448,7 +449,7 @@ class TestTouchDetect:
 
         self.mock_mm.mm_move.return_value = (0, {"message": "Moved successfully"})
 
-        status, result = self.touch_detect._move_manipulator_to_last_contact(self.mock_mm, info)
+        status, _ = self.touch_detect._move_manipulator_to_last_contact(self.mock_mm, info)
 
         assert status == 0
         self.mock_mm.mm_move.assert_called_once_with(z=expected_position)
@@ -591,7 +592,7 @@ class TestMonitoringConfiguration:
         error_callback = Mock()
         stop_requested_callback = Mock(return_value=False)
 
-        status, result = self.touch_detect.monitor_manual_contact_detection(
+        status, _ = self.touch_detect.monitor_manual_contact_detection(
             self.mock_mm,
             self.mock_smu,
             self.mock_con,
@@ -623,7 +624,7 @@ class TestMonitoringConfiguration:
         error_callback = Mock()
         stop_requested_callback = Mock(return_value=False)
 
-        status, result = self.touch_detect.monitor_manual_contact_detection(
+        status, _ = self.touch_detect.monitor_manual_contact_detection(
             self.mock_mm,
             self.mock_smu,
             self.mock_con,
@@ -1094,7 +1095,7 @@ class TestTouchDetectGUISettingsUpdate:
 
             wrapper.get_standardized_settings = Mock(return_value=wrapper_settings)
 
-        status, settings = self.gui.parse_settings_widget()
+        status, _ = self.gui.parse_settings_widget()
 
         # Verify all wrappers updated from GUI
         for wrapper in self.gui.manipulator_wrappers:

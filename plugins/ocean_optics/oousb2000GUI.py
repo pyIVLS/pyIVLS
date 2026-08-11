@@ -3,25 +3,23 @@ This is a GUI plugin for OceanOptics USB2000 spectrometer
 
 """
 
-from typing import Optional
-import oo_utils as utils
-from oo_utils import s_to_micros, s_to_millis, millis_to_s
-
-import time
+import copy
 import os
-import numpy as np
+import time
 from datetime import datetime
+from threading import Lock
+
+import numpy as np
+import oo_utils as utils
+from MplCanvas import MplCanvas
+from oo_utils import millis_to_s, s_to_micros, s_to_millis
+from oousb2000 import OODRV
 from pathvalidate import is_valid_filename
+from plugin_components import CloseLockSignalProvider, ConnectionIndicatorStyle, LoggingHelper
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, Qt
-from PyQt6.QtWidgets import QVBoxLayout, QFileDialog
-from MplCanvas import MplCanvas
+from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
 from threadStopped import ThreadStopped, thread_with_exception
-from threading import Lock
-import copy
-from plugin_components import LoggingHelper, CloseLockSignalProvider, ConnectionIndicatorStyle
-
-from oousb2000 import OODRV
 
 
 class OOUSB2000_GUI(QObject):
@@ -291,7 +289,7 @@ class OOUSB2000_GUI(QObject):
         external_cleanup=None,
         external_cleanup_args=None,
         pause_duration: float = 0.0,
-        last_integration_time: Optional[float] = None,
+        last_integration_time: float | None = None,
     ) -> tuple[int, float | dict]:
         """
         Calculates the optimal integration time, allowing external actions and cleanup with arguments.

@@ -1,7 +1,9 @@
+import configparser
+import os
+
 import pluggy
 from Keithley2612BGUI import Keithley2612BGUI
-import os
-import configparser
+
 
 class pyIVLS_Keithley2612B_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")

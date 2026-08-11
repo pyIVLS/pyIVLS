@@ -1,7 +1,9 @@
 from PyQt6 import QtWidgets, uic
-from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QAction, QCloseEvent
+
 from components.pyIVLS_dockWindow import pyIVLS_dockWindow
-from PyQt6.QtGui import QCloseEvent, QAction
+
 
 class pyIVLS_mainWindow(QtWidgets.QMainWindow):
     closeSignal = pyqtSignal()

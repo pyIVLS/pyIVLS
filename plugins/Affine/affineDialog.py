@@ -1,25 +1,25 @@
 """Registration dialog for affine plugin"""
 
-from PyQt6.QtWidgets import QDialog
-from PyQt6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QGraphicsScene,
-    QGraphicsPixmapItem,
-    QLineEdit,
-    QSpinBox,
-)
-from PyQt6.QtGui import QImage, QPixmap, QBrush, QColor
-from affineMatchDialog import Ui_Dialog
-import numpy as np
+import time
+
 import matplotlib.pyplot as plt
+import numpy as np
+from affineMatchDialog import Ui_Dialog
 from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
-from PyQt6.QtCore import pyqtSignal, Qt, pyqtSlot
 from plugin_components import LoggingHelper, ini_to_bool
-from typing import Optional
-import time
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QBrush, QColor, QImage, QPixmap
+from PyQt6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QGraphicsPixmapItem,
+    QGraphicsScene,
+    QLineEdit,
+    QSpinBox,
+)
 from worker_thread import WorkerThread
 
 
@@ -36,7 +36,7 @@ class dialog(QDialog):
 
     info_msg = pyqtSignal(str)
 
-    def __init__(self, affine, img, mask, settings, pointslist=None, logger: Optional[LoggingHelper] = None):
+    def __init__(self, affine, img, mask, settings, pointslist=None, logger: LoggingHelper | None = None):
         """
         Initialize the dialog.
         Args:

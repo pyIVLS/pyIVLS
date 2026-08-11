@@ -26,21 +26,22 @@ version 0.7
 otsoha
 """
 
-import numpy as np
 import os
+
+import numpy as np
+from dummycam import DummyCamera as VenusUSB2
 from pathvalidate import is_valid_filename
 from plugin_components import (
-    public,
-    get_public_methods,
-    LoggingHelper,
     CloseLockSignalProvider,
     ConnectionIndicatorStyle,
+    LoggingHelper,
+    get_public_methods,
+    public,
 )
-from PyQt6 import uic, QtWidgets
-from PyQt6.QtWidgets import QFileDialog
-from PyQt6.QtCore import QObject, pyqtSignal, Qt, QThread
+from PyQt6 import QtWidgets, uic
+from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
-from dummycam import DummyCamera as VenusUSB2
+from PyQt6.QtWidgets import QFileDialog
 
 ##IRtothink#### should some kind of zoom to the image part be added for the preview?
 
@@ -335,7 +336,7 @@ class DummyCameraGUI(QObject):
                     img = {"Error message": f"DummyCamera plugin : {img}"}
             except Exception as e:
                 status = 4
-                img = {"Error message": f"DummyCamera plugin : exception in capturing image: {str(e)}"}
+                img = {"Error message": f"DummyCamera plugin : exception in capturing image: {e!s}"}
         else:
             status = 1
             img = {"Error message": "value error in parsing settings"}

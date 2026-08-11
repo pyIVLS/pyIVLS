@@ -9,6 +9,7 @@ This file should provide
 
 """
 
+import copy
 import os
 import time
 import copy
@@ -35,6 +36,14 @@ def s_to_ms(s: float) -> float:
 def ms_to_s(ms: float) -> float:
     """Convert milliseconds to seconds."""
     return ms / 1000
+from typing import Annotated, Any, Literal
+
+from annotated_types import Gt
+from pathvalidate import is_valid_filename
+from plugin_components import DataOrder, DependencyManager, FileManager, LoggingHelper, PluginException, load_widget
+from pydantic import BaseModel
+from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
+from threadStopped import ThreadStopped, thread_with_exception
 
 
 class SpecTimeIVSettings(BaseModel):
@@ -317,7 +326,23 @@ class specTimeIVGUI:
         plugin_info,
     ):
         # test validation of settings briefly:
-        valid = SpecTimeIVSettings.model_validate(plugin_info)
+        m = SpecTimeIVSettings.model_validate(plugin_info)
+        ##settings are not initialized here, only GUI
+        ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
+        self.logger.log_debug("Initializing GUI with plugin_info: " + str(plugin_info))
+        self.settingsWidget.lineEdit_path.setText(plugin_info["address"])
+        self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
+        self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
+        self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
+
+        self.settingsWidget.step_lineEdit.setText(plugin_info["timestep"])
+        self.settingsWidget.stopAfterLineEdit.setText(plugin_info["stopafter"])
+        self.settingsWidget.autosaveLineEdit.setText(plugin_info["autosaveinterval"])
+
+        if plugin_info["stoptimer"] == "True":
+            self.settingsWidget.stopTimerCheckBox.setChecked(True)
+        else:
+            self.settingsWidget.stopTimerCheckBox.setChecked(False)
 
         # dump to dict so that old logic works.
         valid_settings = valid.model_dump()
@@ -513,7 +538,7 @@ class specTimeIVGUI:
             nplc = nplc_seconds * line_frequency
             if nplc > 25:
                 nplc = 25
-                print(f"NPLC value is too high, setting to 25 PLC to avoid errors. NPLC was set to {nplc_seconds} seconds, which corresponds to {nplc} PLC at line frequency {line_frequency} Hz.")
+                self.logger.log_warn("NPLC value exceeds 25, setting to 25")
             return nplc
 
         freq = self.smu_settings["lineFrequency"]

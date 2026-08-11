@@ -1,35 +1,23 @@
-from os.path import dirname, sep
 import logging
 import re
+from os.path import dirname, sep
 
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject, Qt, pyqtSlot, pyqtSignal
-from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QFileDialog
+
 from components.pyIVLS_mainWindow import pyIVLS_mainWindow
-from pyIVLS_pluginloader import pyIVLS_pluginloader
-from pyIVLS_seqBuilder import pyIVLS_seqBuilder
 
 # move this to mainwindow?
 from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
+from pyIVLS_pluginloader import pyIVLS_pluginloader
+from pyIVLS_seqBuilder import pyIVLS_seqBuilder
 
-# Create file handler (logs everything)
-file_handler = logging.FileHandler("pyIVLS.log")
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(logging.Formatter("%(asctime)s : %(levelname)s : %(message)s"))
-
-# Create stream handler (logs INFO and above)
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.INFO)
-stream_handler.setFormatter(logging.Formatter("%(asctime)s : %(levelname)s : %(message)s"))
-
-# Configure logger, print all to file and info and above to the console
-logging.basicConfig(level=logging.DEBUG, handlers=[file_handler, stream_handler])
+logger = logging.getLogger(__name__)
 
 
 class pyIVLS_GUI(QObject):
-    mdiWidgets = {}
-    dockWidgets = {}
     ############################### GUI functions
 
     ############################### Signals
@@ -60,24 +48,24 @@ class pyIVLS_GUI(QObject):
         """
         # Define mapping of flags to logging functions
         flag_map = {
-            ": verbose :": logging.debug,
-            ": debug :": logging.debug,
-            ": info :": logging.info,
-            ": warn :": logging.warning,
-            ": error :": logging.error,
+            ": verbose :": logger.debug,
+            ": debug :": logger.debug,
+            ": info :": logger.info,
+            ": warn :": logger.warning,
+            ": error :": logger.error,
         }
 
         # Search for a flag in the message (case-insensitive)
         match = re.search(r": (verbose|debug|info|warn|error) :", message, re.IGNORECASE)
         if match:
             flag = match.group(0).lower()
-            log_func = flag_map.get(flag, logging.info)
+            log_func = flag_map.get(flag, logger.info)
             # Remove the flag from the message for cleaner output
             clean_message = re.sub(re.escape(flag), ":", message, flags=re.IGNORECASE)
             log_func(clean_message)
         else:
             # Default to info if no flag is found
-            logging.info(message)
+            logger.info(message)
 
     @pyqtSlot()
     def reactClose(self):
@@ -92,17 +80,17 @@ class pyIVLS_GUI(QObject):
         if plugin_name:
             if value:
                 self._blocking_plugins.add(plugin_name)
-                logging.debug(f"Plugin {plugin_name} is blocking closure")
+                logger.debug(f"Plugin {plugin_name} is blocking closure")
             else:
                 self._blocking_plugins.discard(plugin_name)
-                logging.debug(f"Plugin {plugin_name} no longer blocking closure")
+                logger.debug(f"Plugin {plugin_name} no longer blocking closure")
         else:
-            logging.debug(f"Close lock signal received without plugin name: {value}")
+            logger.debug(f"Close lock signal received without plugin name: {value}")
 
         # reverted closelock, since plugins return True when they are not ready to close
         any_blocked = len(self._blocking_plugins) > 0
         self.window.setCloseOK(not any_blocked)
-        logging.debug(f"Current blocking plugins: {list(self._blocking_plugins)}, Close allowed: {not any_blocked}")
+        logger.debug(f"Current blocking plugins: {list(self._blocking_plugins)}, Close allowed: {not any_blocked}")
 
     @pyqtSlot()
     def seqBuilderReactClose(self):
@@ -236,7 +224,8 @@ class pyIVLS_GUI(QObject):
         self.window.dockWidget.setWidget(None)
 
     def __init__(self):
-        super(pyIVLS_GUI, self).__init__()
+        super().__init__()
+
         self.path = dirname(__file__) + sep
         self._blocking_plugins = set()  # Track plugins that block closure for user visibility
         self.window = pyIVLS_mainWindow(self.path)
@@ -256,7 +245,5 @@ class pyIVLS_GUI(QObject):
         self.window.closeSignal.connect(self.reactClose)
         self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
         self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)
-
-        self.pluginloader.request_available_plugins_signal
 
         self.initial_widget_state = {}

@@ -1,8 +1,9 @@
 from array import array
 from typing import Literal
+
+import TLCCS_const as const
 import usb.core
 import usb.util
-import TLCCS_const as const
 
 
 class LLIO:

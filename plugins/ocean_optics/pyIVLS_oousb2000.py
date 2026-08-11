@@ -1,8 +1,9 @@
 #!/usr/bin/python3.8
+import configparser
+import os
+
 import pluggy
 from oousb2000GUI import OOUSB2000_GUI
-import os
-import configparser
 
 
 class pyIVLS_oousb2000_plugin:

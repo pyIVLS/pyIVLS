@@ -1,8 +1,8 @@
 #!/usr/bin/python3.8
-import pluggy
 import configparser
 import os
 
+import pluggy
 from VenusUSB2GUI import VenusUSB2GUI
 
 """

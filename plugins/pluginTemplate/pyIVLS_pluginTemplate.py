@@ -13,10 +13,11 @@ The standard implementation may (but not must) include
 - plugin core implementation - a set of functions that may be used outside of GUI
 """
 
+import configparser
+import os
+
 import pluggy
 from pluginTemplateGUI import pluginTemplateGUI
-import os
-import configparser
 
 
 class pyIVLS_pluginTemplate_plugin:

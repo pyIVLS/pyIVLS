@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass
-from typing import Optional
+
 from threadStopped import ThreadStopped
 
 
@@ -23,16 +23,14 @@ class ManipulatorInfo:
     stride: int
     sample_width: float
     function: str
-    last_z: Optional[int] = None
-    spectrometer_height: Optional[int] = None
+    last_z: int | None = None
+    spectrometer_height: int | None = None
 
     def __post_init__(self):
         """Generates new field (self.function) after __init__ is called"""
         if self.smu_channel == "spectrometer" or self.condet_channel == "spectrometer":
             self.function: str = "spectrometer"
-        elif self.smu_channel == "none" or self.condet_channel == "none":
-            self.function: str = "unconfigured"
-        elif self.smu_channel == "" or self.condet_channel == "":
+        elif self.smu_channel == "none" or self.condet_channel == "none" or self.smu_channel == "" or self.condet_channel == "":
             self.function: str = "unconfigured"
         else:
             self.function: str = "normal"
@@ -246,7 +244,7 @@ class touchDetect:
 
                     except Exception as e:
                         if error_callback:
-                            error_callback(f"Exception during monitoring for manipulator {info.mm_number}: {str(e)}")
+                            error_callback(f"Exception during monitoring for manipulator {info.mm_number}: {e!s}")
                         break
 
                 # Clean up for this manipulator
@@ -264,7 +262,7 @@ class touchDetect:
                 return (0, {"Error message": "Monitoring stopped by user"})
 
         except Exception as e:
-            error_msg = f"Exception during monitoring: {str(e)}"
+            error_msg = f"Exception during monitoring: {e!s}"
             self._log(error_msg)
             if error_callback:
                 error_callback(error_msg)
@@ -297,8 +295,6 @@ class touchDetect:
         # move down until contact is detected
         status, result = self._move_until_contact(mm, smu, info, effective_max_distance)
         return status, result
-
-
 
     def move_to_contact(self, mm: dict, con: dict, smu: dict, manipulator_info: list[ManipulatorInfo]):
         """Moves the specified micromanipulators to contact with the sample.
@@ -443,10 +439,9 @@ class touchDetect:
             return (0, {"Error message": "OK"})
 
         except ThreadStopped as ts:
-            print("touchDETECT CAUGHT THREADSTOPPED EXCEPTION, ATTEMPTING TO STOP MOVEMENT AND CLEAN UP")
             raise ts  # re-raise to be caught by outer layers that handle thread stopping
         except Exception as e:
-            error_msg = f"Exception in move_to_contact: {str(e)}"
+            error_msg = f"Exception in move_to_contact: {e!s}"
             self._log(error_msg)
             return (2, {"Error message": "exception in move_to_contact", "exception": str(e)})
         finally:
@@ -547,8 +542,6 @@ class touchDetect:
             else:
                 self._log(f"Manipulator {info.mm_number} is contacting")
 
-
-
         return contact_status
 
     def _move_until_contact(self, mm: dict, smu: dict, manipulator_info: ManipulatorInfo, max_distance_to_move: float) -> tuple[int, dict]:
@@ -633,7 +626,6 @@ class touchDetect:
 
         return (0, {"Error message": f"SMU setup successful for manipulator {mi.mm_number}"})
 
-
     def _channels_off(self, con: dict, smu: dict):
         """Cleanup function to reset contact detection and SMU state."""
         con["deviceLoCheck"](False)
@@ -643,14 +635,11 @@ class touchDetect:
         con["deviceDisconnect"]()
         self._log("Cleanup completed successfully")
 
-
-
     def _channels_off_single_manipulator(self, con: dict, smu: dict):
         """Cleanup function for a single manipulator without disconnecting devices."""
         con["deviceLoCheck"](False)
         con["deviceHiCheck"](False)
         smu["smu_outputOFF"]()
-
 
     def verify_contact(self, mm: dict, smu: dict, con: dict, infos: list[ManipulatorInfo]) -> tuple[int, dict]:
         """Verifies contact for all manipulators."""

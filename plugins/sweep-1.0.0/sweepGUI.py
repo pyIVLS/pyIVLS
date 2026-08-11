@@ -1,16 +1,16 @@
+import copy
 import os
 import time
-import copy
-import numpy as np
-import pandas as pd
-from pathvalidate import is_valid_filename
 from datetime import datetime
 
+import numpy as np
+import pandas as pd
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
+from pathvalidate import is_valid_filename
+from plugin_components import CloseLockSignalProvider, LoggingHelper, PyIVLSReturnCode, filter_to_valid_methods, get_public_methods, public
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, Qt, pyqtSlot
 from PyQt6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
-from plugin_components import LoggingHelper, CloseLockSignalProvider, public, get_public_methods, filter_to_valid_methods, PyIVLSReturnCode
 from sweepCommon import create_file_header, create_sweep_reciepe
 from threadStopped import (
     ThreadStopped,
@@ -42,7 +42,7 @@ class sweepGUI(QObject):
     ########Signals
 
     def __init__(self):
-        super(sweepGUI, self).__init__()
+        super().__init__()
         self.verbose = True  # Enable verbose logging
         self.logger = LoggingHelper(self)
         self.closelock = CloseLockSignalProvider()
@@ -70,7 +70,7 @@ class sweepGUI(QObject):
         self._connect_signals()
         self.settings = {}
         self._create_plt()
-        self.logger.log_info("sweepGUI initialized.")
+        self.logger.log_info("Initialized.")
 
     ########Functions
 

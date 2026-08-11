@@ -1,31 +1,31 @@
-from math import e
-import os
-import numpy as np
-import cv2
 import copy
+import logging
+import os
 
-from PyQt6.QtCore import QObject, QEventLoop, QEvent, pyqtSignal
-from PyQt6 import uic
-from PyQt6.QtWidgets import QComboBox, QGraphicsScene, QGraphicsView
-from PyQt6.QtCore import Qt
-
+import cv2
+import numpy as np
+from affineMoveVisualization import AffineMoveVisualization
+from collisionDetection import CollisionDetector
 from plugin_components import (
-    public,
-    get_public_methods,
-    LoggingHelper,
     CloseLockSignalProvider,
     ConnectionIndicatorStyle,
     DependencyManager,
+    LoggingHelper,
+    get_public_methods,
+    public,
 )
-from collisionDetection import CollisionDetector
-from affineMoveVisualization import AffineMoveVisualization
+from PyQt6 import uic
+from PyQt6.QtCore import QEvent, QEventLoop, QObject, Qt, pyqtSignal
+from PyQt6.QtWidgets import QComboBox, QGraphicsScene, QGraphicsView
 from threadStopped import ThreadStopped
+
+logger = logging.getLogger(__name__)
 
 # TODO: Refactor to clean up collision detection code.
 
 HARDCODED_SPECTRO_NUM = 3  # FIXME: get this from somewhere.
 HARDCODED_SPECTRO_Z = 0
-HARDCODED_MANI_z = 21000 # default z 
+HARDCODED_MANI_z = 21000  # default z
 HARDCODED_MANI_OFFSET = 2000
 
 
@@ -213,7 +213,7 @@ class affineMoveGUI(QObject):
             except ValueError:
                 return None
         else:
-            print(f"No calibration found for manipulator {manipulator_idx} in settings.")
+            logger.info(f"No calibration found for manipulator {manipulator_idx} in settings.")
             return None
 
     def write_bounding_box_to_settings(self, manipulator_idx: int, bounding_box: list[tuple[float, float]]) -> None:
@@ -359,7 +359,7 @@ class affineMoveGUI(QObject):
             self._add_visual_overlays()
 
     def _populate_manipulator_combo_box(self, mm_funcs=None):
-        print("Populating manipulator combo box...")
+        logger.info("Populating manipulator combo box...")
         """Populate the manipulator combo box with available manipulators"""
         self.manipulator_combo_box.blockSignals(True)
 
@@ -976,7 +976,7 @@ class affineMoveGUI(QObject):
             self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
 
             num_manipulators = mm["mm_get_num_manipulators"]()
-            print(f"Number of manipulators detected: {num_manipulators}")
+            logger.info(f"Number of manipulators detected: {num_manipulators}")
             for i in range(1, num_manipulators + 1):
                 if self.get_calibration_from_settings(i) is None:
                     self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
@@ -1165,13 +1165,13 @@ class affineMoveGUI(QObject):
             self._preview_planned_sequence(safe_sequence)
 
             # move manipulator to safe z-levels
-            print(f"Safe movement sequence determined: {safe_sequence}")
-            print(f"safe sequence length: {len(safe_sequence)}")
-            print(f"moves dict: {moves_dict}")
-            print(f"moves dict length: {len(moves_dict)}")
+            logger.info(f"Safe movement sequence determined: {safe_sequence}")
+            logger.info(f"safe sequence length: {len(safe_sequence)}")
+            logger.info(f"moves dict: {moves_dict}")
+            logger.info(f"moves dict length: {len(moves_dict)}")
             man_list = moves_dict.keys()
             man_list = list(man_list)
-            status, state = self._mans_to_safe_z(currentIteration=currentIteration, man_list=man_list , mm=mm)
+            status, state = self._mans_to_safe_z(currentIteration=currentIteration, man_list=man_list, mm=mm)
 
             # Execute the moves in the safe sequence
             status, message = self.execute_move_list(safe_sequence)
@@ -1189,8 +1189,8 @@ class affineMoveGUI(QObject):
             self.logger.log_info("Movement thread stopped by user")
             raise e  # re-raise to to signal to seqbuilder
         except Exception as e:
-            self.logger.log_info(f"Error in loopingIteration: {str(e)}")
-            return [2, f"Error in looping iteration: {str(e)}"]
+            self.logger.log_info(f"Error in loopingIteration: {e!s}")
+            return [2, f"Error in looping iteration: {e!s}"]
 
     @public
     def set_gui_from_settings(self) -> None:
@@ -1322,29 +1322,29 @@ class affineMoveGUI(QObject):
         def _spectro_safe(mm):
             status, state = mm["mm_change_active_device"](HARDCODED_SPECTRO_NUM)
             if status != 0:
-                print(f"Failed to change active device to spectrometer manipulator {HARDCODED_SPECTRO_NUM}: {state.get('Error message', str(state))}")
+                logger.info(f"Failed to change active device to spectrometer manipulator {HARDCODED_SPECTRO_NUM}: {state.get('Error message', str(state))}")
                 return status, state
             # move spectrometer to its safe z-level
             status, state = mm["mm_move"](z=HARDCODED_SPECTRO_Z)
-            print(f"Moving spectrometer manipulator {HARDCODED_SPECTRO_NUM} to safe z-level {HARDCODED_SPECTRO_Z} for iteration {currentIteration}")
+            logger.info(f"Moving spectrometer manipulator {HARDCODED_SPECTRO_NUM} to safe z-level {HARDCODED_SPECTRO_Z} for iteration {currentIteration}")
             if status != 0:
                 return status, state
-                print(f"Failed to move spectrometer manipulator {HARDCODED_SPECTRO_NUM} to safe z-level {HARDCODED_SPECTRO_Z}: {state.get('Error message', str(state))}")
+                logger.info(f"Failed to move spectrometer manipulator {HARDCODED_SPECTRO_NUM} to safe z-level {HARDCODED_SPECTRO_Z}: {state.get('Error message', str(state))}")
             return status, state
-        
-        print(f"Moving manipulators to safe z-levels for iteration {currentIteration}. Manipulators to move: {man_list}")
-        print(f"list contains spectro manipulator {HARDCODED_SPECTRO_NUM}: {HARDCODED_SPECTRO_NUM in man_list}")
-        # always move spectro first if present. 
+
+        logger.info(f"Moving manipulators to safe z-levels for iteration {currentIteration}. Manipulators to move: {man_list}")
+        logger.info(f"list contains spectro manipulator {HARDCODED_SPECTRO_NUM}: {HARDCODED_SPECTRO_NUM in man_list}")
+        # always move spectro first if present.
         if HARDCODED_SPECTRO_NUM in man_list:
-            print(f"Moving spectrometer manipulator {HARDCODED_SPECTRO_NUM} to safe z-level {HARDCODED_SPECTRO_Z} for iteration {currentIteration}")
+            logger.info(f"Moving spectrometer manipulator {HARDCODED_SPECTRO_NUM} to safe z-level {HARDCODED_SPECTRO_Z} for iteration {currentIteration}")
             status, state = _spectro_safe(mm)
             if status != 0:
                 return status, state
-            
+
         # man list without spectro:
         man_list = [manip_idx for manip_idx in man_list if manip_idx != HARDCODED_SPECTRO_NUM]
-        print(f"Moving manipulators to safe z-levels for iteration {currentIteration}. Manipulators to move: {man_list}")
-        print(f"list contains spectro manipulator {HARDCODED_SPECTRO_NUM}: {HARDCODED_SPECTRO_NUM in man_list}")
+        logger.info(f"Moving manipulators to safe z-levels for iteration {currentIteration}. Manipulators to move: {man_list}")
+        logger.info(f"list contains spectro manipulator {HARDCODED_SPECTRO_NUM}: {HARDCODED_SPECTRO_NUM in man_list}")
 
         z_target_dict = {}
         for manip_idx in man_list:
@@ -1357,22 +1357,20 @@ class affineMoveGUI(QObject):
                     # if we are, dont offset to prevent upward drift over multiple iterations.
                     z_target_dict[manip_idx] = HARDCODED_MANI_z
                 else:
-                    # we are not at the starting z, so the manipulators have been moved to contact. 
+                    # we are not at the starting z, so the manipulators have been moved to contact.
                     # Just use a offset to reduce total movement time and maximize clearance.
                     z_target_dict[manip_idx] = pos[2] - HARDCODED_MANI_OFFSET  # smaller values are higher
 
-        print(f"Calculated target z-levels for manipulators for iteration {currentIteration}: {z_target_dict}")
-
+        logger.info(f"Calculated target z-levels for manipulators for iteration {currentIteration}: {z_target_dict}")
 
         for manip_idx, target_z in z_target_dict.items():
-            print(f"Moving manipulator {manip_idx} to safe z-level {target_z} for iteration {currentIteration}")
+            logger.info(f"Moving manipulator {manip_idx} to safe z-level {target_z} for iteration {currentIteration}")
             status, state = mm["mm_change_active_device"](manip_idx)
-            if status != 0:                
-                print(f"Failed to change active device to manipulator {manip_idx}: {state.get('Error message', str(state))}")
+            if status != 0:
+                logger.info(f"Failed to change active device to manipulator {manip_idx}: {state.get('Error message', str(state))}")
                 return status, state
             status, state = mm["mm_move"](z=target_z)
-            if status != 0:                
-                print(f"Failed to move manipulator {manip_idx} to safe z-level {target_z}: {state.get('Error message', str(state))}")
+            if status != 0:
+                logger.info(f"Failed to move manipulator {manip_idx} to safe z-level {target_z}: {state.get('Error message', str(state))}")
                 return status, state
         return 0, {"message": f"Successfully moved manipulators to safe z-levels for iteration {currentIteration}"}
-

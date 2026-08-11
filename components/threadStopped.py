@@ -1,9 +1,8 @@
 # thread stopped by exception for proper finalizing the job without using a stop flag to be checked all the time
 
 import ctypes
-import threading
 import sys
-
+import threading
 
 # Keep a single module object even if imported as either
 # `threadStopped` or `components.threadStopped`.

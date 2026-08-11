@@ -1,13 +1,16 @@
+import logging
+import math
 import os
-from threading import Lock
-import pyvisa
-import usbtmc
-import numpy as np
 import time
 from enum import Enum
-from typing import Optional
+from threading import Lock
+
+import numpy as np
+import pyvisa
+import usbtmc
 from pyvisa.resources import MessageBasedResource
-import math
+
+logger = logging.getLogger(__name__)
 
 
 # for mock connection
@@ -15,7 +18,7 @@ def readIVLS(address):
     try:
         return [0, np.genfromtxt(address, skip_header=44, delimiter=",")]
     except Exception as e:
-        print(f"Exception reading mock data file: {address}\nException: {e}")
+        logger.error(f"Exception reading mock data file: {address}\nException: {e}")
         return [-1, str(e)]
 
 
@@ -74,8 +77,8 @@ class BackendType(Enum):
 
 
 class Keithley2612B:
-    ke: Optional[MessageBasedResource] = None
-    k: Optional[usbtmc.Instrument] = None
+    ke: MessageBasedResource | None = None
+    k: usbtmc.Instrument | None = None
     mock_con: bool = False
     ####################################  threads
 
@@ -112,13 +115,13 @@ class Keithley2612B:
             elif self.backend == BackendType.MOCK.value:
                 if not self.mock_con:
                     raise ValueError("Keithley 2612B mock is not connected. Please connect first.")
-                print(f"MOCK write: {command}")
+                logger.info(f"MOCK write: {command}")
             else:
                 raise ValueError(f"Unknown backend: {self.backend}")
 
         except Exception as e:
             ##IRtodo#### mov to the log
-            print(f"Exception sending command: {command}\nException: {e}")
+            logger.error(f"Exception sending command: {command}\nException: {e}")
             ##IRtothink#### some exception handling should be implemented
             raise e
 
@@ -138,13 +141,13 @@ class Keithley2612B:
             elif self.backend == BackendType.MOCK.value:
                 if not self.mock_con:
                     raise ValueError("Keithley 2612B mock is not connected. Please connect first.")
-                print(f"MOCK query: {command}")
+                logger.info(f"MOCK query: {command}")
                 return "0"
             else:
                 raise ValueError(f"Unknown backend: {self.backend}")
         except Exception as e:
             ##IRtodo#### mov to the log
-            print(f"Exception querying command: {command}\nException: {e}")
+            logger.error(f"Exception querying command: {command}\nException: {e}")
             ##IRtothink#### some exception handling implemented
             raise e
 
@@ -199,8 +202,6 @@ class Keithley2612B:
             raise ValueError(f"Unknown backend: {self.backend}")
 
     def keithley_disconnect(self) -> None:
-        ##IRtodo#### move to log
-        # print("Disconnecting from Keithley 2612B")
 
         # CURRENTLY DOES NOTHING
 
@@ -299,7 +300,7 @@ class Keithley2612B:
         self.safewrite(f"{channel}.source.level{outputType} = {value}")
         print(f"Set {channel} output to {value} {outputType}")
 
-    def get_last_buffer_value(self, channel, readings=None) -> list[Optional[float]]:
+    def get_last_buffer_value(self, channel, readings=None) -> list[float | None]:
         """
         Args:
             channel (str): smua or smub
@@ -365,7 +366,7 @@ class Keithley2612B:
         """
         self.safewrite(f"{channel}.abort()")
 
-    def channelsON(self, source: Optional[str] = None, drain: Optional[str] = None) -> None:
+    def channelsON(self, source: str | None = None, drain: str | None = None) -> None:
         """
         switches on channels
         """
@@ -633,7 +634,7 @@ class Keithley2612B:
                 if not s["single_ch"]:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
-                print(f"Caught exception during keithley_run_sweep : {e}")
+                logger.error(f"Caught exception during keithley_run_sweep : {e}")
                 raise e
                 return 1
 
@@ -776,7 +777,7 @@ class Keithley2612B:
                         2 * s["integrationtime"] + s["postwait"] + nplc_s
                     )  # duration of the pulse in s, should be long enough to cover the measurement and postwait time for non-idealities in time synchronization
                 # Configure timer parameters to output a single pulseduration length pulse.
-                print(f"Calculated pulse duration: {pulseduration:.6f} s")
+                logger.info(f"Calculated pulse duration: {pulseduration:.6f} s")
                 self.safewrite(f"trigger.timer[1].delay = {pulseduration:.6f}")  # set duration of pulse in seconds
                 self.safewrite("trigger.timer[1].count = 1")
                 self.safewrite("trigger.timer[1].passthrough = false")  ## if true the timer will trigger immediately after run
@@ -787,7 +788,7 @@ class Keithley2612B:
                 if s["usedrain"]:
                     if s["spectro_check_after"]:
                         if s["use_timeafter"]:
-                            print(f"Using time after time: {s['timeafter']}")
+                            logger.info(f"Using time after time: {s['timeafter']}")
                             self.safewrite(f"trigger.timer[3].delay = {s['timeafter']:.6f}")
                             self.safewrite("trigger.timer[3].count = 1")
                             self.safewrite("trigger.timer[3].passthrough = false")
@@ -841,7 +842,7 @@ class Keithley2612B:
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
-                print(f"Caught exception during keithley_run_sweep : {e}")
+                logger.error(f"Caught exception during keithley_run_sweep : {e}")
                 raise e
                 return 1
 
