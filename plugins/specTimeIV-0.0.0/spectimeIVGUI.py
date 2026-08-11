@@ -12,20 +12,16 @@ This file should provide
 import copy
 import os
 import time
-import copy
-from pathvalidate import is_valid_filename
-from PyQt6 import uic
-from PyQt6.QtWidgets import QVBoxLayout, QFileDialog, QWidget
-from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
-from threadStopped import thread_with_exception, ThreadStopped
-from plugin_components import LoggingHelper, FileManager, DataOrder, PluginException, DependencyManager, load_widget, handle_ret
-import PyQt6.QtCore as Qt
-from typing import Any
-import pandas as pd
+from typing import Annotated, Any, Literal
 
-from typing import Annotated, Literal
-from annotated_types import Gt, Lt, Le, Ge
-from pydantic import BaseModel, DirectoryPath, FilePath, field_validator
+import pandas as pd
+from annotated_types import Gt
+from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
+from pathvalidate import is_valid_filename
+from plugin_components import DataOrder, DependencyManager, FileManager, LoggingHelper, PluginException, load_widget
+from pydantic import BaseModel, DirectoryPath, field_validator
+from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
+from threadStopped import ThreadStopped, thread_with_exception
 
 
 def s_to_ms(s: float) -> float:
@@ -36,14 +32,6 @@ def s_to_ms(s: float) -> float:
 def ms_to_s(ms: float) -> float:
     """Convert milliseconds to seconds."""
     return ms / 1000
-from typing import Annotated, Any, Literal
-
-from annotated_types import Gt
-from pathvalidate import is_valid_filename
-from plugin_components import DataOrder, DependencyManager, FileManager, LoggingHelper, PluginException, load_widget
-from pydantic import BaseModel
-from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
-from threadStopped import ThreadStopped, thread_with_exception
 
 
 class SpecTimeIVSettings(BaseModel):

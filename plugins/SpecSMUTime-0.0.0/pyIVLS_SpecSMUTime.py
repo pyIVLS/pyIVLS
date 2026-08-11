@@ -17,10 +17,10 @@ ivarad
 25.06.10
 """
 
-import os
 import configparser
-import pluggy
+import os
 
+import pluggy
 from specSMUTime_GUI import specSMUTime_GUI
 
 
