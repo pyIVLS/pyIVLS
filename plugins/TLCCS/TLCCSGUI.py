@@ -901,6 +901,7 @@ class TLCCS_GUI(QObject):
 
     @public
     def set_gui_from_settings(self):
+        print("todo: set gui from settings")
 
     ########Functions
     ########device functions
