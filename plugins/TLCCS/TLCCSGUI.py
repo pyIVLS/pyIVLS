@@ -56,6 +56,7 @@ from plugin_components import (
     LoggingHelper,
     get_public_methods,
     public,
+    ini_to_bool,
 )
 from PyQt6 import uic
 from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal, pyqtSlot
@@ -194,6 +195,7 @@ class TLCCS_GUI(QObject):
     closeLock = pyqtSignal(bool)
     connectionStateChanged = pyqtSignal(bool)  # signal to update state of connection
     data_recieved_signal = pyqtSignal(list)  # signal emitted when new data is received, list includes [wavelengths, intensities]
+    redraw_inputs = pyqtSignal()  # Emitted to request GUI input redraws
 
     # class variables
     #    filedelimeter = "\t"
@@ -278,6 +280,7 @@ class TLCCS_GUI(QObject):
         # https://stackoverflow.com/questions/11476267/segmentation-fault-while-emitting-signal-from-other-thread-in-qt
         self.connectionStateChanged.connect(self._GUIchange_deviceConnected)
         self.data_recieved_signal.connect(self._on_data_recieved)
+        self.redraw_inputs.connect(self._redraw_inputs)
 
     def _check_preview_running(self, func_name: str) -> bool:
         """Check if preview is running and return error if it is.
@@ -680,8 +683,7 @@ class TLCCS_GUI(QObject):
         Args:
             plugin_info (dict):  dictionary with settings obtained from plugin_data in pyIVLS_*_plugin
         """
-        ##settings are not initialized here, only GUI
-        ## i.e. no settings checks are here. Practically it means that anything may be used for initialization (var types still should be checked), but functions should not work if settings are not OK
+        """
         integration_time_ms = int(float(plugin_info["integrationtime"]) * 1000)
         self.settingsWidget.lineEdit_Integ.setText(str(integration_time_ms))
         self.log_verbose(f"Initializing GUI with integration time: {integration_time_ms} ms")
@@ -701,8 +703,9 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.lineEdit_filename.setText(plugin_info["filename"])
         self.settingsWidget.lineEdit_sampleName.setText(plugin_info["samplename"])
         self.settingsWidget.lineEdit_comment.setText(plugin_info["comment"])
-
+        """
         self.setSettings(plugin_info)  # set settings dict from plugin_info for internal use
+        self.redraw_inputs.emit()  # emit signal to redraw GUI inputs based on settings dict
 
     def _getAddress(self):
         address = self.settingsWidget.lineEdit_path.text()
@@ -891,7 +894,7 @@ class TLCCS_GUI(QObject):
             self.settings["externaltrigger"] = False
         self.settings["usecorrection"] = self._parse_spectrumCorrection()
         # duplicate value for spectrum correction since i don't want to break anything now. This is used to save the value to the ini.
-
+        self.logger.log_debug(f"parsed settings from GUI: {self.settings}")
         return (0, self.settings)
 
     @public
@@ -901,7 +904,45 @@ class TLCCS_GUI(QObject):
 
     @public
     def set_gui_from_settings(self):
-        print("todo: set gui from settings")
+        """
+        Sets the GUI elements to reflect the current settings.
+        """
+        self.redraw_inputs.emit()
+
+    @pyqtSlot()
+    def _redraw_inputs(self):
+        """
+        integrationtime = 0.01
+        externaltrigger = False
+        usecorrection = False
+        address = /home/ivls/pyIVLS_0.1.0/pyIVLS/plugins/spec_dummy
+        filename = testSpectrum
+        comment = Some very long comment
+        samplename = test sample
+        integrationtimetype = auto
+        useintegrationtimeguess = True
+        saveattempts_check = True
+        """
+
+        s = self.settings
+        sw = self.settingsWidget
+        integ_s = float(s["integrationtime"])
+        integ_ms = int(integ_s * 1000)
+        sw.lineEdit_Integ.setText(str(integ_ms))
+        self.logger.log_debug(f"Redrawing GUI inputs: integration time set to {integ_ms} ms")
+        sw.extTriggerCheck.setChecked(ini_to_bool(s["externaltrigger"]))
+        self.logger.log_debug(f"Redrawing GUI inputs: external trigger set to {ini_to_bool(s['externaltrigger'])} from original value {s['externaltrigger']}")
+        sw.correctionCheck.setChecked(ini_to_bool(s["usecorrection"]))
+        sw.lineEdit_path.setText(s["address"])
+        sw.lineEdit_filename.setText(s["filename"])
+        sw.lineEdit_comment.setText(s["comment"])
+        sw.lineEdit_sampleName.setText(s["samplename"])
+        sw.getIntegrationTime_combo.setCurrentText(s["integrationtimetype"])
+        sw.useIntegrationTimeGuess_check.setChecked(ini_to_bool(s["useintegrationtimeguess"]))
+        sw.saveAttempts_check.setChecked(ini_to_bool(s["saveattempts_check"]))
+
+        self._integrationTime_mode_changed()  # update GUI elements based on integration time mode
+        self._correctionChanged(0)  # update GUI elements based on spectrum correction
 
     ########Functions
     ########device functions

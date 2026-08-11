@@ -26,6 +26,8 @@ from PyQt6 import uic
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
 
+from typing import Any
+
 
 class specSMU_GUI(QWidget):
     """GUI implementation"""
@@ -49,6 +51,12 @@ class specSMU_GUI(QWidget):
 
     def _log_verbose(self, message):
         self.logger.log_debug(message)
+
+    @property
+    def settingsWidget(self) -> Any:
+        if self._settingsWidget is None:
+            raise RuntimeError("Settings widget has not been initialized yet.")
+        return self._settingsWidget
 
     ########Functions
     def __init__(self):
@@ -82,7 +90,7 @@ class specSMU_GUI(QWidget):
             ],
         }
         # Load the settings based on the name of this file.
-        self.settingsWidget = uic.loadUi(self.path + "specSMU_settingsWidget.ui")
+        self._settingsWidget = uic.loadUi(self.path + "specSMU_settingsWidget.ui")
 
         self.settings = {}
         self.last_integration_time: float | None = None  # s
@@ -504,6 +512,14 @@ class specSMU_GUI(QWidget):
             self.settings.update(dependency_settings)
             self.smu_settings = self.settings["smu_settings"]
             self.spectrometer_settings = self.settings["spectrometer_settings"]
+
+        # check if the spectrometer is correctly set up for external trigger if the mode is HW trigger
+        if self.settings["mode"] == "hw trigger":
+            if not self.spectrometer_settings["externaltrigger"]:
+                return [1, {"Error message": "Spectrometer is not set up for external trigger while SpecSMU mode is HW trigger"}]
+        else:
+            if self.spectrometer_settings["externaltrigger"]:
+                return [1, {"Error message": "Spectrometer is set up for external trigger while SpecSMU mode is not HW trigger"}]
 
         self._log_verbose("Exiting parse_settings_widget with success")
         return [0, self.settings]

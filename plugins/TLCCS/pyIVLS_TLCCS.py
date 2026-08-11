@@ -12,8 +12,8 @@ class pyIVLS_TLCCS_plugin:
     hookimpl = pluggy.HookimplMarker("pyIVLS")
 
     def __init__(self):
-    #    self.plugin_name = "TLCCS"
-    #    self.plugin_function = "spectrometer"
+        #    self.plugin_name = "TLCCS"
+        #    self.plugin_function = "spectrometer"
         # iterate current directory to find the .ini file
         path = os.path.dirname(__file__)
         for file in os.listdir(path):
@@ -109,5 +109,5 @@ class pyIVLS_TLCCS_plugin:
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
         if args is None or args.get("function") == self.metadata["function"]:
             status, settings = self.spectrometerGUI.parse_settings_widget()
+            print(f"get_plugin_settings: {self.metadata['name']}, status: {status}, settings: {settings}")
             return (self.metadata["name"], status, settings)
-
