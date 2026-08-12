@@ -47,7 +47,7 @@ class pyIVLS_mainWindow(QtWidgets.QMainWindow):
             reply = QtWidgets.QMessageBox.question(
                 self,
                 "Confirm Close",
-                f"Are you sure you want to close the application? The following plugins are still active: {self.blocking}",
+                f"Are you sure you want to close the application? The following plugins are still active: {', '.join(self.blocking)}.",
                 QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
                 QtWidgets.QMessageBox.StandardButton.No,
             )
