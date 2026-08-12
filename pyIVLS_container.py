@@ -98,8 +98,10 @@ class pyIVLS_container(QObject):
         """
         # load the config file
         plugin_address, ini_path, plugin_name = add_ini
+        logger.debug(f"Importing plugin {plugin_name} from {plugin_address} with ini file {ini_path}")
         new_config = ConfigParser()
         new_config.read(ini_path)
+        logger.debug(f"New config sections: {new_config.sections()}")
         section_plugin = None
         section_settings = None
         new_section = None
@@ -115,9 +117,13 @@ class pyIVLS_container(QObject):
                 section_plugin = section
                 new_section = f"{plugin_name}_plugin"
                 new_config[section]["address"] = plugin_address
+                logger.debug(f"Plugin {plugin_name} address set to {plugin_address}")
             elif section == "settings":
                 section_settings = section
                 new_section_settings = f"{plugin_name}_settings"
+                logger.debug(f"Plugin {plugin_name} has settings section {new_section_settings}")
+            else:
+                logger.warning(f"Unknown section {section} in plugin ini file {ini_path}. Check the structure of the ini file.")
 
         if section_plugin is None or new_section is None:
             self.emit_log(f"Plugin {plugin_name} does not have a plugin section.")
@@ -127,7 +133,6 @@ class pyIVLS_container(QObject):
         new_config[section_plugin]["load"] = "False"  # default to not loaded
         new_config[section_plugin]["hidden"] = "True"  # default to not loaded in the widget
 
-        # check that the naming is correct
         module_name = f"pyIVLS_{plugin_name}"
         class_name = f"pyIVLS_{plugin_name}_plugin"
 
@@ -137,15 +142,18 @@ class pyIVLS_container(QObject):
             module = importlib.import_module(module_name)
             getattr(module, class_name)
             # if the plugin throws no errors here, it's probably a valid plugin.
+            logger.debug(f"Plugin {plugin_name} imported successfully from {plugin_address}.")
 
             # update the section in the config file
             if self.config.has_section(new_section):
                 # update the section
                 for key, value in new_config[section_plugin].items():
                     self.config[new_section][key] = value
+                    logger.debug(f"Updated {new_section} in config with {key}={value}")
             else:
                 # add the section
                 self.config.add_section(new_section)
+                logger.debug(f"Added new section {new_section} to config.")
                 for key, value in new_config[section_plugin].items():
                     self.config[new_section][key] = value
 
@@ -155,11 +163,13 @@ class pyIVLS_container(QObject):
                     # update the section
                     for key, value in new_config[section_settings].items():
                         self.config[new_section_settings][key] = value
+                        logger.debug(f"Updated {new_section_settings} in config with {key}={value}")
                 else:
                     # add the section
                     self.config.add_section(new_section_settings)
                     for key, value in new_config[section_settings].items():
                         self.config[new_section_settings][key] = value
+                        self.emit_log(f"Added new section {new_section_settings} to config with {key}={value}")
 
             self.emit_log(f"Plugin {plugin_name} added to config file.")
             self.available_plugins_signal.emit(self.get_plugin_dict())
