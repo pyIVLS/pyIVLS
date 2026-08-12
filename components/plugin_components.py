@@ -31,6 +31,7 @@ This file includes:
 
 """
 
+import inspect
 import logging
 import os
 import sys
@@ -168,7 +169,7 @@ def get_public_methods(obj) -> dict:
     Returns:
         Dict of method names to their callable objects
     """
-    return {name: getattr(obj, name) for name in dir(obj) if callable(getattr(obj, name, None)) and getattr(getattr(obj, name, None), "_is_public", False)}
+    return {name: getattr(obj, name) for name in dir(obj) if getattr(inspect.getattr_static(obj, name, None), "_is_public", False)}
 
 
 def filter_to_valid_methods(function_dict: dict[str, Any], required_functions: dict[str, list]) -> tuple[bool, list[str]]:
