@@ -169,7 +169,7 @@ class pyIVLS_container(QObject):
                     self.config.add_section(new_section_settings)
                     for key, value in new_config[section_settings].items():
                         self.config[new_section_settings][key] = value
-                        self.emit_log(f"Added new section {new_section_settings} to config with {key}={value}")
+                        logger.debug(f"Added new section {new_section_settings} to config with {key}={value}")
 
             self.emit_log(f"Plugin {plugin_name} added to config file.")
             self.available_plugins_signal.emit(self.get_plugin_dict())
