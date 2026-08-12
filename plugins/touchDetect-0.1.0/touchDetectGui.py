@@ -115,7 +115,7 @@ class touchDetectGUI:
         status, state = result
         if status != 0:
             self.logger.log_warn(f"Dependency settings invalid: {state}")
-            raise ValueError(f"Dependency settings invalid: {state}")
+            return (None, None, None)
         self.settings.update(state)
         func_dict = self.dm.function_dict
         mm_functions = func_dict["micromanipulator"]

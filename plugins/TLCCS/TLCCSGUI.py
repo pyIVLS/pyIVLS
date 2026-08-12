@@ -48,6 +48,7 @@ import time
 
 import numpy as np
 import TLCCS_const as const
+from mock_tlccs import MockCCSDRV
 from MplCanvas import MplCanvas
 from pathvalidate import is_valid_filename
 from plugin_components import (
@@ -55,11 +56,11 @@ from plugin_components import (
     FileManager,
     LoggingHelper,
     get_public_methods,
-    public,
     ini_to_bool,
+    public,
 )
 from PyQt6 import uic
-from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
 from TLCCS import CCSDRV
 from worker_thread import WorkerThread
@@ -220,10 +221,23 @@ class TLCCS_GUI(QObject):
             raise RuntimeError("Preview widget not initialized.")
         return self._previewWidget
 
+    @property
+    def drv(self):
+        self.logger.log_debug(f"Accessing driver with backend: {self.settings.get('backend', 'unknown')}")
+        if self.settings["backend"] == "usb":
+            return self._drv
+        elif self.settings["backend"] == "mock":
+            self.logger.log_info("Using mock driver for testing.")
+            return self._vir_drv
+        else:
+            raise ValueError(f"Unknown backend: {self.settings['backend']}")
+
     def notify_user(self, message: str):
-        """Utility to create popup and corresponding log entry for events that should be clearly visible"""
+        """Utility to create popup and corresponding log entry for events that should be clearly visible
+        This should not be used for notifications which may occur during sequence operation? Those are notified
+        by the seqbuilder"""
         self.logger.log_info(message)
-        self.logger.info_popup(message)
+        # self.logger.info_popup(message)
 
     def log_verbose(self, message: str) -> None:
         self.logger.log_info(message)
@@ -239,7 +253,14 @@ class TLCCS_GUI(QObject):
         self._previewWidget = uic.loadUi(self.path + "TLCCS_MDIWidget.ui")  # type: ignore
 
         # create the driver
-        self.drv = CCSDRV()
+        self._drv = CCSDRV()
+        self._vir_drv = MockCCSDRV()
+
+        # fill combobox
+
+        backends = ["usb", "mock"]
+        for backend in backends:
+            self.settingsWidget.backend_Combo.addItem(backend)
 
         # create fm for saving files
         self.fm = FileManager()
@@ -258,10 +279,12 @@ class TLCCS_GUI(QObject):
         # load correction file and init settings
         correction_file = r"SC175_correction"
         self.correction = np.loadtxt(self.path + correction_file)
+
         self.settings = {}
 
         # logger
         self.logger = LoggingHelper(self)
+        self.logger.log_debug("initialized")
 
         # Thread-based preview
         self._preview_thread = None
@@ -333,14 +356,11 @@ class TLCCS_GUI(QObject):
     @pyqtSlot(list)
     def _on_data_recieved(self, payload: list):
         """Slot for data_recieved_signal. Payload: [wavelengths, intensities]."""
-        try:
-            if not isinstance(payload, (list, tuple)) or len(payload) != 2:
-                return
-            wavelengths, intensities = payload
-            # render with existing logic
-            self._render_preview(intensities)
-        except Exception as e:
-            self.log_verbose(f"Failed updating preview from signal: {e}")
+        if not isinstance(payload, (list, tuple)) or len(payload) != 2:
+            return
+        _, intensities = payload
+        # render with existing logic
+        self._render_preview(intensities)
 
     @pyqtSlot(list)
     def _on_preview_data_ready(self, payload: list):
@@ -373,7 +393,7 @@ class TLCCS_GUI(QObject):
             self.preview_running = False
             if self._preview_thread is not None and self._preview_thread.isRunning():
                 self._preview_thread.stop_preview()
-
+            self.logger.log_debug("Preview thread stopped.")
             statuses = self.drv.get_device_status()
             if "SCAN_TRANSFER" in statuses:
                 self.log_verbose("Reading leftover data after stopping preview: statuses: " + str(statuses))
@@ -401,6 +421,7 @@ class TLCCS_GUI(QObject):
             self.settingsWidget.saveButton.setEnabled(False)
 
             # Start continuous scan
+            self.logger.log_debug("Starting continuous scan for preview.")
             self.drv.start_scan_continuous()
 
             # Create and start preview thread
@@ -478,6 +499,7 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.saveButton.setEnabled(False)
         self.closeLock.emit(True)
         # check if get time may be used (spectrometer IDLE)
+        self.log_verbose("Checking device status before auto integration time calculation.")
         statuses = self.drv.get_device_status()
         if "SCAN_IDLE" in statuses:
             self._gettime_preview_status = preview_status
@@ -736,6 +758,9 @@ class TLCCS_GUI(QObject):
         self.settingsWidget.disconnectButton.setEnabled(status)
         self.settingsWidget.connectButton.setEnabled(not status)
 
+        # disable the backend combobox when connected to prevent changing the backend while connected
+        self.settingsWidget.backend_Combo.setEnabled(not status)
+
     def _enableSaveButton(self):
         if not self.lastspectrum:
             self.settingsWidget.saveButton.setEnabled(False)
@@ -844,7 +869,8 @@ class TLCCS_GUI(QObject):
             0 - no error
             ~0 - error (add error code later on if needed)
         """
-        self.settings = {}
+        # commented out since we should not reset the settings dict
+        # self.settings = {}
         [status, info] = self._parse_settings_autoTime()
         if status:
             return (status, info)
@@ -894,6 +920,7 @@ class TLCCS_GUI(QObject):
             self.settings["externaltrigger"] = False
         self.settings["usecorrection"] = self._parse_spectrumCorrection()
         # duplicate value for spectrum correction since i don't want to break anything now. This is used to save the value to the ini.
+        self.settings["backend"] = self.settingsWidget.backend_Combo.currentText()
         self.logger.log_debug(f"parsed settings from GUI: {self.settings}")
         return (0, self.settings)
 
@@ -901,6 +928,7 @@ class TLCCS_GUI(QObject):
     def setSettings(self, settings):  #### settings from external call
         self.settings = {}
         self.settings = copy.deepcopy(settings)
+        self.logger.log_debug(f"Settings set from external call: {self.settings}")
 
     @public
     def set_gui_from_settings(self):
@@ -940,6 +968,7 @@ class TLCCS_GUI(QObject):
         sw.getIntegrationTime_combo.setCurrentText(s["integrationtimetype"])
         sw.useIntegrationTimeGuess_check.setChecked(ini_to_bool(s["useintegrationtimeguess"]))
         sw.saveAttempts_check.setChecked(ini_to_bool(s["saveattempts_check"]))
+        sw.backend_Combo.setCurrentText(s["backend"])
 
         self._integrationTime_mode_changed()  # update GUI elements based on integration time mode
         self._correctionChanged(0)  # update GUI elements based on spectrum correction
@@ -960,7 +989,7 @@ class TLCCS_GUI(QObject):
         if integrationTime is not None and not isinstance(integrationTime, bool):
             self.settings["integrationtime"] = integrationTime
 
-        print(f"Connecting to spectrometer with integration time: {self.settings['integrationtime']} s")
+        self.logger.log_debug(f"Connecting to spectrometer with integration time: {self.settings['integrationtime']} seconds")
         status = self.drv.open(const.CCS175_VID, const.CCS175_PID, self.settings["integrationtime"])
         if not status:
             return (4, {"Error message": "Can not connect to spectrometer"})
@@ -974,7 +1003,7 @@ class TLCCS_GUI(QObject):
         # ensure preview is stopped before closing device
         if self.preview_running:
             self._previewAction()
-
+        self.logger.log_debug("Disconnecting from spectrometer.")
         self.drv.close()
         # Notify GUI about successful disconnection
         self.connectionStateChanged.emit(False)
@@ -984,7 +1013,7 @@ class TLCCS_GUI(QObject):
     def spectrometerSetIntegrationTime(self, integrationTime):
         if self._check_preview_running("spectrometerSetIntegrationTime"):
             return (1, {"Error message": "Cannot set integration time while preview is running"})
-
+        self.logger.log_debug(f"Setting integration time to {integrationTime} seconds.")
         self.drv.set_integration_time(integrationTime)
         # single scan to make sure the time is correctly set
         self.spectrometerStartScan()
@@ -995,6 +1024,7 @@ class TLCCS_GUI(QObject):
     @public
     def spectrometerGetIntegrationTime(self):
         # return current integration time in seconds
+        self.logger.log_debug("Getting current integration time from spectrometer.")
         intTime = self.drv.get_integration_time()
         return [0, intTime]
 
@@ -1005,6 +1035,7 @@ class TLCCS_GUI(QObject):
 
         # arm the spectrometer to perform a scan on external trigger
         try:
+            self.logger.log_debug("Triggering external scan on spectrometer.")
             self.drv.start_scan_ext_trigger()
             return [0, "OK"]
         except Exception as e:
@@ -1016,6 +1047,7 @@ class TLCCS_GUI(QObject):
             return (1, {"Error message": "Cannot start scan while preview is running"})
 
         """Starts a spectro scan"""
+        self.logger.log_debug("Starting spectrometer scan.")
         status = self.drv.get_device_status()
         if "SCAN_IDLE" not in status:
             return [0, {"Error message": "scan is already running"}]
@@ -1033,6 +1065,7 @@ class TLCCS_GUI(QObject):
         returns:
             tuple: (status, info)
         """
+        self.logger.log_debug("Starting external trigger spectrometer scan.")
         status = self.drv.get_device_status()
         if "SCAN_EXT_TRIGGER" in status:
             return [0, {"Error message": "External trigger scan is already running"}]
@@ -1049,12 +1082,12 @@ class TLCCS_GUI(QObject):
         iterations = 0
         MAX_ITER = 5
         while "SCAN_TRANSFER" not in self.drv.get_device_status():
-            self.log_verbose("Waiting for scan to finish.")
+            self.logger.log_debug("Waiting for scan to finish.")
             time.sleep(self.settings["integrationtime"])
             iterations += 1
             if iterations > MAX_ITER:
                 raise TimeoutError("Timeout waiting for scan to finish.")
-
+        self.logger.log_debug("Scan finished, retrieving spectrum data.")
         data = self.drv.get_scan_data()
         # Emit data for preview update: [wavelengths, intensities]
         self.data_recieved_signal.emit([self.correction[:, 0], data])
@@ -1066,6 +1099,7 @@ class TLCCS_GUI(QObject):
             return (1, {"Error message": "Cannot get scan while preview is running"})
 
         """Atomically get a spectrum to prevent weird behavior when a scan is already running."""
+        self.logger.log_debug("Starting atomic scan to retrieve spectrum data.")
         self.drv.start_scan()
         data = self.drv.get_scan_data()
         # Emit data for preview update: [wavelengths, intensities]
@@ -1074,6 +1108,7 @@ class TLCCS_GUI(QObject):
 
     @public
     def spectrometerGetStatus(self):
+        self.logger.log_debug("Getting spectrometer status.")
         return 0, self.drv.get_device_status()
 
     ########Functions
@@ -1088,7 +1123,7 @@ class TLCCS_GUI(QObject):
                 {"Error message": "File already exists at the specified address."},
             )
         fileheader = self.fm.create_spectrometer_header(varDict, separator=filedelimeter)
-        self.log_verbose(f"Creating file at {address} with data shape {data.shape}")
+        self.logger.log_debug(f"Creating file at {address} with data shape {data.shape}")
         np.savetxt(
             address,
             list(zip(self.correction[:, 0], data)),

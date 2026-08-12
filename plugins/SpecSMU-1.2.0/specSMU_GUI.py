@@ -19,14 +19,13 @@ ivarad
 import copy
 import os
 import time
+from typing import Any
 
 import numpy as np
 from plugin_components import DependencyManager, LoggingHelper
 from PyQt6 import uic
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
-
-from typing import Any
 
 
 class specSMU_GUI(QWidget):

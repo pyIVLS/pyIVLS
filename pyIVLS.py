@@ -9,6 +9,10 @@ sys.path.append(dirname(__file__) + sep + "components" + sep)
 import logging
 from logging.handlers import RotatingFileHandler
 
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
+logging.getLogger("PyQt6").setLevel(logging.WARNING)
+logging.getLogger("pyvisa").setLevel(logging.WARNING)
+
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot
 
@@ -16,6 +20,7 @@ from pyIVLS_container import pyIVLS_container
 from pyIVLS_GUI import pyIVLS_GUI
 
 format = logging.Formatter("%(asctime)s : %(name)s : %(levelname)s : %(message)s")
+
 
 # Create file handler (logs everything)
 file_handler = RotatingFileHandler("pyIVLS.log", maxBytes=1024 * 1024, backupCount=2)

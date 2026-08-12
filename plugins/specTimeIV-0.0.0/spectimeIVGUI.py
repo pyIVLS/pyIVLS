@@ -333,7 +333,7 @@ class specTimeIVGUI:
             self.settingsWidget.stopTimerCheckBox.setChecked(False)
 
         # dump to dict so that old logic works.
-        valid_settings = valid.model_dump()
+        valid_settings = m.model_dump()
 
         # fill comboboxes with available deps.
         self.settingsWidget.smuBox.clear()
