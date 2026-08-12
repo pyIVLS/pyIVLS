@@ -3,7 +3,7 @@ import re
 from os.path import dirname, sep
 
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QFileDialog
 
@@ -18,9 +18,29 @@ logger = logging.getLogger(__name__)
 
 
 class pyIVLS_GUI(QObject):
-    ############################### GUI functions
+    def __init__(self):
+        super().__init__()
 
-    ############################### Signals
+        self.path = dirname(__file__) + sep
+        self._blocking_plugins = set()  # Track plugins that block closure for user visibility
+        self.window = pyIVLS_mainWindow(self.path)
+        self.pluginloader = pyIVLS_pluginloader(self.path)
+        self.seqBuilder = pyIVLS_seqBuilder(self.path)
+        icon_path = self.path + "components" + sep + "icon.png"
+        self.window.setWindowIcon(QIcon(icon_path))
+
+        self.setSeqBuilder()
+
+        self.window.actionPlugins.triggered.connect(self.actionPlugins)
+        self.window.actionSequence_builder.triggered.connect(self.actionSequence_builder)
+        self.window.menuShow.aboutToShow.connect(self.action_MDIShow_to_open)
+        self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
+        self.window.actionRead_config_file.triggered.connect(self.action_read_config_file)
+        self.window.actionExport_config_file.triggered.connect(self.action_export_config_file)
+        self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
+        self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)
+
+        self.initial_widget_state = {}
 
     # signal plugincontainer to read new config file
     import_config_signal = pyqtSignal(str)
@@ -29,14 +49,13 @@ class pyIVLS_GUI(QObject):
     ############################### Slots
     @pyqtSlot(str)
     def show_message(self, str):
-        msg = QtWidgets.QMessageBox()  # cannot use parent = self.window, because the message simply does not work then ????
-        msg.setText(str)
-        msg.setWindowTitle("Warning")
-        msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-        msg.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowShadeButtonHint | Qt.WindowType.WindowStaysOnTopHint)
-        msg.raise_()
-        msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
-        msg.exec()
+        QtWidgets.QMessageBox.information(
+            self.window,
+            "Information",
+            str,
+            QtWidgets.QMessageBox.StandardButton.Ok,
+            QtWidgets.QMessageBox.StandardButton.Ok,
+        )
 
     @pyqtSlot(str)
     def addDataLog(self, message: str):
@@ -67,14 +86,6 @@ class pyIVLS_GUI(QObject):
             # Default to info if no flag is found
             logger.info(message)
 
-    @pyqtSlot()
-    def reactClose(self):
-        if self._blocking_plugins:
-            plugin_list = ", ".join(sorted(self._blocking_plugins))
-            self.show_message(f"Cannot close: The following plugins are still active: {plugin_list}. Stop running processes and disconnect devices before closing.")
-        else:
-            self.show_message("Stop running processes and disconnect devices before close")
-
     def setCloseLock(self, value, plugin_name=None):
         # Track which plugins are blocking closure
         if plugin_name:
@@ -89,7 +100,7 @@ class pyIVLS_GUI(QObject):
 
         # reverted closelock, since plugins return True when they are not ready to close
         any_blocked = len(self._blocking_plugins) > 0
-        self.window.setCloseOK(not any_blocked)
+        self.window.setCloseOK(not any_blocked, self._blocking_plugins)
         logger.debug(f"Current blocking plugins: {list(self._blocking_plugins)}, Close allowed: {not any_blocked}")
 
     @pyqtSlot()
@@ -188,7 +199,6 @@ class pyIVLS_GUI(QObject):
         default_width = 400  # Default width for MDI widgets
         default_height = 300  # Default height for MDI widgets
         vertical_spacing = 30  # Spacing between stacked widgets
-        # FIXME: Have a hard think on wheter a fixed size is good or not
         for index, (name, widget) in enumerate(widgets.items()):
             if name not in subwindow_names:
                 subwindow = pyIVLS_mdiWindow(self.window.mdiArea)
@@ -222,28 +232,3 @@ class pyIVLS_GUI(QObject):
         if isinstance(dock_widget, QtWidgets.QTabWidget):
             dock_widget.clear()  # Clear all tabs
         self.window.dockWidget.setWidget(None)
-
-    def __init__(self):
-        super().__init__()
-
-        self.path = dirname(__file__) + sep
-        self._blocking_plugins = set()  # Track plugins that block closure for user visibility
-        self.window = pyIVLS_mainWindow(self.path)
-        self.pluginloader = pyIVLS_pluginloader(self.path)
-        self.seqBuilder = pyIVLS_seqBuilder(self.path)
-        icon_path = self.path + "components" + sep + "icon.png"
-        self.window.setWindowIcon(QIcon(icon_path))
-
-        self.setSeqBuilder()
-
-        self.window.actionPlugins.triggered.connect(self.actionPlugins)
-        self.window.actionSequence_builder.triggered.connect(self.actionSequence_builder)
-        self.window.menuShow.aboutToShow.connect(self.action_MDIShow_to_open)
-        self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
-        self.window.actionRead_config_file.triggered.connect(self.action_read_config_file)
-        self.window.actionExport_config_file.triggered.connect(self.action_export_config_file)
-        self.window.closeSignal.connect(self.reactClose)
-        self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
-        self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)
-
-        self.initial_widget_state = {}

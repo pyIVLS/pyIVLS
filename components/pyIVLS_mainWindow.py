@@ -1,8 +1,12 @@
+import logging
+
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QCloseEvent
 
 from components.pyIVLS_dockWindow import pyIVLS_dockWindow
+
+logger = logging.getLogger(__name__)
 
 
 class pyIVLS_mainWindow(QtWidgets.QMainWindow):
@@ -27,17 +31,40 @@ class pyIVLS_mainWindow(QtWidgets.QMainWindow):
         menuShow.addMenu(self.mdiWindowsMenu)
 
         self.closeOK = True
+        self.blocking = set()  # Initialize blocking as an empty set
 
-    def setCloseOK(self, value):
+    def setCloseOK(self, value: bool, blocking: set | None = None):
         self.closeOK = value
+        if blocking is not None:
+            self.blocking = blocking
 
     def closeEvent(self, a0: QCloseEvent | None):
-        if self.closeOK:
+
+        logger.debug(f"closeEvent called with closeOK={self.closeOK}")
+        # ask for confirmation if closeOK is False
+        if not self.closeOK:
+            logger.debug("Close not allowed, asking for confirmation.")
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                "Confirm Close",
+                f"Are you sure you want to close the application? The following plugins are still active: {self.blocking}",
+                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+                QtWidgets.QMessageBox.StandardButton.No,
+            )
+            if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                logger.debug("User confirmed close, setting closeOK to True and accepting the event.")
+                self.closeOK = True
+                self.seqBuilder_dockWidget.setCloseLock(False)
+                self.dockWidget.setCloseLock(False)
+                if a0:
+                    a0.accept()
+            else:
+                logger.debug("User canceled close, ignoring the event.")
+                if a0:
+                    a0.ignore()
+        else:
+            logger.debug("Closing main window, setting closeLock to False for dock widgets.")
             self.seqBuilder_dockWidget.setCloseLock(False)
             self.dockWidget.setCloseLock(False)
             if a0:
                 a0.accept()
-        else:
-            self.closeSignal.emit()
-            if a0:
-                a0.ignore()
