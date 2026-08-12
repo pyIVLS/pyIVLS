@@ -13,8 +13,9 @@ from plugin_components import (
 from PyQt6 import QtCore, QtWidgets, uic
 from PyQt6.QtCore import QObject, pyqtSlot
 from serial import SerialException
-from Sutter import Mpc325
+from plugins.Sutter.Sutter import Mpc325
 from threadStopped import ThreadStopped
+from virtual import VirtualMpc325
 
 """
 From readme:
