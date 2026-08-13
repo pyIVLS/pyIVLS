@@ -90,6 +90,8 @@ class AffineGUI(QObject):
         # connect gui update signal
         self.gui_update_signal.connect(self._gui_update)
 
+        self.pointName.setText(self.get_next_point_name())
+
     @property
     def function_dict(self):
         return self.dm.function_dict
@@ -200,9 +202,11 @@ class AffineGUI(QObject):
         # required num points reached
         if len(self.temp_points) == self.pointCount.value():
             # add points to list widget
-            name = self.pointName.text() if self.pointName.text() != "" else f"Point set {self.definedPoints.count() + 1}"
+            name = self.pointName.text() if self.pointName.text() != "" else self.get_next_point_name()
+            # update the pointName input widget to the next default name for convenience
             self.update_list_widget(self.temp_points, name)
             self.temp_points = []
+            self.pointName.setText(self.get_next_point_name())
             # refresh display to show only selected sets (no temp points)
             # self._refresh_left_points_display()
 
@@ -221,12 +225,14 @@ class AffineGUI(QObject):
             rows = sorted([self.definedPoints.row(it) for it in self.definedPoints.selectedItems()], reverse=True)
             for r in rows:
                 self.definedPoints.takeItem(r)
+            self.pointName.setText(self.get_next_point_name())
 
         def rename_first_selected():
             items = self.definedPoints.selectedItems()
             if not items:
                 return
             items[0].setText("New name")
+            self.pointName.setText(self.get_next_point_name())
 
         if self.definedPoints.itemAt(pos) is None and not self.definedPoints.selectedItems():
             return
@@ -291,6 +297,8 @@ class AffineGUI(QObject):
                     point_dict.setdefault(name, []).append(QPointF(x_mask, y_mask))
             for name, points in point_dict.items():
                 self.update_list_widget(points, name)
+            # finally, update the name of the next point
+            self.pointName.setText(self.get_next_point_name())
 
     def _list_item_clicked_action(self, item):
         # Redraw based on current selection whenever an item is clicked
@@ -425,11 +433,31 @@ class AffineGUI(QObject):
         Updates the list widget with the given points and name.
         If clear_list is True, clears the list before adding the new points.
         """
+
+        def _add_suffix(existing_names: set[str], name: str) -> str:
+            """Suffixmaxxing"""
+            while name in existing_names:
+                name += "_imported"
+            return name
+
+        # check for name collisions and add "_imported" suffix if necessary
+        existing_names = {self.definedPoints.item(i).text() for i in range(self.definedPoints.count())}
+        name = _add_suffix(existing_names, name)
+
         item = QtWidgets.QListWidgetItem(name)
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
         # normalize to QPointF for consistent rendering/storage
         item.setData(self.COORD_DATA, self._normalize_points(points))
         self.definedPoints.addItem(item)
+
+    def get_next_point_name(self):
+        """Returns the default name for the next point set based on the current count."""
+        guess = self.definedPoints.count() + 1
+        # check for collisions:
+        existing_names = {self.definedPoints.item(i).text() for i in range(self.definedPoints.count())}
+        while f"Point set {guess}" in existing_names:
+            guess += 1
+        return f"Point set {guess}"
 
     # hook implementations
 
