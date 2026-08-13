@@ -1,6 +1,8 @@
 import copy
+import logging
 import os
 from functools import wraps
+from typing import Any
 
 from plugin_components import (
     CloseLockSignalProvider,
@@ -13,10 +15,11 @@ from plugin_components import (
 from PyQt6 import QtCore, QtWidgets, uic
 from PyQt6.QtCore import QObject, pyqtSlot
 from serial import SerialException
-from plugins.Sutter.Sutter import Mpc325
+from Sutter import Mpc325
 from threadStopped import ThreadStopped
 from virtual import VirtualMpc325
 
+logger = logging.getLogger(__name__)
 """
 From readme:
 0 = no error, 
@@ -38,6 +41,14 @@ drain nplc field should be numeric"}]
 """
 
 
+class Mancache:
+    def __init__(self, idx):
+        self.sutter_idx: int = idx
+        self.x_microns: float = 0.0
+        self.y_microns: float = 0.0
+        self.z_microns: float = 0.0
+
+
 def handle_sutter_exceptions(func):
     """Decorator to handle Sutter-specific exceptions while letting ThreadStopped pass through"""
 
@@ -49,9 +60,11 @@ def handle_sutter_exceptions(func):
             return (1, {"Error message": f"Value error in Sutter plugin: {e!s}", "Exception": str(e)})
         except SerialException as e:
             return (4, {"Error message": f"Sutter SerialException: {e!s}", "Exception": str(e)})
-        except ThreadStopped as ts:
+        except ThreadStopped:
             self.hal.stop()  # Attempt to stop any ongoing movement if a ThreadStopped exception is raised
-            raise ts  # re-raise to be caught by outer layers that handle thread stopping
+            raise  # re-raise to be caught by outer layers that handle thread stopping
+        except RuntimeError as e:
+            return (4, {"Error message": f"Sutter RuntimeError: {e!s}", "Exception": str(e)})
 
     return wrapper
 
@@ -96,17 +109,31 @@ class SutterGUI(QObject):
     connection_status_signal = QtCore.pyqtSignal(bool)
 
     @property
-    def settingsWidget(self) -> QtWidgets.QWidget:
+    def settingsWidget(self) -> Any:
         if self._settingsWidget is None:
             raise ValueError("Settings widget has not been initialized yet. Call setup() first.")
         return self._settingsWidget
 
+    @property
+    def hal(self) -> Mpc325 | VirtualMpc325:
+        if self.settings["backend"] == "virtual":
+            logger.debug("Using virtual backend for Sutter HAL")
+            return self._virhal
+        elif self.settings["backend"] == "usb":
+            logger.debug("Using USB backend for Sutter HAL")
+            return self._hal
+        else:
+            raise ValueError(f"Unknown backend specified in settings: {self.settings['backend']}")
+
     def __init__(self):
+        # stupid stupid stupid
+        self.settings = {"backend": "usb"}
         super().__init__()
-        self.hal = Mpc325()
+        self._hal = Mpc325()
+        self._virhal = VirtualMpc325()
+
         self.logger = LoggingHelper(self)
         self.cl = CloseLockSignalProvider()
-        self.settings = {}
         path = os.path.dirname(__file__) + os.path.sep
         self._settingsWidget = uic.loadUi(path + "Sutter_settingsWidget.ui")  # type: ignore
 
@@ -117,7 +144,9 @@ class SutterGUI(QObject):
         self.settingsWidget.quickBox.checkStateChanged.connect(self._quickmove_changed)  # type: ignore
         self.settingsWidget.devnumCombo.currentIndexChanged.connect(self._devnum_changed)  # type: ignore
         self.settingsWidget.checkBox_segment.checkStateChanged.connect(self._segment_checkbox_changed)  # type: ignore
+        self.settingsWidget.backend_combo.currentTextChanged.connect(self._backend_changed)  # type: ignore
 
+        logger.debug("Signals connected")
         # save input fields. Explicit typing here just so I get type hints in vscode
         self.quickmove_input: QtWidgets.QCheckBox = self.settingsWidget.quickBox  # type: ignore
         self.source_input: QtWidgets.QLineEdit = self.settingsWidget.sourceInput  # type: ignore
@@ -126,6 +155,7 @@ class SutterGUI(QObject):
         self.function_combo: QtWidgets.QComboBox = self.settingsWidget.functionCombo  # type: ignore
         self.segment_checkbox: QtWidgets.QCheckBox = self.settingsWidget.checkBox_segment  # type: ignore
         self.seglength_spinbox: QtWidgets.QSpinBox = self.settingsWidget.spinBox_seglength  # type: ignore
+        self.backend_combo: QtWidgets.QComboBox = self.settingsWidget.backend_combo  # type: ignore
 
         # save references to important components
         self.connectionIndicator: QtWidgets.QLabel = self.settingsWidget.connectionIndicator  # type: ignore
@@ -147,9 +177,14 @@ class SutterGUI(QObject):
         for function in self.MM_FUNCTION_TYPES:
             self.function_combo.addItem(function)
 
+        # fill backend combobox
+        self.backend_combo.addItem("usb")
+        self.backend_combo.addItem("virtual")
+        logger.debug("Sutter GUI initialized")
+
     def setup(self, settings):
         """
-        Setup the sutter GUI by loading ui and initializing the hal. Connect buttons to functions.
+        Fill GUI controls with settings from sequence-builder style configuration, return ref to widget
         """
 
         # Store settings internally in .ini format
@@ -158,6 +193,7 @@ class SutterGUI(QObject):
         self.update_gui_signal.emit()
         # update gui based on connection status
         self.connection_status_signal.emit(self.hal.is_connected())
+        logger.debug("Sutter GUI recieved settings: %s", self.settings)
         return self.settingsWidget
 
     # GUI interactions
@@ -179,31 +215,21 @@ class SutterGUI(QObject):
         # set segment length
         self.seglength_spinbox.setValue(int(self.settings["segment_length"]))
 
-        # Update HAL internal state based on current settings
-        self._update_hal_from_settings()
+        # set backend
+        backend = self.settings["backend"]
+        self.backend_combo.setCurrentText(backend)
+
+        logger.debug("Sutter GUI applied settings to GUI controls: %s", self.settings)
 
     @pyqtSlot(int)
     def _change_active_device_gui(self, dev_num: int):
         """Slot to change active device from a non-GUI thread."""
         # block signals from changing the combobox index while we update it
         # in order to not trigger the _devnum_changed function.
+        logger.debug("Changing active device in GUI to %d", dev_num)
         self.devnum_combo.blockSignals(True)
         self.devnum_combo.setCurrentIndex(dev_num - 1)
         self.devnum_combo.blockSignals(False)
-
-    def _update_hal_from_settings(self):
-        """Update HAL internal state from current settings."""
-        # Parse quickmove
-        quickmove = self.settings["quickmove"]
-        if isinstance(quickmove, str):
-            quickmove = quickmove.lower() == "true"
-        else:
-            quickmove = bool(quickmove)
-
-        # Get speed
-        speed = self.settings["speed"]
-        # Get address
-        address = self.settings["address"]
 
     @public
     def parse_settings_widget(self) -> tuple[int, dict]:
@@ -229,6 +255,7 @@ class SutterGUI(QObject):
         address = self.source_input.text()
         segment_moves = self.segment_checkbox.isChecked()
         segment_length = self.seglength_spinbox.value()
+        backend = self.backend_combo.currentText()
 
         # Return settings in .ini format (same as sutter.ini)
         settings = {
@@ -238,14 +265,17 @@ class SutterGUI(QObject):
             "speed_text": speed_text,
             "segment_move": segment_moves,
             "segment_length": segment_length,
+            "backend": backend,
         }
 
         # Update internal settings
         self.settings.update(settings)
+        logger.debug("Parsed settings from GUI: %s", self.settings)
         return (0, settings)
 
     @pyqtSlot(bool)
     def _gui_change_device_connected(self, connected: bool):
+        logger.debug("GUI change device connected: %s", connected)
         if connected:
             self.connectionIndicator.setStyleSheet(self.GREEN_STYLE)
 
@@ -256,6 +286,7 @@ class SutterGUI(QObject):
         self.connectButton.setText("Disconnect" if connected else "Connect")
         self.basicBox.setEnabled(connected)
         self.settingsBox.setEnabled(connected)
+        self.backend_combo.setEnabled(not connected)  # Disable backend selection when connected
         if connected:
             dev_count, dev_statuses = self.hal.get_connected_devices_status()
             self.devnum_combo.clear()
@@ -278,11 +309,13 @@ class SutterGUI(QObject):
     def _quickmove_changed(self, checked: QtCore.Qt.CheckState):
         """Called when the quickmove checkbox is changed,
         sets visibility of the speed combobox."""
+        logger.debug("Quickmove checkbox changed: %s", checked)
         is_checked = self.quickmove_input.isChecked()
         self.speed_input.setEnabled(not is_checked)
 
     def _devnum_changed(self):
         """Called when the device number combobox is changed, sets the device number in the hal."""
+        logger.debug("Device number changed")
         curr_text = self.devnum_combo.currentText()
         if curr_text == "":
             return
@@ -293,30 +326,34 @@ class SutterGUI(QObject):
 
     def _segment_checkbox_changed(self, checked: QtCore.Qt.CheckState):
         """Called when the segment move checkbox is changed, sets the segment move setting."""
+        logger.debug("Segment checkbox changed: %s", checked)
         is_checked = self.segment_checkbox.isChecked()
         self.seglength_spinbox.setEnabled(is_checked)
+
+    def _backend_changed(self):
+        """Called when the backend combobox changes"""
+        logger.debug("Backend changed")
+        backend = self.backend_combo.currentText()
+        self.settings["backend"] = backend
+
+        # refill combobox:
+        self.speed_input.clear()
+        # fill combobox
+        speeds = self.hal._MOVE_SPEEDS
+        for speed_key, speed_value in speeds.items():
+            self.speed_input.addItem(f"{speed_key}: {int(speed_value)} microns/s", userData=speed_value)
 
     ## Button functionality:
 
     def _connect_button(self):
         """Called when the connect button is pressed. Opens the device and sets the connection indicator color."""
-        try:
-            if self.hal.is_connected():
-                self.hal.close()
-            else:
-                address = self.source_input.text()
-                # Update settings with current address
-                self.settings["address"] = address
-                self.hal.open(address)
-
-        except SerialException as e:
-            self.logger.info_popup(f"Sutter SerialException: {e!s}")
-
-        finally:
-            if self.hal.is_connected():
-                self.connection_status_signal.emit(True)
-            else:
-                self.connection_status_signal.emit(False)
+        if self.hal.is_connected():
+            self.hal.close()
+            self.connection_status_signal.emit(self.hal.is_connected())
+        else:
+            ret, state = self.mm_open()
+            if ret:
+                self.logger.info_popup(f"Failed to connect to Sutter: {state['error message']}")
 
     def _stop_button(self):
         """Called when the stop button is pressed. Stops any ongoing movement."""
@@ -356,8 +393,6 @@ class SutterGUI(QObject):
             - A deep copy is used to avoid mutating caller-owned dictionaries.
         """
         self.settings = copy.deepcopy(settings)
-        # Update HAL internal state based on new settings
-        self._update_hal_from_settings()
 
     @public
     def set_gui_from_settings(self) -> tuple[int, dict]:
@@ -379,26 +414,12 @@ class SutterGUI(QObject):
     @public
     @handle_sutter_exceptions
     def mm_open(self) -> tuple[int, dict]:
-        """Open the configured Sutter serial connection.
-
-        Args:
-            None
-
-        Returns:
-            tuple[int, dict]:
-                - (0, {"Error message": str}) on success.
-                - (1, {...}) for value/argument errors.
-                - (4, {...}) for hardware/serial errors.
-
-        Edge cases:
-            - If already connected, returns success without reconnecting.
-            - If settings has no address, reads from GUI source input.
-            - ThreadStopped is re-raised by the exception decorator.
-        """
+        """Open the configured Sutter serial connection. This also forces a parse of the GUI to fill the internal settings."""
         if self.hal.is_connected():
             return (0, {"Error message": "Sutter already connected"})
 
-        # do not parse again, just use internal settings.
+        # We need to parse the settings to ensure we have an up to date settings dictionary
+        self.parse_settings_widget()
         address = self.settings["address"]
         self.hal.open(address)
         # Update settings from GUI after successful connection
@@ -423,6 +444,10 @@ class SutterGUI(QObject):
             - ThreadStopped is re-raised by the exception decorator.
 
         """
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
         if self.hal.change_active_device(dev_num):
             # signal gui update
             self.change_active_device_signal.emit(dev_num)
@@ -452,11 +477,15 @@ class SutterGUI(QObject):
               no movement and this method still returns success.
             - ThreadStopped is re-raised by the exception decorator.
         """
-
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
         quick_move = self.settings["quickmove"]
         speed = self.settings["speed"]
         segment = self.settings["segment_move"]
         segment_length = self.settings["segment_length"]
+        logger.debug(f"mm_move called with x={x}, y={y}, z={z}, manipulator_number={manipulator_number}, quick_move={quick_move}, speed={speed}, segment={segment}, segment_length={segment_length}")
 
         if manipulator_number is not None:
             # if device if specified, switch to it temporarily to perform the move, then switch back
@@ -490,6 +519,11 @@ class SutterGUI(QObject):
             - Bounds are enforced by underlying HAL move routines.
             - ThreadStopped is re-raised by the exception decorator.
         """
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
+
         (x, y, z) = self.hal.get_current_position()
         self.mm_move(x + x_change, y + y_change, z + z_change)
         return (0, {"Error message": "Sutter moved"})
@@ -515,6 +549,11 @@ class SutterGUI(QObject):
               the exception decorator.
             - ThreadStopped is re-raised by the exception decorator.
         """
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
+
         if not all:
             # move first in the z axis to the minimum position
             self.mm_move(z=self.hal._MINIMUM_MS)
@@ -542,6 +581,10 @@ class SutterGUI(QObject):
             - Safe to call when no movement is active; still returns success if
               HAL stop completes without error.
         """
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
         self.hal.stop()
         return (0, {"Error message": "Sutter stopped"})
 
@@ -567,6 +610,10 @@ class SutterGUI(QObject):
             - In relative mode, target is computed from current live position.
             - ThreadStopped is re-raised by the exception decorator.
         """
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
         (x, y, z) = self.hal.get_current_position()
 
         if absolute:
@@ -600,6 +647,10 @@ class SutterGUI(QObject):
             - Hardware/serial errors are mapped by the exception decorator.
             - ThreadStopped is re-raised by the exception decorator.
         """
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
         return (0, self.hal.get_active_device())
 
     @public
@@ -620,6 +671,10 @@ class SutterGUI(QObject):
             - If already at z=0, no movement is performed and success is returned.
             - ThreadStopped is re-raised by the exception decorator.
         """
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
         x, y, z = self.hal.get_current_position()
         if z == 0:
             return (0, {"Error message": "Sutter already at max"})
@@ -649,6 +704,10 @@ class SutterGUI(QObject):
             - ThreadStopped is re-raised by the exception decorator.
         """
         # FIXME: nonstandard return type.
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
         if manipulator_name is not None:
             old_device = self.hal.get_active_device()
             success = self.hal.change_active_device(manipulator_name)
@@ -679,9 +738,11 @@ class SutterGUI(QObject):
             - Uses list return format for legacy compatibility.
             - ThreadStopped is re-raised by the exception decorator.
         """
-        code, status = self.mm_open()  # Ensure the device is open before fetching statuses
-        if code != 0:
-            return [code, status]  # Return error if opening failed
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return [mm_open_status, mm_open_result]
+
         dev_count, dev_statuses = self.hal.get_connected_devices_status()
         return [0, (dev_count, dev_statuses)]
 
@@ -704,6 +765,11 @@ class SutterGUI(QObject):
             - If no devices are connected, method may return None.
             - ThreadStopped is re-raised by the exception decorator.
         """
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
+
         connected_devices = self.hal.get_connected_devices_status()[1]
         for i, status in enumerate(connected_devices):
             if status == 1:
@@ -732,6 +798,11 @@ class SutterGUI(QObject):
             - Hardware/serial errors are mapped by the exception decorator.
             - ThreadStopped is re-raised by the exception decorator.
         """
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
+
         dev_count, _ = self.hal.get_connected_devices_status()
         return dev_count
 
@@ -757,6 +828,11 @@ class SutterGUI(QObject):
             - Uses list return format for legacy compatibility.
             - ThreadStopped is re-raised by the exception decorator.
         """
+        if not self.hal.is_connected():
+            mm_open_status, mm_open_result = self.mm_open()
+            if mm_open_status != 0:
+                return mm_open_status, mm_open_result
+
         if x is None and y is None and z is None:
             return [1, {"Error message": "Sutter slow move requires at least one coordinate"}]
         if x is None:
