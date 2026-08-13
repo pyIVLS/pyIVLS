@@ -29,7 +29,6 @@ dependencies = [
     "pyqt6-qt6>=6.8.1",
     "pyqt6-sip>=13.9.1",
     "pyserial>=3.5",
-    "pytest>=9.0.3",
     "python-dateutil>=2.9.0.post0",
     "python-usbtmc>=0.8",
     "pytz>=2025.1",
@@ -52,5 +51,10 @@ addopts = "-v"
 
 [tool.ruff]
 line-length = 200 
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
 
 
