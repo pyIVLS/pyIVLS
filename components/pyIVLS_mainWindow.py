@@ -17,12 +17,14 @@ class pyIVLS_mainWindow(QtWidgets.QMainWindow):
         uic.loadUi(uipath + "pyIVLS_GUI.ui", self)
         self.seqBuilder_dockWidget = pyIVLS_dockWindow(parent=self, position=Qt.DockWidgetArea.RightDockWidgetArea)
         self.dockWidget = pyIVLS_dockWindow(parent=self, position=Qt.DockWidgetArea.BottomDockWidgetArea)
-
+        self.ant_dockWidget = pyIVLS_dockWindow(parent=self, position=Qt.DockWidgetArea.BottomDockWidgetArea)
+        
         # Ensure mdiArea and actions are accessible
         self.mdiArea = self.findChild(QtWidgets.QMdiArea, "mdiArea")
         self.actionPlugins = self.findChild(QAction, "actionPlugins")
         self.actionSequence_builder = self.findChild(QAction, "actionSequence_builder")
         self.actionDockWidget = self.findChild(QAction, "actionDockWidget")
+        self.actionAnt = self.findChild(QAction, "actionAnt")
 
         # add a menu for MDI windows under the view -> show menu
         menuShow = self.findChild(QtWidgets.QMenu, "menuShow")

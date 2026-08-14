@@ -13,6 +13,7 @@ from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
 from pyIVLS_pluginloader import pyIVLS_pluginloader
 from pyIVLS_seqBuilder import pyIVLS_seqBuilder
+from pyIVLS_ant import pyIVLS_ant
 
 logger = logging.getLogger(__name__)
 
@@ -26,19 +27,23 @@ class pyIVLS_GUI(QObject):
         self.window = pyIVLS_mainWindow(self.path)
         self.pluginloader = pyIVLS_pluginloader(self.path)
         self.seqBuilder = pyIVLS_seqBuilder(self.path)
+        self.ant = pyIVLS_ant(self.path)
         icon_path = self.path + "components" + sep + "icon.png"
         self.window.setWindowIcon(QIcon(icon_path))
 
         self.setSeqBuilder()
+        self.setAnt()
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
         self.window.actionSequence_builder.triggered.connect(self.actionSequence_builder)
         self.window.menuShow.aboutToShow.connect(self.action_MDIShow_to_open)
         self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
+        self.window.actionAnt.triggered.connect(self.actionAnt)
         self.window.actionRead_config_file.triggered.connect(self.action_read_config_file)
         self.window.actionExport_config_file.triggered.connect(self.action_export_config_file)
         self.window.seqBuilder_dockWidget.closeSignal.connect(self.seqBuilderReactClose)
         self.window.dockWidget.closeSignal.connect(self.dockWidgetReactClose)
+        self.window.ant_dockWidget.closeSignal.connect(self.antWidgetReactClose)
 
         self.initial_widget_state = {}
 
@@ -112,6 +117,10 @@ class pyIVLS_GUI(QObject):
         self.window.actionDockWidget.setChecked(False)
 
     @pyqtSlot()
+    def antWidgetReactClose(self):
+        self.window.actionAnt.setChecked(False)
+
+    @pyqtSlot()
     def mdi_window_react_close(self):
         # check if all mdi windows are hidden
         all_hidden = True
@@ -132,6 +141,9 @@ class pyIVLS_GUI(QObject):
 
     def actionDockWidget(self):
         self.window.dockWidget.setVisible(self.window.actionDockWidget.isChecked())
+
+    def actionAnt(self):
+        self.window.ant_dockWidget.setVisible(self.window.actionAnt.isChecked())
 
     def action_MDIShow_to_open(self):
         self.window.mdiWindowsMenu.clear()
@@ -224,6 +236,9 @@ class pyIVLS_GUI(QObject):
     def setSeqBuilder(self):
         self.window.seqBuilder_dockWidget.setWidget(self.seqBuilder.widget)
 
+    def setAnt(self):
+        self.window.ant_dockWidget.setWidget(self.ant.widget)
+        
     def clearDockWidget(self):
         """
         Clear the dock widget by removing all tabs and setting its widget to None.
