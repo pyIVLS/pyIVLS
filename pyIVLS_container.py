@@ -3,7 +3,7 @@ import importlib
 import logging
 import sys
 from configparser import ConfigParser
-from os.path import basename, dirname, sep
+from os.path import basename, dirname, sep, exists
 
 import pluggy
 
@@ -28,7 +28,7 @@ class pyIVLS_container(QObject):
     available_plugins_signal = pyqtSignal(dict)
     # update the settings widget. This goes all the way to pyIVLS.py which handles the updating of the main GUI.
     plugins_updated_signal = pyqtSignal()
-    # send available plugins and functions to seqBuilder
+    # send available plugins and functions to seqBuilder and ANT
     seqComponents_signal = pyqtSignal(dict, list)
     # show a message to the user in the plugin loader GUI
     show_message_signal = pyqtSignal(str)
@@ -117,7 +117,8 @@ class pyIVLS_container(QObject):
                 section_plugin = section
                 new_section = f"{plugin_name}_plugin"
                 new_config[section]["address"] = plugin_address
-                logger.debug(f"Plugin {plugin_name} address set to {plugin_address}")
+                new_config[section]["ini"] = basename(ini_path)
+                logger.debug(f"Plugin {plugin_name} address and ini set to {plugin_address}")
             elif section == "settings":
                 section_settings = section
                 new_section_settings = f"{plugin_name}_settings"
@@ -309,6 +310,7 @@ class pyIVLS_container(QObject):
                     "load",
                     "dependencies",
                     "address",
+                    "ini",
                     "version",
                     "load_widget",
                 ]:
@@ -320,8 +322,21 @@ class pyIVLS_container(QObject):
                     option_dict["settings"] = dict(self.config.items(f"{self.config[plugin]['name']}_settings"))
                 else:
                     option_dict["settings"] = {}
+                option_dict["ai_meta"] = self.get_ai_meta(option_dict["address"], option_dict["ini"], self.config[plugin]['name'])
                 section_dict[self.config[plugin]["name"]] = option_dict
         return section_dict
+
+    def get_ai_meta(self, address, ini, plugin_name):
+        ini_address = self.path + "plugins" + sep + address + sep + ini
+        if not exists(ini_address):
+            self.emit_error(f"Failed to find ini file of plugin {plugin_name} for loading ai_meta section")
+            return ""
+        base_config = ConfigParser()
+        base_config.read(ini_address)
+        if not base_config.has_option("ai", "meta"):
+            self.emit_log(f"Failed to load ai_meta from ini file of plugin {plugin_name}. Probably plugin needs to be updated.")
+            return ""
+        return base_config.get("ai", "meta")
 
     def _register(self, plugin) -> bool:
         """Registers a plugin with the plugin manager. Dynamically imports the plugin and creates an instance of the plugin class.

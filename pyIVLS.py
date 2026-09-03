@@ -107,6 +107,9 @@ if __name__ == "__main__":
     GUI_mainWindow.seqBuilder.log_message.connect(GUI_mainWindow.addDataLog)
     pluginsContainer.seqComponents_signal.connect(GUI_mainWindow.seqBuilder.getPluginFunctions)
 
+    # connect signals for ANT
+    pluginsContainer.seqComponents_signal.connect(GUI_mainWindow.ant.getPluginFunctions)
+
     # connect main window action signals to container
     GUI_mainWindow.window.actionWrite_settings_to_file.triggered.connect(pluginsContainer.save_settings)
     GUI_mainWindow.import_config_signal.connect(pluginsContainer.import_config_file)
