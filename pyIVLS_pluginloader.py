@@ -92,7 +92,6 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         self.table_widget.resizeColumnsToContents()
         # self.table_widget.resizeRowsToContents()
 
-
     #### Button actions
     def refresh(self):
         """Tells the container to send the available plugins. The container the emits a signal that leads to the populate_list() method."""
@@ -121,29 +120,49 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
     def upload(self):
         """Uploads a plugin from a directory. Opens a file dialog to select the plugin directory."""
 
+        def _process_directory(plugin_dir, start_dir):
+
+            # Make plugin_address relative to the plugins folder if possible, else use absolute path
+            try:
+                plugin_address = os.path.relpath(plugin_dir, start_dir)
+            except ValueError:
+                plugin_address = plugin_dir  # fallback to absolute path if relpath fails
+
+            # find .ini file in the plugin directory by iterating through the files
+            ini_file = None
+            plugin_name = None
+            for file in os.listdir(plugin_dir):
+                if file.endswith(".ini"):
+                    ini_file = os.path.join(plugin_dir, file)
+                elif file.startswith("pyIVLS_") and file.endswith(".py"):
+                    plugin_name = file.removeprefix("pyIVLS_").removesuffix(".py")
+            if ini_file is None:
+                self.show_message("No .ini file found in the plugin directory.")
+                return
+            if plugin_name is None:
+                self.show_message("No file of the form 'pyIVLS_*.py' found in the plugin directory.")
+                return
+            self.update_config_signal.emit([plugin_address, ini_file, plugin_name])
+
         start_dir = os.path.join(self.path, "plugins")
-        plugin_dir = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Plugin Directory", start_dir, QtWidgets.QFileDialog.Option.ShowDirsOnly)
+        plugin_dir = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Select the directory containing the plugins, or a subdirectory to upload a single plugin", start_dir, QtWidgets.QFileDialog.Option.ShowDirsOnly
+        )
+        # convert both to Path objects for easier comparison (Otherwise we get an error where / \ mismatches on Windows)
+        plugin_dir = os.path.abspath(plugin_dir)
+        start_dir = os.path.abspath(start_dir)
         if not plugin_dir:
             return  # if no directory is selected, return
 
-        # Make plugin_address relative to the plugins folder if possible, else use absolute path
-        try:
-            plugin_address = os.path.relpath(plugin_dir, start_dir)
-        except ValueError:
-            plugin_address = plugin_dir  # fallback to absolute path if relpath fails
-
-        # find .ini file in the plugin directory by iterating through the files
-        ini_file = None
-        plugin_name = None
-        for file in os.listdir(plugin_dir):
-            if file.endswith(".ini"):
-                ini_file = os.path.join(plugin_dir, file)
-            elif file.startswith("pyIVLS_") and file.endswith(".py"):
-                plugin_name = file.removeprefix("pyIVLS_").removesuffix(".py")
-        if ini_file is None:
-            self.show_message("No .ini file found in the plugin directory.")
-            return
-        if plugin_name is None:
-            self.show_message("No file of the form 'pyIVLS_*.py' found in the plugin directory.")
-            return
-        self.update_config_signal.emit([plugin_address, ini_file, plugin_name])
+        # here we handle the case where the user selects the top directory which contains all plugins.
+        print(f"Selected plugin directory: {plugin_dir}, Start directory: {start_dir}")
+        if plugin_dir == start_dir:
+            logger.debug("User selected the top-level plugins directory. Processing all subdirectories.")
+            # iterate through all subdirectories of the plugins directory
+            for subdir in os.listdir(start_dir):
+                full_subdir = os.path.join(start_dir, subdir)
+                if os.path.isdir(full_subdir):
+                    _process_directory(full_subdir, start_dir)
+        else:
+            logger.debug(f"User selected a specific plugin directory: {plugin_dir}. Processing this directory.")
+            _process_directory(plugin_dir, start_dir)
