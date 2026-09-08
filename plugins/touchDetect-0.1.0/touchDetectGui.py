@@ -168,11 +168,13 @@ class touchDetectGUI:
                 self.logger.log_debug(f"Micromanipulator devices detected: {state}")
                 _, active_list = state
                 for i, is_active in enumerate(active_list):
+                    self.logger.log_debug(f"filling manipulator {i + 1} controls")
+                    box, smu_box, con_box, res_spin = self.manipulator_boxes[i]
+                    self._setup_manipulator_controls(smu_box, con_box, res_spin, i)
                     if is_active:
-                        self.logger.log_debug(f"Enabling manipulator {i + 1} controls")
-                        box, smu_box, con_box, res_spin = self.manipulator_boxes[i]
                         box.setVisible(True)
-                        self._setup_manipulator_controls(smu_box, con_box, res_spin, i)
+                    else:
+                        box.setVisible(False)
             else:
                 self.mm_indicator.setStyleSheet(self.red_style)
                 self.logger.log_warn(f"Micromanipulator error: {state}")
