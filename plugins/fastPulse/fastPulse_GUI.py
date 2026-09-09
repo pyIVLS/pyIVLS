@@ -640,7 +640,7 @@ class fastPulse_GUI(QWidget):
                     IVdataDrain = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["drain"])
                     readingsdrain = np.array_split(IVdataDrain.ravel(), 2, axis=0)
                     readings = np.concatenate((readings, readingsdrain), axis=0)
-                address = self.settings["path"] + os.sep + self.settings["filename"]
+                address = self.settings["path"] + os.sep + self.settings["filename"] + f"_{smuSetValue:.4f}" + f"_{rep}" + " iv.csv"
 
                 status, state = self.createFile(address=address, data=readings)
 
