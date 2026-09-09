@@ -1083,7 +1083,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['source']}.measure.nplc = 1")
                     self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
 
-                    # self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
+                """    # self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
                 # Calculate duration of the pulse:
                 nplc_s = s["nplcms"] / 1000  # change nplc time value from ms to seconds
                 pulsetime_s = s["pulsetime"] * 1.1  # change pulse time value from ms to seconds
@@ -1119,7 +1119,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.trigger.initiate()")
                     time.sleep(0.1)  ## let the drain settle if it's used
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
-                self.safewrite(f"{s['source']}.trigger.initiate()")
+                self.safewrite(f"{s['source']}.trigger.initiate()")"""
                 return 0
 
             except Exception as e:
