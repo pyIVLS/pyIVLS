@@ -954,6 +954,7 @@ class Keithley2612B:
                 nplc_s = s["nplcms"] / 1000  # change nplc time value from ms to seconds
                 pulsetime_s = s["pulsetime"] * 1.1  # change pulse time value from ms to seconds
                 self.safewrite(f"{s['source']}.measure.delay = 0")
+                self.safewrite(f"{s['source']}.meaure.count = {timer_n}")
                 self.safewrite(f"{s['source']}.source.delay = 0")
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.measure.delay = 0")
@@ -992,128 +993,6 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_ON")
                     self.safewrite(f"{s['drain']}.trigger.initiate()")
                     time.sleep(0.1)  ## let the drain settle if it's used
-                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
-                self.safewrite(f"{s['source']}.trigger.initiate()")
-                return 0
-
-            except Exception as e:
-                # if something fails, abort the measurement and turn off the source.
-                self.safewrite(f"{s['source']}.abort()")
-                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
-                if s["usedrain"]:
-                    self.safewrite(f"{s['drain']}.abort()")
-                    self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
-                logger.error(f"Caught exception during keithley_run_sweep : {e}")
-                raise e
-                return 1
-
-    def keithley_run_fastpulsetest(self, s: dict):  # -> status:
-        """Makes a single pulse with predetermined duration and triggers a DIGIO line at the end of source action
-
-        Args:
-            s (dict): trigpulse settings dictionary
-            s["source"] source channel: may take values [smua, smub]
-            s["sense"] true: 4wire; false: 2wire
-            s["type"] source inject current or voltage: may take values [i ,v]
-            s["value"] pulse voltage if is in voltage injection mode, or current if is in current injection mode (float)
-            s["limit"] limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode (float)
-            s['sourcenplc'] NPLC in nplc units (float)
-            s['nplcms'] NPLC in ms (float)
-            s['delay'] True - auto delay before measurement; Flase - manual delay before measurement (bool)
-            s['delayduration'] duration of the delay before measurement if manual in s, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
-            s['pulsetime'] duration of the pulse in ms (float)
-            s["usedrain"] True if drain should be used for IV measurement, False if only source (bool)
-        Returns:
-            0 - no error
-            ~0 - error (add error code later on if needed)
-        """
-        print(s)
-
-        def ceil_to_power_of_10(x):
-            "Helper function for getting ceil to the injected current in current injection mode"
-            if x == 0:
-                return 0
-            power = math.floor(math.log10(abs(x)))
-            factor = 10**power
-            return math.ceil(x / factor) * factor
-
-        timer_n = int(s["pulsetime"] / s["nplcms"])
-
-        # Try and acquire the lock to make sure nothing else is running
-        ##IRtothink#### is locking really needed?
-        with self.lock:
-            time.sleep(1)  ## to avoid overlapping error
-            try:
-                self.safewrite("reset()")
-                self.safewrite("beeper.enable=0")
-                self.safewrite("digio.writeport(0)")
-                self.safewrite("errorqueue.clear()")
-                ####set visualization
-                self.safewrite("display.screen = display.SMUA_SMUB")
-                self.safewrite("format.data = format.ASCII")
-                self.safewrite("format.asciiprecision = 14")
-
-                self.safewrite(f"{s['source']}.reset()")
-                ##### based on Single pulse example code (p.183) of Keithley manual
-                # drain
-                if s["usedrain"]:
-                    self.safewrite(f"{s['drain']}.reset()")
-
-                if s["sense"]:
-                    self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_REMOTE")
-                else:
-                    self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
-
-                # Clear buffers, set repeats and steps, set sweep range.
-                self.safewrite(f"{s['source']}.nvbuffer1.clear()")
-                self.safewrite(f"{s['source']}.nvbuffer2.clear()")
-
-                # Configure a single-point list sweep
-                self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")  ## enable source action
-                self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
-                self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ASYNC")  ## enable asynchronous measurement action (to measure IV before and after the pulse)
-                self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})")  ##
-                # Configure other source parameters for best timing possible.
-                self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")  # see p. 585 of Keithley manual
-
-                if s["type"] == "v":
-                    self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
-                    self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
-                    self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
-                    self.safewrite(f"{s['source']}.source.rangev = {math.ceil(abs(s['value']))}")
-                    self.safewrite(f"{s['source']}.measure.nplc = 1")
-                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
-
-                    # self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
-                # Calculate duration of the pulse:
-                nplc_s = s["nplcms"] / 1000  # change nplc time value from ms to seconds
-                pulsetime_s = s["pulsetime"] * 1.1  # change pulse time value from ms to seconds
-                self.safewrite(f"{s['source']}.measure.delay = 0")
-                self.safewrite(f"{s['source']}.source.delay = 0")
-                if s["usedrain"]:
-                    self.safewrite(f"{s['drain']}.measure.delay = 0")
-                    self.safewrite(f"{s['drain']}.source.delay = 0")
-                self.safewrite(f"trigger.timer[1].delay = 0.1")  # set duration of pulse in seconds
-                self.safewrite(f"trigger.timer[1].count = 1")
-                self.safewrite("trigger.timer[1].passthrough = false")  ## if true the timer will trigger immediately after run
-                # Trigger timer when the SMU sets the power
-                self.safewrite("trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
-
-                self.safewrite(f"trigger.timer[2].delay = 0.05")  # set duration of pulse in seconds
-                self.safewrite("trigger.timer[2].count = 1")
-                self.safewrite("trigger.timer[2].passthrough = false")  ## if true the timer will trigger immediately after run
-                self.safewrite("trigger.timer[2].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
-
-                self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.timer[1].EVENT_ID")
-                # Configure source action to start immediately.
-                self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")
-                # Configure endpulse action to achieve a pulse.
-                self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
-                self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[2].EVENT_ID")
-                # Set appropriate counts of trigger model.
-                self.safewrite(f"{s['source']}.trigger.count = 1")
-                self.safewrite(f"{s['source']}.trigger.arm.count = 1")
-
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
                 self.safewrite(f"{s['source']}.trigger.initiate()")
                 return 0
