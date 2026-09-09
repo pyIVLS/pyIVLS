@@ -485,6 +485,7 @@ class fastPulse_GUI(QWidget):
 
     def sequenceStep(self, postfix):
         status, settings = self.parse_settings_widget()
+        print(f"Parsed settings: {settings}")
         self._log_verbose("Entering sequenceStep with postfix: " + postfix)
         self.settings["filename"] = settings["filename"] + postfix
         smu_name = self.settings["smu"]
