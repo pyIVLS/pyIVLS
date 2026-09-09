@@ -845,7 +845,7 @@ class Keithley2612B:
                 raise e
                 return 1
 
-    def keithley_run_fastpulselegacy(self, s: dict):  # -> status:
+    def keithley_run_fastpulse(self, s: dict):  # -> status:
         """Makes a single pulse with predetermined duration and triggers a DIGIO line at the end of source action
 
         Args:
@@ -969,9 +969,9 @@ class Keithley2612B:
                 self.safewrite("trigger.timer[2].passthrough = false")  ## if true the timer will trigger immediately after run
                 self.safewrite("trigger.timer[2].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
 
-                self.safewrite(f"{s['source']}.measure.stimulus = trigger.timer[1].EVENT_ID")
+                self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.timer[1].EVENT_ID")
                 if s["usedrain"]:
-                    self.safewrite(f"{s['drain']}.measure.stimulus = trigger.timer[1].EVENT_ID")
+                    self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.timer[1].EVENT_ID")
                 # Configure source action to start immediately.
                 self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")
                 # Configure endpulse action to achieve a pulse.
@@ -1006,7 +1006,7 @@ class Keithley2612B:
                 raise e
                 return 1
 
-    def keithley_run_fastpulse(self, s: dict):  # -> status:
+    def keithley_run_fastpulsetest(self, s: dict):  # -> status:
         """Makes a single pulse with predetermined duration and triggers a DIGIO line at the end of source action
 
         Args:
