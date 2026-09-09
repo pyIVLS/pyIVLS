@@ -633,15 +633,15 @@ class fastPulse_GUI(QWidget):
                 # saving the results
                 varDict = {}
                 IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
-                readings = np.array_split(IVdata.ravel(), 2, axis=0)
+                # readings = np.array_split(IVdata.ravel(), 2, axis=0)
+                readings = IVdata
                 print(f"Readings: {readings}")
                 # readings = [0, 1]
                 if not (self.settings["singlechannel"]):
                     IVdataDrain = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["drain"])
                     readingsdrain = np.array_split(IVdataDrain.ravel(), 2, axis=0)
                     readings = np.concatenate((readings, readingsdrain), axis=0)
-
-                address = self.settings["address"] + os.sep + self.settings["filename"]
+                address = self.settings["path"] + os.sep + self.settings["filename"]
 
                 status, state = self.createFile(address=address, data=readings)
 
