@@ -624,6 +624,7 @@ class fastPulse_GUI(QWidget):
                 self._log_verbose("SMU output set")
 
                 trigDict = self._make_pulse_dict(smuSetValue)
+                print(f"Trigger dictionary: {trigDict}")
                 status, info = self.function_dict["smu"][smu_name]["smu_fastpulse"](trigDict)
                 if status:
                     self._log_verbose(f"Error running smupulse: {info}")

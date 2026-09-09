@@ -917,7 +917,6 @@ class Keithley2612B:
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.nvbuffer1.clear()")
                     self.safewrite(f"{s['drain']}.nvbuffer2.clear()")
-                print("flag1")
                 # Configure a single-point list sweep
                 self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")  ## enable source action
                 self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
@@ -952,7 +951,6 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.source.levelv = {s['drainvalue']}")
                     self.safewrite(f"{s['drain']}.source.limiti = {s['drainlimit']}")
                     # self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
-                print("flag2")
                 # Calculate duration of the pulse:
                 nplc_s = s["nplcms"] / 1000  # change nplc time value from ms to seconds
                 pulsetime_s = s["pulsetime"] * 1.1 / 1000  # change pulse time value from ms to seconds
@@ -975,7 +973,6 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.measure.measure.stimulus = trigger.timer[1].EVENT_ID")
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.measure.measure.stimulus = trigger.timer[1].EVENT_ID")
-                print("flag3")
                 # Configure source action to start immediately.
                 self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")
                 # Configure endpulse action to achieve a pulse.
