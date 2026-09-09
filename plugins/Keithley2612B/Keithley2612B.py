@@ -1098,7 +1098,7 @@ class Keithley2612B:
                 # Trigger timer when the SMU sets the power
                 self.safewrite("trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
 
-                """self.safewrite(f"trigger.timer[2].delay = 0.05")  # set duration of pulse in seconds
+                self.safewrite(f"trigger.timer[2].delay = 0.05")  # set duration of pulse in seconds
                 self.safewrite("trigger.timer[2].count = 1")
                 self.safewrite("trigger.timer[2].passthrough = false")  ## if true the timer will trigger immediately after run
                 self.safewrite("trigger.timer[2].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
@@ -1119,7 +1119,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.trigger.initiate()")
                     time.sleep(0.1)  ## let the drain settle if it's used
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
-                self.safewrite(f"{s['source']}.trigger.initiate()")"""
+                self.safewrite(f"{s['source']}.trigger.initiate()")
                 return 0
 
             except Exception as e:
