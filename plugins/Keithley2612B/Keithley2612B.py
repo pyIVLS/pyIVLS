@@ -936,6 +936,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
                     self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
                     self.safewrite(f"{s['source']}.source.rangev = {math.ceil(abs(s['value']))}")
+                    self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
                     self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
                 else:
                     self.safewrite(f"{s['source']}.trigger.source.limitv = {s['limit']}")
