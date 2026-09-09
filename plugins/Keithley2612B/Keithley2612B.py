@@ -953,7 +953,7 @@ class Keithley2612B:
                     # self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
                 # Calculate duration of the pulse:
                 nplc_s = s["nplcms"] / 1000  # change nplc time value from ms to seconds
-                pulsetime_s = s["pulsetime"] * 1.1 / 1000  # change pulse time value from ms to seconds
+                pulsetime_s = s["pulsetime"] * 1.1  # change pulse time value from ms to seconds
                 self.safewrite(f"{s['source']}.measure.delay = 0")
                 self.safewrite(f"{s['source']}.source.delay = 0")
                 if s["usedrain"]:
