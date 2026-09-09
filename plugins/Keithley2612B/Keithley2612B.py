@@ -867,6 +867,7 @@ class Keithley2612B:
             0 - no error
             ~0 - error (add error code later on if needed)
         """
+        print(s)
 
         def ceil_to_power_of_10(x):
             "Helper function for getting ceil to the injected current in current injection mode"

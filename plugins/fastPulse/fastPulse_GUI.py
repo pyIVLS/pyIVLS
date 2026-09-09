@@ -292,7 +292,7 @@ class fastPulse_GUI(QWidget):
             "lineEdit_drainValue": "drainvalue",
             "lineEdit_pulseTime": "pulseTime",
             "lineEdit_comment": "comment",
-            "lineEdit_fileName": "filename",
+            "lineEdit_filename": "filename",
             "lineEdit_path": "path",
             "lineEdit_sampleName": "samplename",
             "lineEdit_pause": "pause",
@@ -489,8 +489,8 @@ class fastPulse_GUI(QWidget):
     ###############sequence implementation
 
     def sequenceStep(self, postfix):
-        #status, settings = self.parse_settings_widget()
-        #print(f"Parsed settings: {settings}")
+        # status, settings = self.parse_settings_widget()
+        # print(f"Parsed settings: {settings}")
         self._log_verbose("Entering sequenceStep with postfix: " + postfix)
         self.settings["filename"] = self.settings["filename"] + postfix
         smu_name = self.settings["smu"]
