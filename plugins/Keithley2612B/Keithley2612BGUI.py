@@ -78,6 +78,7 @@ class Keithley2612BGUI(QObject):
         "smu_connect",
         "smu_channelNames",
         "smu_trigpulse",
+        "smu_fastpulse",
     ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
     ####################################  threads
