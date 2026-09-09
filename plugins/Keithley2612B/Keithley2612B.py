@@ -860,7 +860,6 @@ class Keithley2612B:
             s['nplcms'] NPLC in ms (float)
             s['delay'] True - auto delay before measurement; Flase - manual delay before measurement (bool)
             s['delayduration'] duration of the delay before measurement if manual in s, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
-            s['postwait'] duration of waiting after the measurement for possible non-idealities in time synchronization in s (float)
             s['pulsetime'] duration of the pulse in ms (float)
             s["usedrain"] True if drain should be used for IV measurement, False if only source (bool)
         Returns:
@@ -921,7 +920,7 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")  ## enable source action
                 self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
                 self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ASYNC")  ## enable asynchronous measurement action (to measure IV before and after the pulse)
-                self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})")  ##
+                # self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})")  ##
                 # Configure other source parameters for best timing possible.
                 self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_ONCE")  # see p. 585 of Keithley manual
 
