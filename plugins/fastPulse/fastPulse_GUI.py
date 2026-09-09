@@ -634,7 +634,7 @@ class fastPulse_GUI(QWidget):
                 varDict = {}
                 #IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
                 #readings = np.array_split(IVdata.ravel(), 2, axis=0)
-                 readings = [0, 1]
+                readings = [0, 1]
                 if not (self.settings["singlechannel"]):
                     IVdataDrain = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["drain"])
                     readingsdrain = np.array_split(IVdataDrain.ravel(), 2, axis=0)
