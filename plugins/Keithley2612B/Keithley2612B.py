@@ -875,7 +875,7 @@ class Keithley2612B:
             factor = 10**power
             return math.ceil(x / factor) * factor
 
-        timer_n = int(s["pulsetime"] / s["nplcms"])
+        timer_n = int(s["pulsetime"] / (s["nplcms"] / 1000))  # number of timers needed to cover the pulse duration, rounded up
 
         # Try and acquire the lock to make sure nothing else is running
         ##IRtothink#### is locking really needed?
