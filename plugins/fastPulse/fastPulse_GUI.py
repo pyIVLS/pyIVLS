@@ -629,7 +629,7 @@ class fastPulse_GUI(QWidget):
                 if status:
                     self._log_verbose(f"Error running smupulse: {info}")
                     raise NotImplementedError(f"Error in smu_trigpulse: {info}, no handling provided")
-
+                time.sleep(5)
                 # saving the results
                 varDict = {}
                 IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
