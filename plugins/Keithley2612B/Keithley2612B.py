@@ -977,7 +977,8 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")
                 # Configure endpulse action to achieve a pulse.
                 self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
-                self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[2].EVENT_ID")
+                # self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[2].EVENT_ID")
+                self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.trigger.endpulse.action = {s['drain']}.SOURCE_IDLE")
                     self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.timer[2].EVENT_ID")
