@@ -856,7 +856,7 @@ class Keithley2612B:
             s["value"] pulse voltage if is in voltage injection mode, or current if is in current injection mode (float)
             s["limit"] limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode (float)
             s['sourcenplc'] NPLC in nplc units (float)
-            s['nplcms'] NPLC in ms (float)
+            s['nplcms'] NPLC in ms (float), also currently period for the measurement actions
             s['delay'] True - auto delay before measurement; Flase - manual delay before measurement (bool)
             s['delayduration'] duration of the delay before measurement if manual in s, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
             s['pulsetime'] duration of the pulse in ms (float)
@@ -865,7 +865,6 @@ class Keithley2612B:
             0 - no error
             ~0 - error (add error code later on if needed)
         """
-        print(s)
 
         def ceil_to_power_of_10(x):
             "Helper function for getting ceil to the injected current in current injection mode"
@@ -952,14 +951,14 @@ class Keithley2612B:
                     # self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
                 # Calculate duration of the pulse:
                 nplc_s = s["nplcms"] / 1000  # change nplc time value from ms to seconds
-                pulsetime_s = s["pulsetime"] * 2.5  # change pulse time value from ms to seconds
+                pulsetime_s = s["pulsetime"] * 1.1  # change pulse time value from ms to seconds
                 # self.safewrite(f"{s['source']}.measure.delay = 0")
                 # self.safewrite(f"{s['source']}.source.delay = 0")
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.measure.delay = 0")
                     self.safewrite(f"{s['drain']}.source.delay = 0")
-                self.safewrite(f"trigger.timer[1].delay = {(nplc_s * 2):.6f}")  # set duration of pulse in seconds
-                self.safewrite(f"trigger.timer[1].count = {timer_n - 1}")
+                self.safewrite(f"trigger.timer[1].delay = {nplc_s:.6f}")  # set duration of pulse in seconds
+                self.safewrite(f"trigger.timer[1].count = {timer_n}")
                 self.safewrite("trigger.timer[1].passthrough = true")  ## if true the timer will trigger immediately after run
                 # Trigger timer when the SMU sets the power
                 self.safewrite(f"trigger.timer[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
