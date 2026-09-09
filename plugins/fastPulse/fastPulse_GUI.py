@@ -450,6 +450,11 @@ class fastPulse_GUI(QWidget):
             # self.settings["timeafter"] = float(raw_settings["timeafter"]) / 1000
             self.settings["pulsetime"] = float(raw_settings["pulsetime"]) / 1000
 
+            self.settings["filename"] = raw_settings["filename"]
+            self.settings["path"] = raw_settings["path"]
+            self.settings["samplename"] = raw_settings["samplename"]
+            self.settings["comment"] = raw_settings["comment"]
+
             if self.settings["pulsetime"] < 0:
                 self._log_verbose("Value error in SpecSMU plugin: Pulse time can not be negative")
                 return [1, {"Error message": "Value error in SpecSMU plugin: Pulse time can not be negative"}]
@@ -484,10 +489,10 @@ class fastPulse_GUI(QWidget):
     ###############sequence implementation
 
     def sequenceStep(self, postfix):
-        status, settings = self.parse_settings_widget()
-        print(f"Parsed settings: {settings}")
+        #status, settings = self.parse_settings_widget()
+        #print(f"Parsed settings: {settings}")
         self._log_verbose("Entering sequenceStep with postfix: " + postfix)
-        self.settings["filename"] = settings["filename"] + postfix
+        self.settings["filename"] = self.settings["filename"] + postfix
         smu_name = self.settings["smu"]
         self._log_verbose(f"SMU: {smu_name}")
 
