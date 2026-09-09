@@ -426,8 +426,8 @@ class fastPulse_GUI(QWidget):
             self.settings["smu"] = raw_settings["smu"]
             self.settings["channel"] = raw_settings["channel"].lower()
             self.settings["inject"] = raw_settings["inject"].lower()
-            self.settings["mode"] = raw_settings["mode"].lower()
-            self.settings["delaymode"] = raw_settings["delaymode"].lower()
+            # self.settings["mode"] = raw_settings["mode"].lower()
+            # self.settings["delaymode"] = raw_settings["delaymode"].lower()
             self.settings["sourcesensemode"] = raw_settings["sourcesensemode"].lower()
             self.settings["singlechannel"] = raw_settings["singlechannel"]  # bool
             if raw_settings["channel"].lower() == "smua":
