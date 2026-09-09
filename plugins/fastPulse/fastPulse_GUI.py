@@ -586,7 +586,7 @@ class fastPulse_GUI(QWidget):
         trigpulse_dict["sourcenplc"] = self.settings["nplc"] * self.smu_settings["lineFrequency"]  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
         trigpulse_dict["nplcms"] = self.settings["nplc"] * 1000
         trigpulse_dict["pulsetime"] = self.settings["pulsetime"]
-        trigpulse_dict["delay"] = True if self.settings["delaymode"] == "auto" else False
+        # trigpulse_dict["delay"] = True if self.settings["delaymode"] == "auto" else False
         trigpulse_dict["delayduration"] = 0  # duration of the delay before measurement
 
         return trigpulse_dict
@@ -661,7 +661,7 @@ class fastPulse_GUI(QWidget):
         settings["limit"] = self.settingsWidget.lineEdit_Limit.text()
         settings["nplc"] = self.settingsWidget.lineEdit_NPLC.text()
         settings["pulsetime"] = self.settingsWidget.lineEdit_pulseTime.text()
-        settings["delay"] = self.settingsWidget.lineEdit_Delay.text()
+        # settings["delay"] = self.settingsWidget.lineEdit_Delay.text()
         settings["pause"] = self.settingsWidget.lineEdit_Pause.text()
         settings["repeat"] = self.settingsWidget.repeat_spinbox.value()
         settings["prescaler"] = self.settingsWidget.prescalerSpinBox.value()
