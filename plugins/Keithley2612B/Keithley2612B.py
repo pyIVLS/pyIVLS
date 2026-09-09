@@ -962,15 +962,15 @@ class Keithley2612B:
                 self.safewrite(f"trigger.timer[1].count = {timer_n - 1}")
                 self.safewrite("trigger.timer[1].passthrough = true")  ## if true the timer will trigger immediately after run
                 # Trigger timer when the SMU sets the power
-                self.safewrite("trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
+                self.safewrite(f"trigger.timer[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
 
                 self.safewrite(f"trigger.timer[2].delay = {pulsetime_s:.6f}")  # set duration of pulse in seconds
                 self.safewrite("trigger.timer[2].count = 1")
                 self.safewrite("trigger.timer[2].passthrough = false")  ## if true the timer will trigger immediately after run
-                self.safewrite("trigger.timer[2].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
+                self.safewrite(f"trigger.timer[2].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
 
                 # self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.timer[1].EVENT_ID")
-                self.safewrite(f"{s['source']}.trigger.measure.stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
+                self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.timer[1].EVENT_ID")
                 # Configure source action to start immediately.
