@@ -173,10 +173,13 @@ class Keithley2612B:
             if self.k is None:
                 #### connect with usbtmc
                 self.k = usbtmc.Instrument(self.address)
+                if self.k is None:
+                    raise ValueError(f"Could not connect to Keithley 2612B via USB at {self.address}")
                 # https://github.com/python-ivi/python-usbtmc/blob/master/usbtmc/usbtmc.py#L756C10-L756C22
                 # source code shows that ask returns a string when message is str, list when message is list or tuple
                 con_test = str(self.k.ask("*IDN?"))
-                assert "keithley" in con_test.lower(), f"Connected to wrong device: {con_test}"
+                if not "keithley" in con_test.lower():
+                    raise ValueError(f"Connected to wrong device: {con_test}")
                 self.set_digio(1, False)  # set digital line 1 to LOW
                 _hello()
                 # https://github.com/python-ivi/python-usbtmc/blob/master/usbtmc/usbtmc.py#L347
@@ -187,7 +190,8 @@ class Keithley2612B:
                 #### connect with pyvisa resource manager
                 visa_rsc_str = f"TCPIP::{self.eth_address}::{self.port}::SOCKET"
                 self.ke = self.rm.open_resource(visa_rsc_str, resource_pyclass=pyvisa.resources.TCPIPSocket)  # type: ignore[assignment]
-                assert self.ke is not None, "Could not connect to Keithley 2612B via Ethernet"
+                if self.ke is None:
+                    raise ValueError(f"Could not connect to Keithley 2612B via Ethernet at {visa_rsc_str}")
                 self.ke.timeout = 25000  # in milliseconds
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
@@ -196,7 +200,8 @@ class Keithley2612B:
         elif self.backend == BackendType.MOCK.value:
             self.mock_con = True
             [status, self.dataarray] = readIVLS(self.datafile_address)
-            assert status == 0
+            if status != 0:
+                raise ValueError(f"Could not read mock data file: {self.datafile_address}")
 
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
@@ -291,8 +296,10 @@ class Keithley2612B:
         outputType = "i" or "v"
         value = float
         """
-        assert channel in self.channel_names(self.backend), f"Invalid channel {channel}"
-        assert outputType in ["i", "v"], f"Invalid output type {outputType}"
+        if channel not in self.channel_names(self.backend):
+            raise ValueError(f"Invalid channel {channel}")
+        if outputType not in ["i", "v"]:
+            raise ValueError(f"Invalid output type {outputType}")
         if outputType == "i":
             self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
         if outputType == "v":
@@ -456,7 +463,7 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
 
                 # Set filter for source
-                if not s["sourcefiltertype"] == "FILTER_OFF":
+                if s["sourcefiltertype"] != "FILTER_OFF":
                     self.safewrite(f"{s['source']}.measure.filter.count = {s['sourcefiltervalue']}")
                     self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
                     self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.{s['sourcefiltertype']}")
@@ -473,7 +480,6 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['source']}.source.delay = 100e-6")
                 # autozero off turns off automatic ground and voltage reference measurements
-                # FIXME: This is never turned back on. Is that excpected behaviour?
                 self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
                 self.safewrite(f"{s['source']}.source.rangei = 10")
                 self.safewrite(f"{s['source']}.source.leveli = 0")
@@ -881,7 +887,7 @@ class Keithley2612B:
         curr_value_str: str = self.safequery(f"print(digio.readbit({line_id}))")
         curr_value = curr_value_str[0]  # strip weird formatting
 
-        return True if int(curr_value) == 1 else False
+        return int(curr_value) == 1
 
     def channel_names(self, backend) -> list:
         """Returns the channel names available in the instrument.
