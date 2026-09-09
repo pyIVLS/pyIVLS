@@ -920,7 +920,7 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")  ## enable source action
                 self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
                 self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ASYNC")  ## enable asynchronous measurement action (to measure IV before and after the pulse)
-                # self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})")  ##
+                self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})")  ##
                 # Configure other source parameters for best timing possible.
                 self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_ONCE")  # see p. 585 of Keithley manual
 
@@ -936,14 +936,14 @@ class Keithley2612B:
                     self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
                     self.safewrite(f"{s['source']}.source.rangev = {math.ceil(abs(s['value']))}")
                     self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
-                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
+                    # self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
                 else:
                     self.safewrite(f"{s['source']}.trigger.source.limitv = {s['limit']}")
                     self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
                     self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
                     self.safewrite(f"{s['source']}.source.rangei = {ceil_to_power_of_10(s['value'])}")
                     self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
-                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
+                    # self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
 
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
