@@ -350,8 +350,8 @@ class fastPulse_GUI(QWidget):
 
         ### this function may be called either form seqBuilder to populate GUI or at initialization.
         ### at initialization the key "spectrometer_settings" is not in settings, so the GUI update for spectrometer plugin should not be performed
-        if "spectrometer_settings" in self.settings:
-            self.function_dict["spectrometer"][spectro_name]["set_gui_from_settings"]()
+        # if "spectrometer_settings" in self.settings:
+        #    self.function_dict["spectrometer"][spectro_name]["set_gui_from_settings"]()
 
         if "smu_settings" in self.settings:
             self.function_dict["smu"][smu_name]["set_gui_from_settings"]()
@@ -443,11 +443,11 @@ class fastPulse_GUI(QWidget):
             self.settings["drainlimit"] = float(raw_settings["drainlimit"])
             self.settings["drainvalue"] = float(raw_settings["drainvalue"])
             self.settings["nplc"] = float(raw_settings["nplc"]) / 1000
-            self.settings["delay"] = float(raw_settings["delay"]) / 1000
+            # self.settings["delay"] = float(raw_settings["delay"]) / 1000
             self.settings["pause"] = float(raw_settings["pause"])
             self.settings["repeat"] = int(raw_settings["repeat"])  # will already be an int from spin box
             self.settings["prescaler"] = float(raw_settings["prescaler"])
-            self.settings["timeafter"] = float(raw_settings["timeafter"]) / 1000
+            # self.settings["timeafter"] = float(raw_settings["timeafter"]) / 1000
             self.settings["pulsetime"] = float(raw_settings["pulsetime"]) / 1000
 
             if self.settings["pulsetime"] < 0:
