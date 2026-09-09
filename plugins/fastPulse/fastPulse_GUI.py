@@ -735,7 +735,7 @@ class fastPulse_GUI(QWidget):
                 {"Error message": "File already exists at the specified address."},
             )
         fileheader = self._pulseMakeHeader()
-        self.logger(f"Creating file at {address} with data shape {data.shape}")
+        self._log_verbose(f"Creating file at {address} with data shape {data.shape}")
         np.savetxt(
             address,
             data,
