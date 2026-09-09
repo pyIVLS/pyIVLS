@@ -954,7 +954,6 @@ class Keithley2612B:
                 nplc_s = s["nplcms"] / 1000  # change nplc time value from ms to seconds
                 pulsetime_s = s["pulsetime"] * 1.1  # change pulse time value from ms to seconds
                 self.safewrite(f"{s['source']}.measure.delay = 0")
-                self.safewrite(f"{s['source']}.meaure.count = {timer_n}")
                 self.safewrite(f"{s['source']}.source.delay = 0")
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.measure.delay = 0")
