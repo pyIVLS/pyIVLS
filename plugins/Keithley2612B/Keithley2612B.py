@@ -952,13 +952,13 @@ class Keithley2612B:
                     # self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
                 # Calculate duration of the pulse:
                 nplc_s = s["nplcms"] / 1000  # change nplc time value from ms to seconds
-                pulsetime_s = s["pulsetime"] * 1.1  # change pulse time value from ms to seconds
+                pulsetime_s = s["pulsetime"] * 2.5  # change pulse time value from ms to seconds
                 self.safewrite(f"{s['source']}.measure.delay = 0")
                 self.safewrite(f"{s['source']}.source.delay = 0")
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.measure.delay = 0")
                     self.safewrite(f"{s['drain']}.source.delay = 0")
-                self.safewrite(f"trigger.timer[1].delay = {nplc_s:.6f}")  # set duration of pulse in seconds
+                self.safewrite(f"trigger.timer[1].delay = {(nplc_s * 2):.6f}")  # set duration of pulse in seconds
                 self.safewrite(f"trigger.timer[1].count = {timer_n - 1}")
                 self.safewrite("trigger.timer[1].passthrough = true")  ## if true the timer will trigger immediately after run
                 # Trigger timer when the SMU sets the power
