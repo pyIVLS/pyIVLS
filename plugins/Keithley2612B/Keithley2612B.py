@@ -1103,7 +1103,7 @@ class Keithley2612B:
                 self.safewrite("trigger.timer[2].passthrough = false")  ## if true the timer will trigger immediately after run
                 self.safewrite("trigger.timer[2].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
 
-                #self.safewrite(f"{s['source']}.measure.stimulus = trigger.timer[1].EVENT_ID")
+                self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.timer[1].EVENT_ID")
                 # Configure source action to start immediately.
                 self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")
                 # Configure endpulse action to achieve a pulse.
