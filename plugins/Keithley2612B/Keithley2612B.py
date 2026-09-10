@@ -986,6 +986,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
                     self.safewrite(f"{s['drain']}.source.levelv = {s['drainvalue']}")
                     self.safewrite(f"{s['drain']}.source.limiti = {s['drainlimit']}")
+                    self.safewrite(f"{s['drain']}.measure.nplc = {s['sourcenplc']}")
                     # self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
                 # Calculate duration of the pulse:
                 nplc_s = s["nplcms"] / 1000  # change nplc time value from ms to seconds
