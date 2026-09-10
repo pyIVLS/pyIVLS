@@ -68,6 +68,7 @@ class Keithley2612BGUI(QObject):
         "smu_setOutput",
         "smu_getIV",
         "smu_bufferRead",
+        "smu_bufferReadTimestamp",
         "smu_getLastBufferValue",
         "smu_runSweep",
         "smu_init",
@@ -78,6 +79,7 @@ class Keithley2612BGUI(QObject):
         "smu_connect",
         "smu_channelNames",
         "smu_trigpulse",
+        "smu_fastpulse",
     ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
     ####################################  threads
@@ -477,6 +479,16 @@ class Keithley2612BGUI(QObject):
         return self.smu.read_buffers(channel)
 
     @public
+    def smu_bufferReadTimestamp(self, channel):
+        """an interface for an externall calling function to get the content of a channel buffer with timestamps from Keithley
+        s: channel to get the last value (may be 'smua' or 'smub')
+
+        Returns:
+            np.ndarray (current, voltage)
+        """
+        return self.smu.read_buffers_timestamp(channel)
+
+    @public
     def smu_getIV(self, channel) -> tuple[int, list[float]]:
         """gets IV data
 
@@ -557,3 +569,24 @@ class Keithley2612BGUI(QObject):
             return (0, {"Error message": "OK"})
         except Exception as e:
             return (4, {"Error message": f"HW issue in keithley trigpulse: {e}"})
+
+    @public
+    def smu_fastpulse(self, s):
+        """an interface for an externall calling function to run trigger pulse on Keithley
+        s: dictionary containing the settings to run the sweep. It is different from the self.settings and from dictionary for normal sweep
+        the structure is given in header to keithley_run_trigpulse
+
+        Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+
+        Args:
+            s (dict): Configuration dictionary.
+
+        Note: this function reinitializes the Keithley, separate init is not needed
+        """
+        try:
+            self.smu.keithley_run_fastpulse(s)
+            return (0, {"Error message": "OK"})
+        except Exception as e:
+            return (4, {"Error message": f"HW issue in keithley fastpulse: {e}"})
