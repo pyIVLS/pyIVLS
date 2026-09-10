@@ -955,7 +955,7 @@ class Keithley2612B:
                 # Configure a single-point list sweep
                 self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")  ## enable source action
                 self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
-                self.safewrite(f"{s['source']}.collecttimestamps = 1")
+                self.safewrite(f"{s['source']}.nvbuffer1.collecttimestamps = 1")
                 self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ASYNC")  ## enable asynchronous measurement action (to measure IV before and after the pulse)
                 self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})")  ##
                 # Configure other source parameters for best timing possible.
