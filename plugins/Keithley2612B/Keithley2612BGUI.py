@@ -68,6 +68,7 @@ class Keithley2612BGUI(QObject):
         "smu_setOutput",
         "smu_getIV",
         "smu_bufferRead",
+        "smu_bufferReadTimestamp",
         "smu_getLastBufferValue",
         "smu_runSweep",
         "smu_init",
@@ -476,6 +477,16 @@ class Keithley2612BGUI(QObject):
             np.ndarray (current, voltage)
         """
         return self.smu.read_buffers(channel)
+
+    @public
+    def smu_bufferReadTimestamp(self, channel):
+        """an interface for an externall calling function to get the content of a channel buffer with timestamps from Keithley
+        s: channel to get the last value (may be 'smua' or 'smub')
+
+        Returns:
+            np.ndarray (current, voltage)
+        """
+        return self.smu.read_buffers_timestamp(channel)
 
     @public
     def smu_getIV(self, channel) -> tuple[int, list[float]]:

@@ -631,15 +631,12 @@ class fastPulse_GUI(QWidget):
                 time.sleep(5)
                 # saving the results
                 varDict = {}
-                IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["source"])
+                IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferReadTimestamp"](trigDict["source"])
                 # readings = np.array_split(IVdata.ravel(), 2, axis=0)
                 readings = IVdata
-                print(f"Readings: {readings}")
-                # readings = [0, 1]
                 if not (self.settings["singlechannel"]):
-                    IVdataDrain = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["drain"])
-                    readingsdrain = np.array_split(IVdataDrain.ravel(), 2, axis=0)
-                    readings = np.concatenate((readings, readingsdrain), axis=0)
+                    IVdataDrain = self.function_dict["smu"][self.settings["smu"]]["smu_bufferReadTimestamp"](trigDict["drain"])
+                    readings = np.concatenate((readings, IVdataDrain), axis=0)
                 address = self.settings["path"] + os.sep + self.settings["filename"] + f"_{smuSetValue:.4f}" + f"_{rep}" + " iv.csv"
 
                 status, state = self.createFile(address=address, data=readings)
@@ -724,6 +721,10 @@ class fastPulse_GUI(QWidget):
         comment = f"{comment}AirRelHum;0\n"
         comment = f"{comment}Name;{self.settings['samplename']}\n"
         comment = f"{comment}Comment;{self.settings['comment']}\n"
+        if self.settings["singlechannel"]:
+            comment = "t,I,V\n"
+        else:
+            comment = "t,I,V,ID,VD\n"
         comment = f"{comment}#[Data]\n"
         return comment
 

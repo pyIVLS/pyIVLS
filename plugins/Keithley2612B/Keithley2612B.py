@@ -358,6 +358,44 @@ class Keithley2612B:
             )
             return np.array(iv)
 
+    def read_buffers_timestamp(self, channel) -> np.ndarray:
+        """The maximum this can read is 60000 points. This method should be used after the sweep is finished.
+        Args:
+            channel (str): smua or smub
+
+        Returns:
+            np.ndarray: Each element is a tuple of (current, voltage)
+        """
+        if self.backend == BackendType.MOCK.value:
+            iv = []
+            # Get the number of readings in nvbuffer2
+            t_values = self.dataarray[:, 0]
+            i_values = self.dataarray[:, 0]
+            v_values = self.dataarray[:, 1]
+
+            # Add to the iv array
+            iv.extend(list(zip(i_values, v_values)))
+            return np.array(iv)
+        else:
+            iv = []
+            # Get the number of readings in nvbuffer2
+            readings_count = int(float(self.safequery(f"print({channel}.nvbuffer2.n)")))
+            t_values = self.safequery(f"printbuffer({1}, {readings_count}, {channel}.nvbuffer1.timestamps)")
+            i_values = self.safequery(f"printbuffer({1}, {readings_count}, {channel}.nvbuffer1)")
+            v_values = self.safequery(f"printbuffer({1}, {readings_count}, {channel}.nvbuffer2)")
+            # Add to the iv array
+            ##IRtothink#### some check may be added to make sure that the value may be converted
+            iv.extend(
+                list(
+                    zip(
+                        np.array(t_values.split(",")).astype(float),
+                        np.array(i_values.split(",")).astype(float),
+                        np.array(v_values.split(",")).astype(float),
+                    )
+                )
+            )
+            return np.array(iv)
+
     def abort_sweep(self, channel) -> None:
         """
         aborts the sweep
