@@ -628,7 +628,7 @@ class fastPulse_GUI(QWidget):
                 if status:
                     self._log_verbose(f"Error running smupulse: {info}")
                     raise NotImplementedError(f"Error in smu_trigpulse: {info}, no handling provided")
-                time.sleep(5)
+                time.sleep(self.settings["pulsetime"] * 2 + 1)  # pause between pulses, may be used for spectrometer integration time
                 # saving the results
                 varDict = {}
                 IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferReadTimestamp"](trigDict["source"])
@@ -644,7 +644,7 @@ class fastPulse_GUI(QWidget):
                 if status:
                     self.notify_user(f"Error saving pulse data: {state}")
                     raise NotImplementedError(f"Error in writing pulse data to file: {state}, no handling provided")
-
+                time.sleep(self.settings["pause"])
         self._log_verbose("Exiting _SpecSMUImplementation")
         return 0
 
