@@ -635,7 +635,7 @@ class fastPulse_GUI(QWidget):
                 # readings = np.array_split(IVdata.ravel(), 2, axis=0)
                 readings = IVdata
                 if not (self.settings["singlechannel"]):
-                    IVdataDrain = self.function_dict["smu"][self.settings["smu"]]["smu_bufferReadTimestamp"](trigDict["drain"])
+                    IVdataDrain = self.function_dict["smu"][self.settings["smu"]]["smu_bufferRead"](trigDict["drain"])
                     readings = np.concatenate((readings, IVdataDrain), axis=1)
                 address = self.settings["path"] + os.sep + self.settings["filename"] + f"_{smuSetValue:.4f}" + f"_{rep}" + " iv.csv"
 
