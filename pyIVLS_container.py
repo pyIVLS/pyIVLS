@@ -447,13 +447,7 @@ class pyIVLS_container(QObject):
                     function_map[plugin_function] = {plugin_name: methods}
                 else:
                     # If already exists, check if it's the first conflict
-                    existing = function_map[plugin_function]
-                    if isinstance(existing, dict) and len(existing) == 1:
-                        # Convert from flat to nested if there's now a conflict
-                        function_map[plugin_function][plugin_name] = methods
-                    else:
-                        # Add to existing nested structure
-                        function_map[plugin_function][plugin_name] = methods
+                    function_map[plugin_function][plugin_name] = methods
 
         ret = self.pm.hook.set_function(function_dict=function_map)
         for plg_ret in ret:

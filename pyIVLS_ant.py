@@ -21,6 +21,8 @@ from PyQt6.QtGui import QTextCursor
 from threadStopped import thread_with_exception, ThreadStopped
 from LLM.pyIVLS_LLM import pyIVLS_LLM
 
+import json
+
 logger = logging.getLogger(__name__)
 
 
@@ -141,20 +143,227 @@ class pyIVLS_ant(QObject):
     #### Slots for communication with plugins
     @pyqtSlot(dict, list)
     def getPluginFunctions(self, plugin_dict, plugin_functions):
-        """Populates the list of available functions for building sequencies. This is called from the container signal "seqComponents_signal".
+        """Populate ANT instruction registry from loaded plugins and their public functions.
 
         Args:
-            plugin_dict: dict of available plugins needed to extract class (step or loop)
-            plugin_functions: list of available functions returned by plugins
+            plugin_dict (dict): plugin -> plugin metadata dict
+            plugin_functions (list): list of dicts returned by plugins via get_functions()
         """
         self.available_instructions = {}
-        for plugin in plugin_dict:
-            if plugin_dict[plugin]["load"] != "True":
+
+        for plugin_name, pdata in plugin_dict.items():
+
+            # ANT should only see loaded plugins
+            if pdata.get("load") != "True":
                 continue
-        for functions in plugin_functions:
-            if plugin in functions:
-                self.available_instructions[plugin] = {
-                "meta": plugin_dict[plugin]["ai_meta"],
-                "functions": functions[plugin],
-                 }
-                break
+            
+            # Build ANT-side structure:
+            # - raw plugin data
+            # - raw callable functions
+            # - parsed ai_meta
+            # - LLM-facing prepared data
+            parsed_ai_meta = self._parse_ai_meta(pdata.get("ai_meta", ""), plugin_name)
+            for single_dict in plugin_functions:
+                for name, methods in single_dict.items():
+                    if name == plugin_name:
+                        plugin_methods = methods
+                        break
+
+            llm_data = self._build_LLM_data(plugin_name, pdata, plugin_methods, parsed_ai_meta)
+            self.available_instructions[plugin_name] = {
+                "plugin_data": pdata,
+                "functions": plugin_methods,
+                "ai_meta": parsed_ai_meta,
+                "LLM_data": llm_data,
+            }
+
+    def _parse_ai_meta(self, ai_meta_raw, plugin_name):
+        """Parse raw ai_meta JSON string into dict.
+
+        Args:
+            ai_meta_raw (str | dict): raw ai_meta from plugin_dict
+            plugin_name (str): plugin name for logging
+
+        Returns:
+            dict: parsed ai_meta, or {} on failure/missing data
+        """
+        if not ai_meta_raw:
+            return {}
+
+        if isinstance(ai_meta_raw, dict):
+            return ai_meta_raw
+
+        if not isinstance(ai_meta_raw, str):
+            self.logger.warning(
+                f"ai_meta for plugin '{plugin_name}' has unsupported type "
+                f"{type(ai_meta_raw).__name__}. Ignoring."
+            )
+            return {}
+
+        try:
+            parsed = json.loads(ai_meta_raw)
+            if isinstance(parsed, dict):
+                return parsed
+            self.logger.warning(
+                f"ai_meta for plugin '{plugin_name}' is valid JSON but not a dict. Ignoring."
+            )
+            return {}
+        except Exception as exc:
+            self.logger.warning(
+                f"Failed to parse ai_meta for plugin '{plugin_name}': {exc}"
+            )
+            return {}
+
+    def _build_LLM_data(self, plugin_name, plugin_data, functions_dict, ai_meta):
+        """Build LLM-facing data for one plugin.
+
+        This does not modify ai_meta. It creates a normalized structure ANT can
+        later send to the LLM.
+
+        Args:
+            plugin_name (str): plugin name
+            plugin_data (dict): plugin metadata from plugin_dict
+            functions_dict (dict): actual loaded public functions
+            ai_meta (dict): parsed ai_meta
+
+        Returns:
+            dict: normalized LLM-facing plugin description
+        """
+        llm_data = {
+            "plugin_name": plugin_name,
+            "type": plugin_data.get("type", ""),
+            "function": plugin_data.get("function", ""),
+            "class": plugin_data.get("class", ""),
+            "version": plugin_data.get("version", ""),
+            "dependencies": plugin_data.get("dependencies", ""),
+            "loaded": plugin_data.get("load", "") == "True",
+            "llm_available": False,
+            "llm_availability_note": "",
+            "description": "",
+            "keywords": [],
+            "capabilities": [],
+            "dynamic_state_note": "",
+            "settings_note": "",
+            "public_functions": {},
+            "tool_summary": "",
+        }
+
+        # If ai_meta is missing, ANT should communicate this to the LLM-facing layer
+        # rather than trying to infer too much on its own.
+        if not ai_meta:
+            llm_data["llm_available"] = False
+            llm_data["llm_availability_note"] = (
+                "This plugin is loaded in pyIVLS but is not available for LLM use "
+                "because ai_meta is missing or invalid. Ignore it when planning actions."
+            )
+            llm_data["tool_summary"] = self._build_missing_ai_tool_summary(llm_data)
+            return llm_data
+
+        llm_data["llm_available"] = True
+        llm_data["description"] = ai_meta.get("description", "")
+        llm_data["keywords"] = ai_meta.get("keywords", [])
+        llm_data["capabilities"] = ai_meta.get("capabilities", [])
+        llm_data["dynamic_state_note"] = ai_meta.get("dynamic_state_note", "")
+        llm_data["settings_note"] = ai_meta.get("settings_note", "")
+
+        # Only expose functions that actually exist in loaded public functions.
+        # If ai_meta describes extra functions, they are ignored here.
+        ai_public = ai_meta.get("public_functions", {})
+        public_functions = {}
+
+        if isinstance(ai_public, dict):
+            for fn_name, fn_meta in ai_public.items():
+                if fn_name not in functions_dict:
+                    continue
+
+                if isinstance(fn_meta, str):
+                    public_functions[fn_name] = {
+                        "description": fn_meta
+                    }
+                elif isinstance(fn_meta, dict):
+                    public_functions[fn_name] = fn_meta
+                else:
+                    public_functions[fn_name] = {
+                        "description": ""
+                    }
+
+        # If ai_meta missed some real functions, still include them as callable but undocumented.
+        for fn_name in functions_dict:
+            if fn_name not in public_functions:
+                public_functions[fn_name] = {
+                    "description": "No ai_meta description available for this public function."
+                }
+
+        llm_data["public_functions"] = public_functions
+        llm_data["tool_summary"] = self._build_plugin_tool_summary(llm_data)
+
+        return llm_data
+
+
+    def _build_missing_ai_tool_summary(self, llm_data):
+        """Build short LLM-facing summary for a loaded plugin with missing ai_meta."""
+        lines = [
+            f"Plugin: {llm_data.get('plugin_name', '')}",
+            f"Role: {llm_data.get('function', '')}",
+            "LLM availability: unavailable",
+            llm_data.get("llm_availability_note", ""),
+          ]
+        return "\n".join(line for line in lines if line)
+
+    def _build_plugin_tool_summary(self, llm_data):
+        """Build compact tool summary text for one plugin."""
+        lines = [
+            f"Plugin: {llm_data.get('plugin_name', '')}",
+            f"Role: {llm_data.get('function', '')}",
+        ]
+
+        description = llm_data.get("description", "")
+        if description:
+            lines.append(f"Description: {description}")
+
+        keywords = llm_data.get("keywords", [])
+        if keywords:
+            lines.append("Keywords: " + ", ".join(str(k) for k in keywords))
+
+        capabilities = llm_data.get("capabilities", [])
+        if capabilities:
+            lines.append("Capabilities:")
+            for cap in capabilities:
+                lines.append(f"- {cap}")
+
+        public_functions = llm_data.get("public_functions", {})
+        if public_functions:
+            lines.append("Public functions:")
+            for fn_name, fn_meta in public_functions.items():
+                if isinstance(fn_meta, dict):
+                    fn_desc = fn_meta.get("description", "")
+                else:
+                    fn_desc = str(fn_meta)
+                lines.append(f"- {fn_name}: {fn_desc}")
+
+        dynamic_note = llm_data.get("dynamic_state_note", "")
+        if dynamic_note:
+            lines.append(f"Dynamic state note: {dynamic_note}")
+
+        settings_note = llm_data.get("settings_note", "")
+        if settings_note:
+            lines.append(f"Settings note: {settings_note}")
+
+        return "\n".join(lines)
+
+    def build_all_LLM_tools_summary(self):
+        """Build a combined summary of all loaded plugins for the LLM."""
+        if not self.available_instructions:
+            return "No loaded plugins are currently available."
+
+        parts = []
+        for plugin_name, pdata in self.available_instructions.items():
+            llm_data = pdata.get("LLM_data", {})
+            summary = llm_data.get("tool_summary", "")
+            if summary:
+              parts.append(summary)
+
+        if not parts:
+            return "No loaded plugins are currently available."
+
+        return "\n\n".join(parts)
