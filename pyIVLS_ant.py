@@ -45,7 +45,11 @@ class pyIVLS_ant(QObject):
         self.logger = logger
 
         self.llm = pyIVLS_LLM()
-        self.messages = []
+        self.messages = []              # full raw chat history
+        self.chat_summary = ""          # compact running summary
+        self.llm_context_blocks = []    # user-added context blocks
+        self.llm_history_blocks = []    # user-added history blocks
+        self.last_n_messages = 8        # default, user may change it
 
         self._llm_thread = None
 
@@ -78,7 +82,7 @@ class pyIVLS_ant(QObject):
 
         self._setLLMStatus(True)
 
-        messages = list(self.messages)
+        messages = self.build_messages_for_LLM()
 
         self._llm_thread = thread_with_exception(
             self._llm_request,
@@ -131,6 +135,160 @@ class pyIVLS_ant(QObject):
     def _llm_request_stopped(self):
         self._add_message("ANT", "LLM request stopped.")
 
+    #### functions for creating LLM message
+
+    def build_messages_for_LLM(self):
+        """Build the message list sent to the LLM.
+
+        Order:
+        1. system prompt
+        2. tool summary
+        3. chat summary
+        4. optional context blocks
+        5. optional history blocks
+        6. last N chat messages
+        """
+        messages = []
+
+        system_prompt = self._build_system_prompt()
+        if system_prompt:
+            messages.append({
+                "role": "system",
+                "content": system_prompt,
+            })
+
+        tool_summary = self.build_all_LLM_tools_summary()
+        if tool_summary:
+            messages.append({
+                "role": "system",
+                "content": self._format_tool_summary(tool_summary),
+            })
+
+        if self.chat_summary:
+            messages.append({
+                "role": "system",
+                "content": self._format_chat_summary(self.chat_summary),
+            })
+
+        context_text = self._format_context_blocks()
+        if context_text:
+            messages.append({
+                "role": "system",
+                "content": context_text,
+            })
+
+        history_text = self._format_history_blocks()
+        if history_text:
+            messages.append({
+                "role": "system",
+                "content": history_text,
+            })
+
+        messages.extend(self._get_last_n_messages())
+
+        return messages
+    
+
+    def _build_system_prompt(self):
+        """Return the stable ANT system prompt.
+
+        This should be included in every LLM request.
+        """
+        return (
+            "You are ANT (Ai iNTerpreter) inside pyIVLS measurement software.\n\n"
+            "Your main job is to help the operator to perform the needed measurement. "
+            "To implement this job you propose structured actions using only the "
+            "currently loaded plugins and their public functions.\n\n"
+            "Rules:\n"
+            "- Use only plugins and functions explicitly provided in the tool summary.\n"
+            "- If a plugin is marked unavailable for LLM use, ignore it for planning.\n"
+            "- Do not invent plugin names, function names, settings, or device states.\n"
+            "- Dynamic state may change outside ANT and must not be assumed unless checked.\n"
+            "- If information is missing, ask for clarification or state the limitation.\n"
+            "- Prefer short, truthful, technically precise answers.\n"
+            "- If the user asks to perform an operation, prefer proposing structured actions "
+            "rather than claiming execution has already happened.\n"
+            "- Sequence creation may be proposed, but execution must not be assumed.\n"
+        )
+
+    def _format_tool_summary(self, tool_summary):
+        return (
+            "AVAILABLE TOOLS AND PLUGINS\n"
+            "The following plugins are currently loaded and visible to ANT.\n"
+            "Use only the functions explicitly listed below.\n\n"
+            f"{tool_summary}"
+        )
+
+    def _format_chat_summary(self, summary):
+        return (
+            "CHAT SUMMARY\n"
+            "This is a compact summary of earlier conversation. "
+            "Use it as background context, but prefer the most recent user messages "
+           "if there is a conflict.\n\n"
+           f"{summary}"
+        )
+
+    def _format_context_blocks(self):
+        """Format context blocks explicitly added by the user.
+
+        Context is meant to be active supporting information relevant now.
+        """
+        if not self.llm_context_blocks:
+            return ""
+
+        parts = [
+            "ADDITIONAL CONTEXT\n"
+            "The following context was explicitly added for the current discussion. "
+            "Use it when relevant.\n"
+        ]
+
+        for idx, block in enumerate(self.llm_context_blocks, start=1):
+            title = block.get("title", f"context_{idx}")
+            content = block.get("content", "")
+            if content:
+                parts.append(f"[{title}]\n{content}")
+
+        return "\n\n".join(parts)
+
+    def _format_history_blocks(self):
+        """Format history blocks explicitly restored by the user.
+
+        History is older conversation/data that may be useful but is lower priority
+        than current context and recent messages.
+        """
+        if not self.llm_history_blocks:
+            return ""
+
+        parts = [
+            "SELECTED HISTORY\n"
+            "The following older history was explicitly restored into the current LLM request. "
+            "Use it as background information if relevant.\n"
+        ]
+
+        for idx, block in enumerate(self.llm_history_blocks, start=1):
+            title = block.get("title", f"history_{idx}")
+            content = block.get("content", "")
+            if content:
+                parts.append(f"[{title}]\n{content}")
+
+        return "\n\n".join(parts)
+    
+    def _get_last_n_messages(self):
+        """Return the last N chat messages from full conversation history."""
+        try:
+            n = int(self.last_n_messages)
+        except Exception:
+            n = 8
+
+        if n <= 0:
+            return []
+
+        return list(self.messages[-n:])
+
+    #### helpers for creating LLM message
+    
+
+    
     def _add_message(self, sender, text):
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.widget.textEdit_conversation.append(
