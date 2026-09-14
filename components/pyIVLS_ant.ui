@@ -6,46 +6,167 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>526</width>
-    <height>586</height>
+    <width>692</width>
+    <height>673</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>ant (Ai iNTerpreter)</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout" stretch="0">
+  <layout class="QHBoxLayout" name="horizontalLayout_2">
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_2" stretch="6,1,0">
+    <layout class="QVBoxLayout" name="verticalLayout">
      <item>
-      <widget class="QTextEdit" name="textEdit_conversation">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QTextEdit" name="textEdit_msg">
-       <property name="styleSheet">
-        <string notr="true"> background-color: white;</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout">
+      <layout class="QHBoxLayout" name="msgMeta_msgHistory">
        <item>
-        <widget class="QPushButton" name="pushButton_send">
+        <widget class="QLabel" name="msgMetaMsgHistory_label">
          <property name="text">
-          <string>Send</string>
+          <string>Number of history messages</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="pushButton_cancelRequest">
-         <property name="enabled">
-          <bool>false</bool>
+        <widget class="QSpinBox" name="msgMetaMsgHistory_spin">
+         <property name="value">
+          <number>8</number>
          </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="msgMeta_ChatSummary">
+       <item>
+        <widget class="QLabel" name="msgMetaChat_label">
          <property name="text">
-          <string>Cancel request</string>
+          <string>Chat summary</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="msgMetaChat_auto">
+         <property name="text">
+          <string>auto generate</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTextEdit" name="msgMetaChat_textedit">
+         <property name="styleSheet">
+          <string notr="true"> background-color: white;</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="msgMeta_Context">
+       <item>
+        <widget class="QLabel" name="msgMetaContext_label">
+         <property name="text">
+          <string>Current context</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTextEdit" name="msgMetaContext_textedit">
+         <property name="styleSheet">
+          <string notr="true"> background-color: white;</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="msgMeta_Pinned">
+       <item>
+        <widget class="QLabel" name="msgMetaPinned_label">
+         <property name="text">
+          <string>Pinned history messages</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTextEdit" name="msgMetaPinned_textedit">
+         <property name="styleSheet">
+          <string notr="true"> background-color: white;</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="verticalLayout_3" stretch="4,1">
+     <property name="spacing">
+      <number>6</number>
+     </property>
+     <property name="leftMargin">
+      <number>0</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <layout class="QVBoxLayout" name="verticalLayout_2" stretch="12,1,1">
+       <item>
+        <widget class="QTextEdit" name="textEdit_conversation">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTextEdit" name="textEdit_msg">
+         <property name="styleSheet">
+          <string notr="true"> background-color: white;</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QPushButton" name="pushButton_send">
+           <property name="text">
+            <string>Send</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_cancelRequest">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>Cancel request</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="verticalLayout_execList">
+       <item>
+        <widget class="QLabel" name="execList_label">
+         <property name="text">
+          <string>Pending execution</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="execList_auto">
+         <property name="text">
+          <string>Run without approval</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QListWidget" name="execList_list">
+         <property name="styleSheet">
+          <string notr="true"> background-color: white;</string>
          </property>
         </widget>
        </item>

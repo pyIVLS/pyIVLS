@@ -33,6 +33,7 @@ class pyIVLS_ant(QObject):
     log_message = pyqtSignal(str)
 
     _llm_finished = pyqtSignal(str)
+    _llm_summary_finished = pyqtSignal(str)
     _llm_error = pyqtSignal(str)
     _llm_stopped = pyqtSignal()
 
@@ -49,11 +50,13 @@ class pyIVLS_ant(QObject):
         self.chat_summary = ""          # compact running summary
         self.llm_context_blocks = []    # user-added context blocks
         self.llm_history_blocks = []    # user-added history blocks
-        self.last_n_messages = 8        # default, user may change it
+        self.last_n_messages = self._get_historyMsgCnt()        # default for now, user may change it
 
         self._llm_thread = None
+        self._llm_summary_thread = None
 
         self._llm_finished.connect(self._llm_request_finished)
+        self._llm_summary_finished.connect(self._update_summary)
         self._llm_error.connect(self._llm_request_error)
         self._llm_stopped.connect(self._llm_request_stopped)
 
@@ -102,7 +105,22 @@ class pyIVLS_ant(QObject):
     def _setLLMStatus(self, status):
         self.widget.pushButton_send.setEnabled(not status)
         self.widget.pushButton_cancelRequest.setEnabled(status)
-        
+
+    def _get_chat_summary(self):
+        return self.widget.msgMetaChat_textedit.toPlainText()
+
+    def _get_context(self):
+        return self.widget.msgMetaContext_textedit.toPlainText()
+
+    def _get_pinned_history(self):
+        return self.widget.msgMetaPinned_textedit.toPlainText()
+
+    @pyqtSlot(str)
+    def _update_summary(self, answer):
+        return self.widget.msgMetaChat_textedit.setPlainText(answer)
+
+    def _get_historyMsgCnt(self):
+        return self.widget.msgMetaMsgHistory_spin.value()
     ### LLM functions
 
     def _llm_request(self, messages):
@@ -119,6 +137,19 @@ class pyIVLS_ant(QObject):
             self._setLLMStatus(False)
             self._llm_thread = None
 
+    def _llm_summary_request(self, messages):
+        try:
+            answer = self.llm.send(messages)
+            self._llm_summary_finished.emit(answer)
+        except ThreadStopped:
+            self.logger.info("LLM summary request stopped")
+            self._llm_stopped.emit()
+        except Exception as exc:
+            self.logger.exception("LLM summary request failed")
+            self._llm_error.emit(str(exc))
+        finally:
+            self._llm_summary_thread = None
+
     @pyqtSlot(str)
     def _llm_request_finished(self, answer):
         self.messages.append({
@@ -126,6 +157,7 @@ class pyIVLS_ant(QObject):
             "content": answer,
         })
         self._add_message("ANT", answer)
+        self._buildSummary()
 
     @pyqtSlot(str)
     def _llm_request_error(self, error):
@@ -164,24 +196,25 @@ class pyIVLS_ant(QObject):
                 "content": self._format_tool_summary(tool_summary),
             })
 
+        self.chat_summary = self._get_chat_summary()
         if self.chat_summary:
             messages.append({
                 "role": "system",
                 "content": self._format_chat_summary(self.chat_summary),
             })
 
-        context_text = self._format_context_blocks()
+        context_text = self._get_context()
         if context_text:
             messages.append({
                 "role": "system",
-                "content": context_text,
+                "content": self._format_context_blocks(context_text),
             })
 
-        history_text = self._format_history_blocks()
+        history_text = self._get_pinned_history()
         if history_text:
             messages.append({
                 "role": "system",
-                "content": history_text,
+                "content": self._format_history_blocks(history_text),
             })
 
         messages.extend(self._get_last_n_messages())
@@ -196,6 +229,10 @@ class pyIVLS_ant(QObject):
         """
         return (
             "You are ANT (Ai iNTerpreter) inside pyIVLS measurement software.\n\n"
+            "pyIVLS is a plugin-based measurement software environment. "
+            "It works through loaded plugins that expose standardized public functions. "
+            "Some plugins represent hardware devices such as cameras or source-measure units, "
+            "and some plugins represent higher-level scripts or procedures.\n\n"
             "Your main job is to help the operator to perform the needed measurement. "
             "To implement this job you propose structured actions using only the "
             "currently loaded plugins and their public functions.\n\n"
@@ -228,67 +265,125 @@ class pyIVLS_ant(QObject):
            f"{summary}"
         )
 
-    def _format_context_blocks(self):
+    def _format_context_blocks(self,context):
         """Format context blocks explicitly added by the user.
 
         Context is meant to be active supporting information relevant now.
         """
-        if not self.llm_context_blocks:
-            return ""
 
-        parts = [
+        return (
             "ADDITIONAL CONTEXT\n"
             "The following context was explicitly added for the current discussion. "
             "Use it when relevant.\n"
-        ]
+            f"{context}"
+        )
 
-        for idx, block in enumerate(self.llm_context_blocks, start=1):
-            title = block.get("title", f"context_{idx}")
-            content = block.get("content", "")
-            if content:
-                parts.append(f"[{title}]\n{content}")
-
-        return "\n\n".join(parts)
-
-    def _format_history_blocks(self):
+    def _format_history_blocks(self, pinned_history):
         """Format history blocks explicitly restored by the user.
 
         History is older conversation/data that may be useful but is lower priority
         than current context and recent messages.
         """
-        if not self.llm_history_blocks:
-            return ""
-
-        parts = [
+        
+        return (
             "SELECTED HISTORY\n"
             "The following older history was explicitly restored into the current LLM request. "
             "Use it as background information if relevant.\n"
-        ]
+            f"{pinned_history}"
+        )
 
-        for idx, block in enumerate(self.llm_history_blocks, start=1):
-            title = block.get("title", f"history_{idx}")
-            content = block.get("content", "")
-            if content:
-                parts.append(f"[{title}]\n{content}")
 
-        return "\n\n".join(parts)
-    
     def _get_last_n_messages(self):
         """Return the last N chat messages from full conversation history."""
-        try:
-            n = int(self.last_n_messages)
-        except Exception:
-            n = 8
+        last_n_messages = self._get_historyMsgCnt()
 
-        if n <= 0:
-            return []
-
-        return list(self.messages[-n:])
+        # Take a somewhat larger window than the normal prompt window
+        summary_window = min(last_n_messages*2, len(self.messages))
+        return list(self.messages[-summary_window:])
 
     #### helpers for creating LLM message
-    
 
-    
+    def _buildSummary(self):
+        """Synchronously update chat summary if autosummary is enabled and enough
+        new messages accumulated.
+
+        Summary is built from:
+        - previous chat summary
+        - current tool summary
+        - recent raw conversation messages
+        """
+        if self.last_n_messages>0:
+            self.last_n_messages = self.last_n_messages - 1
+        
+        if (not self._autoSummary()) or self.last_n_messages>0:
+            return
+
+        # Take a somewhat larger window than the normal prompt window
+        recent_messages = self._get_last_n_messages()
+
+        tool_summary = self.build_all_LLM_tools_summary()
+
+        summary_prompt = (
+            "You are maintaining a compact running summary for ANT, where ANT means "
+            "'Ai iNTerpreter', an AI assistant integrated into pyIVLS.\n\n"
+            "pyIVLS is a plugin-based measurement software environment. "
+            "Loaded plugins provide standardized public functions for hardware devices "
+            "and higher-level procedures.\n\n"
+            "Update the summary using the previous summary and the recent conversation.\n\n"
+            "Keep only information that may matter later, such as:\n"
+            "- current user goal\n"
+            "- relevant plugins, tools, or device roles\n"
+            "- constraints or safety requirements\n"
+            "- assumptions already established\n"
+            "- unresolved questions\n"
+            "- proposed or approved actions\n\n"
+            "Rules:\n"
+            "- Be concise.\n"
+            "- Do not invent facts.\n"
+            "- Preserve important technical decisions.\n"
+            "- Prefer facts over conversational phrasing.\n"
+            "- Return only the updated summary text.\n"
+              )
+
+        summary_messages = [
+            {
+                "role": "system",
+                "content": summary_prompt,
+            }
+        ]
+
+        if tool_summary:
+            summary_messages.append({
+                "role": "system",
+                "content": (
+                    "AVAILABLE TOOLS AND PLUGINS\n"
+                    "The following plugins are currently loaded and visible to ANT.\n"
+                    "Use this only as reference for interpreting the conversation.\n\n"
+                    f"{tool_summary}"
+                ),
+            })
+
+        self.chat_summary = self._get_chat_summary()
+        if self.chat_summary:
+            summary_messages.append({
+                "role": "system",
+                "content": (
+                    "PREVIOUS SUMMARY\n"
+                    "Update and compress the following summary using the recent messages.\n\n"
+                    f"{self.chat_summary}"
+                ),
+            })
+
+        if recent_messages:
+            summary_messages.extend(recent_messages)
+
+        self._llm_summary_thread = thread_with_exception(
+            self._llm_summary_request,
+            summary_messages,
+        )
+        self._llm_summary_thread.start()
+
+
     def _add_message(self, sender, text):
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.widget.textEdit_conversation.append(
@@ -321,6 +416,7 @@ class pyIVLS_ant(QObject):
             # - parsed ai_meta
             # - LLM-facing prepared data
             parsed_ai_meta = self._parse_ai_meta(pdata.get("ai_meta", ""), plugin_name)
+            plugin_methods = {}
             for single_dict in plugin_functions:
                 for name, methods in single_dict.items():
                     if name == plugin_name:
