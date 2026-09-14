@@ -1,9 +1,9 @@
-from PyQt6 import QtWidgets
-from PyQt6.QtCore import pyqtSignal
+from PySide6 import QtWidgets
+from PySide6.QtCore import Signal
 
 
 class pyIVLS_dockWindow(QtWidgets.QDockWidget):
-    closeSignal = pyqtSignal()
+    closeSignal = Signal()
     closeLock = True
 
     def __init__(self, position, parent=None):

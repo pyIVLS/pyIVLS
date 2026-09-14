@@ -1,14 +1,14 @@
 
 ################################################################################
-## Form generated from reading UI file 'affineMatchDialogHUXkMY.ui'
+## Form generated from reading UI file 'affineMatchDialog.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.0
+## Created by: Qt User Interface Compiler version 6.11.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PyQt6.QtCore import QCoreApplication, QMetaObject, Qt
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QCoreApplication, QMetaObject, Qt
+from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -64,6 +64,7 @@ class Ui_Dialog:
 
         self.horizontalLayout_11.addWidget(self.blurMask)
 
+
         self.horizontalLayout_12.addLayout(self.horizontalLayout_11)
 
         self.horizontalLayout_9 = QHBoxLayout()
@@ -78,7 +79,9 @@ class Ui_Dialog:
 
         self.horizontalLayout_9.addWidget(self.sigmaMask)
 
+
         self.horizontalLayout_12.addLayout(self.horizontalLayout_9)
+
 
         self.verticalLayout_2.addLayout(self.horizontalLayout_12)
 
@@ -111,6 +114,7 @@ class Ui_Dialog:
 
         self.horizontalLayout_13.addWidget(self.blurImage)
 
+
         self.horizontalLayout_14.addLayout(self.horizontalLayout_13)
 
         self.horizontalLayout_10 = QHBoxLayout()
@@ -125,7 +129,9 @@ class Ui_Dialog:
 
         self.horizontalLayout_10.addWidget(self.sigmaImage)
 
+
         self.horizontalLayout_14.addLayout(self.horizontalLayout_10)
+
 
         self.verticalLayout_2.addLayout(self.horizontalLayout_14)
 
@@ -153,6 +159,7 @@ class Ui_Dialog:
 
         self.horizontalLayout_2.addWidget(self.morphologyStrengthImage)
 
+
         self.horizontalLayout_15.addLayout(self.horizontalLayout_2)
 
         self.horizontalLayout_3 = QHBoxLayout()
@@ -171,7 +178,9 @@ class Ui_Dialog:
 
         self.horizontalLayout_3.addWidget(self.thresholdImage)
 
+
         self.horizontalLayout_15.addLayout(self.horizontalLayout_3)
+
 
         self.verticalLayout_2.addLayout(self.horizontalLayout_15)
 
@@ -199,6 +208,7 @@ class Ui_Dialog:
 
         self.horizontalLayout.addWidget(self.morphologyStrengthMask)
 
+
         self.horizontalLayout_16.addLayout(self.horizontalLayout)
 
         self.horizontalLayout_4 = QHBoxLayout()
@@ -217,9 +227,12 @@ class Ui_Dialog:
 
         self.horizontalLayout_4.addWidget(self.thresholdMask)
 
+
         self.horizontalLayout_16.addLayout(self.horizontalLayout_4)
 
+
         self.verticalLayout_2.addLayout(self.horizontalLayout_16)
+
 
         self.gridLayout.addWidget(self.groupBox, 0, 0, 1, 2)
 
@@ -241,6 +254,7 @@ class Ui_Dialog:
 
         self.horizontalLayout_6.addWidget(self.residualTestSpinBox)
 
+
         self.horizontalLayout_17.addLayout(self.horizontalLayout_6)
 
         self.horizontalLayout_5 = QHBoxLayout()
@@ -257,6 +271,7 @@ class Ui_Dialog:
 
         self.horizontalLayout_5.addWidget(self.ratioTestSpinBox)
 
+
         self.horizontalLayout_17.addLayout(self.horizontalLayout_5)
 
         self.horizontalLayout_7 = QHBoxLayout()
@@ -271,7 +286,9 @@ class Ui_Dialog:
 
         self.horizontalLayout_7.addWidget(self.backendCombo)
 
+
         self.horizontalLayout_17.addLayout(self.horizontalLayout_7)
+
 
         self.verticalLayout_3.addLayout(self.horizontalLayout_17)
 
@@ -297,7 +314,9 @@ class Ui_Dialog:
 
         self.horizontalLayout_8.addWidget(self.scalingSpinBox)
 
+
         self.horizontalLayout_18.addLayout(self.horizontalLayout_8)
+
 
         self.verticalLayout_3.addLayout(self.horizontalLayout_18)
 
@@ -305,6 +324,7 @@ class Ui_Dialog:
         self.statusText.setObjectName("statusText")
 
         self.verticalLayout_3.addWidget(self.statusText)
+
 
         self.gridLayout.addWidget(self.groupBox_2, 1, 0, 1, 2)
 
@@ -331,6 +351,7 @@ class Ui_Dialog:
 
         self.verticalLayout.addWidget(self.splitter_2)
 
+
         self.gridLayout.addWidget(self.groupBox_4, 2, 0, 1, 2)
 
         self.groupBox_3 = QGroupBox(Dialog)
@@ -347,12 +368,13 @@ class Ui_Dialog:
 
         self.gridLayout_2.addWidget(self.manualButton, 0, 1, 1, 1)
 
+
         self.gridLayout.addWidget(self.groupBox_3, 7, 0, 1, 2)
+
 
         self.retranslateUi(Dialog)
 
         QMetaObject.connectSlotsByName(Dialog)
-
     # setupUi
 
     def retranslateUi(self, Dialog):
@@ -385,5 +407,5 @@ class Ui_Dialog:
         self.groupBox_3.setTitle("")
         self.matchButton.setText(QCoreApplication.translate("Dialog", "Match", None))
         self.manualButton.setText(QCoreApplication.translate("Dialog", "Manual", None))
-
     # retranslateUi
+

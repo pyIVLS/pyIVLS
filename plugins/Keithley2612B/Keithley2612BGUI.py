@@ -3,8 +3,8 @@ import os
 # from Keithley2612B_test import Keithley2612B
 from Keithley2612B import Keithley2612B
 from plugin_components import LoggingHelper, get_public_methods, public
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, Qt, pyqtSlot
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtCore import QObject, Qt, Slot
 
 """
             settings dictionary for class
@@ -97,7 +97,8 @@ class Keithley2612BGUI(QObject):
         self.logger = LoggingHelper(self)
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "Keithley2612B_settingsWidget.ui")
+        loader = QUiLoader()
+        self.settingsWidget = loader.load(self.path + "Keithley2612B_settingsWidget.ui")
 
         # Initialize Keithley module
         self.smu = Keithley2612B()

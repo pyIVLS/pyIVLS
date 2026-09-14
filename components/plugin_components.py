@@ -31,19 +31,19 @@ This file includes:
 
 """
 
+import datetime as dt
 import inspect
 import logging
 import os
 import sys
 import traceback
-from datetime import datetime
 from enum import Enum
 from typing import Any, Literal, overload
 
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtGui import QColor as Qcolor
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtGui import QColor as Qcolor
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QWidget
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,7 @@ def load_widget(settings: bool, mdi: bool, path: str) -> QWidget | tuple[QWidget
     Returns:
         QWidget: settings or MDI widget
     """
+    loader = QUiLoader()
     if not (settings or mdi):
         raise ValueError("At least one of settings or mdi must be True")
 
@@ -92,9 +93,9 @@ def load_widget(settings: bool, mdi: bool, path: str) -> QWidget | tuple[QWidget
                 suffix = file.rsplit("_", 1)[-1].lower()
                 full_path = os.path.join(path, file)
                 if suffix == "settingswidget.ui" and settings:
-                    setwid: QWidget | None = uic.loadUi(full_path)  # type: ignore
+                    setwid: QWidget | None = loader.load(full_path)  # type: ignore
                 elif suffix == "mdiwidget.ui" and mdi:
-                    mdiwid: QWidget | None = uic.loadUi(full_path)  # type: ignore
+                    mdiwid: QWidget | None = loader.load(full_path)  # type: ignore
 
     if settings and mdi:
         if setwid is None:
@@ -134,7 +135,7 @@ class ConnectionIndicatorStyle(Enum):
 class CloseLockSignalProvider(QObject):
     """Component to provide closelock signal functionality without QObject inheritance."""
 
-    closeLock = pyqtSignal(bool)
+    closeLock = Signal(bool)
 
     def __init__(self):
         super().__init__()
@@ -276,7 +277,7 @@ class FileManager:
             comment = f"{comment}\n#\n# measurement of {{noname}}\n#\n#"
         else:
             comment = f"{comment}\n#\n# measurement of {settings['samplename']}\n#\n#"
-        comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"
+        comment = f"{comment}date {dt.datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"  #  # noqa: DTZ005
         comment = f"{comment}Keithley source {settings['channel']}\n#"
         comment = f"{comment}Source in {settings['inject']} injection mode\n#"
         if settings["inject"] == "voltage":
@@ -386,9 +387,9 @@ class FileManager:
 
         comment = "Thorlabs FTS operated by pyIVSL\n"
         comment = f"{comment}#[SpectrumHeader]\n"
-        comment = f"{comment}Date{separator}{datetime.now().strftime('%Y%m%d')}\n"
-        comment = f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
-        comment = f"{comment}GMTTime{separator}{datetime.utcnow().strftime('%H%M%S%f')[:-4]}\n"
+        comment = f"{comment}Date{separator}{dt.datetime.now().strftime('%Y%m%d')}\n"  # noqa: DTZ005
+        comment = f"{comment}Time{separator}{dt.datetime.now().strftime('%H%M%S%f')[:-4]}\n"  # noqa: DTZ005
+        comment = f"{comment}GMTTime{separator}{dt.datetime.now(dt.timezone.utc).strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}XAxisUnit{separator}nm_air\n"
         comment = f"{comment}YAxisUnit{separator}intensity\n"
 
@@ -496,13 +497,13 @@ class DependencyManager:
     @function_dict.setter
     def function_dict(self, value: dict[str, Any]) -> None:
         """Set available dependency functions, pruning invalid providers first."""
-        pruned_function_dict, is_valid, missing_functions = self._prune_dependency_function_dict(value)
+        pruned_function_dict, _is_valid, missing_functions = self._prune_dependency_function_dict(value)
         self._function_dict = pruned_function_dict
         self.missing_functions = missing_functions
 
     def _prune_dependency_function_dict(self, function_dict: dict[str, Any]) -> tuple[dict[str, Any], bool, list[str]]:
         """Keep only declared dependency types and plugins that satisfy required methods."""
-        dependency_function_dict = {dependency_type: function_dict.get(dependency_type, {}) for dependency_type in self.dependencies.keys()}
+        dependency_function_dict = {dependency_type: function_dict.get(dependency_type, {}) for dependency_type in self.dependencies}
         is_valid, missing_functions = filter_to_valid_methods(dependency_function_dict, self.dependencies)
         return dependency_function_dict, is_valid, missing_functions
 
@@ -517,12 +518,12 @@ class DependencyManager:
 
     def initialize_dependency_selection(self, settings: dict[str, Any]):
         """Initialize remembered dependency selections from settings."""
-        self.last_selected = {dependency_type: settings.get(dependency_type, "") for dependency_type in self.dependencies.keys() if settings.get(dependency_type, "")}
+        self.last_selected = {dependency_type: settings.get(dependency_type, "") for dependency_type in self.dependencies if settings.get(dependency_type, "")}
         return (0, {})
 
     def set_selected_dependency_plugins(self, selected: dict[str, str]) -> None:
         """Set selected dependency plugins from caller-managed UI state."""
-        for dependency_type in self.dependencies.keys():
+        for dependency_type in self.dependencies:
             selected_plugin = selected.get(dependency_type, "")
             if selected_plugin:
                 self.selected_dependencies[dependency_type] = selected_plugin
@@ -539,11 +540,11 @@ class DependencyManager:
 
     def get_available_dependency_plugins(self) -> dict[str, list[str]]:
         """Get valid plugin names for each dependency type after filtering."""
-        return {dependency_type: list(self._function_dict.get(dependency_type, {}).keys()) for dependency_type in self.dependencies.keys()}
+        return {dependency_type: list(self._function_dict.get(dependency_type, {}).keys()) for dependency_type in self.dependencies}
 
     def _resolve_selected_dependencies(self, target_settings_dict: dict[str, Any]) -> tuple[int, dict[str, str] | dict[str, Any]]:
         selected_deps: dict[str, str] = {}
-        for dependency_type in self.dependencies.keys():
+        for dependency_type in self.dependencies:
             selected_plugin = target_settings_dict.get(dependency_type, "")
             if not selected_plugin:
                 selected_plugin = self.selected_dependencies.get(dependency_type, "")
@@ -592,7 +593,7 @@ class DependencyManager:
         dependency_settings = {}
 
         # Validate and extract settings for each dependency type
-        for dependency_type in self.dependencies.keys():
+        for dependency_type in self.dependencies:
             selected_plugin = selected_deps[dependency_type]
 
             # Selection existence check. Method-level validation is already guaranteed by pruned function_dict.
@@ -619,8 +620,7 @@ class DependencyManager:
 
             except KeyError as e:
                 return (PyIVLSReturnCode.DEPENDENCY_ERROR.value, {"Error message": f"Required function 'parse_settings_widget' not found in {dependency_type} plugin '{selected_plugin}': {e!s}"})
-            except Exception as e:
-                return (PyIVLSReturnCode.DEPENDENCY_ERROR.value, {"Error message": f"Error calling parse_settings_widget for {dependency_type} plugin '{selected_plugin}': {e!s}"})
+
         # combine the target settings dict with the dependency settings to return to the plugin.
         target_settings_dict.update(dependency_settings)
         return (0, target_settings_dict)
@@ -669,8 +669,8 @@ class LoggingHelper(QObject):
     ERROR: Due to a more serious problem, the software has not been able to perform some function.
     """
 
-    logger_signal = pyqtSignal(str)
-    info_popup_signal = pyqtSignal(str)
+    logger_signal = Signal(str)
+    info_popup_signal = Signal(str)
 
     def __init__(self, plugin_instance):
         self.plugin_name = plugin_instance.__class__.__name__
@@ -681,21 +681,18 @@ class LoggingHelper(QObject):
         """Log informational messages with INFO flag
         INFO: Confirmation that things are working as expected.
         """
-        log = f"{self.plugin_name} : INFO : {message}"
         self.logger.info(message)
 
     def log_debug(self, message: str) -> None:
         """Log debug messages with DEBUG flag
         DEBUG: Detailed information, typically only of interest to a developer trying to diagnose a problem.
         """
-        log = f"{self.plugin_name} : DEBUG : {message}"
         self.logger.debug(message)
 
     def log_warn(self, message: str) -> None:
         """Log warning messages with WARN flag
         WARN: An indication that something unexpected happened, or indicative of some problem in the near future (e.g., 'disk space low'). The software is still working as expected.
         """
-        log = f"{self.plugin_name} : WARN : {message}"
         self.logger.warning(message)
 
     def log_error(self, message: str, include_trace: bool = True) -> None:

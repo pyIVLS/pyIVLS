@@ -2,17 +2,17 @@ import logging
 import re
 from os.path import dirname, sep
 
-from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QFileDialog
+from pyIVLS_pluginloader import pyIVLS_pluginloader
+from pyIVLS_seqBuilder import pyIVLS_seqBuilder
+from PySide6 import QtWidgets
+from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QFileDialog
 
 from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 
 # move this to mainwindow?
 from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
-from pyIVLS_pluginloader import pyIVLS_pluginloader
-from pyIVLS_seqBuilder import pyIVLS_seqBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class pyIVLS_GUI(QObject):
 
         self.window.actionPlugins.triggered.connect(self.actionPlugins)
         self.window.actionSequence_builder.triggered.connect(self.actionSequence_builder)
-        self.window.menuShow.aboutToShow.connect(self.action_MDIShow_to_open)
+        self.window.menuShow.aboutToShow.connect(self.action_MDIShow_to_open)  # pyright: ignore[reportAttributeAccessIssue] this is read from the UI file,
         self.window.actionDockWidget.triggered.connect(self.actionDockWidget)
         self.window.actionRead_config_file.triggered.connect(self.action_read_config_file)
         self.window.actionExport_config_file.triggered.connect(self.action_export_config_file)
@@ -43,11 +43,11 @@ class pyIVLS_GUI(QObject):
         self.initial_widget_state = {}
 
     # signal plugincontainer to read new config file
-    import_config_signal = pyqtSignal(str)
-    export_config_signal = pyqtSignal(str)  # parameter: path to save to
+    import_config_signal = Signal(str)
+    export_config_signal = Signal(str)  # parameter: path to save to
 
     ############################### Slots
-    @pyqtSlot(str)
+    @Slot(str)
     def show_message(self, str):
         QtWidgets.QMessageBox.information(
             self.window,
@@ -57,7 +57,7 @@ class pyIVLS_GUI(QObject):
             QtWidgets.QMessageBox.StandardButton.Ok,
         )
 
-    @pyqtSlot(str)
+    @Slot(str)
     def addDataLog(self, message: str):
         """
         Logs a message to both stdout and a log file, using flags in the message to determine log level.
@@ -103,15 +103,15 @@ class pyIVLS_GUI(QObject):
         self.window.setCloseOK(not any_blocked, self._blocking_plugins)
         logger.debug(f"Current blocking plugins: {list(self._blocking_plugins)}, Close allowed: {not any_blocked}")
 
-    @pyqtSlot()
+    @Slot()
     def seqBuilderReactClose(self):
         self.window.actionSequence_builder.setChecked(False)
 
-    @pyqtSlot()
+    @Slot()
     def dockWidgetReactClose(self):
         self.window.actionDockWidget.setChecked(False)
 
-    @pyqtSlot()
+    @Slot()
     def mdi_window_react_close(self):
         # check if all mdi windows are hidden
         all_hidden = True
@@ -125,7 +125,7 @@ class pyIVLS_GUI(QObject):
     ################ Menu actions
     def actionPlugins(self):
         self.pluginloader.refresh()
-        self.pluginloader.window.show()
+        self.pluginloader.show()
 
     def actionSequence_builder(self):
         self.window.seqBuilder_dockWidget.setVisible(self.window.actionSequence_builder.isChecked())
@@ -222,7 +222,7 @@ class pyIVLS_GUI(QObject):
                 sw.close()  # Actually close
 
     def setSeqBuilder(self):
-        self.window.seqBuilder_dockWidget.setWidget(self.seqBuilder.widget)
+        self.window.seqBuilder_dockWidget.setWidget(self.seqBuilder)
 
     def clearDockWidget(self):
         """
@@ -231,4 +231,4 @@ class pyIVLS_GUI(QObject):
         dock_widget = self.window.dockWidget.widget()
         if isinstance(dock_widget, QtWidgets.QTabWidget):
             dock_widget.clear()  # Clear all tabs
-        self.window.dockWidget.setWidget(None)
+        # self.window.dockWidget.setWidget(None)

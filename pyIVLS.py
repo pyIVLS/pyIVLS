@@ -2,10 +2,13 @@
 import sys
 from os.path import dirname, sep
 
+# wizardy on PATH for components imports, this means we dont have to write from components.pyIVLScontainer import pyIVLS_container.
+# There was a reason behind this that I cannot recall, but Chesterton's fence so no modifications for now.
 IVLS_path = dirname(__file__) + sep
 sys.path.append(IVLS_path)
 sys.path.append(dirname(__file__) + sep + "components" + sep)
 
+# logs
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -13,8 +16,9 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 logging.getLogger("PyQt6").setLevel(logging.WARNING)
 logging.getLogger("pyvisa").setLevel(logging.WARNING)
 
-from PyQt6 import QtWidgets
-from PyQt6.QtCore import QCoreApplication, Qt, pyqtSlot
+# py-/ˈkjuːt/6
+from PySide6 import QtWidgets
+from PySide6.QtCore import QCoreApplication, Qt, Slot
 
 from pyIVLS_container import pyIVLS_container
 from pyIVLS_GUI import pyIVLS_GUI
@@ -41,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 
 ###################################### slots
-@pyqtSlot()
+@Slot()
 def update_settings_widget():
     # update settings tabs
     settings_windows = pluginsContainer.get_plugin_info_for_settingsGUI()
