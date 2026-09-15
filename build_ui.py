@@ -1,9 +1,8 @@
 # Compile all .ui files in the components/ui_files dir to py files.
+import argparse
 import fnmatch
 import subprocess
 from pathlib import Path
-import argparse
-
 
 # Try to import optional Typer dep
 try:
@@ -29,7 +28,7 @@ def build_main_files() -> None:
 
 
 def build_single_plugin(plugin_dir: Path) -> None:
-    ui_files = list(plugin_dir.glob("*.ui"))
+    ui_files = list(plugin_dir.rglob("*.ui"))
     if not ui_files:
         print(f"No .ui files found in {plugin_dir}. Skipping.")
         return
@@ -66,4 +65,4 @@ if __name__ == "__main__":
         parser.add_argument("--plugins-dir", type=Path, default=Path("plugins"), help="Directory containing the plugins")
         parser.add_argument("--plugin-filter", type=str, default="", help="Filter for plugin directories")
         args = parser.parse_args()
-        main(build_plugins=args.build_plugins, plugins_dir=args.plugins_dir, plugin_filter=args.plugin_filter)
+        main(build_plugins=args.build_plugins, plugins_dir_input=args.plugins_dir, plugin_filter=args.plugin_filter)
