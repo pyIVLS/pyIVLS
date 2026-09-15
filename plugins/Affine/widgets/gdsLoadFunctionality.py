@@ -2,12 +2,13 @@ import os
 
 import cv2 as cv
 import numpy as np
-from gdsLoadDialog import Ui_Dialog
 from klayout import lay
 from matplotlib import cm as mpl_cm
-from PyQt6.QtCore import QEvent, QObject, QRect, QRectF, Qt, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QImage, QMouseEvent, QPixmap
-from PyQt6.QtWidgets import QDialog, QGraphicsScene, QPushButton, QRubberBand
+from PySide6.QtCore import QEvent, QObject, QRect, QRectF, Qt, Signal, Slot
+from PySide6.QtGui import QImage, QMouseEvent, QPixmap
+from PySide6.QtWidgets import QDialog, QGraphicsScene, QPushButton, QRubberBand
+
+from plugins.Affine.widgets.gdsloaderdialog import Ui_Dialog
 
 
 class wrapperSettings:
@@ -17,14 +18,15 @@ class wrapperSettings:
 
 class gdsWrapper(QObject):
     # signal to update the graphics view
-    layout_updated = pyqtSignal(np.ndarray)
+    layout_updated = Signal(np.ndarray)
 
     def __init__(self, path):
         super().__init__()
         self.path = path
         filename = os.path.basename(path)
         filename, extension = filename.split(".")
-        assert extension.lower() == "gds", "Input file must be a GDS file."
+        if extension.lower() != "gds":
+            raise ValueError(f"Invalid file extension: {extension}. Expected .gds")
         self.view = lay.LayoutView(options=lay.LayoutView.LV_NoGrid)
         self.view.load_layout(path, add_cellview=False)
         self.view.selection_size()
@@ -49,13 +51,10 @@ class gdsWrapper(QObject):
         # set layers visible and record defaults
         while not it.at_end():
             lp = it.current()
-            try:
-                # Capture defaults before modification
-                frame_c = int(lp.frame_color)
-                fill_c = int(lp.fill_color)
-            except Exception:
-                frame_c = 0xFFFFFF
-                fill_c = 0xFFFFFF
+            # Capture defaults before modification
+            frame_c = int(lp.frame_color)
+            fill_c = int(lp.fill_color)
+
             self._default_colors.append((frame_c, fill_c))
 
             new_layer = lp.dup()
@@ -88,20 +87,16 @@ class gdsWrapper(QObject):
             new_layer.clear_dither_pattern()
             # apply distinct colors if enabled, else restore defaults
             if self._color_scheme_enabled and self._layer_colors is not None:
-                try:
-                    color_int = int(self._layer_colors[layer_index])
-                    new_layer.frame_color = color_int
-                    new_layer.fill_color = color_int
-                except Exception:
-                    pass
+                color_int = int(self._layer_colors[layer_index])
+                new_layer.frame_color = color_int
+                new_layer.fill_color = color_int
+
             else:
                 # restore default colors
-                try:
-                    frame_c, fill_c = self._default_colors[layer_index]
-                    new_layer.frame_color = frame_c
-                    new_layer.fill_color = fill_c
-                except Exception:
-                    pass
+                frame_c, fill_c = self._default_colors[layer_index]
+                new_layer.frame_color = frame_c
+                new_layer.fill_color = fill_c
+
             self.view.set_layer_properties(it, new_layer)
             it.next()
             layer_index += 1
@@ -110,6 +105,8 @@ class gdsWrapper(QObject):
         output_image_path = os.path.join(os.path.dirname(self.path), "temp_render.png")
         self.view.save_image(output_image_path, width=self.w, height=self.h)
         image = cv.imread(output_image_path)
+        if image is None:
+            raise RuntimeError(f"Failed to read rendered image from {output_image_path}")
         image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
         os.remove(output_image_path)
         return image
@@ -144,14 +141,14 @@ class gdsWrapper(QObject):
         # Re-render with current settings
         self.emit_new_image()
 
-    @pyqtSlot()
+    @Slot()
     def emit_new_image(self):
         image = self.new_image()
         self.layout_updated.emit(image)
 
 
 class gdsLoadDialog(QDialog):
-    request_new_image = pyqtSignal()
+    request_new_image = Signal()
 
     def __init__(self, path):
         super().__init__(None, Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint)
@@ -271,15 +268,13 @@ class gdsLoadDialog(QDialog):
         self.request_new_image.emit()
         self.ui.drawLayerCheckBox.setChecked(False)
 
-    @pyqtSlot(np.ndarray)
+    @Slot(np.ndarray)
     def update_graphics_view(self, image: np.ndarray):
         # Any rendering change resets crop selection and hides rubber band
         self._crop_px = None
-        try:
-            if self._rubber_band is not None:
-                self._rubber_band.hide()
-        except Exception:
-            pass
+        if self._rubber_band is not None:
+            self._rubber_band.hide()
+
         self.scene.clear()
 
         w, h = image.shape[1], image.shape[0]
@@ -306,10 +301,7 @@ class gdsLoadDialog(QDialog):
         self.request_new_image.emit()
 
     def zoom(self, factor: float):
-        try:
-            self.ui.graphicsView.scale(factor, factor)
-        except Exception:
-            pass
+        self.ui.graphicsView.scale(factor, factor)
 
     def get_mask(self):
         # render new image
@@ -331,41 +323,39 @@ class gdsLoadDialog(QDialog):
     # Event filter to enable rubber-band rectangle selection for cropping
     def eventFilter(self, a0, a1):
         """Intercept mouse events on the graphicsView viewport to implement rubber-band cropping."""
-        if self.ui.graphicsView is not None and a0 is self.ui.graphicsView.viewport():
-            # catch mouse events
-            if isinstance(a1, QMouseEvent):
-                # Press
-                if a1.type() == QEvent.Type.MouseButtonPress and (a1.buttons() & Qt.MouseButton.LeftButton):
-                    self._rb_origin = a1.position().toPoint()
-                    self._rubber_band.setGeometry(QRect(self._rb_origin, self._rb_origin))
-                    self._rubber_band.show()
-                    return True
-                # Move
-                elif a1.type() == QEvent.Type.MouseMove and self._rubber_band.isVisible() and self._rb_origin is not None:
-                    current = a1.position().toPoint()
-                    rect = QRect(self._rb_origin, current).normalized()
-                    self._rubber_band.setGeometry(rect)
-                    return True
-                # Release
-                elif a1.type() == QEvent.Type.MouseButtonRelease and self._rubber_band.isVisible() and self._rb_origin is not None:
-                    end_pt = a1.position().toPoint()
-                    rect = QRect(self._rb_origin, end_pt).normalized()
-                    self._rb_origin = None
-                    # Map viewport rect to scene coordinates
-                    tl_scene = self.ui.graphicsView.mapToScene(rect.topLeft())
-                    br_scene = self.ui.graphicsView.mapToScene(rect.bottomRight())
-                    roi_scene = QRectF(tl_scene, br_scene).normalized()
-                    # Convert to image pixel coordinates (scene coords align with image since added at (0,0))
-                    if self._img is not None and self._img.size > 0:
-                        h, w = self._img.shape[0], self._img.shape[1]
-                        x1 = max(0, min(w, int(roi_scene.left())))
-                        y1 = max(0, min(h, int(roi_scene.top())))
-                        x2 = max(0, min(w, int(roi_scene.right())))
-                        y2 = max(0, min(h, int(roi_scene.bottom())))
-                        if x2 > x1 and y2 > y1:
-                            # Store crop rectangle for export; keep the selection visible
-                            self._crop_px = (x1, y1, x2, y2)
-                            self._rubber_band.setGeometry(rect)
-                            self._rubber_band.show()
-                    return True
+        if self.ui.graphicsView is not None and a0 is self.ui.graphicsView.viewport() and isinstance(a1, QMouseEvent):
+            # Press
+            if a1.type() == QEvent.Type.MouseButtonPress and (a1.buttons() & Qt.MouseButton.LeftButton):
+                self._rb_origin = a1.position().toPoint()
+                self._rubber_band.setGeometry(QRect(self._rb_origin, self._rb_origin))
+                self._rubber_band.show()
+                return True
+            # Move
+            elif a1.type() == QEvent.Type.MouseMove and self._rubber_band.isVisible() and self._rb_origin is not None:
+                current = a1.position().toPoint()
+                rect = QRect(self._rb_origin, current).normalized()
+                self._rubber_band.setGeometry(rect)
+                return True
+            # Release
+            elif a1.type() == QEvent.Type.MouseButtonRelease and self._rubber_band.isVisible() and self._rb_origin is not None:
+                end_pt = a1.position().toPoint()
+                rect = QRect(self._rb_origin, end_pt).normalized()
+                self._rb_origin = None
+                # Map viewport rect to scene coordinates
+                tl_scene = self.ui.graphicsView.mapToScene(rect.topLeft())
+                br_scene = self.ui.graphicsView.mapToScene(rect.bottomRight())
+                roi_scene = QRectF(tl_scene, br_scene).normalized()
+                # Convert to image pixel coordinates (scene coords align with image since added at (0,0))
+                if self._img is not None and self._img.size > 0:
+                    h, w = self._img.shape[0], self._img.shape[1]
+                    x1 = max(0, min(w, int(roi_scene.left())))
+                    y1 = max(0, min(h, int(roi_scene.top())))
+                    x2 = max(0, min(w, int(roi_scene.right())))
+                    y2 = max(0, min(h, int(roi_scene.bottom())))
+                    if x2 > x1 and y2 > y1:
+                        # Store crop rectangle for export; keep the selection visible
+                        self._crop_px = (x1, y1, x2, y2)
+                        self._rubber_band.setGeometry(rect)
+                        self._rubber_band.show()
+                return True
         return QDialog.eventFilter(self, a0, a1)

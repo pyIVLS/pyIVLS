@@ -74,7 +74,7 @@ class pyIVLS_fastPulse_plugin:
         Returns: Missing methods
         """
         # set functions to DependencyManager
-        is_valid, missing = self.fastPulse.dm.set_available_dependency_functions(function_dict)
+        _is_valid, missing = self.fastPulse.dm.set_available_dependency_functions(function_dict)
 
         return {self.name: missing}
 
@@ -85,7 +85,7 @@ class pyIVLS_fastPulse_plugin:
             # Use the raw getter for saving settings
             # settings = self.fastPulse.get_settings_dict_raw()
             # Optionally, you can still parse/validate if needed:
-            status, settings = self.fastPulse.parse_settings_widget()
+            _status, settings = self.fastPulse.parse_settings_widget()
             # return (self.name, status, parsed_settings)
             return (self.name, 0, settings)
 

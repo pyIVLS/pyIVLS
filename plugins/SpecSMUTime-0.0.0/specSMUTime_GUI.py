@@ -22,9 +22,9 @@ import time
 
 import numpy as np
 from plugin_components import DependencyManager, LoggingHelper
-from PyQt6 import uic
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QWidget
 
 
 class specSMUTime_GUI(QWidget):
@@ -82,7 +82,8 @@ class specSMUTime_GUI(QWidget):
             ],
         }
         # Load the settings based on the name of this file.
-        self.settingsWidget = uic.loadUi(self.path + "specSMUTime_settingsWidget.ui")
+        loader = QUiLoader()
+        self.settingsWidget = loader.load(self.path + "specSMUTime_settingsWidget.ui")
 
         self.settings = {}
         self.last_integration_time: float | None = None  # s
@@ -316,7 +317,7 @@ class specSMUTime_GUI(QWidget):
 
         # set spinboxes
 
-        prescaler = settings["prescaler"]
+        settings["prescaler"]
         # set HW trig
 
         # Update GUI state
@@ -510,15 +511,15 @@ class specSMUTime_GUI(QWidget):
         s["single_ch"] = self.settings["singlechannel"]  # single channel mode: may be True or False
 
         s["sourcenplc"] = self.settings["nplc"] * self.smu_settings["lineFrequency"]  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
-        s["delay"] = True if self.settings["delaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["delay"] = self.settings["delaymode"] == "auto"  # stabilization time mode for source: may take values [True - Auto, False - manual]
         s["delayduration"] = self.settings["delay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["limit"] = self.settings["limit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["sourcehighc"] = self.smu_settings["sourcehighc"]
         s["drainhighc"] = self.smu_settings["drainhighc"]
         s["drainnplc"] = self.settings["nplc"] * self.smu_settings["lineFrequency"]  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
-        s["drainvalue"] = self.settings["drainvalue"] if "drainvalue" in self.settings else 0
-        s["drainlimit"] = self.settings["drainlimit"] if "drainlimit" in self.settings else 0.01
-        s["draindelay"] = True if self.settings["delaymode"] == "auto" else False  # stabilization time mode for drain: may take values [True - Auto, False - manual]
+        s["drainvalue"] = self.settings.get("drainvalue", 0)
+        s["drainlimit"] = self.settings.get("drainlimit", 0.01)
+        s["draindelay"] = self.settings["delaymode"] == "auto"  # stabilization time mode for drain: may take values [True - Auto, False - manual]
         s["draindelayduration"] = self.settings["delay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["start"] = self.settings["start"]  # start value for source, added for current injection to work
         s["end"] = self.settings["end"]  # end value for source -||-

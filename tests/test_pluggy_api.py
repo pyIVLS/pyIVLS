@@ -10,7 +10,7 @@ from plugins.pyIVLS_hookspec import pyIVLS_hookspec
 
 # Ensure a Qt application exists for plugins that create Qt objects
 try:
-    from PyQt6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication
 
     HAVE_QT = True
     QT_IMPORT_ERROR = None
@@ -35,7 +35,7 @@ def ensure_qt_app():
     Uses offscreen platform to avoid display requirements in CI/headless.
     """
     if not HAVE_QT:
-        pytest.skip(f"PyQt6 not available: {QT_IMPORT_ERROR}")
+        pytest.skip(f"PySide6 not available: {QT_IMPORT_ERROR}")
     # Prefer offscreen; if unavailable, QApplication will still initialize
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     app = QApplication.instance()

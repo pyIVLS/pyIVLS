@@ -13,7 +13,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
-logging.getLogger("PyQt6").setLevel(logging.WARNING)
+logging.getLogger("PySide6").setLevel(logging.WARNING)
 logging.getLogger("pyvisa").setLevel(logging.WARNING)
 
 # py-/ˈkjuːt/6
@@ -77,13 +77,10 @@ def update_settings_widget():
     # Connect close lock signals with plugin names
     plugin_closeLockSignals = pluginsContainer.pm.hook.get_closeLock()
     for closeLockSignal_dict in plugin_closeLockSignals:
-        try:
-            plugin_name = next(iter(closeLockSignal_dict))
-            signal = closeLockSignal_dict[plugin_name]
-            # Use lambda to capture plugin_name
-            signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name), type=Qt.ConnectionType.UniqueConnection)
-        except TypeError:
-            pass
+        plugin_name = next(iter(closeLockSignal_dict))
+        signal = closeLockSignal_dict[plugin_name]
+        # Use lambda to capture plugin_name
+        signal.connect(lambda value, name=plugin_name: GUI_mainWindow.setCloseLock(value, name))
 
 
 ############################### main function
@@ -112,7 +109,7 @@ if __name__ == "__main__":
     pluginsContainer.seqComponents_signal.connect(GUI_mainWindow.seqBuilder.getPluginFunctions)
 
     # connect main window action signals to container
-    GUI_mainWindow.window.actionWrite_settings_to_file.triggered.connect(pluginsContainer.save_settings)
+    GUI_mainWindow.window.ui.actionWrite_settings_to_file.triggered.connect(pluginsContainer.save_settings)
     GUI_mainWindow.import_config_signal.connect(pluginsContainer.import_config_file)
     GUI_mainWindow.export_config_signal.connect(pluginsContainer.export_config_file)
 

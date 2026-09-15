@@ -8,9 +8,9 @@ import pandas as pd
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from pathvalidate import is_valid_filename
 from plugin_components import CloseLockSignalProvider, LoggingHelper, PyIVLSReturnCode, filter_to_valid_methods, get_public_methods, public
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, Qt, pyqtSlot
-from PyQt6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import QObject, Qt, Slot
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
 from sweepCommon import create_file_header, create_sweep_reciepe
 from threadStopped import (
     ThreadStopped,
@@ -65,8 +65,9 @@ class sweepGUI(QObject):
 
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "sweep_settingsWidget.ui")
-        self.MDIWidget = uic.loadUi(self.path + "sweep_MDIWidget.ui")
+        loader = QUiLoader()
+        self.settingsWidget = loader.load(self.path + "sweep_settingsWidget.ui")
+        self.MDIWidget = loader.load(self.path + "sweep_MDIWidget.ui")
         self._connect_signals()
         self.settings = {}
         self._create_plt()
@@ -608,7 +609,7 @@ class sweepGUI(QObject):
         #        self._setGUIfromSettings()
 
     ###############GUI enable/disable
-    @pyqtSlot(bool)
+    @Slot(bool)
     def set_running(self, status):
         self.settingsWidget.groupBox_general.setEnabled(not status)
         self.settingsWidget.groupBox_sweep.setEnabled(not status)
@@ -720,7 +721,7 @@ class sweepGUI(QObject):
                         _plot_ref_source.set_xdata(Xdata_source)
                         _plot_ref_source.set_ydata(Ydata_source)
                         if not measurement["single_ch"]:
-                            [lastI_drain, lastV_drain, lastPoints_drain] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["drain"], lastPoints)
+                            [lastI_drain, lastV_drain, _lastPoints_drain] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["drain"], lastPoints)
                             Xdata_drain.append(lastV_drain)
                             Ydata_drain.append(lastI_drain)
                             _plot_ref_drain.set_xdata(Xdata_source)

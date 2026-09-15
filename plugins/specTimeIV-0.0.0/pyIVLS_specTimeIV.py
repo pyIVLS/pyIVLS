@@ -95,7 +95,7 @@ class pyIVLS_specTimeIV_plugin:
         Returns:
             dict: name, widget
         """
-        is_valid, missing = self.pluginClass.dependency_manager.set_available_dependency_functions(function_dict)
+        _is_valid, missing = self.pluginClass.dependency_manager.set_available_dependency_functions(function_dict)
 
         return {self.name: missing}
 

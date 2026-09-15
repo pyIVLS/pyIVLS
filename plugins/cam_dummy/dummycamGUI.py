@@ -30,6 +30,8 @@ import os
 
 import numpy as np
 from dummycam import DummyCamera as VenusUSB2
+from dummycam_previewwidget import Ui_previewForm
+from dummycam_settingswidget import Ui_Form
 from pathvalidate import is_valid_filename
 from plugin_components import (
     CloseLockSignalProvider,
@@ -38,21 +40,32 @@ from plugin_components import (
     get_public_methods,
     public,
 )
-from PyQt6 import QtWidgets, uic
-from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtWidgets import QFileDialog
+from PySide6 import QtWidgets
+from PySide6.QtCore import QObject, Qt, QThread, Signal
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtWidgets import QFileDialog
 
 ##IRtothink#### should some kind of zoom to the image part be added for the preview?
 
 
-# This solves some issues but might create others.
-# Pros: slots are fast and good, GUI remains unblocked
-# Cons: Creating multiple connections to this might cause overhead issues.
-# It would probably be better to create a single thread or worker for one preview session.
-# but then the new thread would have to be connected again back to the other plugins.
+class DummySW(QtWidgets.QWidget, Ui_Form):
+    """Dummy camera settings widget."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+
+class DummyMDI(QtWidgets.QWidget, Ui_previewForm):
+    """Dummy camera preview widget."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+
 class CameraThread(QThread):
-    new_frame = pyqtSignal(np.ndarray)
+    new_frame = Signal(np.ndarray)
 
     def __init__(self, camera, interval_ms):
         super().__init__()
@@ -79,7 +92,7 @@ class DummyCameraGUI(QObject):
     """GUI for the mock camera with VenusUSB2-compatible GUI."""
 
     # Signal emitted when a new camera thread is created
-    new_camera_thread = pyqtSignal(object)  # Emits the new camera thread
+    new_camera_thread = Signal(object)  # Emits the new camera thread
 
     non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
     public_methods = [
@@ -106,8 +119,8 @@ class DummyCameraGUI(QObject):
         the same directory and have the correct suffixes. This can be copied to other plugins.
         """
         # Use dummy UI files that mirror VenusUSB2 layout
-        self.settingsWidget = uic.loadUi(self.path + os.path.sep + "dummycam_settingsWidget.ui")
-        self.previewWidget = uic.loadUi(self.path + os.path.sep + "dummycam_previewWidget.ui")
+        self.settingsWidget = DummySW()
+        self.previewWidget = DummyMDI()
 
         self.settings = {"source": None, "exposure": None}
         self.q_img = None

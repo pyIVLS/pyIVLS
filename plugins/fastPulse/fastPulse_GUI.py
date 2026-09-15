@@ -20,15 +20,19 @@ import copy
 import os
 import time
 from datetime import datetime
-
+from typing import Any
 
 import numpy as np
+from fastpulse_settingswidget import Ui_Form
 from plugin_components import DependencyManager, LoggingHelper
-from PyQt6 import uic
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QWidget, QFileDialog  # , QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFileDialog, QWidget  # , QLabel, QVBoxLayout, QWidget
 
-from typing import Any
+
+class FPSW(QWidget, Ui_Form):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
 
 
 class fastPulse_GUI(QWidget):
@@ -81,7 +85,7 @@ class fastPulse_GUI(QWidget):
             ],
         }
         # Load the settings based on the name of this file.
-        self._settingsWidget = uic.loadUi(self.path + "fastPulse_settingsWidget.ui")
+        self._settingsWidget = FPSW()
 
         self.settings = {}
         self.last_integration_time: float | None = None  # s
@@ -525,15 +529,15 @@ class fastPulse_GUI(QWidget):
         s["single_ch"] = self.settings["singlechannel"]  # single channel mode: may be True or False
 
         s["sourcenplc"] = self.settings["nplc"] * self.smu_settings["lineFrequency"]  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
-        s["delay"] = True if self.settings["delaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["delay"] = self.settings["delaymode"] == "auto"  # stabilization time mode for source: may take values [True - Auto, False - manual]
         s["delayduration"] = self.settings["delay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["limit"] = self.settings["limit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["sourcehighc"] = self.smu_settings["sourcehighc"]
         s["drainhighc"] = self.smu_settings["drainhighc"]
         s["drainnplc"] = self.settings["nplc"] * self.smu_settings["lineFrequency"]  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
-        s["drainvalue"] = self.settings["drainvalue"] if "drainvalue" in self.settings else 0
-        s["drainlimit"] = self.settings["drainlimit"] if "drainlimit" in self.settings else 0.01
-        s["draindelay"] = True if self.settings["delaymode"] == "auto" else False  # stabilization time mode for drain: may take values [True - Auto, False - manual]
+        s["drainvalue"] = self.settings.get("drainvalue", 0)
+        s["drainlimit"] = self.settings.get("drainlimit", 0.01)
+        s["draindelay"] = self.settings["delaymode"] == "auto"  # stabilization time mode for drain: may take values [True - Auto, False - manual]
         s["draindelayduration"] = self.settings["delay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["start"] = self.settings["start"]  # start value for source, added for current injection to work
         s["end"] = self.settings["end"]  # end value for source -||-
@@ -581,12 +585,12 @@ class fastPulse_GUI(QWidget):
         description of the dict in spectrometer plugin, function header"""
         trigpulse_dict = {}
         trigpulse_dict["source"] = self.settings["channel"]
-        trigpulse_dict["sense"] = True if self.settings["sourcesensemode"] == "4 wire" else False
+        trigpulse_dict["sense"] = self.settings["sourcesensemode"] == "4 wire"
         trigpulse_dict["type"] = "v" if self.settings["inject"] == "voltage" else "i"
         trigpulse_dict["value"] = smuSetValue
 
-        trigpulse_dict["drainvalue"] = self.settings["drainvalue"] if "drainvalue" in self.settings else 0
-        trigpulse_dict["drainlimit"] = self.settings["drainlimit"] if "drainlimit" in self.settings else 0.001
+        trigpulse_dict["drainvalue"] = self.settings.get("drainvalue", 0)
+        trigpulse_dict["drainlimit"] = self.settings.get("drainlimit", 0.001)
         trigpulse_dict["drain"] = self.settings["drainchannel"]
         trigpulse_dict["usedrain"] = not (self.settings["singlechannel"])
         trigpulse_dict["limit"] = self.settings["limit"]
@@ -606,7 +610,7 @@ class fastPulse_GUI(QWidget):
             smuChange = (self.settings["end"] - self.settings["start"]) / (smuLoop - 1)
         else:
             smuChange = 0
-        Filename = self.settings["filename"]
+        self.settings["filename"]
         repeat = self.settings["repeat"]
         if not self.settings["singlechannel"]:
             self.function_dict["smu"][smu_name]["smu_setOutput"](self.settings["drainchannel"], "v", self.settings["drainvalue"])
@@ -630,7 +634,6 @@ class fastPulse_GUI(QWidget):
                     raise NotImplementedError(f"Error in smu_trigpulse: {info}, no handling provided")
                 time.sleep(self.settings["pulsetime"] * 2 + 1)  # pause between pulses, may be used for spectrometer integration time
                 # saving the results
-                varDict = {}
                 IVdata = self.function_dict["smu"][self.settings["smu"]]["smu_bufferReadTimestamp"](trigDict["source"])
                 # readings = np.array_split(IVdata.ravel(), 2, axis=0)
                 readings = IVdata

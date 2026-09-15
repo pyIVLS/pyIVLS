@@ -18,9 +18,10 @@ import pandas as pd
 from annotated_types import Gt
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from pathvalidate import is_valid_filename
-from plugin_components import DataOrder, DependencyManager, FileManager, LoggingHelper, PluginException, load_widget
+from plugin_components import DataOrder, DependencyManager, FileManager, LoggingHelper, PluginException
 from pydantic import BaseModel, DirectoryPath, field_validator
-from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QFileDialog, QVBoxLayout
 from threadStopped import ThreadStopped, thread_with_exception
 
 
@@ -135,7 +136,9 @@ class specTimeIVGUI:
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
 
-        self._settingsWidget, self._mdiWidget = load_widget(settings=True, mdi=True, path=self.path)
+        loader = QUiLoader()
+        self._settingsWidget = loader.load(self.path + "spectimeIV_settingsWidget.ui")
+        self._mdiWidget = loader.load(self.path + "spectimeIV_MDIWidget.ui")
 
         # stop yelling at me linter
         assert self.settingsWidget is not None, "Failed to load settingsWidget UI"
@@ -539,13 +542,13 @@ class specTimeIVGUI:
         s["single_ch"] = self.settings["singlechannel"]  # single channel mode: may be True or False
 
         s["sourcenplc"] = guardrail_nplc(self.settings["sourcenplc"], freq)  # drain NPLC (may not be used in single channel mode)
-        s["delay"] = True if self.settings["sourcedelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["delay"] = self.settings["sourcedelaymode"] == "auto"  # stabilization time mode for source: may take values [True - Auto, False - manual]
         s["delayduration"] = self.settings["sourcedelay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["limit"] = self.settings["sourcelimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["sourcehighc"] = self.smu_settings["sourcehighc"]
 
         s["drainnplc"] = guardrail_nplc(self.settings["drainnplc"], freq)  # drain NPLC (may not be used in single channel mode)
-        s["draindelay"] = True if self.settings["draindelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["draindelay"] = self.settings["draindelaymode"] == "auto"  # stabilization time mode for source: may take values [True - Auto, False - manual]
         s["draindelayduration"] = self.settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["drainlimit"] = self.settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["drainhighc"] = self.smu_settings["drainhighc"]
@@ -870,19 +873,17 @@ class specTimeIVGUI:
                     self.logger.log_error(f"Error saving spectrum: {e}")
 
             # check if it is time to stop
-            if self.settings["stoptimer"]:
-                if (currentTime - startTic) >= self.settings["stopafter"] * 60:  # convert to sec from min
-                    self.logger.log_debug("_timeIVimplementation: Stop timer reached, saving data and exiting.")
-                    self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
-                    time.sleep(self.settings["timestep"])  # ensure the last data is saved before exiting
-                    break
+            if self.settings["stoptimer"] and (currentTime - startTic) >= self.settings["stopafter"] * 60:  # convert to sec from min
+                self.logger.log_debug("_timeIVimplementation: Stop timer reached, saving data and exiting.")
+                self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
+                time.sleep(self.settings["timestep"])  # ensure the last data is saved before exiting
+                break
 
             # check if it is time to autosave
-            if self.settings["autosave"]:
-                if (currentTime - saveTic) >= self.settings["autosaveinterval"] * 60:  # convert to sec from min
-                    self.logger.log_debug("_timeIVimplementation: Autosave interval reached, saving data.")
-                    self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
-                    saveTic = currentTime
+            if self.settings["autosave"] and (currentTime - saveTic) >= self.settings["autosaveinterval"] * 60:  # convert to sec from min
+                self.logger.log_debug("_timeIVimplementation: Autosave interval reached, saving data.")
+                self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
+                saveTic = currentTime
 
             # take a nap until we need to take the next measurement
             time.sleep(self.settings["timestep"])

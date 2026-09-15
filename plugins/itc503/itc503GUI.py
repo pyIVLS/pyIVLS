@@ -26,13 +26,27 @@ from datetime import datetime
 
 import numpy as np
 from itc503 import itc503
+from itc503_mdiwidget import Ui_previewForm
+from itc503_settingswidget import Ui_Form
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
+from PySide6 import QtWidgets
+from PySide6.QtCore import QObject, QTimer, Signal
+from PySide6.QtWidgets import QFileDialog, QVBoxLayout
 from threadStopped import thread_with_exception
 
 logger = logging.getLogger(__name__)
+
+
+class Itc503SW(QtWidgets.QWidget, Ui_Form):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+
+class Itc503MDI(QtWidgets.QWidget, Ui_previewForm):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
 
 
 class itc503GUI(QObject):
@@ -47,9 +61,9 @@ class itc503GUI(QObject):
     ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ########Signals
 
-    log_message = pyqtSignal(str)
-    info_message = pyqtSignal(str)
-    closeLock = pyqtSignal(bool)
+    log_message = Signal(str)
+    info_message = Signal(str)
+    closeLock = Signal(bool)
     arrayT = []
     arraytemp = []
     runningFlag = False
@@ -60,8 +74,8 @@ class itc503GUI(QObject):
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
 
-        self.settingsWidget = uic.loadUi(self.path + "itc503_settingsWidget.ui")
-        self.MDIWidget = uic.loadUi(self.path + "itc503_MDIWidget.ui")
+        self.settingsWidget = Itc503SW()
+        self.MDIWidget = Itc503MDI()
 
         # Initialize the functionality core that should be independent on GUI
         self.itc503 = itc503()

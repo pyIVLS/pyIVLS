@@ -19,9 +19,9 @@ import pandas as pd
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from pathvalidate import is_valid_filename
 from plugin_components import CloseLockSignalProvider, LoggingHelper, get_public_methods, public
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, Qt
-from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
+from PySide6.QtCore import QObject, Qt
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QFileDialog, QVBoxLayout
 from threadStopped import ThreadStopped, thread_with_exception
 
 
@@ -87,9 +87,10 @@ class timeIVGUI(QObject):
 
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
+        loader = QUiLoader()
 
-        self.settingsWidget = uic.loadUi(self.path + "timeIV_settingsWidget.ui")
-        self.MDIWidget = uic.loadUi(self.path + "timeIV_MDIWidget.ui")
+        self.settingsWidget = loader.load(self.path + "timeIV_settingsWidget.ui")
+        self.MDIWidget = loader.load(self.path + "timeIV_MDIWidget.ui")
 
         # remove next if no plots
         self._create_plt()
@@ -667,13 +668,13 @@ class timeIVGUI(QObject):
         s["start"] = self.settings["sourcevalue"]  # start value for source in voltage mode or for drain in current mode (may not be used in single channel mode)
         s["end"] = self.settings["sourcevalue"]  # end value for source in
         s["sourcenplc"] = self.settings["sourcenplc"] * self.smu_settings["lineFrequency"]  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
-        s["delay"] = True if self.settings["sourcedelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["delay"] = self.settings["sourcedelaymode"] == "auto"  # stabilization time mode for source: may take values [True - Auto, False - manual]
         s["delayduration"] = self.settings["sourcedelay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["limit"] = self.settings["sourcelimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["sourcehighc"] = self.smu_settings["sourcehighc"]
 
         s["drainnplc"] = self.settings["drainnplc"] * self.smu_settings["lineFrequency"]  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
-        s["draindelay"] = True if self.settings["draindelaymode"] == "auto" else False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+        s["draindelay"] = self.settings["draindelaymode"] == "auto"  # stabilization time mode for source: may take values [True - Auto, False - manual]
         s["draindelayduration"] = self.settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
         s["drainlimit"] = self.settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
         s["drainhighc"] = self.smu_settings["drainhighc"]
@@ -972,17 +973,15 @@ class timeIVGUI(QObject):
             self.axes.autoscale_view()
             self.sc.draw()
 
-            if self.settings["stoptimer"]:
-                if (currentTime - startTic) >= self.settings["stopafter"] * 60:  # convert to sec from min
-                    self.logger.log_debug("_timeIVimplementation: Stop timer reached, saving data and exiting.")
-                    self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
-                    break
+            if self.settings["stoptimer"] and (currentTime - startTic) >= self.settings["stopafter"] * 60:  # convert to sec from min
+                self.logger.log_debug("_timeIVimplementation: Stop timer reached, saving data and exiting.")
+                self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
+                break
 
-            if self.settings["autosave"]:
-                if (currentTime - saveTic) >= self.settings["autosaveinterval"] * 60:  # convert to sec from min
-                    self.logger.log_debug("_timeIVimplementation: Autosave interval reached, saving data.")
-                    self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
-                    saveTic = currentTime
+            if self.settings["autosave"] and (currentTime - saveTic) >= self.settings["autosaveinterval"] * 60:  # convert to sec from min
+                self.logger.log_debug("_timeIVimplementation: Autosave interval reached, saving data.")
+                self._saveData(header, timeData, sourceI, sourceV, drainI, drainV)
+                saveTic = currentTime
 
             time.sleep(self.settings["timestep"])
 

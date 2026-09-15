@@ -100,13 +100,13 @@ def create_file_header(settings, smu_settings, backVoltage=None):
     comment = f"{comment}Drain delay factor: {smu_settings['draindelayfactor']}\n#"
 
     comment = f"{comment}Source filter: {smu_settings['sourcefiltertype']}"
-    if not smu_settings["sourcefiltertype"] == "Off":
+    if smu_settings["sourcefiltertype"] != "Off":
         comment = f"{comment}, value: {smu_settings['sourcefiltervalue']}\n#"
     else:
         comment = f"{comment}\n#"
 
     comment = f"{comment}Drain filter: {smu_settings['drainfiltertype']}"
-    if not smu_settings["drainfiltertype"] == "Off":
+    if smu_settings["drainfiltertype"] != "Off":
         comment = f"{comment}, value: {smu_settings['drainfiltervalue']}\n#"
     else:
         comment = f"{comment}\n#"
@@ -201,7 +201,7 @@ def create_sweep_reciepe(settings, settings_smu):
         loopsensesource = [True]
     if settings["drainsensemode"] == "2 & 4 wire":
         loopsensedrain = [False, True]
-        if not (settings["sourcesensemode"] == "2 & 4 wire"):
+        if settings["sourcesensemode"] != "2 & 4 wire":
             loopsensesource.append(loopsensesource[0])
     elif settings["drainsensemode"] == "2 wire":
         loopsensedrain = [False]
@@ -214,7 +214,7 @@ def create_sweep_reciepe(settings, settings_smu):
         for sensecnt, sense in enumerate(loopsensesource):
             s["sourcesense"] = sense  # source sence mode: may take values [True - 4 wire, False - 2 wire]
             s["drainsense"] = loopsensedrain[sensecnt]  # drain sence mode: may take values [True - 4 wire, False - 2 wire]
-            if not (settings["mode"] == "pulsed"):
+            if settings["mode"] != "pulsed":
                 s["pulse"] = False  # set pulsed mode: may be True - pulsed, False - continuous
                 s["sourcenplc"] = guardrail_nplc(settings["continuousnplc"], settings_smu["lineFrequency"])  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
                 if settings["continuousdelaymode"] == "auto":
@@ -229,7 +229,7 @@ def create_sweep_reciepe(settings, settings_smu):
                 s["end"] = settings["continuousend"]  # end point of sweep
                 s["limit"] = settings["continuouslimit"]  # limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode
                 recipe.append(copy.deepcopy(s))
-            if not (settings["mode"] == "continuous"):
+            if settings["mode"] != "continuous":
                 s["pulse"] = True  # set pulsed mode: may be True - pulsed, False - continuous
                 s["sourcenplc"] = guardrail_nplc(settings["pulsednplc"], settings_smu["lineFrequency"])  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
                 s["delay"] = settings["pulseddelaymode"]  # stabilization time mode for source: may take values [True - Auto, False - manual]

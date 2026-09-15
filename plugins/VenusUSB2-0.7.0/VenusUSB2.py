@@ -4,17 +4,16 @@ import cv2 as cv
 class VenusUSB2:
     """Handles communication with the VenusUSB2 camera"""
 
-    exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
-    # exposures = [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1]  # windows interface
-    bufferSize = 1
-    cap_width = 1024
-    cap_height = 768
-    full_size_width = 640 * 2
-    full_size_height = 480 * 2
-
     def __init__(self):
         # Initialize cap as empty capture
         self.cap = cv.VideoCapture()
+        # self.exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
+        self.exposures = [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1]  # windows interface
+        self.bufferSize = 1
+        self.cap_width = 1024
+        self.cap_height = 768
+        self.full_size_width = 640 * 2
+        self.full_size_height = 480 * 2
 
     def open(self, source=None, exposure=None) -> tuple[int, dict]:
         """Opens the camera using current settings.
@@ -36,8 +35,8 @@ class VenusUSB2:
             self.cap.set(cv.CAP_PROP_FRAME_WIDTH, self.full_size_width)
             self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, self.full_size_height)
 
-            return [0, {"Error message": "OK"}]
-        return [4, {"Error message": "Can not open camera"}]
+            return (0, {"Error message": "OK"})
+        return (4, {"Error message": "Can not open camera"})
 
     def set_exposure(self, exposure):
         """Sets the exposure time of the camera.

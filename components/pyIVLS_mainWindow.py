@@ -11,19 +11,20 @@ from components.pyIVLS_dockWindow import pyIVLS_dockWindow
 logger = logging.getLogger(__name__)
 
 
-class pyIVLS_mainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
+class pyIVLS_mainWindow(QtWidgets.QMainWindow):
     closeSignal = Signal()
 
     def __init__(self, uipath):
         super().__init__()
-        self.setupUi(self)
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
         self.seqBuilder_dockWidget = pyIVLS_dockWindow(parent=self, position=Qt.DockWidgetArea.RightDockWidgetArea)
         self.dockWidget = pyIVLS_dockWindow(parent=self, position=Qt.DockWidgetArea.BottomDockWidgetArea)
 
         # add a menu for MDI windows under the view -> show menu
         self.mdiWindowsMenu = QtWidgets.QMenu("MDI windows", self)
         self.mdiWindowsMenu.setObjectName("mdiWindowsMenu")
-        self.menuShow.addMenu(self.mdiWindowsMenu)
+        self.ui.menuShow.addMenu(self.mdiWindowsMenu)
 
         self.closeOK = True
         self.blocking = set()  # Initialize blocking as an empty set

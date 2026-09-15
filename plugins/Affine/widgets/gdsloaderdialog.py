@@ -1,14 +1,13 @@
-
 ################################################################################
-## Form generated from reading UI file 'gdsLoaderDialogMdWqWC.ui'
+## Form generated from reading UI file 'gdsLoaderDialog.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.0
+## Created by: Qt User Interface Compiler version 6.11.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PyQt6.QtCore import QCoreApplication, QMetaObject, Qt
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QCoreApplication, QMetaObject, Qt
+from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialogButtonBox,
@@ -83,7 +82,7 @@ class Ui_Dialog:
         self.widthSpinBox = QSpinBox(self.groupBox)
         self.widthSpinBox.setObjectName("widthSpinBox")
         self.widthSpinBox.setMinimum(200)
-        self.widthSpinBox.setMaximum(6000)
+        self.widthSpinBox.setMaximum(3000)
 
         self.horizontalLayout.addWidget(self.widthSpinBox)
 
@@ -104,7 +103,7 @@ class Ui_Dialog:
         self.heightSpinBox = QSpinBox(self.groupBox)
         self.heightSpinBox.setObjectName("heightSpinBox")
         self.heightSpinBox.setMinimum(200)
-        self.heightSpinBox.setMaximum(6000)
+        self.heightSpinBox.setMaximum(3000)
 
         self.horizontalLayout_2.addWidget(self.heightSpinBox)
 

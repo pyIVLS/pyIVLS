@@ -231,7 +231,7 @@ class touchDetect:
                         if contacting:
                             # Contact detected! Save the z-position to both ManipulatorInfo and low-level storage
                             position_data = mm["mm_current_position"]()
-                            x, y, z_position = position_data
+                            _x, _y, z_position = position_data
                             info.last_z = int(z_position)
                             # Store in low-level dictionary for move_to_contact to use
                             self.last_z_positions[info.mm_number] = int(z_position)
@@ -420,7 +420,7 @@ class touchDetect:
                 for info in manipulator_info:
                     idx = info.mm_number
                     position_data = mm["mm_current_position"](manipulator_name=idx)
-                    x, y, z_position = position_data
+                    _x, _y, z_position = position_data
                     zs.append(z_position)
                 avg_z = sum(zs) / len(zs)
                 self._log(f"Moving spectrometer to average Z position of contacting manipulators: {avg_z} with offset {spectrometer_info[0].spectrometer_height}")
@@ -438,8 +438,8 @@ class touchDetect:
                     self._log(f"Spectrometer {info.mm_number} moved to Z={target_z}")
             return (0, {"Error message": "OK"})
 
-        except ThreadStopped as ts:
-            raise ts  # re-raise to be caught by outer layers that handle thread stopping
+        except ThreadStopped:
+            raise  # re-raise to be caught by outer layers that handle thread stopping
         except Exception as e:
             error_msg = f"Exception in move_to_contact: {e!s}"
             self._log(error_msg)
@@ -466,7 +466,7 @@ class touchDetect:
         measurements = []
 
         while time.time() - start_time < duration_seconds:
-            contacting, r = self._contacting(smu, info)
+            contacting, _r = self._contacting(smu, info)
 
             measurements.append(contacting)
 
@@ -644,9 +644,9 @@ class touchDetect:
     def verify_contact(self, mm: dict, smu: dict, con: dict, infos: list[ManipulatorInfo]) -> tuple[int, dict]:
         """Verifies contact for all manipulators."""
         self._log("Starting verify_contact operation")
-        status_smu, state_smu = smu["smu_connect"]()
-        status_con, state_con = con["deviceConnect"]()
-        status_mm, state_mm = mm["mm_open"]()
+        status_smu, _state_smu = smu["smu_connect"]()
+        status_con, _state_con = con["deviceConnect"]()
+        status_mm, _state_mm = mm["mm_open"]()
         if any(s != 0 for s in [status_smu, status_con, status_mm]):
             return (2, {"Error message": "Verify contact failed to set up hardware"})
         stables = []

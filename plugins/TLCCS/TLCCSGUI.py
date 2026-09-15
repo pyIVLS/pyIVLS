@@ -59,11 +59,29 @@ from plugin_components import (
     ini_to_bool,
     public,
 )
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
-from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
+from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QFileDialog, QVBoxLayout, QWidget
 from TLCCS import CCSDRV
 from worker_thread import WorkerThread
+from tlccs_settingswidget import Ui_Form
+from tlccs_mdiwidget import Ui_previewForm
+
+
+class TLCCS_SW(QWidget, Ui_Form):
+    """Settings widget for TLCCS plugin."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+
+class TLCCS_MDI(QWidget, Ui_previewForm):
+    """Preview widget for TLCCS plugin."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
 
 
 class PreviewThread(QThread):
@@ -74,10 +92,10 @@ class PreviewThread(QThread):
     """
 
     # Signals
-    data_ready = pyqtSignal(list)  # Emitted when data is available: [wavelengths, intensities]
-    error_occurred = pyqtSignal(str)  # Emitted on error with error message
-    status_changed = pyqtSignal(str)  # Emitted on status changes for logging
-    finished_normally = pyqtSignal()  # Emitted when thread finishes normally
+    data_ready = Signal(list)  # Emitted when data is available: [wavelengths, intensities]
+    error_occurred = Signal(str)  # Emitted on error with error message
+    status_changed = Signal(str)  # Emitted on status changes for logging
+    finished_normally = Signal()  # Emitted when thread finishes normally
 
     def __init__(self, driver, correction, settings, logger, interval_ms=50):
         """Initialize the preview thread.
@@ -193,10 +211,10 @@ class TLCCS_GUI(QObject):
     """spectrometer plugin for pyIVLS"""
 
     ########Signals
-    closeLock = pyqtSignal(bool)
-    connectionStateChanged = pyqtSignal(bool)  # signal to update state of connection
-    data_recieved_signal = pyqtSignal(list)  # signal emitted when new data is received, list includes [wavelengths, intensities]
-    redraw_inputs = pyqtSignal()  # Emitted to request GUI input redraws
+    closeLock = Signal(bool)
+    connectionStateChanged = Signal(bool)  # signal to update state of connection
+    data_recieved_signal = Signal(list)  # signal emitted when new data is received, list includes [wavelengths, intensities]
+    redraw_inputs = Signal()  # Emitted to request GUI input redraws
 
     # class variables
     #    filedelimeter = "\t"
@@ -237,20 +255,20 @@ class TLCCS_GUI(QObject):
         This should not be used for notifications which may occur during sequence operation? Those are notified
         by the seqbuilder"""
         self.logger.log_info(message)
-        # self.logger.info_popup(message)
+        self.logger.info_popup(message)
 
     def log_verbose(self, message: str) -> None:
         self.logger.log_info(message)
 
     ########Functions
     def __init__(self):
-        super(QObject, self).__init__()
+        super().__init__()
         # Load the ui files based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
         self._settingsWidget = None
         self._previewWidget = None
-        self._settingsWidget = uic.loadUi(self.path + "TLCCS_settingsWidget.ui")  # type: ignore
-        self._previewWidget = uic.loadUi(self.path + "TLCCS_MDIWidget.ui")  # type: ignore
+        self._settingsWidget = TLCCS_SW()
+        self._previewWidget = TLCCS_MDI()
 
         # create the driver
         self._drv = CCSDRV()
@@ -291,8 +309,8 @@ class TLCCS_GUI(QObject):
 
     def _connect_signals(self):
         """Connect GUI signals to their respective slots."""
-        self.settingsWidget.connectButton.clicked.connect(self.spectrometerConnect)
-        self.settingsWidget.disconnectButton.clicked.connect(self.spectrometerDisconnect)
+        self.settingsWidget.connectButton.clicked.connect(self.connect_action)
+        self.settingsWidget.disconnectButton.clicked.connect(self.disconnect_action)
         self.settingsWidget.setIntegrationTimeButton.clicked.connect(self._setIntTimeAction)
         self.settingsWidget.previewButton.clicked.connect(self._previewAction)
         self.settingsWidget.saveButton.clicked.connect(self._saveAction)
@@ -353,7 +371,7 @@ class TLCCS_GUI(QObject):
         self.lastspectrum = [intensities, self.settings]
         return [0, [self.correction[:, 0], intensities]]
 
-    @pyqtSlot(list)
+    @Slot(list)
     def _on_data_recieved(self, payload: list):
         """Slot for data_recieved_signal. Payload: [wavelengths, intensities]."""
         if not isinstance(payload, (list, tuple)) or len(payload) != 2:
@@ -362,23 +380,23 @@ class TLCCS_GUI(QObject):
         # render with existing logic
         self._render_preview(intensities)
 
-    @pyqtSlot(list)
+    @Slot(list)
     def _on_preview_data_ready(self, payload: list):
         """Slot for PreviewThread data_ready signal."""
         self.data_recieved_signal.emit(payload)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def _on_preview_error(self, error_msg: str):
         """Slot for PreviewThread error_occurred signal."""
         self.log_verbose(f"Preview thread error: {error_msg}")
         self.notify_user(f"Preview error: {error_msg}")
 
-    @pyqtSlot(str)
+    @Slot(str)
     def _on_preview_status_changed(self, status_msg: str):
         """Slot for PreviewThread status_changed signal."""
         self.log_verbose(f"Preview status: {status_msg}")
 
-    @pyqtSlot()
+    @Slot()
     def _on_preview_finished(self):
         """Slot for PreviewThread finished_normally signal."""
         self.log_verbose("Preview thread finished normally")
@@ -386,6 +404,7 @@ class TLCCS_GUI(QObject):
     ########Functions
     ########GUI Slots
 
+    @Slot()
     def _previewAction(self) -> tuple[int, dict]:
         self.log_verbose("Preview button clicked.")
         if self.preview_running:
@@ -442,6 +461,7 @@ class TLCCS_GUI(QObject):
 
             return (0, {})
 
+    @Slot()
     def _setIntTimeAction(self):
         if self.preview_running:  # this function is useful only in preview mode
             [status, info] = self._parse_settings_integrationTime()
@@ -456,6 +476,7 @@ class TLCCS_GUI(QObject):
 
             return [0, "OK"]
 
+    @Slot()
     def _saveAction(self):
         [status, info] = self._parseSaveData()
         if status:
@@ -477,6 +498,7 @@ class TLCCS_GUI(QObject):
             return [status, state]
         return [0, "OK"]
 
+    @Slot()
     def _getTimeAction(self) -> None:
         """No returns since this is an internal function and the return cannot be checked.
 
@@ -519,7 +541,7 @@ class TLCCS_GUI(QObject):
     def _auto_time_worker(self, worker_thread) -> tuple[int, float | dict]:
         return self.getAutoTime()
 
-    @pyqtSlot(object)
+    @Slot(object)
     def _on_auto_time_result(self, result):
         if self._auto_time_result_handled:
             return
@@ -531,11 +553,11 @@ class TLCCS_GUI(QObject):
         else:
             self.notify_user(f"Failed to calculate auto integration time: {auto_time}")
 
-    @pyqtSlot(str)
+    @Slot(str)
     def _on_auto_time_error(self, error_message: str):
         self.notify_user(f"Auto integration time failed: {error_message}")
 
-    @pyqtSlot()
+    @Slot()
     def _on_auto_time_finished(self):
         self.settingsWidget.getTime_button.setEnabled(True)
         if self._gettime_preview_status:
@@ -546,6 +568,18 @@ class TLCCS_GUI(QObject):
         self.closeLock.emit(False)
         self.auto_time_thread = None
         self._gettime_preview_status = False
+
+    @Slot()
+    def connect_action(self):
+        status, state = self.spectrometerConnect()
+        if status != 0:
+            self.notify_user("Spectrometer connection failed: " + str(state))
+
+    @Slot()
+    def disconnect_action(self):
+        status, state = self.spectrometerDisconnect()
+        if status != 0:
+            self.notify_user("Spectrometer disconnection failed: " + str(state))
 
     @public
     def getAutoTime(
@@ -838,22 +872,17 @@ class TLCCS_GUI(QObject):
         return (0, {})
 
     def _parse_spectrumCorrection(self):
-        if self.settingsWidget.correctionCheck.isChecked():
-            return True
-        else:
-            return False
+        return bool(self.settingsWidget.correctionCheck.isChecked())
 
     def _parseSaveData(self) -> tuple[int, dict]:
         self.settings["address"] = self.settingsWidget.lineEdit_path.text()
         if not os.path.isdir(self.settings["address"] + os.sep):
-            self.notify_user("Provided address is not valid. Please select a valid directory for saving data.")
             return (
                 1,
                 {"Error message": "TLCCS plugin : address string should point to a valid directory"},
             )
         self.settings["filename"] = self.settingsWidget.lineEdit_filename.text()
         if not is_valid_filename(self.settings["filename"]):
-            self.notify_user("Filename is not valid. Please enter a valid filename")
             return (1, {"Error message": "TLCCS plugin : filename is not valid"})
 
         self.settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
@@ -937,7 +966,7 @@ class TLCCS_GUI(QObject):
         """
         self.redraw_inputs.emit()
 
-    @pyqtSlot()
+    @Slot()
     def _redraw_inputs(self):
         """
         integrationtime = 0.01

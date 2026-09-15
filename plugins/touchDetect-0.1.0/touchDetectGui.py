@@ -9,8 +9,8 @@ from plugin_components import (
     get_public_methods,
     public,
 )
-from PyQt6 import uic
-from PyQt6.QtWidgets import QComboBox, QGroupBox, QSpinBox, QWidget
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QComboBox, QGroupBox, QSpinBox, QWidget
 from threadStopped import ThreadStopped
 from touchDetect import ManipulatorInfo, touchDetect
 from worker_thread import WorkerThread
@@ -32,7 +32,8 @@ class touchDetectGUI:
         # Initialize LoggingHelper, functionality, ui
         self.logger = LoggingHelper(self)
         self.functionality = touchDetect(log=self.logger.log_debug)
-        self._settingsWidget = uic.loadUi(self.path + "touchDetect_Settings.ui")
+        loader = QUiLoader()
+        self._settingsWidget = loader.load(self.path + "touchDetect_Settings.ui")
 
         # initialize dependencyManager
         dependencies = {

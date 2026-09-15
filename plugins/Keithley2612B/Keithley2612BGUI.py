@@ -2,8 +2,9 @@ import os
 
 # from Keithley2612B_test import Keithley2612B
 from Keithley2612B import Keithley2612B
+from keithley2612b_settingswidget import Ui_Form
 from plugin_components import LoggingHelper, get_public_methods, public
-from PySide6.QtUiTools import QUiLoader
+from PySide6 import QtWidgets
 from PySide6.QtCore import QObject, Qt, Slot
 
 """
@@ -55,6 +56,12 @@ from PySide6.QtCore import QObject, Qt, Slot
 """
 
 
+class KeithleySW(QtWidgets.QWidget, Ui_Form):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+
 class Keithley2612BGUI(QObject):
     """GUI for Keithley2612B"""
 
@@ -97,8 +104,7 @@ class Keithley2612BGUI(QObject):
         self.logger = LoggingHelper(self)
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        loader = QUiLoader()
-        self.settingsWidget = loader.load(self.path + "Keithley2612B_settingsWidget.ui")
+        self.settingsWidget = KeithleySW()
 
         # Initialize Keithley module
         self.smu = Keithley2612B()
@@ -315,7 +321,7 @@ class Keithley2612BGUI(QObject):
 
     ###############GUI enable/disable
     @public
-    @pyqtSlot(bool)
+    @Slot(bool)
     def set_running(self, status: bool) -> None:
         """Sets the running state of the GUI elements.
 

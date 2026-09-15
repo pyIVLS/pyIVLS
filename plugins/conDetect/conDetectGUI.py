@@ -23,6 +23,7 @@ import copy
 import os
 
 from conDetect import conDetect
+from condetect_settingswidget import Ui_Form
 from plugin_components import (
     CloseLockSignalProvider,
     ConnectionIndicatorStyle,
@@ -30,15 +31,21 @@ from plugin_components import (
     get_public_methods,
     public,
 )
-from PyQt6 import uic
-from PyQt6.QtCore import QObject
+from PySide6 import QtWidgets
+from PySide6.QtCore import QObject
+
+
+class ConDetSW(QtWidgets.QWidget, Ui_Form):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
 
 
 class conDetectGUI(QObject):
     def __init__(self):
         super().__init__()
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "conDetect_settingsWidget.ui")
+        self.settingsWidget = ConDetSW()
         self.functionality = conDetect()
         self._connect_signals()
         self.settings = {}
@@ -212,7 +219,6 @@ class conDetectGUI(QObject):
         return (0, "OK")
         self.logger.log_debug("deviceDisconnect called.")
         try:
-            
             self.functionality.setDefault()
             self.settingsWidget.hiConnectionIndicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
             self.settingsWidget.loConnectionIndicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)

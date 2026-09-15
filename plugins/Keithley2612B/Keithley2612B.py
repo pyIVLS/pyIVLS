@@ -123,7 +123,7 @@ class Keithley2612B:
             ##IRtodo#### mov to the log
             logger.error(f"Exception sending command: {command}\nException: {e}")
             ##IRtothink#### some exception handling should be implemented
-            raise e
+            raise
 
     def safequery(self, command: str) -> str:
         try:
@@ -149,7 +149,7 @@ class Keithley2612B:
             ##IRtodo#### mov to the log
             logger.error(f"Exception querying command: {command}\nException: {e}")
             ##IRtothink#### some exception handling implemented
-            raise e
+            raise
 
     def keithley_IDN(self) -> str:
         return "keith"
@@ -578,7 +578,7 @@ class Keithley2612B:
                 self.safewrite(f"{s['drain']}.source.rangei = 10")
             else:
                 # Set filter for drain
-                if not s["drainfiltertype"] == "FILTER_OFF":
+                if s["drainfiltertype"] != "FILTER_OFF":
                     self.safewrite(f"{s['drain']}.measure.filter.count = {s['drainfiltervalue']}")
                     self.safewrite(f"{s['drain']}.measure.filter.enable = {s['drain']}.FILTER_ON")
                     self.safewrite(f"{s['drain']}.measure.filter.type = {s['drain']}.{s['drainfiltertype']}")
@@ -679,7 +679,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
                 logger.error(f"Caught exception during keithley_run_sweep : {e}")
-                raise e
+                raise
                 return 1
 
     def keithley_run_trigpulse(self, s: dict):  # -> status:
@@ -828,17 +828,15 @@ class Keithley2612B:
                 self.safewrite("trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
                 # Configure source action to start immediately.
                 self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")
-                if s["usedrain"]:
-                    if s["spectro_check_after"]:
-                        if s["use_timeafter"]:
-                            logger.info(f"Using time after time: {s['timeafter']}")
-                            self.safewrite(f"trigger.timer[3].delay = {s['timeafter']:.6f}")
-                            self.safewrite("trigger.timer[3].count = 1")
-                            self.safewrite("trigger.timer[3].passthrough = false")
-                            self.safewrite("trigger.timer[3].stimulus = trigger.timer[2].EVENT_ID")
-                            self.safewrite("trigger.blender[2].orenable = true")
-                            self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
-                            self.safewrite("trigger.blender[2].stimulus[2] = trigger.timer[3].EVENT_ID")
+                if s["usedrain"] and s["spectro_check_after"] and s["use_timeafter"]:
+                    logger.info(f"Using time after time: {s['timeafter']}")
+                    self.safewrite(f"trigger.timer[3].delay = {s['timeafter']:.6f}")
+                    self.safewrite("trigger.timer[3].count = 1")
+                    self.safewrite("trigger.timer[3].passthrough = false")
+                    self.safewrite("trigger.timer[3].stimulus = trigger.timer[2].EVENT_ID")
+                    self.safewrite("trigger.blender[2].orenable = true")
+                    self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                    self.safewrite("trigger.blender[2].stimulus[2] = trigger.timer[3].EVENT_ID")
                 # Configure endpulse action to achieve a pulse.
                 self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
                 self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
@@ -886,7 +884,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
                 logger.error(f"Caught exception during keithley_run_sweep : {e}")
-                raise e
+                raise
                 return 1
 
     def keithley_run_fastpulse(self, s: dict):  # -> status:
@@ -1050,7 +1048,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
                 logger.error(f"Caught exception during keithley_run_sweep : {e}")
-                raise e
+                raise
                 return 1
 
     def set_digio(self, line_id: int, value: bool):

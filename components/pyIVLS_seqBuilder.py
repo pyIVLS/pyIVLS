@@ -12,7 +12,7 @@ from os.path import sep
 
 from compiled_ui.pyivls_seqbuilder import Ui_Form
 from pathvalidate import is_valid_filename
-from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QAction, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QFileDialog, QMenu, QWidget
 from threadStopped import ThreadStopped, thread_with_exception
@@ -20,7 +20,7 @@ from threadStopped import ThreadStopped, thread_with_exception
 logger = logging.getLogger(__name__)
 
 
-class pyIVLS_seqBuilder(QWidget, Ui_Form):
+class pyIVLS_seqBuilder(QWidget):
     #### Properties
     @property
     def item(self):
@@ -33,7 +33,7 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
             # find the instance of the item in the model
             index = self.model.indexFromItem(value)
             if index.isValid():  # catch invisible root item
-                self.treeView.setCurrentIndex(index)
+                self.ui.treeView.setCurrentIndex(index)
         else:
             raise TypeError("seqBuilder: Tried to assign a non-QStandardItem")
 
@@ -57,14 +57,14 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
             plugin_dict: dict of available plugins needed to extract class (step or loop)
             plugin_functions: list of available functions returned by plugins
         """
-        self.comboBox_function.currentIndexChanged.disconnect(self.update_classView)
+        self.ui.comboBox_function.currentIndexChanged.disconnect(self.update_classView)
         self.available_instructions = {}
-        self.comboBox_function.clear()
+        self.ui.comboBox_function.clear()
         for plugin in plugin_dict:
             if plugin_dict[plugin]["load"] != "True":
                 continue
             if ("step" in plugin_dict[plugin]["class"]) or ("loop" in plugin_dict[plugin]["class"]):
-                self.comboBox_function.addItem(plugin)
+                self.ui.comboBox_function.addItem(plugin)
                 class_list = []
                 if "step" in plugin_dict[plugin]["class"]:
                     class_list.append("step")
@@ -77,7 +77,7 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
                             "functions": functions[plugin],
                         }
                         break
-        self.comboBox_function.currentIndexChanged.connect(self.update_classView)
+        self.ui.comboBox_function.currentIndexChanged.connect(self.update_classView)
         self.update_classView()
 
     #### external functions
@@ -90,7 +90,8 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
     #### Internal functions
     def __init__(self, path):
         super().__init__()
-        self.setupUi(self)
+        self.ui = Ui_Form()
+        self.ui.setupUi(self)
 
         self.path = path
         self.skip_iteration = False
@@ -100,33 +101,33 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
         self._init_treeView()
 
     def _init_treeView(self):
-        self.model = QStandardItemModel(self.treeView)
+        self.model = QStandardItemModel(self.ui.treeView)
         self.model.setHorizontalHeaderLabels(["Step function", "Step class"])
         self._item = QStandardItem("pyIVLS measurement sequence")
         self.item.setEditable(False)
         self.model.appendRow(self.item)
         # set the item as active
         self.update_treeView()
-        self.treeView.setCurrentIndex(self.model.index(0, 0))
+        self.ui.treeView.setCurrentIndex(self.model.index(0, 0))
 
     def _connect_signals(self):
-        self.comboBox_function.currentIndexChanged.connect(self.update_classView)
-        self.addInstructionButton.clicked.connect(self._addInstructionAction)
-        self.saveButton.clicked.connect(self._saveRecipeAction)
-        self.readButton.clicked.connect(self._readRecipeAction)
-        self.directoryButton.clicked.connect(self._getAddress)
-        self.runButton.clicked.connect(self._runAction)
-        self.stopButton.clicked.connect(self._stopAction)
-        self.testButton.clicked.connect(self._test_action)
+        self.ui.comboBox_function.currentIndexChanged.connect(self.update_classView)
+        self.ui.addInstructionButton.clicked.connect(self._addInstructionAction)
+        self.ui.saveButton.clicked.connect(self._saveRecipeAction)
+        self.ui.readButton.clicked.connect(self._readRecipeAction)
+        self.ui.directoryButton.clicked.connect(self._getAddress)
+        self.ui.runButton.clicked.connect(self._runAction)
+        self.ui.stopButton.clicked.connect(self._stopAction)
+        self.ui.testButton.clicked.connect(self._test_action)
         self._sigSeqEnd.connect(self._setNotRunning)
-        self.updateSettings.clicked.connect(self._update_settings_action)
-        self.readSettingsButton.clicked.connect(self._read_settings_action)
+        self.ui.updateSettings.clicked.connect(self._update_settings_action)
+        self.ui.readSettingsButton.clicked.connect(self._read_settings_action)
 
         # connect the label click on gds to a function
         # add a custom context menu in the list widget to allow point deletion
-        self.treeView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.treeView.customContextMenuRequested.connect(self._tree_context_menu)
-        self.treeView.clicked.connect(self._root_item_changed)
+        self.ui.treeView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.ui.treeView.customContextMenuRequested.connect(self._tree_context_menu)
+        self.ui.treeView.clicked.connect(self._root_item_changed)
 
     #### GUI functions
 
@@ -160,7 +161,7 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
                 raise ValueError("Selected item not found in the model.")
             self._apply_single_instruction_settings_to_gui(item)
 
-        idx: QModelIndex = self.treeView.indexAt(position)
+        idx = self.ui.treeView.indexAt(position)
         # get parent index
         idx_parent = idx.parent()
         # get the row number of the index
@@ -171,16 +172,16 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
             return
 
         menu = QMenu()
-        delete_action = QAction("Delete", self.treeView)
-        update_action = QAction("Update Settings", self.treeView)
-        to_gui_action = QAction("Update GUI from Settings", self.treeView)
+        delete_action = QAction("Delete", self.ui.treeView)
+        update_action = QAction("Update Settings", self.ui.treeView)
+        to_gui_action = QAction("Update GUI from Settings", self.ui.treeView)
         update_action.triggered.connect(lambda: update_settings_for_selected_item(row, idx_parent))
         delete_action.triggered.connect(lambda: remove_item(row, idx_parent))
         to_gui_action.triggered.connect(lambda: to_gui_settings_for_selected_item(row, idx_parent))
         menu.addAction(update_action)
         menu.addAction(delete_action)
         menu.addAction(to_gui_action)
-        menu.exec(self.treeView.mapToGlobal(position))
+        menu.exec(self.ui.treeView.mapToGlobal(position))
 
     def _iter_instruction_items(self, root_item=None):
         """Yield all instruction items (column 0) in depth-first order."""
@@ -297,17 +298,17 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
             #### GUI functions
 
     def update_classView(self):
-        self.comboBox_class.clear()
-        if not (self.comboBox_function.currentText() == "" or self.comboBox_function.currentText() == "loop end"):
-            for item in self.available_instructions[self.comboBox_function.currentText()]["class"]:
-                self.comboBox_class.addItem(item)
+        self.ui.comboBox_class.clear()
+        if not (self.ui.comboBox_function.currentText() == "" or self.ui.comboBox_function.currentText() == "loop end"):
+            for item in self.available_instructions[self.ui.comboBox_function.currentText()]["class"]:
+                self.ui.comboBox_class.addItem(item)
 
     def update_treeView(self):
-        self.treeView.setModel(self.model)
-        self.treeView.expandAll()
+        self.ui.treeView.setModel(self.model)
+        self.ui.treeView.expandAll()
 
     def _getAddress(self):
-        address = self.lineEdit_path.text()
+        address = self.ui.lineEdit_path.text()
         if not (os.path.exists(address)):
             address = self.path
         address = QFileDialog.getExistingDirectory(
@@ -317,14 +318,14 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
             options=QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
         )
         if address:
-            self.lineEdit_path.setText(address)
+            self.ui.lineEdit_path.setText(address)
 
     def _saveRecipeAction(self):
-        filename = self.lineEdit_filename.text()
+        filename = self.ui.lineEdit_filename.text()
         if not is_valid_filename(filename):
             self.info_message.emit("Can not save sequence. Filename is invalid.")
             return 1
-        with open(self.lineEdit_path.text() + sep + filename, "w") as file:
+        with open(self.ui.lineEdit_path.text() + sep + filename, "w") as file:
             json.dump(
                 self.extract_data(self.model.invisibleRootItem().child(0)),
                 file,
@@ -357,8 +358,8 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
                 self.item = nextItem
 
     def _setRunStatus(self, status):
-        self.runButton.setEnabled(not status)
-        self.stopButton.setEnabled(status)
+        self.ui.runButton.setEnabled(not status)
+        self.ui.stopButton.setEnabled(status)
 
     def _test_action(self) -> bool:
         """Checks for self-referencing items and empty loops."""
@@ -408,7 +409,7 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
     #### Sequence functions
 
     def _addInstructionAction(self):
-        instructionFunc = self.comboBox_function.currentText()
+        instructionFunc = self.ui.comboBox_function.currentText()
         if instructionFunc == "":
             self.info_message.emit("Instruction function cannot be empty")
             return 1
@@ -430,7 +431,7 @@ class pyIVLS_seqBuilder(QWidget, Ui_Form):
             return 1
 
         # Check the instruction class of self.item
-        instructionClass = self.comboBox_class.currentText()
+        instructionClass = self.ui.comboBox_class.currentText()
 
         nextItem = QStandardItem(instructionFunc)
         nextItem.setData(instructionSettings, Qt.ItemDataRole.UserRole)
