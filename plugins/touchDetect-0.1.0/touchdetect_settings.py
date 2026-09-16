@@ -14,7 +14,7 @@ class Ui_Form:
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName("Form")
-        Form.resize(1148, 921)
+        Form.resize(893, 551)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -27,7 +27,7 @@ class Ui_Form:
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 1128, 901))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 879, 537))
         self.verticalLayout_6 = QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout_6.setObjectName("verticalLayout_6")
         self.horizontalLayout = QHBoxLayout()
@@ -229,7 +229,9 @@ class Ui_Form:
         self.gridLayout_4.setObjectName("gridLayout_4")
         self.manipulator1 = QGroupBox(self.groupBox_2)
         self.manipulator1.setObjectName("manipulator1")
-        self.verticalLayout = QVBoxLayout(self.manipulator1)
+        self.horizontalLayout_8 = QHBoxLayout(self.manipulator1)
+        self.horizontalLayout_8.setObjectName("horizontalLayout_8")
+        self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName("verticalLayout")
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
@@ -266,12 +268,23 @@ class Ui_Form:
 
         self.verticalLayout.addLayout(self.horizontalLayout_7)
 
+        self.horizontalLayout_8.addLayout(self.verticalLayout)
+
+        self.manindicator_1 = QLabel(self.manipulator1)
+        self.manindicator_1.setObjectName("manindicator_1")
+        self.manindicator_1.setMaximumSize(QSize(20, 20))
+        self.manindicator_1.setStyleSheet("border-radius: 10px;\nbackground-color:rgb(165, 29, 45);\nmin-height: 20px;\nmin-width: 20px;")
+
+        self.horizontalLayout_8.addWidget(self.manindicator_1)
+
         self.gridLayout_4.addWidget(self.manipulator1, 0, 1, 1, 1)
 
         self.manipulator2 = QGroupBox(self.groupBox_2)
         self.manipulator2.setObjectName("manipulator2")
-        self.verticalLayout_2 = QVBoxLayout(self.manipulator2)
-        self.verticalLayout_2.setObjectName("verticalLayout_2")
+        self.horizontalLayout_16 = QHBoxLayout(self.manipulator2)
+        self.horizontalLayout_16.setObjectName("horizontalLayout_16")
+        self.verticalLayout_4 = QVBoxLayout()
+        self.verticalLayout_4.setObjectName("verticalLayout_4")
         self.horizontalLayout_3 = QHBoxLayout()
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
         self.mansmu_2 = QComboBox(self.manipulator2)
@@ -284,35 +297,46 @@ class Ui_Form:
 
         self.horizontalLayout_3.addWidget(self.mancon_2)
 
-        self.verticalLayout_2.addLayout(self.horizontalLayout_3)
+        self.verticalLayout_4.addLayout(self.horizontalLayout_3)
 
-        self.horizontalLayout_8 = QHBoxLayout()
-        self.horizontalLayout_8.setObjectName("horizontalLayout_8")
+        self.horizontalLayout_15 = QHBoxLayout()
+        self.horizontalLayout_15.setObjectName("horizontalLayout_15")
         self.label_12 = QLabel(self.manipulator2)
         self.label_12.setObjectName("label_12")
 
-        self.horizontalLayout_8.addWidget(self.label_12)
+        self.horizontalLayout_15.addWidget(self.label_12)
 
         self.manres_2 = QSpinBox(self.manipulator2)
         self.manres_2.setObjectName("manres_2")
         self.manres_2.setMinimum(1)
         self.manres_2.setMaximum(20)
 
-        self.horizontalLayout_8.addWidget(self.manres_2)
+        self.horizontalLayout_15.addWidget(self.manres_2)
 
         self.label_13 = QLabel(self.manipulator2)
         self.label_13.setObjectName("label_13")
 
-        self.horizontalLayout_8.addWidget(self.label_13)
+        self.horizontalLayout_15.addWidget(self.label_13)
 
-        self.verticalLayout_2.addLayout(self.horizontalLayout_8)
+        self.verticalLayout_4.addLayout(self.horizontalLayout_15)
+
+        self.horizontalLayout_16.addLayout(self.verticalLayout_4)
+
+        self.manindicator_2 = QLabel(self.manipulator2)
+        self.manindicator_2.setObjectName("manindicator_2")
+        self.manindicator_2.setMaximumSize(QSize(20, 20))
+        self.manindicator_2.setStyleSheet("border-radius: 10px;\nbackground-color:rgb(165, 29, 45);\nmin-height: 20px;\nmin-width: 20px;")
+
+        self.horizontalLayout_16.addWidget(self.manindicator_2)
 
         self.gridLayout_4.addWidget(self.manipulator2, 0, 2, 1, 1)
 
         self.manipulator4 = QGroupBox(self.groupBox_2)
         self.manipulator4.setObjectName("manipulator4")
-        self.verticalLayout_4 = QVBoxLayout(self.manipulator4)
-        self.verticalLayout_4.setObjectName("verticalLayout_4")
+        self.horizontalLayout_14 = QHBoxLayout(self.manipulator4)
+        self.horizontalLayout_14.setObjectName("horizontalLayout_14")
+        self.verticalLayout_3 = QVBoxLayout()
+        self.verticalLayout_3.setObjectName("verticalLayout_3")
         self.horizontalLayout_5 = QHBoxLayout()
         self.horizontalLayout_5.setObjectName("horizontalLayout_5")
         self.mansmu_4 = QComboBox(self.manipulator4)
@@ -325,35 +349,46 @@ class Ui_Form:
 
         self.horizontalLayout_5.addWidget(self.mancon_4)
 
-        self.verticalLayout_4.addLayout(self.horizontalLayout_5)
+        self.verticalLayout_3.addLayout(self.horizontalLayout_5)
 
-        self.horizontalLayout_10 = QHBoxLayout()
-        self.horizontalLayout_10.setObjectName("horizontalLayout_10")
+        self.horizontalLayout_13 = QHBoxLayout()
+        self.horizontalLayout_13.setObjectName("horizontalLayout_13")
         self.label_16 = QLabel(self.manipulator4)
         self.label_16.setObjectName("label_16")
 
-        self.horizontalLayout_10.addWidget(self.label_16)
+        self.horizontalLayout_13.addWidget(self.label_16)
 
         self.manres_4 = QSpinBox(self.manipulator4)
         self.manres_4.setObjectName("manres_4")
         self.manres_4.setMinimum(1)
         self.manres_4.setMaximum(20)
 
-        self.horizontalLayout_10.addWidget(self.manres_4)
+        self.horizontalLayout_13.addWidget(self.manres_4)
 
         self.label_17 = QLabel(self.manipulator4)
         self.label_17.setObjectName("label_17")
 
-        self.horizontalLayout_10.addWidget(self.label_17)
+        self.horizontalLayout_13.addWidget(self.label_17)
 
-        self.verticalLayout_4.addLayout(self.horizontalLayout_10)
+        self.verticalLayout_3.addLayout(self.horizontalLayout_13)
+
+        self.horizontalLayout_14.addLayout(self.verticalLayout_3)
+
+        self.manindicator_4 = QLabel(self.manipulator4)
+        self.manindicator_4.setObjectName("manindicator_4")
+        self.manindicator_4.setMaximumSize(QSize(20, 20))
+        self.manindicator_4.setStyleSheet("border-radius: 10px;\nbackground-color:rgb(165, 29, 45);\nmin-height: 20px;\nmin-width: 20px;")
+
+        self.horizontalLayout_14.addWidget(self.manindicator_4)
 
         self.gridLayout_4.addWidget(self.manipulator4, 1, 2, 1, 1)
 
         self.manipulator3 = QGroupBox(self.groupBox_2)
         self.manipulator3.setObjectName("manipulator3")
-        self.verticalLayout_3 = QVBoxLayout(self.manipulator3)
-        self.verticalLayout_3.setObjectName("verticalLayout_3")
+        self.horizontalLayout_10 = QHBoxLayout(self.manipulator3)
+        self.horizontalLayout_10.setObjectName("horizontalLayout_10")
+        self.verticalLayout_2 = QVBoxLayout()
+        self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.horizontalLayout_4 = QHBoxLayout()
         self.horizontalLayout_4.setObjectName("horizontalLayout_4")
         self.mansmu_3 = QComboBox(self.manipulator3)
@@ -366,7 +401,7 @@ class Ui_Form:
 
         self.horizontalLayout_4.addWidget(self.mancon_3)
 
-        self.verticalLayout_3.addLayout(self.horizontalLayout_4)
+        self.verticalLayout_2.addLayout(self.horizontalLayout_4)
 
         self.horizontalLayout_9 = QHBoxLayout()
         self.horizontalLayout_9.setObjectName("horizontalLayout_9")
@@ -387,7 +422,16 @@ class Ui_Form:
 
         self.horizontalLayout_9.addWidget(self.label_15)
 
-        self.verticalLayout_3.addLayout(self.horizontalLayout_9)
+        self.verticalLayout_2.addLayout(self.horizontalLayout_9)
+
+        self.horizontalLayout_10.addLayout(self.verticalLayout_2)
+
+        self.manindicator_3 = QLabel(self.manipulator3)
+        self.manindicator_3.setObjectName("manindicator_3")
+        self.manindicator_3.setMaximumSize(QSize(20, 20))
+        self.manindicator_3.setStyleSheet("border-radius: 10px;\nbackground-color:rgb(165, 29, 45);\nmin-height: 20px;\nmin-width: 20px;")
+
+        self.horizontalLayout_10.addWidget(self.manindicator_3)
 
         self.gridLayout_4.addWidget(self.manipulator3, 1, 1, 1, 1)
 
@@ -409,7 +453,7 @@ class Ui_Form:
 
         self.verticalLayout_6.addLayout(self.buttonLay)
 
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout_6.addItem(self.verticalSpacer)
 
@@ -426,11 +470,11 @@ class Ui_Form:
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", "touchDetect settings", None))
         self.label.setText(QCoreApplication.translate("Form", "SMU plugin", None))
-        self.smuBox.setPlaceholderText(QCoreApplication.translate("Form", "no SMU plugins found", None))
+        self.smuBox.setProperty("placeholderText", QCoreApplication.translate("Form", "no SMU plugins found", None))
         self.label_2.setText(QCoreApplication.translate("Form", "Micromanipulator plugin", None))
-        self.micromanipulatorBox.setPlaceholderText(QCoreApplication.translate("Form", "no Micromanipulators found", None))
+        self.micromanipulatorBox.setProperty("placeholderText", QCoreApplication.translate("Form", "no Micromanipulators found", None))
         self.label_3.setText(QCoreApplication.translate("Form", "contact detection plugin", None))
-        self.condetBox.setPlaceholderText(QCoreApplication.translate("Form", "No condet plugins found", None))
+        self.condetBox.setProperty("placeholderText", QCoreApplication.translate("Form", "No condet plugins found", None))
         self.label_4.setText(QCoreApplication.translate("Form", "Spectrometer height", None))
         self.label_5.setText(QCoreApplication.translate("Form", "\u03bcm", None))
         self.label_18.setText(QCoreApplication.translate("Form", "On sequence fail:", None))
@@ -453,15 +497,19 @@ class Ui_Form:
         self.manipulator1.setTitle(QCoreApplication.translate("Form", "Manipulator 1", None))
         self.label_10.setText(QCoreApplication.translate("Form", "Resistance cutoff", None))
         self.label_11.setText(QCoreApplication.translate("Form", "\u03a9", None))
+        self.manindicator_1.setText("")
         self.manipulator2.setTitle(QCoreApplication.translate("Form", "Manipulator 2", None))
         self.label_12.setText(QCoreApplication.translate("Form", "Resistance cutoff", None))
         self.label_13.setText(QCoreApplication.translate("Form", "\u03a9", None))
+        self.manindicator_2.setText("")
         self.manipulator4.setTitle(QCoreApplication.translate("Form", "Manipulator 4", None))
         self.label_16.setText(QCoreApplication.translate("Form", "Resistance cutoff", None))
         self.label_17.setText(QCoreApplication.translate("Form", "\u03a9", None))
+        self.manindicator_4.setText("")
         self.manipulator3.setTitle(QCoreApplication.translate("Form", "Manipulator 3", None))
         self.label_14.setText(QCoreApplication.translate("Form", "Resistance cutoff", None))
         self.label_15.setText(QCoreApplication.translate("Form", "\u03a9", None))
+        self.manindicator_3.setText("")
         self.pushButton_2.setText(QCoreApplication.translate("Form", "Monitor 1", None))
         self.pushButton.setText(QCoreApplication.translate("Form", "test", None))
 
