@@ -570,9 +570,13 @@ class TLCCS_GUI(QObject):
 
     @Slot()
     def connect_action(self):
-        status, state = self.spectrometerConnect()
-        if status != 0:
-            self.notify_user("Spectrometer connection failed: " + str(state))
+        try:
+            status, state = self.spectrometerConnect()        
+            if status != 0:
+                self.notify_user("Spectrometer connection failed: " + str(state))
+        except Exception as e:
+            self.notify_user(f"Spectrometer connection failed with exception: {e}")
+
 
     @Slot()
     def disconnect_action(self):

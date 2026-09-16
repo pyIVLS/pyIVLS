@@ -445,9 +445,7 @@ class specSMUTime_GUI(QWidget):
             dependency_settings = possible_settings
             self.settings.update(dependency_settings)
             self.smu_settings = self.settings["smu_settings"]
-            print(f"SMU settings extracted: {self.smu_settings}")
             self.spectrometer_settings = self.settings["spectrometer_settings"]
-            print(f"Spectrometer settings extracted: {self.spectrometer_settings}")
 
         self._log_verbose("Exiting parse_settings_widget with success")
         return [0, self.settings]

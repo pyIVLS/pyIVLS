@@ -7,8 +7,8 @@ class VenusUSB2:
     def __init__(self):
         # Initialize cap as empty capture
         self.cap = cv.VideoCapture()
-        # self.exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
-        self.exposures = [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1]  # windows interface
+        self.exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
+        #self.exposures = [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1]  # windows interface
         self.bufferSize = 1
         self.cap_width = 1024
         self.cap_height = 768

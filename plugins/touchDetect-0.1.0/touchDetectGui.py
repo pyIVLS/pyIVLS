@@ -42,6 +42,7 @@ class touchDetectGUI:
                 "mm_change_active_device",
                 "mm_open",
                 "mm_current_position",
+                "mm_devices",
             ],
             "smu": [
                 "parse_settings_widget",
@@ -503,7 +504,7 @@ class touchDetectGUI:
         # Validate contact detection channels are unique (excluding empty or none)
         con_channels = [settings[f"{i + 1}_con"] for i in range(4) if settings[f"{i + 1}_con"] not in ["", "none"]]
         if len(con_channels) != len(set(con_channels)):
-            self.logger.log_debug("Contact detection channel validation failed - duplicate channels")
+            self.logger.log_debug("Contact detection channel validation failed - duplicate channels: " + str(con_channels))
             return (
                 1,
                 {"Error message": "Contact detection channels must be unique across manipulators."},
