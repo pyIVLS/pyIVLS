@@ -60,12 +60,11 @@ from plugin_components import (
     public,
 )
 from PySide6.QtCore import QObject, QThread, Signal, Slot
-from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QFileDialog, QVBoxLayout, QWidget
 from TLCCS import CCSDRV
-from worker_thread import WorkerThread
-from tlccs_settingswidget import Ui_Form
 from tlccs_mdiwidget import Ui_previewForm
+from tlccs_settingswidget import Ui_Form
+from worker_thread import WorkerThread
 
 
 class TLCCS_SW(QWidget, Ui_Form):

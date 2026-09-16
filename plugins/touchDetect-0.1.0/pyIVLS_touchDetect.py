@@ -2,10 +2,13 @@
 
 
 import configparser
+import logging
 import os
 
 import pluggy
 from touchDetectGui import touchDetectGUI
+
+logger = logging.getLogger(__name__)
 
 
 class pyIVLS_touchDetect_plugin:
@@ -28,6 +31,7 @@ class pyIVLS_touchDetect_plugin:
         self.function = config.get("plugin", "function")
         self._class = config.get("plugin", "class")
         self.dependencies = config.get("plugin", "dependencies").split(",")
+        logger.debug("Initialing touch detect GUI")
         self.pluginClass = touchDetectGUI()
 
     @hookimpl
@@ -38,6 +42,7 @@ class pyIVLS_touchDetect_plugin:
         Returns:
             dict: name, widget
         """
+        logger.debug("get_setup_interface called")
         settings = plugin_data[self.name]["settings"]  # No getters here, let's crash properly if something is missing from the .ini
         return {self.name: self.pluginClass.setup(settings)}
 
@@ -47,7 +52,7 @@ class pyIVLS_touchDetect_plugin:
 
         :return: dict that includes the log signal
         """
-
+        logger.debug("get_log called")
         if args is None or args.get("function") == self.function:
             return {self.name: self.pluginClass.logger.logger_signal}
 
@@ -57,7 +62,7 @@ class pyIVLS_touchDetect_plugin:
 
         :return: dict that includes the log signal
         """
-
+        logger.debug("get_info called")
         if args is None or args.get("function") == self.function:
             return {self.name: self.pluginClass.logger.info_popup_signal}
 
@@ -67,6 +72,7 @@ class pyIVLS_touchDetect_plugin:
 
         :return: dict containing the functions
         """
+        logger.debug("get_functions called")
         if args is None or args.get("function") == self.function:
             return {self.name: self.pluginClass._get_public_methods()}
 
@@ -75,6 +81,7 @@ class pyIVLS_touchDetect_plugin:
         """Hook to set methods from other plugins to this plugins function dictionary
         Returns: Missing methods
         """
+        logger.debug("set_function called")
         # set functions to DependencyManager
         _is_valid, missing = self.pluginClass.dm.set_available_dependency_functions(function_dict)
 
@@ -83,6 +90,7 @@ class pyIVLS_touchDetect_plugin:
     @hookimpl
     def get_plugin_settings(self, args=None):
         """Reads the current settings from the settingswidget, returns a dict. Returns (name, status, settings_dict)"""
+        logger.debug("get_plugin_settings called")
         if args is None or args.get("function") == self.function:
             status, settings = self.pluginClass.parse_settings_widget()
             return (self.name, status, settings)

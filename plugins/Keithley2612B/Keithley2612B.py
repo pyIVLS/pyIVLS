@@ -268,9 +268,9 @@ class Keithley2612B:
             message contains line frequency as float, or an error message otherwise
         """
         if self.backend == BackendType.MOCK.value:
-            freq = 50.0
+            freq = 50
         else:
-            freq = float(self.safequery("print(localnode.linefreq)"))
+            freq = int(self.safequery("print(localnode.linefreq)"))
         return freq
 
     def getIV(self, channel) -> list[float]:

@@ -26,7 +26,7 @@ class WorkerThread(QThread):
                 if self.result_return is not None:
                     self.result_signal.emit(self.result_return)  # Emit the final result if available
                 self.finished.emit()
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             self.error.emit(str(e))
         finally:
             if not self._stop_requested and self.result_return is not None:

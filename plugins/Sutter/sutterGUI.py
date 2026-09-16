@@ -1,6 +1,5 @@
 import copy
 import logging
-import os
 from functools import wraps
 from typing import Any
 
@@ -108,7 +107,6 @@ class SutterGUI(QObject):
     otsoha
     """
 
-    MM_FUNCTION_TYPES = ["probe", "not connected", "spectrometer"]
     GREEN_STYLE = ConnectionIndicatorStyle.GREEN_CONNECTED.value
     RED_STYLE = ConnectionIndicatorStyle.RED_DISCONNECTED.value
     update_gui_signal = QtCore.Signal()
@@ -138,10 +136,10 @@ class SutterGUI(QObject):
         super().__init__()
         self._hal = Mpc325()
         self._virhal = VirtualMpc325()
+        self.MM_FUNCTION_TYPES = ["probe", "not connected", "spectrometer"]
 
         self.logger = LoggingHelper(self)
         self.cl = CloseLockSignalProvider()
-        os.path.dirname(__file__) + os.path.sep
         self._settingsWidget = SutterSW()
 
         # connect buttons to functions. HOX: comboboxes are using currentIndexChanged signal which also triggers on non-user changes.

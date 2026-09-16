@@ -91,15 +91,6 @@ class specTimeIVGUI:
             raise RuntimeError("MDI widget not initialized.")
         return self._mdiWidget
 
-    # public and nonpublic methods
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-
-    public_methods = [
-        "parse_settings_widget",
-        "sequenceStep",
-        "setSettings",
-        "set_gui_from_settings",
-    ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ########Signals
 
     ########Functions
@@ -132,7 +123,15 @@ class specTimeIVGUI:
             ],
         }
         self.settings = {}
+        # public and nonpublic methods
+        self.non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
 
+        self.public_methods = [
+            "parse_settings_widget",
+            "sequenceStep",
+            "setSettings",
+            "set_gui_from_settings",
+        ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
 

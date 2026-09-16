@@ -20,9 +20,22 @@ from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from pathvalidate import is_valid_filename
 from plugin_components import CloseLockSignalProvider, LoggingHelper, get_public_methods, public
 from PySide6.QtCore import QObject, Qt
-from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import QFileDialog, QVBoxLayout
+from PySide6.QtWidgets import QFileDialog, QVBoxLayout, QWidget
 from threadStopped import ThreadStopped, thread_with_exception
+from timeiv_mdiwidget import Ui_previewForm
+from timeiv_settingswidget import Ui_Form
+
+
+class TIVSW(QWidget, Ui_Form):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+
+class TIVMDI(QWidget, Ui_previewForm):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
 
 
 class timeIVexception(Exception):
@@ -38,15 +51,6 @@ class timeIVGUI(QObject):
     """GUI implementation
     this class may be a child of QObject if Signals or Slot will be needed
     """
-
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "parse_settings_widget",
-        "set_running",
-        "setSettings",
-        "sequenceStep",
-        "set_gui_from_settings",
-    ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
     ########Signals
     ##remove this if plugin will only provide functions to another plugins, but will not interract with the user directly
@@ -87,10 +91,9 @@ class timeIVGUI(QObject):
 
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        loader = QUiLoader()
 
-        self.settingsWidget = loader.load(self.path + "timeIV_settingsWidget.ui")
-        self.MDIWidget = loader.load(self.path + "timeIV_MDIWidget.ui")
+        self.settingsWidget = TIVSW()
+        self.MDIWidget = TIVMDI()
 
         # remove next if no plots
         self._create_plt()
@@ -588,7 +591,7 @@ class timeIVGUI(QObject):
             settings (dict): outputs from parse_settings_widget function
         """
         self.logger.log_debug("Setting settings for timeIV plugin: " + str(settings))
-        self.settings = []
+        self.settings = {}
         self.settings = copy.deepcopy(settings)
         self.smu_settings = settings["smu_settings"]
 
@@ -638,7 +641,7 @@ class timeIVGUI(QObject):
 
     ########Functions
     ############### run preparations
-    def build_smu_dict(smu_settings, settings):
+    def build_smu_dict(self, smu_settings, settings):
         """builds a dictionary with settings for smu_init function from the settings of timeIV plugin and settings of smu plugin
 
         Args:
@@ -727,7 +730,7 @@ class timeIVGUI(QObject):
             comment = f"{comment}\n#\n# measurement of {{noname}}\n#\n#"
         else:
             comment = f"{comment}\n#\n# measurement of {settings['samplename']}\n#\n#"
-        comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"
+        comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"  # noqa: DTZ005
         comment = f"{comment}Keithley source {settings['channel']}\n#"
         comment = f"{comment}Source in {settings['inject']} injection mode\n#"
         if settings["inject"] == "voltage":
@@ -851,7 +854,7 @@ class timeIVGUI(QObject):
         fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
         self.logger.log_debug("Saving data to file: " + fulladdress)
 
-        if drainI is None:
+        if drainI is None or drainV is None:
             data = list(zip(time, sourceI, sourceV))
             # np.savetxt(fulladdress, data, fmt='%.8f', delimiter=',', newline='\n', header=fileheader, comments='#')
         else:
@@ -993,34 +996,44 @@ class timeIVGUI(QObject):
         return (0, "OK")
 
     def _sequenceImplementation(self):
-        """
-        Performs a timeIV on SMU, saves the result in a file
+        """Performs a timeIV on SMU and saves results.
 
-        Returns [status, message]:
-               status: 0 - no error, ~0 - error
+        Returns:
+            tuple[int, str]: (status_code, message) where 0 indicates success.
         """
+        status, message = 0, "Execution completed successfully"
+
         try:
-            exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
             self._timeIVimplementation()
+
         except timeIVexception as e:
             self.logger.log_error(f"TimeIV implementation error: {e}")
-            exception = 1
+            status, message = 1, f"TimeIV failure: {e}"
+
         except ThreadStopped:
             self.logger.log_info("TimeIV plugin implementation aborted")
-            exception = 2
+            status, message = 2, "Execution aborted by thread manager"
+
         except Exception as e:
-            self.logger.log_error(f"TimeIV plugin implementation stopped because of unexpected exception: {e}")
-            exception = 3
+            self.logger.log_error(f"Unexpected exception during TimeIV: {e}")
+            status, message = 3, f"Unexpected error: {e}"
+
         finally:
-            try:
-                self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
-                self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
-                if exception == 3 or exception == 1:
-                    self.logger.log_info("Implementation stopped because of exception. Check log")
-            except Exception as e:
-                self.logger.log_error(f"SMU turn off failed because of unexpected exception: {e}")
-                self.logger.log_info("SMU turn off failed. Check log")
+            self._safe_smu_teardown()
             self.set_running(False)
+
+        return status, message
+
+    def _safe_smu_teardown(self):
+        """Ensures each hardware cleanup step executes independently."""
+        try:
+            self.function_dict["smu"][self.settings["smu"]]["smu_outputOFF"]()
+        except Exception as e:
+            self.logger.log_error(f"SMU output power-off failed: {e}")
+        try:
+            self.function_dict["smu"][self.settings["smu"]]["smu_disconnect"]()
+        except Exception as e:
+            self.logger.log_error(f"SMU disconnect failed: {e}")
 
     @public
     def get_current_gui_settings(self):
