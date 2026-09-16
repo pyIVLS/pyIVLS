@@ -580,11 +580,9 @@ class affineMoveGUI(QObject):
             loaded_count = 0
             for manipulator_idx in range(1, 5):  # Indices 1-4
                 bbox = self.get_bounding_box_from_settings(manipulator_idx)
-                if bbox is not None:
-                    # Store in CollisionDetector
-                    if self.collision_detector.set_manipulator_bounding_box(manipulator_idx, bbox):
-                        loaded_count += 1
-                        self.logger.log_debug(f"Loaded bounding box for manipulator {manipulator_idx}")
+                if bbox is not None and self.collision_detector.set_manipulator_bounding_box(manipulator_idx, bbox):
+                    loaded_count += 1
+                    self.logger.log_debug(f"Loaded bounding box for manipulator {manipulator_idx}")
         except Exception as e:
             self.logger.log_warn(f"Failed to load bounding boxes from settings: {e}")
 
