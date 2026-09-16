@@ -94,14 +94,6 @@ class DummyCameraGUI(QObject):
     # Signal emitted when a new camera thread is created
     new_camera_thread = Signal(object)  # Emits the new camera thread
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "camera_open",
-        "camera_close",
-        "camera_capture_image",
-        "get_thread",
-        "connect_to_new_frame_signal",
-    ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     default_timerInterval = 42  # ms, it is close to 24 fps that is standard for movies and TV
 
     ########Functions
