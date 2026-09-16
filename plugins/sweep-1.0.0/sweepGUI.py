@@ -25,14 +25,6 @@ class sweepException(Exception):
 class sweepGUI(QObject):
     """Basic sweep module"""
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "parse_settings_widget",
-        "set_running",
-        "setSettings",
-        "sequenceStep",
-        "set_gui_from_settings",
-    ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ####################################  threads
 
     ################################### internal functions
@@ -710,7 +702,7 @@ class sweepGUI(QObject):
                         plot_refs = self.axes.plot(Xdata_source, Ydata_source, "bo")
                         _plot_ref_source = plot_refs[0]
                         if not measurement["single_ch"]:
-                            [lastI_drain, lastV_drain, lastPoints_drain] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["source"], lastPoints)
+                            [lastI_drain, lastV_drain, _lastPoints_drain] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["source"], lastPoints)
                             Xdata_drain = [lastV]
                             Ydata_drain = [lastI]
                             plot_refs = self.axes.plot(Xdata_drain, Ydata_drain, "go")
@@ -825,13 +817,13 @@ class sweepGUI(QObject):
             exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
             self._sweepImplementation()
         except sweepException as e:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f"Sweep stopped because of exception: {e}")
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f"Sweep stopped because of exception: {e}")  # noqa: DTZ005
             exception = 1
         except ThreadStopped:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")  # noqa: DTZ005
             exception = 2
         except Exception as e:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f": sweep plugin implementation stopped because of unexpected exception: {e}")
+            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f": sweep plugin implementation stopped because of unexpected exception: {e}")  # noqa: DTZ005
             exception = 3
         finally:
             try:
@@ -844,7 +836,7 @@ class sweepGUI(QObject):
                 if exception == 3 or exception == 1:
                     self.logger.info_popup("Implementation stopped because of exception. Check log")
             except Exception as e:
-                self.logger.log_error(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")
+                self.logger.log_error(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")  # noqa: DTZ005
                 self.logger.info_popup("SMU turn off failed. Check log")
             finally:
                 self.set_running(False)
@@ -893,32 +885,32 @@ class sweepGUI(QObject):
         #        line_freq = self.smu_settings["lineFrequency"]
         try:
             self.settingsWidget.lineEdit_continuousNPLC.setText(str(float(self.settings["continuousnplc"]) * 1000))  # value in settings is in s; value in GUI is in ms
-        except:
+        except ValueError:
             self.logger.log_warn("Setting GUI from settings conversion failed. continuousnplc is set as it is in settings")
             self.settingsWidget.lineEdit_continuousNPLC.setText(str(self.settings["continuousnplc"]))
         try:
             self.settingsWidget.lineEdit_continuousDelay.setText(str(float(self.settings["continuousdelay"]) * 1000))  # value in settings is in s; value in GUI is in ms
-        except:
+        except ValueError:
             self.logger.log_warn("Setting GUI from settings conversion failed. continuousdelay is set as it is in settings")
             self.settingsWidget.lineEdit_continuousDelay.setText(str(self.settings["continuousdelay"]))
         try:
             self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"]) * 1000))  # value in settings is in s; value in GUI is in ms
-        except:
+        except ValueError:
             self.logger.log_warn("Setting GUI from settings conversion failed. pulsednplc is set as it is in settings")
             self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"])))
         try:
             self.settingsWidget.lineEdit_pulsedDelay.setText(str(float(self.settings["pulseddelay"]) * 1000))
-        except:
+        except ValueError:
             self.logger.log_warn("Setting GUI from settings conversion failed. pulseddelay is set as it is")
             self.settingsWidget.lineEdit_pulsedDelay.setText(str(self.settings["pulseddelay"]))
         try:
             self.settingsWidget.lineEdit_drainNPLC.setText(str(float(self.settings["drainnplc"]) * 1000))  # value in settings is in s; value in GUI is in ms
-        except:
+        except ValueError:
             self.logger.log_warn("Setting GUI from settings conversion failed. drainnplc is set as it is")
             self.settingsWidget.lineEdit_drainNPLC.setText(str(self.settings["drainnplc"]))
         try:
             self.settingsWidget.lineEdit_drainDelay.setText(str(float(self.settings["draindelay"]) * 1000))
-        except:
+        except ValueError:
             self.logger.log_warn("Setting GUI from settings conversion failed. draindelay is set as it is")
             self.settingsWidget.lineEdit_drainDelay.setText(str(self.settings["draindelay"]))
 
@@ -948,6 +940,6 @@ class sweepGUI(QObject):
             if self.settings["singlechannel"].lower() == "true":
                 self.settingsWidget.checkBox_singleChannel.setChecked(True)
         else:
-            raise ValueError("Invalid type for singlechannel setting: expected bool or str, got {}".format(type(self.settings["singlechannel"])))
+            raise TypeError("Invalid type for singlechannel setting: expected bool or str, got {}".format(type(self.settings["singlechannel"])))
         self.logger.log_debug("GUI settings set from internal settings")
         self._update_GUI_state()

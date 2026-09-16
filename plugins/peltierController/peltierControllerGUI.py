@@ -30,7 +30,6 @@ from PySide6.QtUiTools import QUiLoader
 class peltierControllerGUI(QObject):
     """Peltier element controller"""
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
     ########Signals
 
     log_message = Signal(str)
@@ -82,7 +81,7 @@ class peltierControllerGUI(QObject):
         self.settings["source"] = self.settingsWidget.peltierSource.text()
         [status, message] = self.peltierController.open(self.settings["source"])
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")# noqa: DTZ005
             self.info_message.emit(f"peltierController plugin : {message}")
         else:
             self._GUIchange_deviceConnected(True)
@@ -92,7 +91,7 @@ class peltierControllerGUI(QObject):
             self._displayAction()
         [status, message] = self.peltierController.close()
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")# noqa: DTZ005
             self.info_message.emit(f"peltierController plugin : {message}")
         else:
             self._GUIchange_deviceConnected(False)
@@ -104,7 +103,7 @@ class peltierControllerGUI(QObject):
         else:
             [status, message] = self.peltierController.setT(self.settings["sett"])
             if status:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")# noqa: DTZ005
                 self.info_message.emit(f"peltierController plugin : {message}")
 
     def _setPAction(self):
@@ -114,7 +113,7 @@ class peltierControllerGUI(QObject):
         else:
             [status, message] = self.peltierController.setP(self.settings["setp"])
             if status:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")# noqa: DTZ005
                 self.info_message.emit(f"peltierController plugin : {message}")
 
     def _setPIDAction(self):
@@ -124,7 +123,7 @@ class peltierControllerGUI(QObject):
         else:
             [status, message] = self.peltierController.setPID(self.settings["kp"], self.settings["ki"], self.settings["kd"])
             if status:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {message}, status = {status}")# noqa: DTZ005
                 self.info_message.emit(f"peltierController plugin : {message}")
 
     def _displayAction(self):
@@ -135,7 +134,7 @@ class peltierControllerGUI(QObject):
             [status, info] = self._parse_settings_display()
             if status:
                 self.info_message.emit(f"peltierController plugin : {info}")
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}")
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}")# noqa: DTZ005
             else:
                 self.Xdata = []
                 self.Ydata = []
@@ -206,7 +205,7 @@ class peltierControllerGUI(QObject):
     def _update_display(self):
         [status, info] = self.peltierController.getData()
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : peltierController plugin : {info}, status = {status}") # noqa: DTZ005
             self.info_message.emit(f"peltierController plugin : {info}")
             self.timer.stop()
         else:
@@ -215,7 +214,7 @@ class peltierControllerGUI(QObject):
             temperature = info["T1"]
             if not self.Xdata:
                 self.axes.cla()
-                self.Xdata = [datetime.now()]
+                self.Xdata = [datetime.now()]# noqa: DTZ005
                 self.Ydata = [temperature]
                 plot_refs = self.axes.plot(self.Xdata, self.Ydata, "bo")
                 self.axes.set_xlabel("time (HH:MM)")
@@ -228,7 +227,7 @@ class peltierControllerGUI(QObject):
                     self.Xdata[-1] + timedelta(seconds=self.settings["period"]) * self.settings["periodpts"],
                 )
             else:
-                self.Xdata.append(datetime.now())
+                self.Xdata.append(datetime.now())  # noqa: DTZ005
                 self.Ydata.append(temperature)
                 self._plot_temperature.set_xdata(self.Xdata)
                 self._plot_temperature.set_ydata(self.Ydata)

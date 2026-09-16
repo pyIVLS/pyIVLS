@@ -19,7 +19,7 @@ ivarad
 import copy
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import numpy as np
@@ -46,13 +46,6 @@ class fastPulse_GUI(QWidget):
     def function_dict(self):
         return self.dm.function_dict
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "parse_settings_widget",
-        "sequenceStep",
-        "setSettings",
-        "set_gui_from_settings",
-    ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ########Signals
 
     def _log_verbose(self, message):
@@ -86,6 +79,14 @@ class fastPulse_GUI(QWidget):
         }
         # Load the settings based on the name of this file.
         self._settingsWidget = FPSW()
+
+        self.non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
+        self.public_methods = [
+            "parse_settings_widget",
+            "sequenceStep",
+            "setSettings",
+            "set_gui_from_settings",
+        ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
         self.settings = {}
         self.last_integration_time: float | None = None  # s
@@ -310,12 +311,12 @@ class fastPulse_GUI(QWidget):
         # setnplc and delay (ms in GUI, s in settings)
         try:
             self.settingsWidget.lineEdit_NPLC.setText(f"{float(settings.get('nplc', 0.02)) * 1000}")
-        except:
+        except Exception:
             self.logger.log_warn("Setting GUI from settings conversion failed. nplc is set as it is in settings")
             self.settingsWidget.lineEdit_NPLC.setText(str(settings.get("nplc", 0.02)))
         try:
             self.settingsWidget.lineEdit_pulseTime.setText(f"{float(settings.get('pulsetime', 0.01)) * 1000}")
-        except:
+        except Exception:
             self.logger.log_warn("Setting GUI from settings conversion failed. pulsetime is set as it is in settings")
             self.settingsWidget.lineEdit_pulseTime.setText(str(settings.get("pulsetime", 0.01)))
         # try:
@@ -326,7 +327,7 @@ class fastPulse_GUI(QWidget):
 
         try:
             self.settingsWidget.lineEdit_comment.setText(str(settings.get("comment", "")))
-        except:
+        except Exception:
             self.logger.log_warn("Setting GUI from settings conversion failed.comment is set as it is in settings")
             self.settingsWidget.lineEdit_comment.setText(str(settings.get("comment", "")))
 
@@ -694,9 +695,9 @@ class fastPulse_GUI(QWidget):
         # varDict['comment'] - str:comment
         comment = "ITC403 operated by pyIVSL\n"
         comment = f"{comment}#[SpectrumHeader]\n"
-        comment = f"{comment}Date;{datetime.now().strftime('%Y%m%d')}\n"
-        comment = f"{comment}Time;{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
-        comment = f"{comment}GMTTime;{datetime.utcnow().strftime('%H%M%S%f')[:-4]}\n"
+        comment = f"{comment}Date;{datetime.now().strftime('%Y%m%d')}\n"  # noqa: DTZ005
+        comment = f"{comment}Time;{datetime.now().strftime('%H%M%S%f')[:-4]}\n"  # noqa: DTZ005
+        comment = f"{comment}GMTTime;{datetime.now(tz=timezone.utc).strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}XAxisUnit;time(s)\n"
         comment = f"{comment}YAxisUnit;temperature(K)\n"
         comment = f"{comment}Average;0\n"

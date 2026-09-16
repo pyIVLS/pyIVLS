@@ -22,7 +22,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
         comment = f"{comment}\n#\n# measurement of {{noname}}\n#\n#"
     else:
         comment = f"{comment}\n#\n# measurement of {settings['samplename']}\n#\n#"
-    comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"
+    comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"  # noqa: DTZ005
     comment = f"{comment}Keithley source {settings['channel']}\n#"
     comment = f"{comment}Source in {settings['inject']} injection mode\n#"
     if settings["inject"] == "voltage":
@@ -37,7 +37,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
         comment = f"{comment}Steps in sweep {settings['pulsedpoints']}\n#"
     else:
         comment = f"{comment}Steps in continuous sweep {settings['continuouspoints']} and in pulsed sweep {settings['pulsedpoints']}\n#"
-    comment = comment = f"{comment}Sweep repeat for {settings['repeat']} times\n#"
+    comment = f"{comment}Sweep repeat for {settings['repeat']} times\n#"
     if settings["mode"] == "continuous":
         comment = f"{comment}Start value for sweep {settings['continuousstart']} {stepunit}\n#"
         comment = f"{comment}End value for sweep {settings['continuousend']} {stepunit}\n#"

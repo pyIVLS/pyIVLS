@@ -6,7 +6,7 @@ This is a GUI plugin for OceanOptics USB2000 spectrometer
 import copy
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from threading import Lock
 
 import numpy as np
@@ -39,22 +39,6 @@ class OOUSB2000_MDI(QtWidgets.QWidget, Ui_previewForm):
 class OOUSB2000_GUI(QObject):
     """spectrometer plugin for pyIVLS"""
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "parse_settings_preview",
-        "parse_settings_widget",
-        "setSettings",
-        "spectrometerConnect",
-        "spectrometerDisconnect",
-        "spectrometerSetIntegrationTime",
-        "spectrometerGetIntegrationTime",
-        "spectrometerStartScan",
-        "spectrometerGetScan",
-        "spectrometerGetSpectrum",
-        "createFile",
-        "getAutoTime",
-    ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
-
     ########Signals
 
     #    filedelimeter = "\t"
@@ -82,6 +66,22 @@ class OOUSB2000_GUI(QObject):
         self.logger = LoggingHelper(self)
         self.cl = CloseLockSignalProvider()
         self.closeLock = self.cl.closeLock
+
+        self.non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
+        self.public_methods = [
+            "parse_settings_preview",
+            "parse_settings_widget",
+            "setSettings",
+            "spectrometerConnect",
+            "spectrometerDisconnect",
+            "spectrometerSetIntegrationTime",
+            "spectrometerGetIntegrationTime",
+            "spectrometerStartScan",
+            "spectrometerGetScan",
+            "spectrometerGetSpectrum",
+            "createFile",
+            "getAutoTime",
+        ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
         # create the driver
         self.drv = OODRV()
@@ -741,9 +741,9 @@ class OOUSB2000_GUI(QObject):
             varDict = {}
         comment = "Thorlabs FTS operated by pyIVSL\n"
         comment = f"{comment}#[SpectrumHeader]\n"
-        comment = f"{comment}Date{separator}{datetime.now().strftime('%Y%m%d')}\n"
-        comment = f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
-        comment = f"{comment}GMTTime{separator}{datetime.utcnow().strftime('%H%M%S%f')[:-4]}\n"
+        comment = f"{comment}Date{separator}{datetime.now().strftime('%Y%m%d')}\n"  # noqa: DTZ005
+        comment = f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"  # noqa: DTZ005
+        comment = f"{comment}GMTTime{separator}{datetime.now(timezone.utc).strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}XAxisUnit{separator}nm_air\n"
         comment = f"{comment}YAxisUnit{separator}intensity\n"
         if "average" in varDict:

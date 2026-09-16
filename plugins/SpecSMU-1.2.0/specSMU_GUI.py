@@ -39,13 +39,6 @@ class specSMU_GUI(QWidget):
     def function_dict(self):
         return self.dm.function_dict
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "parse_settings_widget",
-        "sequenceStep",
-        "setSettings",
-        "set_gui_from_settings",
-    ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ########Signals
 
     def _log_verbose(self, message):
@@ -91,6 +84,14 @@ class specSMU_GUI(QWidget):
         # Load the settings based on the name of this file.
         loader = QUiLoader()
         self._settingsWidget = loader.load(self.path + "specSMU_settingsWidget.ui")
+
+        self.non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
+        self.public_methods = [
+            "parse_settings_widget",
+            "sequenceStep",
+            "setSettings",
+            "set_gui_from_settings",
+        ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
         self.settings = {}
         self.last_integration_time: float | None = None  # s
@@ -324,17 +325,17 @@ class specSMU_GUI(QWidget):
         # setnplc and delay (ms in GUI, s in settings)
         try:
             self.settingsWidget.lineEdit_NPLC.setText(f"{float(settings.get('nplc', 0.02)) * 1000}")
-        except:
+        except Exception:
             self.logger.log_warn("Setting GUI from settings conversion failed. nplc is set as it is in settings")
             self.settingsWidget.lineEdit_NPLC.setText(str(settings.get("nplc", 0.02)))
         try:
             self.settingsWidget.lineEdit_Delay.setText(f"{float(settings.get('delay', 0.32)) * 1000}")
-        except:
+        except Exception:
             self.logger.log_warn("Setting GUI from settings conversion failed.delay is set as it is in settings")
             self.settingsWidget.lineEdit_Delay.setText(str(settings.get("delay", 0.32)))
         try:
             self.settingsWidget.lineEdit_timeAfter.setText(f"{float(settings.get('timeafter', 0.0)) * 1000}")
-        except:
+        except Exception:
             self.logger.log_warn("Setting GUI from settings conversion failed.time_after is set as it is in settings")
             self.settingsWidget.lineEdit_timeAfter.setText(str(settings.get("timeafter", 0.0)))
 
@@ -362,13 +363,13 @@ class specSMU_GUI(QWidget):
         # set HW trig
         try:
             self.settingsWidget.lineEdit_HWtrig_pulse.setText(f"{float(settings.get('hwtrigpulse', 0.00001)) * 1000}")
-        except:
+        except Exception:
             self.logger.log_warn("Setting GUI from settings conversion failed. hwtrigpulse is set as it is in settings")
             self.settingsWidget.lineEdit_HWtrig_pulse.setText(str(settings.get("hwtrigpulse", 0.00001)))
 
         try:
             self.settingsWidget.lineEdit_powerPulse.setText(f"{float(settings.get('powerpulseext', 0.0005)) * 1000}")
-        except:
+        except Exception:
             self.logger.log_warn("Setting GUI from settings conversion failed. powerpulseext is set as it is in settings")
             self.settingsWidget.lineEdit_powerPulse.setText(str(settings.get("powerpulseext", 0.0005)))
 

@@ -38,13 +38,6 @@ class specSMUTime_GUI(QWidget):
     def function_dict(self):
         return self.dm.function_dict
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "parse_settings_widget",
-        "sequenceStep",
-        "setSettings",
-        "set_gui_from_settings",
-    ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ########Signals
 
     def _log_verbose(self, message):
@@ -84,6 +77,14 @@ class specSMUTime_GUI(QWidget):
         # Load the settings based on the name of this file.
         loader = QUiLoader()
         self.settingsWidget = loader.load(self.path + "specSMUTime_settingsWidget.ui")
+
+        self.non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
+        self.public_methods = [
+            "parse_settings_widget",
+            "sequenceStep",
+            "setSettings",
+            "set_gui_from_settings",
+        ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
         self.settings = {}
         self.last_integration_time: float | None = None  # s
@@ -292,12 +293,12 @@ class specSMUTime_GUI(QWidget):
         # setnplc and delay (ms in GUI, s in settings)
         try:
             self.settingsWidget.lineEdit_NPLC.setText(f"{float(settings.get('nplc', 0.02)) * 1000}")
-        except:
+        except Exception:
             self.logger.log_warn("Setting GUI from settings conversion failed. nplc is set as it is in settings")
             self.settingsWidget.lineEdit_NPLC.setText(str(settings.get("nplc", 0.02)))
         try:
             self.settingsWidget.lineEdit_Delay.setText(f"{float(settings.get('delay', 0.32)) * 1000}")
-        except:
+        except Exception:
             self.logger.log_warn("Setting GUI from settings conversion failed.delay is set as it is in settings")
             self.settingsWidget.lineEdit_Delay.setText(str(settings.get("delay", 0.32)))
 
@@ -720,7 +721,7 @@ class specSMUTime_GUI(QWidget):
                         self.notify_user(f"Error saving spectrum: {state}")
                         raise NotImplementedError(f"Error in writing spectrum to file: {state}, no handling provided")
 
-                    counter += 1
+                    counter += 1  # noqa: SIM113
                     time.sleep(real_wait_time)
                 self.last_integration_time = integration_time_setting
                 # do not continue if reached the limit
