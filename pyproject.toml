@@ -55,6 +55,9 @@ addopts = "-v"
 [tool.ruff]
 line-length = 200 
 
+[tool.ruff.lint]
+ignore = ["BLE001"] 
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
