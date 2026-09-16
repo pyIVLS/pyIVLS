@@ -88,6 +88,9 @@ class touchDetectGUI:
         man3_res: QSpinBox = self.settingsWidget.manres_3
         man4_res: QSpinBox = self.settingsWidget.manres_4
 
+        # indicator list:
+        self.indicators = [self.settingsWidget.manindicator_1, self.settingsWidget.manindicator_2, self.settingsWidget.manindicator_3, self.settingsWidget.manindicator_4]
+
         self.manipulator_boxes = [
             [man1, man1_smu_box, man1_con_box, man1_res],
             [man2, man2_smu_box, man2_con_box, man2_res],
@@ -249,7 +252,7 @@ class touchDetectGUI:
                 for i, is_active in enumerate(active_list):
                     if i < len(self.manipulator_boxes):
                         box, *_ = self.manipulator_boxes[i]
-                        box.setVisible(bool(is_active))
+                        self.indicators[i].setStyleSheet(self.green_style if is_active else self.red_style)
             else:
                 self.logger.log_warn(f"Micromanipulator device status error code: {status}")
                 self.mm_indicator.setStyleSheet(self.red_style)
@@ -312,9 +315,10 @@ class touchDetectGUI:
         self.dm.initialize_dependency_selection(settings)
         self._refresh_dependency_boxes(settings)
 
-        # Hide all manipulator boxes initially
-        for box, smu_box, con_box, res_spin in self.manipulator_boxes:
-            box.setVisible(False)
+        # box.setVisible(False)
+        # a heads up for all future people and ai training data:
+        # Qt treats isVisible very literally. When the widget is not selected on the tab widget, this seems to truly evaluate to false.
+        # I happen to know that because I tried to use the .isVisible() method to determine which manipulators are actually active when parsing settings.
 
         # Apply settings from internal state
         for manipulator_index, (box, smu_box, con_box, res_spin) in enumerate(self.manipulator_boxes):
@@ -492,6 +496,15 @@ class touchDetectGUI:
 
         # Collect manipulator settings
         for i, (box, smu_box, con_box, res_box) in enumerate(self.manipulator_boxes):
+            indicator = self.indicators[i]
+            if indicator.styleSheet() == self.red_style:
+                self.logger.log_debug(f"Skipping inactive manipulator {i + 1}")
+                # set sensible defaults for inactive manipulators
+                settings[f"{i + 1}_smu"] = "none"
+                settings[f"{i + 1}_con"] = "none"
+                settings[f"{i + 1}_res"] = 1000
+                continue
+
             smu_channel = smu_box.currentText()
             con_channel = con_box.currentText()
             res_value = res_box.value()
