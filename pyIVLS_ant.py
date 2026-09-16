@@ -15,7 +15,8 @@ from os.path import sep
 from datetime import datetime
 
 from PyQt6 import uic
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtWidgets import QMenu
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QPoint, Qt
 from PyQt6.QtGui import QTextCursor
 
 from threadStopped import thread_with_exception, ThreadStopped
@@ -51,7 +52,32 @@ class pyIVLS_ant(QObject):
         self.llm_context_blocks = []    # user-added context blocks
         self.llm_history_blocks = []    # user-added history blocks
         self.last_n_messages = self._get_historyMsgCnt()        # default for now, user may change it
+        
+        self.pending_actions = []
+        self.executed_actions = []
+        self.execution_results = []
+        self._next_action_id = 1
 
+        
+        #initialize interactivness of execList_list widget
+        # Enable drag & drop reordering
+        self.widget.execList_list.setDragDropMode(
+            self.widget.execList_list.DragDropMode.InternalMove
+        )
+
+        self.widget.execList_list.setDefaultDropAction(
+            Qt.DropAction.MoveAction
+        )
+
+        # Enable right-click context menu
+        self.widget.execList_list.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
+
+        self.widget.execList_list.customContextMenuRequested.connect(
+            self.show_exec_list_menu
+        )
+        
         self._llm_thread = None
         self._llm_summary_thread = None
 
@@ -121,6 +147,50 @@ class pyIVLS_ant(QObject):
 
     def _get_historyMsgCnt(self):
         return self.widget.msgMetaMsgHistory_spin.value()
+    
+    def _refresh_pending_actions_widget(self):
+        """Rebuild the pending-actions QListWidget from self.pending_actions."""
+
+        self.widget.execList_list.clear()
+        for action in self.pending_actions:
+            self.widget.execList_list.addItem(f"{action.get('plugin', '')}:{action.get('function', '')}")
+
+    @pyqtSlot(QPoint)
+    def show_exec_list_menu(self, position):
+        list_widget = self.widget.execList_list
+
+        # Find the item that was right-clicked
+        item = list_widget.itemAt(position)
+
+        # No item under cursor
+        if item is None:
+            return
+
+        # Select the item
+        list_widget.setCurrentItem(item)
+
+        # Create menu
+        menu = QMenu(list_widget)
+
+        option1 = menu.addAction("Delete")
+        option2 = menu.addAction("Execute")
+        option3 = menu.addAction("Execute all")
+
+        # Show menu
+        action = menu.exec(
+            list_widget.mapToGlobal(position)
+        )
+
+        # Call functions
+        if action == option1:
+            self.delete_pending_action(list_widget.currentRow())
+
+        elif action == option2:
+            self.execute_pending_action(list_widget.currentRow())
+
+        elif action == option3:
+            self.execute_all_pending_actions()
+            
     ### LLM functions
 
     def _llm_request(self, messages):
@@ -178,7 +248,8 @@ class pyIVLS_ant(QObject):
         3. chat summary
         4. optional context blocks
         5. optional history blocks
-        6. last N chat messages
+        6. action state
+        7. last N chat messages
         """
         messages = []
 
@@ -215,6 +286,13 @@ class pyIVLS_ant(QObject):
             messages.append({
                 "role": "system",
                 "content": self._format_history_blocks(history_text),
+            })
+            
+        action_state_text = self._format_action_state_for_LLM()
+        if action_state_text:
+            messages.append({
+                "role": "system",
+                "content": action_state_text,
             })
 
         messages.extend(self._get_last_n_messages())
@@ -292,6 +370,54 @@ class pyIVLS_ant(QObject):
             f"{pinned_history}"
         )
 
+    def _format_action_state_for_LLM(self):
+        """Return action-state block for inclusion in LLM messages."""
+        parts = [
+            "ACTION STATE",
+            "In this context, an action means a proposed or executed call to one of the available public functions of a loaded plugin.",
+            "ANT may add such actions to a pending list, and the operator may execute, delete, or reorder them.",
+            "Use this information to avoid repeating already pending or already executed plugin-function calls.",
+            ""
+        ]
+
+        if self.pending_actions:
+            parts.append("Pending actions:")
+            for action in self.pending_actions:
+                parts.append(
+                    f"- [{action.get('id')}] "
+                    f"{action.get('plugin')}:{action.get('function')} "
+                    f"args={action.get('args', {})}"
+                )
+        else:
+            parts.append("Pending actions: none")
+
+        parts.append("")
+
+        if self.executed_actions:
+            parts.append("Executed actions:")
+            for action in self.executed_actions[-20:]:
+                parts.append(
+                    f"- [{action.get('id')}] "
+                    f"{action.get('plugin')}:{action.get('function')} "
+                    f"status={action.get('status')}"
+                )
+        else:
+            parts.append("Executed actions: none")
+
+        parts.append("")
+
+        if self.execution_results:
+            parts.append("Recent execution results:")
+            for result in self.execution_results[-20:]:
+                parts.append(
+                    f"- action_id={result.get('action_id')} "
+                    f"status={result.get('status')} "
+                    f"summary={result.get('result_summary')}"
+                )
+        else:
+            parts.append("Recent execution results: none")
+
+        return "\n".join(parts)
 
     def _get_last_n_messages(self):
         """Return the last N chat messages from full conversation history."""
@@ -304,7 +430,7 @@ class pyIVLS_ant(QObject):
     #### helpers for creating LLM message
 
     def _buildSummary(self):
-        """Synchronously update chat summary if autosummary is enabled and enough
+        """Update chat summary if autosummary is enabled and enough
         new messages accumulated.
 
         Summary is built from:
@@ -417,11 +543,15 @@ class pyIVLS_ant(QObject):
             # - LLM-facing prepared data
             parsed_ai_meta = self._parse_ai_meta(pdata.get("ai_meta", ""), plugin_name)
             plugin_methods = {}
+            found = False
             for single_dict in plugin_functions:
                 for name, methods in single_dict.items():
                     if name == plugin_name:
                         plugin_methods = methods
+                        found = True
                         break
+                if found:
+                    break
 
             llm_data = self._build_LLM_data(plugin_name, pdata, plugin_methods, parsed_ai_meta)
             self.available_instructions[plugin_name] = {
@@ -615,9 +745,234 @@ class pyIVLS_ant(QObject):
             llm_data = pdata.get("LLM_data", {})
             summary = llm_data.get("tool_summary", "")
             if summary:
-              parts.append(summary)
+                parts.append(summary)
 
         if not parts:
             return "No loaded plugins are currently available."
 
         return "\n\n".join(parts)
+    
+    #### Action lists/objects helpers
+
+    def _make_action_object(self, plugin, function, args=None, reason="", source="llm"):
+        """Create one internal action object."""
+        if args is None:
+            args = {}
+
+        action = {
+            "id": self._next_action_id,
+            "plugin": plugin,
+            "function": function,
+            "args": args,
+            "reason": reason,
+            "source": source,
+            "status": "pending",   # pending / executed / failed / deleted
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+        }
+        self._next_action_id += 1
+        return action
+    
+    def _validate_action_dict(self, action_dict):
+        """Validate one proposed action against loaded plugin callables.
+
+           Note: mainly overkill, all that is included here should already be checked
+           by plugin contaner or excluded in ant if ai_meta is missing.
+           This is mainly a double shield for autonomous use.
+
+
+        Expected input:
+        {
+            "plugin": "...",
+            "function": "...",
+            "args": {...},
+            "reason": "..."
+        }
+        """
+        if not isinstance(action_dict, dict):
+            return False, "Action is not a dict."
+
+        plugin = action_dict.get("plugin")
+        function = action_dict.get("function")
+        args = action_dict.get("args", {})
+
+        if not plugin:
+            return False, "Missing plugin."
+        if not function:
+            return False, "Missing function."
+        if plugin not in self.available_instructions:
+            return False, f"Unknown or unavailable plugin: {plugin}"
+
+        llm_data = self.available_instructions[plugin].get("LLM_data", {})
+        if not llm_data.get("llm_available", False):
+            return False, f"Plugin '{plugin}' is loaded but not available for LLM use."
+        
+        functions = self.available_instructions[plugin].get("functions", {})
+        if function not in functions:
+            return False, f"Unknown function '{function}' for plugin '{plugin}'."
+
+        if not isinstance(args, dict):
+            return False, "Action args must be a dict."
+
+        return True, "OK"
+
+    def add_pending_actions_from_LLM(self, actions):
+        """Validate and add LLM-proposed actions to the pending queue.
+
+        Args:
+            actions (list): list of dicts with keys plugin/function/args/reason
+
+        Returns:
+            tuple[list,  list]: (added_actions, rejected_actions)
+        """
+        added = []
+        rejected = []
+
+        if not isinstance(actions, list):
+            return added, [{"error": "Actions payload is not a list."}]
+
+        for action_dict in actions:
+            ok, msg = self._validate_action_dict(action_dict)
+            if not ok:
+                rejected.append({
+                    "action": action_dict,
+                    "error": msg,
+                })
+                continue
+
+            action = self._make_action_object(
+                plugin=action_dict.get("plugin", ""),
+                function=action_dict.get("function", ""),
+                args=action_dict.get("args", {}),
+                reason=action_dict.get("reason", ""),
+                source="llm",
+            )
+            self.pending_actions.append(action)
+            added.append(action)
+
+        self._refresh_pending_actions_widget()
+        return added, rejected
+
+    def delete_pending_action(self, index):
+        """Delete one pending action by index."""
+        if index < 0 or index >= len(self.pending_actions):
+            return False
+
+        action = self.pending_actions.pop(index)
+        action["status"] = "deleted"
+        self._refresh_pending_actions_widget()
+        return True
+    
+    def execute_pending_action(self, index):
+        """Execute one pending action by index.
+
+        Returns:
+            dict: execution result object
+        """
+        if index < 0 or index >= len(self.pending_actions):
+            return {
+                "status": "error",
+                "result_summary": "Invalid pending action index."
+            }
+
+        action = self.pending_actions.pop(index)
+        plugin = action.get("plugin", "")
+        function = action.get("function", "")
+        args = action.get("args", {})
+
+        result_obj = {
+            "action_id": action.get("id"),
+            "plugin": plugin,
+            "function": function,
+            "status": "error",
+            "result_summary": "",
+            "raw_result": None,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+        }
+
+        try:
+            func = self.available_instructions[plugin]["functions"][function]
+
+            if args:
+                raw_result = func(**args)
+            else:
+                raw_result = func()
+
+            result_obj["raw_result"] = raw_result
+            interpreted_status, interpreted_summary = self._interpret_plugin_result(raw_result)
+
+            result_obj["status"] = interpreted_status
+            result_obj["result_summary"] = interpreted_summary
+
+            if interpreted_status == "success":
+                action["status"] = "executed"
+            else:
+                action["status"] = "failed"
+
+            self.executed_actions.append(action)
+
+        except Exception as exc:
+            action["status"] = "failed"
+            result_obj["status"] = "failed"
+            result_obj["result_summary"] = f"{type(exc).__name__}: {exc}"
+            self.executed_actions.append(action)
+
+        self.execution_results.append(result_obj)
+        self._refresh_pending_actions_widget()
+        return result_obj
+    
+    def execute_all_pending_actions(self):
+        """Execute all currently pending actions in order.
+
+        Returns:
+            list: list of execution result objects
+        """
+        results = []
+        while self.pending_actions:
+            result = self.execute_pending_action(0)
+            results.append(result)
+        return results
+    
+    def _summarize_execution_result(self, raw_result):
+        """Convert raw execution result into short text for LLM/context."""
+        if raw_result is None:
+            return "Function executed successfully."
+
+        if isinstance(raw_result, (str, int, float, bool)):
+            return f"Returned: {raw_result}"
+
+        if isinstance(raw_result, (list, tuple)):
+            if len(raw_result) == 2:
+                return f"Returned pair: {raw_result[0]}, {raw_result[1]}"
+            return f"Returned list/tuple of length {len(raw_result)}.
+
+        if isinstance(raw_result, dict):
+            return f"Returned dict with keys: {', '.join(raw_result.keys())}"
+
+        return f"Returned object of type {type(raw_result).__name__}"
+    
+    def _interpret_plugin_result(self, raw_result):
+        """Interpret plugin return value.
+
+        Returns:
+            tuple[str,  str]:
+                ("success" | "failed", summary_text)
+        """
+        if raw_result is None:
+            return "success", "Function executed successfully."
+
+        if isinstance(raw_result, (list, tuple)):
+            # Common pyIVLS style: [status,  payload] or (status, payload)
+            if len(raw_result) >= 2 and isinstance(raw_result[0], int):
+                status_code = raw_result[0]
+                payload = raw_result[1]
+
+                if status_code == 0:
+                    return "success", self._summarize_execution_result(raw_result)
+
+                # non-zero status means failure
+                if isinstance(payload, dict) and "Error message" in payload:
+                    return "failed", f"Error {status_code}: {payload['Error message']}"
+                return "failed", f"Error {status_code}: {payload}"
+
+        # Fallback: if no explicit status code is found, treat as success
+        return "success", self._summarize_execution_result(raw_result)
