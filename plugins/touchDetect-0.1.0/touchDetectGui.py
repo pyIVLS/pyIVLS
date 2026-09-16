@@ -250,9 +250,7 @@ class touchDetectGUI:
                 self.logger.log_debug(f"Micromanipulator devices detected: {state}")
                 _, active_list = state
                 for i, is_active in enumerate(active_list):
-                    if i < len(self.manipulator_boxes):
-                        box, *_ = self.manipulator_boxes[i]
-                        self.indicators[i].setStyleSheet(self.green_style if is_active else self.red_style)
+                    self.indicators[i].setStyleSheet(self.green_style if is_active else self.red_style)
             else:
                 self.logger.log_warn(f"Micromanipulator device status error code: {status}")
                 self.mm_indicator.setStyleSheet(self.red_style)
@@ -320,27 +318,13 @@ class touchDetectGUI:
         # Qt treats isVisible very literally. When the widget is not selected on the tab widget, this seems to truly evaluate to false.
         # I happen to know that because I tried to use the .isVisible() method to determine which manipulators are actually active when parsing settings.
 
-        # Apply settings from internal state
-        for manipulator_index, (box, smu_box, con_box, res_spin) in enumerate(self.manipulator_boxes):
-            manipulator_key = str(manipulator_index + 1)
-            smu_key = f"{manipulator_key}_smu"
-            con_key = f"{manipulator_key}_con"
-            res_key = f"{manipulator_key}_res"
 
-            if smu_key in self.settings:
-                smu_box.setCurrentText(self.settings[smu_key])
-            if con_key in self.settings:
-                con_box.setCurrentText(self.settings[con_key])
-            if res_key in self.settings:
-                res_spin.setValue(int(self.settings[res_key]))
 
         # Store settings internally (maintain .ini format)
         self.settings = copy.deepcopy(settings)
+        self.set_gui_from_settings()
 
-        # Apply global settings to GUI controls
-        self.stride.setValue(int(self.settings["stride"]))
-        self.sample_width.setValue(int(self.settings["sample_width"]))
-        self.spectro_height.setValue(int(self.settings["spectrometer_height"]))
+
 
         # Set initial button text
         self.settingsWidget.pushButton_2.setText("Start Monitoring")

@@ -271,7 +271,7 @@ class Keithley2612B:
             freq = 50
         else:
             freq = float(self.safequery("print(localnode.linefreq)"))
-            freq = int(round(freq))
+            freq = round(freq)
         return freq
 
     def getIV(self, channel) -> list[float]:
