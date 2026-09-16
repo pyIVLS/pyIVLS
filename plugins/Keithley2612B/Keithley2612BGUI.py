@@ -220,8 +220,9 @@ class Keithley2612BGUI(QObject):
                 self.smu_connect()
                 info = self.smu.getLineFrequency()
                 self.settings["lineFrequency"] = info
-            except Exception:
+            except Exception as e:
                 logger.warning("Hardware error in Keithley2612B plugin: can not get line frequency, returned line frequency is 0")
+                logger.warning(f"Exception: {e}")
                 self.settings["lineFrequency"] = 0
         return (0, self.settings)
 

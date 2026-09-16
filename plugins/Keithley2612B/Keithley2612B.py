@@ -270,7 +270,8 @@ class Keithley2612B:
         if self.backend == BackendType.MOCK.value:
             freq = 50
         else:
-            freq = int(self.safequery("print(localnode.linefreq)"))
+            freq = float(self.safequery("print(localnode.linefreq)"))
+            freq = int(round(freq))
         return freq
 
     def getIV(self, channel) -> list[float]:
