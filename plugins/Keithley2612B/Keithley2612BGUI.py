@@ -8,7 +8,6 @@ from plugin_components import LoggingHelper, get_public_methods, public
 from PySide6 import QtWidgets
 from PySide6.QtCore import QObject, Qt, Slot
 
-
 """
             settings dictionary for class
             

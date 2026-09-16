@@ -56,7 +56,7 @@ addopts = "-v"
 line-length = 200 
 
 [tool.ruff.lint]
-ignore = ["BLE001"] 
+ignore = ["BLE001", "EXE002", "EXE001"] 
 
 [dependency-groups]
 dev = [
