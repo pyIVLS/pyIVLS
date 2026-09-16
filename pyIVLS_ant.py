@@ -251,53 +251,51 @@ class pyIVLS_ant(QObject):
         6. action state
         7. last N chat messages
         """
-        messages = []
+        
+        request = {
+            "system_blocks": [],
+            "context_blocks": [],
+            "history_blocks": [],
+            "action_state": "",
+            "recent_messages": [],
+        }
+
 
         system_prompt = self._build_system_prompt()
         if system_prompt:
-            messages.append({
-                "role": "system",
-                "content": system_prompt,
-            })
+            request["system_blocks"].append(system_prompt)
 
         tool_summary = self.build_all_LLM_tools_summary()
         if tool_summary:
-            messages.append({
-                "role": "system",
-                "content": self._format_tool_summary(tool_summary),
-            })
+            request["system_blocks"].append(
+                self._format_tool_summary(tool_summary)
+            )
 
         self.chat_summary = self._get_chat_summary()
         if self.chat_summary:
-            messages.append({
-                "role": "system",
-                "content": self._format_chat_summary(self.chat_summary),
-            })
+            request["system_blocks"].append(
+                self._format_chat_summary(self.chat_summary)
+            )
 
         context_text = self._get_context()
         if context_text:
-            messages.append({
-                "role": "system",
-                "content": self._format_context_blocks(context_text),
-            })
+            request["context_blocks"].append(
+                self._format_context_blocks(context_text)
+            )
 
         history_text = self._get_pinned_history()
         if history_text:
-            messages.append({
-                "role": "system",
-                "content": self._format_history_blocks(history_text),
-            })
+            request["history_blocks"].append(
+                self._format_history_blocks(history_text)
+            )
             
         action_state_text = self._format_action_state_for_LLM()
         if action_state_text:
-            messages.append({
-                "role": "system",
-                "content": action_state_text,
-            })
+            request["action_state"] = action_state_text
 
-        messages.extend(self._get_last_n_messages())
+        request["recent_messages"] = self._get_last_n_messages()
 
-        return messages
+        return request
     
 
     def _build_system_prompt(self):
@@ -471,41 +469,33 @@ class pyIVLS_ant(QObject):
             "- Return only the updated summary text.\n"
               )
 
-        summary_messages = [
-            {
-                "role": "system",
-                "content": summary_prompt,
-            }
-        ]
+        summary_request = {
+            "system_blocks": [summary_prompt],
+            "context_blocks": [],
+            "history_blocks": [],
+            "action_state": "",
+            "recent_messages": list(recent_messages),
+        }
 
         if tool_summary:
-            summary_messages.append({
-                "role": "system",
-                "content": (
-                    "AVAILABLE TOOLS AND PLUGINS\n"
-                    "The following plugins are currently loaded and visible to ANT.\n"
-                    "Use this only as reference for interpreting the conversation.\n\n"
-                    f"{tool_summary}"
-                ),
-            })
+            summary_request["system_blocks"].append(
+                "AVAILABLE TOOLS AND PLUGINS\n"
+                "The following plugins are currently loaded and visible to ANT.\n"
+                "Use this only as reference for interpreting the conversation.\n\n"
+                f"{tool_summary}"
+            )
 
         self.chat_summary = self._get_chat_summary()
         if self.chat_summary:
-            summary_messages.append({
-                "role": "system",
-                "content": (
-                    "PREVIOUS SUMMARY\n"
-                    "Update and compress the following summary using the recent messages.\n\n"
-                    f"{self.chat_summary}"
-                ),
-            })
-
-        if recent_messages:
-            summary_messages.extend(recent_messages)
+            summary_request["system_blocks"].append(
+                "PREVIOUS SUMMARY\n"
+                "Update and compress the following summary using the recent messages.\n\n"
+                f"{self.chat_summary}"
+            )
 
         self._llm_summary_thread = thread_with_exception(
             self._llm_summary_request,
-            summary_messages,
+            summary_request,
         )
         self._llm_summary_thread.start()
 
