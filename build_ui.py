@@ -44,8 +44,9 @@ def build_single_plugin(plugin_dir: Path) -> None:
         subprocess.run(["uvx", "ruff", "format", str(out_file)], check=True)
 
 
-def main(build_plugins: bool = False, plugins_dir_input: str = "plugins", plugin_filter: str = "") -> None:
-    build_main_files()
+def main(build_plugins: bool = False, plugins_dir_input: str = "plugins", plugin_filter: str = "", build_main: bool = False) -> None:
+    if build_main:
+        build_main_files()
     plugins_dir = Path(plugins_dir_input)  # throws on bad path?
     if build_plugins or plugin_filter:
         pattern = f"*{plugin_filter.lower()}*" if plugin_filter else "*"
@@ -64,5 +65,6 @@ if __name__ == "__main__":
         parser.add_argument("--build-plugins", action="store_true", help="Build plugin UI files")
         parser.add_argument("--plugins-dir", type=Path, default=Path("plugins"), help="Directory containing the plugins")
         parser.add_argument("--plugin-filter", type=str, default="", help="Filter for plugin directories")
+        parser.add_argument("--build-main", action="store_true", help="Build main UI files")
         args = parser.parse_args()
-        main(build_plugins=args.build_plugins, plugins_dir_input=args.plugins_dir, plugin_filter=args.plugin_filter)
+        main(build_plugins=args.build_plugins, plugins_dir_input=args.plugins_dir, plugin_filter=args.plugin_filter, build_main=args.build_main)
