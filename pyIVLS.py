@@ -23,24 +23,28 @@ from PySide6.QtCore import QCoreApplication, Qt, Slot
 from pyIVLS_container import pyIVLS_container
 from pyIVLS_GUI import pyIVLS_GUI
 
+import argparse
+
+parser = argparse.ArgumentParser(description="pyIVLS Application")
+parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output (display DEBUG logs in terminal)")
+# parse_known_args allows PySide6/Qt flags to pass through without errors
+args, unknown = parser.parse_known_args()
+
 format = logging.Formatter("%(asctime)s : %(name)s : %(levelname)s : %(message)s")
 
-
-# Create file handler (logs everything)
+# Create file handler (logs everything to file)
 file_handler = RotatingFileHandler("pyIVLS.log", maxBytes=1024 * 1024, backupCount=2)
 file_handler.setLevel(logging.DEBUG)
-# file_handler.setFormatter(logging.Formatter("%(asctime)s : %(levelname)s : %(message)s"))
 file_handler.setFormatter(format)
 
-# Create stream handler (logs INFO and above)
+# Create stream handler (logs DEBUG if -v is passed, otherwise INFO)
 stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.INFO)
-# stream_handler.setFormatter(logging.Formatter("%(asctime)s : %(levelname)s : %(message)s"))
+console_level = logging.DEBUG if args.verbose else logging.INFO
+stream_handler.setLevel(console_level)
 stream_handler.setFormatter(format)
 
-# Configure logger, print all to file and info and above to the console
+# Configure main logger
 logging.basicConfig(level=logging.DEBUG, handlers=[file_handler, stream_handler])
-# logger for this:
 logger = logging.getLogger(__name__)
 
 
