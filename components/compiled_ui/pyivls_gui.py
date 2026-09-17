@@ -84,8 +84,8 @@ class Ui_MainWindow:
         self.menuFile.addAction(self.actionRead_config_file)
         self.menuFile.addAction(self.actionExport_config_file)
         self.menuView.addAction(self.menuShow.menuAction())
-        self.menuShow.addAction(self.actionSequence_builder1)
-        self.menuShow.addAction(self.actionDockWidget)
+        self.menuShow.addAction(self.actionSequence_builder)
+        self.menuShow.addAction(self.actionDockWidget1)
         self.menuTools.addAction(self.actionPlugins)
         self.menuHelp.addAction(self.actionAbout)
 
