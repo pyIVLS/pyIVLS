@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)  # Set the logging level to DEBUG
 
 
 def create_file_header(settings, smu_settings, backVoltage=None):
@@ -144,11 +145,13 @@ def create_sweep_reciepe(settings, settings_smu):
     """
 
     #### create measurement reciepe (i.e. settings and steps to measure)
-    def guardrail_nplc(nplc_seconds, line_frequency):
+    def guardrail_nplc(nplc_seconds, line_frequency, name=""):
         nplc = nplc_seconds * line_frequency
         if nplc > 25:
             nplc = 25
-            logger.warning(f"NPLC value is too high, setting to 25 PLC to avoid errors. NPLC was set to {nplc_seconds} seconds, which corresponds to {nplc} PLC at line frequency {line_frequency} Hz.")
+            logger.warning(
+                f"{name}NPLC value is too high, setting to 25 PLC to avoid errors. NPLC was set to {nplc_seconds} seconds, which corresponds to {nplc} PLC at line frequency {line_frequency} Hz."
+            )
         return nplc
 
     recipe = []
@@ -156,7 +159,19 @@ def create_sweep_reciepe(settings, settings_smu):
     # making a template for modification
     s["source"] = settings["channel"]  # source channel: may take values depending on the channel names in smu, e.g. for Keithley 2612B [smua, smub]
     s["drain"] = settings["drainchannel"]
-    s["type"] = "v" if settings["inject"] == "voltage" else "i"  # source inject current or voltage: may take values [i ,v]
+    s["logsweep"] = settings["logsweep"]  # log sweep: may be True or False
+    s["asymptote"] = settings["asymptote"]  # asymptote for log sweep: may be float, only used if logsweep is True
+
+    # debugging, i think we should avoid silent else conditions, since they may hide errors in the GUI
+    if settings["inject"] == "voltage":  # source inject current or voltage: may take values [i ,v]
+        logger.debug("Inject type is voltage, setting type to 'v'")
+        s["type"] = "v"
+    elif settings["inject"] == "current":
+        logger.debug("Inject type is current, setting type to 'i'")
+        s["type"] = "i"
+    else:
+        raise ValueError(f"Unknown inject type: {settings['inject']}. Expected 'voltage' or 'current'.")
+
     s["single_ch"] = settings["singlechannel"]  # single channel mode: may be True or False
     s["repeat"] = settings["repeat"]  # repeat count: should be int >0
     s["pulsepause"] = settings["pulsedpause"]  # pause between pulses in sweep (may not be used in continuous)
@@ -167,9 +182,14 @@ def create_sweep_reciepe(settings, settings_smu):
         # settings_smu["drainfiltertype"] == "Off":
         s["sourcefiltertype"] = "FILTER_OFF"
     s["sourcedelayfactor"] = settings_smu["sourcedelayfactor"]
-    s["drainnplc"] = guardrail_nplc(settings["drainnplc"], settings_smu["lineFrequency"])  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
+    s["drainnplc"] = guardrail_nplc(settings["drainnplc"], settings_smu["lineFrequency"], name="drain ")  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
     # s["drainnplc"] = settings["drainnplc"]  # drain NPLC (may not be used in single channel mode)
-    s["draindelay"] = settings["draindelaymode"]  # stabilization time before measurement for drain channel: may take values [auto, manual] (may not be used in single channel mode)
+    if settings["draindelaymode"] == "auto":
+        s["draindelay"] = True  # stabilization time mode for source: may take values [True - Auto, False - manual]
+    elif settings["draindelaymode"] == "manual":
+        s["draindelay"] = False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+    else:
+        raise ValueError(f"Unknown continuous delay mode: {settings['continuousdelaymode']}. Expected 'auto' or 'manual'.")
     s["draindelayduration"] = settings["draindelay"]  # stabilization time duration if manual (may not be used in single channel mode)
     s["drainlimit"] = settings["drainlimit"]  # limit for current in voltage mode or for voltage in current mode (may not be used in single channel mode)
     s["sourcehighc"] = settings_smu["sourcehighc"]
@@ -216,13 +236,16 @@ def create_sweep_reciepe(settings, settings_smu):
             s["drainsense"] = loopsensedrain[sensecnt]  # drain sence mode: may take values [True - 4 wire, False - 2 wire]
             if settings["mode"] != "pulsed":
                 s["pulse"] = False  # set pulsed mode: may be True - pulsed, False - continuous
-                s["sourcenplc"] = guardrail_nplc(settings["continuousnplc"], settings_smu["lineFrequency"])  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
+                s["sourcenplc"] = guardrail_nplc(
+                    settings["continuousnplc"], settings_smu["lineFrequency"], "continuous Source "
+                )  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
                 if settings["continuousdelaymode"] == "auto":
                     s["delay"] = True  # stabilization time mode for source: may take values [True - Auto, False - manual]
-                else:
+                elif settings["continuousdelaymode"] == "manual":
                     s["delay"] = False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+                else:
+                    raise ValueError(f"Unknown continuous delay mode: {settings['continuousdelaymode']}. Expected 'auto' or 'manual'.")
 
-                s["delay"] = settings["continuousdelaymode"]  # stabilization time mode for source: may take values [True - Auto, False - manual]
                 s["delayduration"] = settings["continuousdelay"]  # stabilization time duration if manual
                 s["steps"] = settings["continuouspoints"]  # number of points in sweep
                 s["start"] = settings["continuousstart"]  # start point of sweep
@@ -231,12 +254,15 @@ def create_sweep_reciepe(settings, settings_smu):
                 recipe.append(copy.deepcopy(s))
             if settings["mode"] != "continuous":
                 s["pulse"] = True  # set pulsed mode: may be True - pulsed, False - continuous
-                s["sourcenplc"] = guardrail_nplc(settings["pulsednplc"], settings_smu["lineFrequency"])  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
-                s["delay"] = settings["pulseddelaymode"]  # stabilization time mode for source: may take values [True - Auto, False - manual]
+                s["sourcenplc"] = guardrail_nplc(
+                    settings["pulsednplc"], settings_smu["lineFrequency"], "pulsed Source "
+                )  # see page 552 of Keithley manual: 1 PLC = 20 ms for 50 Hz (nplc = time [s] * freq [Hz])
                 if settings["pulseddelaymode"] == "auto":
                     s["delay"] = True  # stabilization time mode for source: may take values [True - Auto, False - manual]
-                else:
+                elif settings["pulseddelaymode"] == "manual":
                     s["delay"] = False  # stabilization time mode for source: may take values [True - Auto, False - manual]
+                else:
+                    raise ValueError(f"Unknown pulsed delay mode: {settings['pulseddelaymode']}. Expected 'auto' or 'manual'.")
                 s["delayduration"] = settings["pulseddelay"]  # stabilization time duration if manual
                 s["steps"] = settings["pulsedpoints"]  # number of points in sweep
                 s["start"] = settings["pulsedstart"]  # start point of sweep

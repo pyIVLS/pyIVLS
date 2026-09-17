@@ -10,6 +10,7 @@ from PySide6.QtCore import QCoreApplication, QMetaObject, QRect, QSize
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -29,7 +30,7 @@ class Ui_Form:
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName("Form")
-        Form.resize(1018, 1015)
+        Form.resize(1546, 1034)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -42,7 +43,7 @@ class Ui_Form:
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 998, 995))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 1532, 1020))
         self.verticalLayout_10 = QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout_10.setObjectName("verticalLayout_10")
         self.groupBox_dep = QGroupBox(self.scrollAreaWidgetContents)
@@ -92,10 +93,6 @@ class Ui_Form:
 
         self.HBoxLayout_general.addLayout(self.HBoxLayout_channel)
 
-        self.horizontalSpacer_8 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_general.addItem(self.horizontalSpacer_8)
-
         self.HBoxLayout_inject = QHBoxLayout()
         self.HBoxLayout_inject.setObjectName("HBoxLayout_inject")
         self.label_inject = QLabel(self.groupBox_general)
@@ -118,10 +115,6 @@ class Ui_Form:
 
         self.HBoxLayout_general.addLayout(self.HBoxLayout_inject)
 
-        self.horizontalSpacer_9 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_general.addItem(self.horizontalSpacer_9)
-
         self.HBoxLayout_repeat = QHBoxLayout()
         self.HBoxLayout_repeat.setObjectName("HBoxLayout_repeat")
         self.label_repeat = QLabel(self.groupBox_general)
@@ -141,10 +134,6 @@ class Ui_Form:
         self.HBoxLayout_repeat.addWidget(self.lineEdit_repeat)
 
         self.HBoxLayout_general.addLayout(self.HBoxLayout_repeat)
-
-        self.horizontalSpacer_10 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_general.addItem(self.horizontalSpacer_10)
 
         self.HBoxLayout_mode = QHBoxLayout()
         self.HBoxLayout_mode.setObjectName("HBoxLayout_mode")
@@ -168,10 +157,6 @@ class Ui_Form:
         self.HBoxLayout_mode.addWidget(self.comboBox_mode)
 
         self.HBoxLayout_general.addLayout(self.HBoxLayout_mode)
-
-        self.horizontalSpacer_69 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_general.addItem(self.horizontalSpacer_69)
 
         self.HBoxLayout_sourceSenseMode = QHBoxLayout()
         self.HBoxLayout_sourceSenseMode.setObjectName("HBoxLayout_sourceSenseMode")
@@ -201,15 +186,11 @@ class Ui_Form:
         self.HBoxLayout_general.addItem(self.horizontalSpacer_11)
 
         self.HBoxLayout_general.setStretch(0, 10)
-        self.HBoxLayout_general.setStretch(1, 1)
+        self.HBoxLayout_general.setStretch(1, 10)
         self.HBoxLayout_general.setStretch(2, 10)
-        self.HBoxLayout_general.setStretch(3, 1)
+        self.HBoxLayout_general.setStretch(3, 10)
         self.HBoxLayout_general.setStretch(4, 10)
-        self.HBoxLayout_general.setStretch(5, 1)
-        self.HBoxLayout_general.setStretch(6, 10)
-        self.HBoxLayout_general.setStretch(7, 1)
-        self.HBoxLayout_general.setStretch(8, 10)
-        self.HBoxLayout_general.setStretch(9, 10)
+        self.HBoxLayout_general.setStretch(5, 10)
 
         self.verticalLayout_2.addLayout(self.HBoxLayout_general)
 
@@ -219,6 +200,26 @@ class Ui_Form:
         self.checkBox_singleChannel.setObjectName("checkBox_singleChannel")
 
         self.HBoxLayout_singleChannel.addWidget(self.checkBox_singleChannel)
+
+        self.checkBox_logSweep = QCheckBox(self.groupBox_general)
+        self.checkBox_logSweep.setObjectName("checkBox_logSweep")
+
+        self.HBoxLayout_singleChannel.addWidget(self.checkBox_logSweep)
+
+        self.label_2 = QLabel(self.groupBox_general)
+        self.label_2.setObjectName("label_2")
+
+        self.HBoxLayout_singleChannel.addWidget(self.label_2)
+
+        self.spinBox_asymp = QDoubleSpinBox(self.groupBox_general)
+        self.spinBox_asymp.setObjectName("spinBox_asymp")
+        self.spinBox_asymp.setMinimum(-99.000000000000000)
+
+        self.HBoxLayout_singleChannel.addWidget(self.spinBox_asymp)
+
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.HBoxLayout_singleChannel.addItem(self.horizontalSpacer_2)
 
         self.verticalLayout_2.addLayout(self.HBoxLayout_singleChannel)
 
@@ -262,10 +263,6 @@ class Ui_Form:
 
         self.HBoxLayout_continuousLine1.addLayout(self.HBoxLayout_continuousStart)
 
-        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_continuousLine1.addItem(self.horizontalSpacer_2)
-
         self.HBoxLayout_continuousEnd = QHBoxLayout()
         self.HBoxLayout_continuousEnd.setObjectName("HBoxLayout_continuousEnd")
         self.label_continuousEnd = QLabel(self.groupBox_continuousSweep)
@@ -291,10 +288,6 @@ class Ui_Form:
 
         self.HBoxLayout_continuousLine1.addLayout(self.HBoxLayout_continuousEnd)
 
-        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_continuousLine1.addItem(self.horizontalSpacer_4)
-
         self.HBoxLayout_continuousPoints = QHBoxLayout()
         self.HBoxLayout_continuousPoints.setObjectName("HBoxLayout_continuousPoints")
         self.label_continuousPoints = QLabel(self.groupBox_continuousSweep)
@@ -314,10 +307,6 @@ class Ui_Form:
         self.HBoxLayout_continuousPoints.addWidget(self.lineEdit_continuousPoints)
 
         self.HBoxLayout_continuousLine1.addLayout(self.HBoxLayout_continuousPoints)
-
-        self.horizontalSpacer_5 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_continuousLine1.addItem(self.horizontalSpacer_5)
 
         self.HBoxLayout_continuousLimit = QHBoxLayout()
         self.HBoxLayout_continuousLimit.setObjectName("HBoxLayout_continuousLimit")
@@ -343,10 +332,6 @@ class Ui_Form:
         self.HBoxLayout_continuousLimit.addWidget(self.label_continuousLimitUnits)
 
         self.HBoxLayout_continuousLine1.addLayout(self.HBoxLayout_continuousLimit)
-
-        self.horizontalSpacer_6 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_continuousLine1.addItem(self.horizontalSpacer_6)
 
         self.HBoxLayout_continuousNPLC = QHBoxLayout()
         self.HBoxLayout_continuousNPLC.setObjectName("HBoxLayout_continuousNPLC")
@@ -379,15 +364,11 @@ class Ui_Form:
         self.HBoxLayout_continuousLine1.addItem(self.horizontalSpacer_7)
 
         self.HBoxLayout_continuousLine1.setStretch(0, 10)
-        self.HBoxLayout_continuousLine1.setStretch(1, 1)
+        self.HBoxLayout_continuousLine1.setStretch(1, 10)
         self.HBoxLayout_continuousLine1.setStretch(2, 10)
-        self.HBoxLayout_continuousLine1.setStretch(3, 1)
+        self.HBoxLayout_continuousLine1.setStretch(3, 10)
         self.HBoxLayout_continuousLine1.setStretch(4, 10)
-        self.HBoxLayout_continuousLine1.setStretch(5, 1)
-        self.HBoxLayout_continuousLine1.setStretch(6, 10)
-        self.HBoxLayout_continuousLine1.setStretch(7, 1)
-        self.HBoxLayout_continuousLine1.setStretch(8, 10)
-        self.HBoxLayout_continuousLine1.setStretch(9, 13)
+        self.HBoxLayout_continuousLine1.setStretch(5, 13)
 
         self.verticalLayout_3.addLayout(self.HBoxLayout_continuousLine1)
 
@@ -414,10 +395,6 @@ class Ui_Form:
         self.HBoxLayout_continuousDelayMode.addWidget(self.comboBox_continuousDelayMode)
 
         self.HBoxLayout_continuousLine2.addLayout(self.HBoxLayout_continuousDelayMode)
-
-        self.horizontalSpacer_12 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_continuousLine2.addItem(self.horizontalSpacer_12)
 
         self.HBoxLayout_continuousDelay = QHBoxLayout()
         self.HBoxLayout_continuousDelay.setObjectName("HBoxLayout_continuousDelay")
@@ -449,9 +426,8 @@ class Ui_Form:
         self.HBoxLayout_continuousLine2.addItem(self.horizontalSpacer_13)
 
         self.HBoxLayout_continuousLine2.setStretch(0, 10)
-        self.HBoxLayout_continuousLine2.setStretch(1, 1)
-        self.HBoxLayout_continuousLine2.setStretch(2, 10)
-        self.HBoxLayout_continuousLine2.setStretch(3, 43)
+        self.HBoxLayout_continuousLine2.setStretch(1, 10)
+        self.HBoxLayout_continuousLine2.setStretch(2, 43)
 
         self.verticalLayout_3.addLayout(self.HBoxLayout_continuousLine2)
 
@@ -487,10 +463,6 @@ class Ui_Form:
 
         self.HBoxLayout_pulsedLine2.addLayout(self.HBoxLayout_pulsedDelayMode)
 
-        self.horizontalSpacer_17 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_pulsedLine2.addItem(self.horizontalSpacer_17)
-
         self.HBoxLayout_pulsedDelay = QHBoxLayout()
         self.HBoxLayout_pulsedDelay.setObjectName("HBoxLayout_pulsedDelay")
         self.label_pulsedDelay = QLabel(self.groupBox_pulsedSweep)
@@ -521,9 +493,8 @@ class Ui_Form:
         self.HBoxLayout_pulsedLine2.addItem(self.horizontalSpacer_18)
 
         self.HBoxLayout_pulsedLine2.setStretch(0, 10)
-        self.HBoxLayout_pulsedLine2.setStretch(1, 1)
-        self.HBoxLayout_pulsedLine2.setStretch(2, 10)
-        self.HBoxLayout_pulsedLine2.setStretch(3, 43)
+        self.HBoxLayout_pulsedLine2.setStretch(1, 10)
+        self.HBoxLayout_pulsedLine2.setStretch(2, 43)
 
         self.verticalLayout_9.addLayout(self.HBoxLayout_pulsedLine2)
 
@@ -554,10 +525,6 @@ class Ui_Form:
 
         self.HBoxLayout_pulsedLine1.addLayout(self.HBoxLayout_pulsedStart)
 
-        self.horizontalSpacer_14 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_pulsedLine1.addItem(self.horizontalSpacer_14)
-
         self.HBoxLayout_pulsedEnd = QHBoxLayout()
         self.HBoxLayout_pulsedEnd.setObjectName("HBoxLayout_pulsedEnd")
         self.label_continuousEnd_2 = QLabel(self.groupBox_pulsedSweep)
@@ -583,10 +550,6 @@ class Ui_Form:
 
         self.HBoxLayout_pulsedLine1.addLayout(self.HBoxLayout_pulsedEnd)
 
-        self.horizontalSpacer_15 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_pulsedLine1.addItem(self.horizontalSpacer_15)
-
         self.HBoxLayout_pulsedPoints = QHBoxLayout()
         self.HBoxLayout_pulsedPoints.setObjectName("HBoxLayout_pulsedPoints")
         self.label_pulsedPoints = QLabel(self.groupBox_pulsedSweep)
@@ -606,10 +569,6 @@ class Ui_Form:
         self.HBoxLayout_pulsedPoints.addWidget(self.lineEdit_pulsedPoints)
 
         self.HBoxLayout_pulsedLine1.addLayout(self.HBoxLayout_pulsedPoints)
-
-        self.horizontalSpacer_16 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_pulsedLine1.addItem(self.horizontalSpacer_16)
 
         self.HBoxLayout_pulsedLimit = QHBoxLayout()
         self.HBoxLayout_pulsedLimit.setObjectName("HBoxLayout_pulsedLimit")
@@ -636,10 +595,6 @@ class Ui_Form:
 
         self.HBoxLayout_pulsedLine1.addLayout(self.HBoxLayout_pulsedLimit)
 
-        self.horizontalSpacer_22 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_pulsedLine1.addItem(self.horizontalSpacer_22)
-
         self.HBoxLayout_pulsedNPLC = QHBoxLayout()
         self.HBoxLayout_pulsedNPLC.setObjectName("HBoxLayout_pulsedNPLC")
         self.label_pulsedNPLC = QLabel(self.groupBox_pulsedSweep)
@@ -665,10 +620,6 @@ class Ui_Form:
         self.HBoxLayout_pulsedNPLC.addWidget(self.label_pulsedNPLCUnits)
 
         self.HBoxLayout_pulsedLine1.addLayout(self.HBoxLayout_pulsedNPLC)
-
-        self.horizontalSpacer_24 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_pulsedLine1.addItem(self.horizontalSpacer_24)
 
         self.HBoxLayout_pulsedPause = QHBoxLayout()
         self.HBoxLayout_pulsedPause.setObjectName("HBoxLayout_pulsedPause")
@@ -701,17 +652,12 @@ class Ui_Form:
         self.HBoxLayout_pulsedLine1.addItem(self.horizontalSpacer_25)
 
         self.HBoxLayout_pulsedLine1.setStretch(0, 10)
-        self.HBoxLayout_pulsedLine1.setStretch(1, 1)
+        self.HBoxLayout_pulsedLine1.setStretch(1, 10)
         self.HBoxLayout_pulsedLine1.setStretch(2, 10)
-        self.HBoxLayout_pulsedLine1.setStretch(3, 1)
+        self.HBoxLayout_pulsedLine1.setStretch(3, 10)
         self.HBoxLayout_pulsedLine1.setStretch(4, 10)
-        self.HBoxLayout_pulsedLine1.setStretch(5, 1)
-        self.HBoxLayout_pulsedLine1.setStretch(6, 10)
-        self.HBoxLayout_pulsedLine1.setStretch(7, 1)
-        self.HBoxLayout_pulsedLine1.setStretch(8, 10)
-        self.HBoxLayout_pulsedLine1.setStretch(9, 1)
-        self.HBoxLayout_pulsedLine1.setStretch(10, 10)
-        self.HBoxLayout_pulsedLine1.setStretch(11, 1)
+        self.HBoxLayout_pulsedLine1.setStretch(5, 10)
+        self.HBoxLayout_pulsedLine1.setStretch(6, 1)
 
         self.verticalLayout_9.addLayout(self.HBoxLayout_pulsedLine1)
 
@@ -749,10 +695,6 @@ class Ui_Form:
 
         self.HBoxLayout_drainLine1.addLayout(self.HBoxLayout_drainStart)
 
-        self.horizontalSpacer_26 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_drainLine1.addItem(self.horizontalSpacer_26)
-
         self.HBoxLayout_drainEnd = QHBoxLayout()
         self.HBoxLayout_drainEnd.setObjectName("HBoxLayout_drainEnd")
         self.label_drainEnd = QLabel(self.groupBox_drainSweep)
@@ -778,10 +720,6 @@ class Ui_Form:
 
         self.HBoxLayout_drainLine1.addLayout(self.HBoxLayout_drainEnd)
 
-        self.horizontalSpacer_27 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_drainLine1.addItem(self.horizontalSpacer_27)
-
         self.HBoxLayout_drainPoints = QHBoxLayout()
         self.HBoxLayout_drainPoints.setObjectName("HBoxLayout_drainPoints")
         self.label_drainPoints = QLabel(self.groupBox_drainSweep)
@@ -801,10 +739,6 @@ class Ui_Form:
         self.HBoxLayout_drainPoints.addWidget(self.lineEdit_drainPoints)
 
         self.HBoxLayout_drainLine1.addLayout(self.HBoxLayout_drainPoints)
-
-        self.horizontalSpacer_28 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_drainLine1.addItem(self.horizontalSpacer_28)
 
         self.HBoxLayout_drainLimit = QHBoxLayout()
         self.HBoxLayout_drainLimit.setObjectName("HBoxLayout_drainLimit")
@@ -830,10 +764,6 @@ class Ui_Form:
         self.HBoxLayout_drainLimit.addWidget(self.label_drainLimitUnits)
 
         self.HBoxLayout_drainLine1.addLayout(self.HBoxLayout_drainLimit)
-
-        self.horizontalSpacer_29 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_drainLine1.addItem(self.horizontalSpacer_29)
 
         self.HBoxLayout_drainNPLC = QHBoxLayout()
         self.HBoxLayout_drainNPLC.setObjectName("HBoxLayout_drainNPLC")
@@ -866,15 +796,11 @@ class Ui_Form:
         self.HBoxLayout_drainLine1.addItem(self.horizontalSpacer_30)
 
         self.HBoxLayout_drainLine1.setStretch(0, 10)
-        self.HBoxLayout_drainLine1.setStretch(1, 1)
+        self.HBoxLayout_drainLine1.setStretch(1, 10)
         self.HBoxLayout_drainLine1.setStretch(2, 10)
-        self.HBoxLayout_drainLine1.setStretch(3, 1)
+        self.HBoxLayout_drainLine1.setStretch(3, 10)
         self.HBoxLayout_drainLine1.setStretch(4, 10)
-        self.HBoxLayout_drainLine1.setStretch(5, 1)
-        self.HBoxLayout_drainLine1.setStretch(6, 10)
-        self.HBoxLayout_drainLine1.setStretch(7, 1)
-        self.HBoxLayout_drainLine1.setStretch(8, 10)
-        self.HBoxLayout_drainLine1.setStretch(9, 13)
+        self.HBoxLayout_drainLine1.setStretch(5, 13)
 
         self.verticalLayout_5.addLayout(self.HBoxLayout_drainLine1)
 
@@ -902,10 +828,6 @@ class Ui_Form:
 
         self.HBoxLayout_drainLine2.addLayout(self.HBoxLayout_drainDelayMode)
 
-        self.horizontalSpacer_31 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_drainLine2.addItem(self.horizontalSpacer_31)
-
         self.HBoxLayout_drainDelay = QHBoxLayout()
         self.HBoxLayout_drainDelay.setObjectName("HBoxLayout_drainDelay")
         self.label_drainDelay = QLabel(self.groupBox_drainSweep)
@@ -930,10 +852,6 @@ class Ui_Form:
         self.HBoxLayout_drainDelay.addWidget(self.label_drainDelayUnits)
 
         self.HBoxLayout_drainLine2.addLayout(self.HBoxLayout_drainDelay)
-
-        self.horizontalSpacer_70 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.HBoxLayout_drainLine2.addItem(self.horizontalSpacer_70)
 
         self.HBoxLayout_drainSenseMode = QHBoxLayout()
         self.HBoxLayout_drainSenseMode.setObjectName("HBoxLayout_drainSenseMode")
@@ -963,11 +881,9 @@ class Ui_Form:
         self.HBoxLayout_drainLine2.addItem(self.horizontalSpacer_32)
 
         self.HBoxLayout_drainLine2.setStretch(0, 10)
-        self.HBoxLayout_drainLine2.setStretch(1, 1)
+        self.HBoxLayout_drainLine2.setStretch(1, 10)
         self.HBoxLayout_drainLine2.setStretch(2, 10)
-        self.HBoxLayout_drainLine2.setStretch(3, 1)
-        self.HBoxLayout_drainLine2.setStretch(4, 10)
-        self.HBoxLayout_drainLine2.setStretch(5, 40)
+        self.HBoxLayout_drainLine2.setStretch(3, 40)
 
         self.verticalLayout_5.addLayout(self.HBoxLayout_drainLine2)
 
@@ -1028,7 +944,7 @@ class Ui_Form:
 
         self.verticalLayout_10.addWidget(self.groupBox)
 
-        self.verticalSpacer_2 = QSpacerItem(20, 66, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        self.verticalSpacer_2 = QSpacerItem(66, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout_10.addItem(self.verticalSpacer_2)
 
@@ -1069,7 +985,7 @@ class Ui_Form:
 
         self.horizontalLayout_5.addWidget(self.lineEdit_filename)
 
-        self.horizontalSpacer_19 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_19 = QSpacerItem(20, 40, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_5.addItem(self.horizontalSpacer_19)
 
@@ -1178,6 +1094,8 @@ class Ui_Form:
         self.comboBox_sourceSenseMode.setItemText(2, QCoreApplication.translate("Form", "2 & 4 wire", None))
 
         self.checkBox_singleChannel.setText(QCoreApplication.translate("Form", "Use single channel", None))
+        self.checkBox_logSweep.setText(QCoreApplication.translate("Form", "Logarithmic sweep", None))
+        self.label_2.setText(QCoreApplication.translate("Form", "asymptote", None))
         self.groupBox_sweep.setTitle(QCoreApplication.translate("Form", "Sweep", None))
         self.groupBox_continuousSweep.setTitle(QCoreApplication.translate("Form", "Continuous", None))
         self.label_continuousStart.setText(QCoreApplication.translate("Form", "Start", None))
