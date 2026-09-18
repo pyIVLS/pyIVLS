@@ -150,7 +150,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog, Ui_pyIVLSpluginloader):
             return  # if no directory is selected, return
 
         # here we handle the case where the user selects the top directory which contains all plugins.
-        print(f"Selected plugin directory: {plugin_dir}, Start directory: {start_dir}")
+        logger.info(f"Selected plugin directory: {plugin_dir}, Start directory: {start_dir}")
         if plugin_dir == start_dir:
             logger.debug("User selected the top-level plugins directory. Processing all subdirectories.")
             # iterate through all subdirectories of the plugins directory

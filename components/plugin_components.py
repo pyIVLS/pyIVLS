@@ -38,6 +38,7 @@ import os
 import sys
 import traceback
 from enum import Enum
+import warnings
 from typing import Any, Literal, overload
 
 from PySide6.QtCore import QObject, Signal
@@ -723,7 +724,7 @@ class LoggingHelper(QObject):
 def handle_ret(pyIVLS_return: tuple[int, dict[str, Any]]) -> Any:
     """Return the dict on success, otherwise raise an exception. dont integrate this, this is just a tester"""
     ret_code, ret_dict = pyIVLS_return
-    print("Warn: unstable handle_ret used in 'production' code.")
+    warnings.warn("Unstable handle_ret function used in production code", UserWarning)
     if ret_code == PyIVLSReturnCode.SUCCESS.value:
         return ret_dict
     elif ret_code == PyIVLSReturnCode.VALUE_ERROR.value:

@@ -1439,6 +1439,9 @@ dependencies = [
 cli = [
     { name = "typer" },
 ]
+rich = [
+    { name = "rich" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -1475,6 +1478,7 @@ requires-dist = [
     { name = "pyusb", specifier = ">=1.3.1" },
     { name = "pyvisa", specifier = ">=1.14.1" },
     { name = "pyvisa-py", specifier = ">=0.7.2" },
+    { name = "rich", marker = "extra == 'rich'", specifier = ">=15.0.0" },
     { name = "scikit-image", specifier = ">=0.25.2" },
     { name = "seabreeze", specifier = ">=2.10.1" },
     { name = "setuptools", specifier = ">=78.1.1" },
@@ -1484,7 +1488,7 @@ requires-dist = [
     { name = "zeroconf", specifier = ">=0.137.2" },
     { name = "zope-interface", specifier = ">=7.2" },
 ]
-provides-extras = ["cli"]
+provides-extras = ["cli", "rich"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=9.1.1" }]

@@ -30,20 +30,27 @@ parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose
 # parse_known_args allows PySide6/Qt flags to pass through without errors
 args, unknown = parser.parse_known_args()
 
-format = logging.Formatter("%(asctime)s : %(name)s : %(levelname)s : %(message)s")
+formatter = logging.Formatter("%(asctime)s : %(name)s : %(levelname)s : %(message)s")
+console_level = logging.DEBUG if args.verbose else logging.INFO
 
 # Create file handler (logs everything to file)
 file_handler = RotatingFileHandler("pyIVLS.log", maxBytes=1024 * 1024, backupCount=2)
 file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(format)
+file_handler.setFormatter(formatter)
 
 # Create stream handler (logs DEBUG if -v is passed, otherwise INFO)
-stream_handler = logging.StreamHandler()
-console_level = logging.DEBUG if args.verbose else logging.INFO
-stream_handler.setLevel(console_level)
-stream_handler.setFormatter(format)
+try:
+    from rich.logging import RichHandler
 
-# Configure main logger
+    rich_formatter = logging.Formatter("[bold magenta]%(name)s[/bold magenta] › %(message)s")
+    stream_handler = RichHandler(level=console_level, rich_tracebacks=True, tracebacks_show_locals=args.verbose, show_path=False, markup=True)
+    stream_handler.setFormatter(rich_formatter)
+except ImportError:
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(console_level)
+    stream_handler.setFormatter(formatter)
+
+# Configure root logger
 logging.basicConfig(level=logging.DEBUG, handlers=[file_handler, stream_handler])
 logger = logging.getLogger(__name__)
 

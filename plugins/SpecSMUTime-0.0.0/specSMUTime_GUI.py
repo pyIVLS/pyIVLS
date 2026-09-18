@@ -25,6 +25,9 @@ from plugin_components import DependencyManager, LoggingHelper
 from PySide6.QtCore import Qt
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QWidget
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class specSMUTime_GUI(QWidget):
@@ -474,7 +477,7 @@ class specSMUTime_GUI(QWidget):
         self._log_verbose(f"SMU: {smu_name}, Spectrometer: {spectro_name}")
 
         [status, message] = self.function_dict["smu"][smu_name]["smu_connect"]()
-        print(self.settings["limit"])
+        logger.info(self.settings["limit"])
         if status:
             self._log_verbose(f"Error connecting SMU: {message}")
             return [status, message]
@@ -582,8 +585,8 @@ class specSMUTime_GUI(QWidget):
             # iterate over the SMU loop steps
             for smuLoopStep in range(smuLoop):
                 smuSetValue = self.settings["start"] + smuLoopStep * smuChange
-                print(f"SMU set value: {smuSetValue}")
-                print(self.settings["inject"])
+                logger.info(f"SMU set value: {smuSetValue}")
+                logger.info(self.settings["inject"])
                 self._log_verbose(f"Setting SMU output to {smuSetValue}")
                 # set output on SMU
                 self.function_dict["smu"][smu_name]["smu_setOutput"](self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue)

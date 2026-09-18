@@ -407,7 +407,7 @@ class Keithley2612B:
         if outputType == "v":
             self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCVOLTS")
         self.safewrite(f"{channel}.source.level{outputType} = {value}")
-        print(f"Set {channel} output to {value} {outputType}")
+        logger.info(f"Set {channel} output to {value} {outputType}")
 
     def get_last_buffer_value(self, channel, readings=None) -> list[float | None]:
         """

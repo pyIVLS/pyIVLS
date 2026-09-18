@@ -46,6 +46,9 @@ dependencies = [
 cli = [
     "typer>=0.27.2",
 ]
+rich = [
+    "rich>=15.0.0",
+]
 
 [tool.pytest.ini_options]
 log_cli = true

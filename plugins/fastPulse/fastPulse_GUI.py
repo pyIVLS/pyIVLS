@@ -28,6 +28,10 @@ from plugin_components import DependencyManager, LoggingHelper
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFileDialog, QWidget  # , QLabel, QVBoxLayout, QWidget
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class FPSW(QWidget, Ui_Form):
     def __init__(self, parent=None):
@@ -495,7 +499,6 @@ class fastPulse_GUI(QWidget):
 
     def sequenceStep(self, postfix):
         # status, settings = self.parse_settings_widget()
-        # print(f"Parsed settings: {settings}")
         self._log_verbose("Entering sequenceStep with postfix: " + postfix)
         self.settings["filename"] = self.settings["filename"] + postfix
         smu_name = self.settings["smu"]
@@ -620,8 +623,8 @@ class fastPulse_GUI(QWidget):
             # iterate over the SMU loop steps
             for smuLoopStep in range(smuLoop):
                 smuSetValue = self.settings["start"] + smuLoopStep * smuChange
-                print(f"SMU set value: {smuSetValue}")
-                print(self.settings["inject"])
+                logger.info(f"SMU set value: {smuSetValue}")
+                logger.info(f"Inject: {self.settings['inject']}")
                 self._log_verbose(f"Setting SMU output to {smuSetValue}")
                 # set output on SMU
                 self.function_dict["smu"][smu_name]["smu_setOutput"](self.settings["channel"], "v" if self.settings["inject"] == "voltage" else "i", smuSetValue)
