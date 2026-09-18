@@ -17,13 +17,13 @@ logging.getLogger("PySide6").setLevel(logging.WARNING)
 logging.getLogger("pyvisa").setLevel(logging.WARNING)
 
 # py-/ˈkjuːt/6
+import argparse
+
 from PySide6 import QtWidgets
 from PySide6.QtCore import QCoreApplication, Qt, Slot
 
 from pyIVLS_container import pyIVLS_container
 from pyIVLS_GUI import pyIVLS_GUI
-
-import argparse
 
 parser = argparse.ArgumentParser(description="pyIVLS Application")
 parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output (display DEBUG logs in terminal)")

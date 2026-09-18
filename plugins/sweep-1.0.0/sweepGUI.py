@@ -1,4 +1,5 @@
 import copy
+import logging
 import os
 import time
 from datetime import datetime
@@ -7,19 +8,16 @@ import numpy as np
 import pandas as pd
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from pathvalidate import is_valid_filename
-from plugin_components import CloseLockSignalProvider, LoggingHelper, PyIVLSReturnCode, filter_to_valid_methods, get_public_methods, public, ini_to_bool
+from plugin_components import CloseLockSignalProvider, LoggingHelper, PyIVLSReturnCode, filter_to_valid_methods, get_public_methods, ini_to_bool, public
 from PySide6.QtCore import QObject, Qt, Slot
-from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import QComboBox, QFileDialog, QLabel, QMessageBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFileDialog, QVBoxLayout, QWidget
+from sweep_mdiwidget import Ui_previewForm
+from sweep_settingswidget import Ui_Form
 from sweepCommon import create_file_header, create_sweep_reciepe
 from threadStopped import (
     ThreadStopped,
     thread_with_exception,
 )
-from sweep_settingswidget import Ui_Form
-from sweep_mdiwidget import Ui_previewForm
-
-import logging
 
 logger = logging.getLogger(__name__)
 

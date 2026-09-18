@@ -17,6 +17,7 @@ ivarad
 """
 
 import copy
+import logging
 import os
 import time
 
@@ -25,7 +26,6 @@ from plugin_components import DependencyManager, LoggingHelper
 from PySide6.QtCore import Qt
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QWidget
-import logging
 
 logger = logging.getLogger(__name__)
 

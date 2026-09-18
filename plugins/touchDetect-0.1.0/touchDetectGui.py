@@ -1,14 +1,14 @@
 import copy
+import logging
 import os
 from typing import Any
 
-from plugin_components import ConnectionIndicatorStyle, DependencyManager, LoggingHelper, get_public_methods, public, PyIVLSRetCo
+from plugin_components import ConnectionIndicatorStyle, DependencyManager, LoggingHelper, PyIVLSRetCo, get_public_methods, public
 from PySide6.QtWidgets import QComboBox, QGroupBox, QSpinBox, QWidget
 from threadStopped import ThreadStopped
 from touchDetect import ManipulatorInfo, PluginError, touchDetect
 from touchdetect_settings import Ui_Form
 from worker_thread import WorkerThread
-import logging
 
 logger = logging.getLogger(__name__)
 

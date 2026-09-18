@@ -17,6 +17,7 @@ ivarad
 """
 
 import copy
+import logging
 import os
 import time
 from datetime import datetime, timezone
@@ -27,8 +28,6 @@ from fastpulse_settingswidget import Ui_Form
 from plugin_components import DependencyManager, LoggingHelper
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFileDialog, QWidget  # , QLabel, QVBoxLayout, QWidget
-
-import logging
 
 logger = logging.getLogger(__name__)
 

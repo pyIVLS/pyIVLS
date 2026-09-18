@@ -4,13 +4,13 @@ import os
 import time
 from enum import Enum
 from threading import Lock
+from typing import Literal
 
 import numpy as np
 import pyvisa
 import usbtmc
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from pyvisa.resources import MessageBasedResource
-from typing import Literal
-from pydantic import BaseModel, Field, model_validator, ValidationError
 
 logger = logging.getLogger(__name__)
 

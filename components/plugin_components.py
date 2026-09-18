@@ -37,8 +37,8 @@ import logging
 import os
 import sys
 import traceback
-from enum import Enum
 import warnings
+from enum import Enum
 from typing import Any, Literal, overload
 
 from PySide6.QtCore import QObject, Signal
