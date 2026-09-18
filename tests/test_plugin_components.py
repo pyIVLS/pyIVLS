@@ -28,8 +28,8 @@ try:
         PluginException,
         filter_to_valid_methods,
     )
-    from PyQt6.QtCore import QObject
-    from PyQt6.QtWidgets import QApplication
+    from PySide6.QtCore import QObject
+    from PySide6.QtWidgets import QApplication
 
     # Create QApplication if it doesn't exist (needed for Qt widgets)
     if not QApplication.instance():

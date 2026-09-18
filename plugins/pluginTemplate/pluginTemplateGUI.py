@@ -20,12 +20,12 @@ from plugin_components import (
     DependencyManager,
     LoggingHelper,
     get_public_methods,
-    load_widget,
     public,
 )
 from pluginTemplate import pluginTemplate
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QWidget
 
 # this is loade from components directory that contains shared classes
 
@@ -52,15 +52,17 @@ class pluginTemplateGUI(QObject):
         self.logger.log_info(message)
         self.logger.info_popup(message)
 
-    update_gui_signal = pyqtSignal()
+    update_gui_signal = Signal()
 
     ########Functions
     def __init__(self):
         super().__init__()  ### this is needed if the class is a child of QObject
+        loader = QUiLoader()
 
         self.path = os.path.dirname(__file__) + os.path.sep
         # remove load_widget if no widgets are needed
-        self._settingsWidget, self._mdiWidget = load_widget(settings=True, mdi=True, path=self.path)
+        self._settingsWidget = loader.load(self.path + "pluginTemplate_settingsWidget.ui")
+        self._mdiWidget = loader.load(self.path + "pluginTemplate_MDIWidget.ui")
 
         # Initialize the functionality core that should be independent on GUI
         self.templateFunctionality = pluginTemplate()
@@ -108,12 +110,12 @@ class pluginTemplateGUI(QObject):
     ########GUI Slots
     # This section should contain functions that should react to GUI events.
 
-    @pyqtSlot()
+    @Slot()
     def _exampleAction(self):
         # do something
         print("Button clicked!!")
 
-    @pyqtSlot()
+    @Slot()
     def _update_gui(self):
         # update GUI elements based on the internal state of the plugin. No type checking here since the internal is always safe.
         self.settingsWidget.doubleSpinBox_float.setValue(self.settings["float"])
@@ -139,7 +141,7 @@ class pluginTemplateGUI(QObject):
         if preferred and preferred in available:
             self.settingsWidget.camBox.setCurrentText(preferred)
 
-    @pyqtSlot()
+    @Slot()
     def _update_plot(self, x, y):
         self.axes.clear()
         self.axes.plot(x, y)

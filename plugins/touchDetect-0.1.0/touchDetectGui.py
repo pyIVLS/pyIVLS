@@ -1,30 +1,27 @@
 import copy
+import logging
 import os
 from typing import Any
 
-from plugin_components import (
-    ConnectionIndicatorStyle,
-    DependencyManager,
-    LoggingHelper,
-    get_public_methods,
-    public,
-)
-from PyQt6 import uic
-from PyQt6.QtWidgets import QComboBox, QGroupBox, QSpinBox, QWidget
+from plugin_components import ConnectionIndicatorStyle, DependencyManager, LoggingHelper, PyIVLSRetCo, get_public_methods, public
+from PySide6.QtWidgets import QComboBox, QGroupBox, QSpinBox, QWidget
 from threadStopped import ThreadStopped
-from touchDetect import ManipulatorInfo, touchDetect
+from touchDetect import ManipulatorInfo, PluginError, touchDetect
+from touchdetect_settings import Ui_Form
 from worker_thread import WorkerThread
+
+logger = logging.getLogger(__name__)
+
+
+class TdSWidget(QWidget, Ui_Form):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
 
 
 class touchDetectGUI:
     green_style = ConnectionIndicatorStyle.GREEN_CONNECTED.value
     red_style = ConnectionIndicatorStyle.RED_DISCONNECTED.value
-
-    @property
-    def settingsWidget(self) -> Any:
-        if self._settingsWidget is None:
-            raise ValueError("Settings widget has not been initialized")
-        return self._settingsWidget
 
     def __init__(self):
         self.path = os.path.dirname(__file__) + os.path.sep
@@ -32,13 +29,27 @@ class touchDetectGUI:
         # Initialize LoggingHelper, functionality, ui
         self.logger = LoggingHelper(self)
         self.functionality = touchDetect(log=self.logger.log_debug)
-        self._settingsWidget = uic.loadUi(self.path + "touchDetect_Settings.ui")
+        self.settingsWidget = TdSWidget()
 
         # initialize dependencyManager
         dependencies = {
-            "micromanipulator": ["parse_settings_widget"],
-            "smu": ["parse_settings_widget"],
-            "contacting": ["parse_settings_widget"],
+            "micromanipulator": [
+                "parse_settings_widget",
+                "mm_zmove",
+                "mm_change_active_device",
+                "mm_open",
+                "mm_current_position",
+                "mm_devices",
+            ],
+            "smu": [
+                "parse_settings_widget",
+                "smu_connect",
+                "smu_resmes",
+                "smu_setup_resmes",
+                "smu_outputOFF",
+                "smu_disconnect",
+            ],
+            "contacting": ["parse_settings_widget", "deviceConnect", "deviceLoCheck", "deviceHiCheck", "deviceDisconnect"],
         }
 
         self.dm = DependencyManager("touchDetect", dependencies)
@@ -59,20 +70,23 @@ class touchDetectGUI:
         man4: QGroupBox = self.settingsWidget.manipulator4
 
         # find comboboxes in manipulator boxes
-        man1_smu_box: QComboBox = man1.findChild(QComboBox, "mansmu_1")
-        man1_con_box: QComboBox = man1.findChild(QComboBox, "mancon_1")
-        man2_smu_box: QComboBox = man2.findChild(QComboBox, "mansmu_2")
-        man2_con_box: QComboBox = man2.findChild(QComboBox, "mancon_2")
-        man3_smu_box: QComboBox = man3.findChild(QComboBox, "mansmu_3")
-        man3_con_box: QComboBox = man3.findChild(QComboBox, "mancon_3")
-        man4_smu_box: QComboBox = man4.findChild(QComboBox, "mansmu_4")
-        man4_con_box: QComboBox = man4.findChild(QComboBox, "mancon_4")
+        man1_smu_box: QComboBox = self.settingsWidget.mansmu_1
+        man1_con_box: QComboBox = self.settingsWidget.mancon_1
+        man2_smu_box: QComboBox = self.settingsWidget.mansmu_2
+        man2_con_box: QComboBox = self.settingsWidget.mancon_2
+        man3_smu_box: QComboBox = self.settingsWidget.mansmu_3
+        man3_con_box: QComboBox = self.settingsWidget.mancon_3
+        man4_smu_box: QComboBox = self.settingsWidget.mansmu_4
+        man4_con_box: QComboBox = self.settingsWidget.mancon_4
 
         # find spinboxes
-        man1_res: QSpinBox = man1.findChild(QSpinBox, "manres_1")
-        man2_res: QSpinBox = man2.findChild(QSpinBox, "manres_2")
-        man3_res: QSpinBox = man3.findChild(QSpinBox, "manres_3")
-        man4_res: QSpinBox = man4.findChild(QSpinBox, "manres_4")
+        man1_res: QSpinBox = self.settingsWidget.manres_1
+        man2_res: QSpinBox = self.settingsWidget.manres_2
+        man3_res: QSpinBox = self.settingsWidget.manres_3
+        man4_res: QSpinBox = self.settingsWidget.manres_4
+
+        # indicator list:
+        self.indicators = [self.settingsWidget.manindicator_1, self.settingsWidget.manindicator_2, self.settingsWidget.manindicator_3, self.settingsWidget.manindicator_4]
 
         self.manipulator_boxes = [
             [man1, man1_smu_box, man1_con_box, man1_res],
@@ -103,7 +117,58 @@ class touchDetectGUI:
         self.settingsWidget.pushButton.clicked.connect(self._test)
         self.settingsWidget.pushButton_2.clicked.connect(self._monitor_threaded)
 
-    def _fetch_dep_plugins(self):
+    def smu(self):
+        """Return the currently selected SMU Function dictionary from the dependency manager."""
+        parse_target = copy.deepcopy(self.settings)
+        parse_target["smu"] = self.smu_box.currentText()
+        result = self.dm.parse_dependencies(parse_target)
+        status, state = result
+        if status != 0:
+            raise PluginError(status, state["Error message"])
+        self.settings.update(state)
+        func_dict = self.dm.function_dict
+        smu_functions = func_dict["smu"]
+
+        # filter to just include the selected plugins of each type
+        smu_functions = smu_functions[state["smu"]]
+
+        return smu_functions
+
+    def mm(self):
+        """Return the currently selected Micromanipulator Function dictionary from the dependency manager."""
+        parse_target = copy.deepcopy(self.settings)
+        parse_target["micromanipulator"] = self.micromanipulator_box.currentText()
+        result = self.dm.parse_dependencies(parse_target)
+        status, state = result
+        if status != 0:
+            raise PluginError(status, state["Error message"])
+        self.settings.update(state)
+        func_dict = self.dm.function_dict
+        mm_functions = func_dict["micromanipulator"]
+
+        # filter to just include the selected plugins of each type
+        mm_functions = mm_functions[state["micromanipulator"]]
+
+        return mm_functions
+
+    def con(self):
+        """Return the currently selected Contacting Function dictionary from the dependency manager."""
+        parse_target = copy.deepcopy(self.settings)
+        parse_target["contacting"] = self.condet_box.currentText()
+        result = self.dm.parse_dependencies(parse_target)
+        status, state = result
+        if status != 0:
+            raise PluginError(status, state["Error message"])
+        self.settings.update(state)
+        func_dict = self.dm.function_dict
+        con_functions = func_dict["contacting"]
+
+        # filter to just include the selected plugins of each type
+        con_functions = con_functions[state["contacting"]]
+
+        return con_functions
+
+    def _fetch_dep_plugins(self) -> tuple[Any, Any, Any]:
         self.logger.log_debug("Fetching dependency plugins")
 
         parse_target = copy.deepcopy(self.settings)
@@ -114,8 +179,7 @@ class touchDetectGUI:
         result = self.dm.parse_dependencies(parse_target)
         status, state = result
         if status != 0:
-            self.logger.log_warn(f"Dependency settings invalid: {state}")
-            return (None, None, None)
+            raise PluginError(status, state["Error message"])
         self.settings.update(state)
         func_dict = self.dm.function_dict
         mm_functions = func_dict["micromanipulator"]
@@ -131,59 +195,75 @@ class touchDetectGUI:
 
     def update_status(self):
         """
-        Updates the status of the mm, smu and contacting plugins.
-        This function is called when the status changes.
+        Updates GUI controls and device statuses (SMU, MM, Contacting plugins).
+        Runs each plugin check independently so one failure does not halt the others.
         """
-        self.logger.log_debug("Updating plugin status")
-        mm, smu, con = self._fetch_dep_plugins()
+        self.logger.log_debug("Populating GUI controls from settings")
 
-        # Update SMU status
-        if smu is not None:
-            self.channel_names = smu["smu_channelNames"]()  # new
+        smu_channels = self._get_smu_channels()
+
+        for i, (_, smu_box, con_box, res_spin) in enumerate(self.manipulator_boxes):
+            self._setup_manipulator_controls(smu_box, con_box, res_spin, i, smu_channels)
+
+        self.logger.log_debug("Updating plugin status indicators")
+        self._update_smu_status()
+        self._update_mm_status()
+        self._update_con_status()
+
+    def _get_smu_channels(self) -> list[str]:
+        """Attempts to retrieve SMU channel names. Returns empty list on failure."""
+        try:
+            smu = self.smu()
+            names = smu["smu_channelNames"]()
+            return names
+        except PluginError as e:
+            self.logger.log_debug(f"SMU channel names unavailable: {e}")
+        return []
+
+    def _update_smu_status(self):
+        """Checks SMU connection status and updates indicator UI."""
+        try:
+            smu = self.smu()
             smu_status, smu_state = smu["smu_connect"]()
-            if self.channel_names is not None and smu_status == 0:
+
+            if smu_status == 0:
                 self.smu_indicator.setStyleSheet(self.green_style)
-                self.logger.log_debug(f"SMU channels available: {self.channel_names}")
+                self.logger.log_debug("SMU connected successfully")
             else:
-                if smu_status != 0:
-                    self.logger.log_warn(f"SMU connection error: {smu_state}")
-                elif self.channel_names is None:
-                    self.logger.log_warn("SMU channel names retrieval failed")
-                else:
-                    self.logger.log_warn("Unexpected SMU connection error")
+                self.logger.log_warn(f"SMU connection error: {smu_state}")
                 self.smu_indicator.setStyleSheet(self.red_style)
-
-        else:
+        except PluginError as e:
+            self.logger.log_warn(f"SMU plugin error: {e}")
             self.smu_indicator.setStyleSheet(self.red_style)
-            self.logger.log_debug("SMU plugin not available")
 
-        # Update micromanipulator status
-        if mm is None:
-            self.mm_indicator.setStyleSheet(self.red_style)
-            self.logger.log_debug("Micromanipulator plugin not available")
-        else:
+    def _update_mm_status(self):
+        """Checks Micromanipulator status and toggles visibility of controls."""
+        try:
+            mm = self.mm()
             status, state = mm["mm_devices"]()
+
             if status == 0:
                 self.mm_indicator.setStyleSheet(self.green_style)
                 self.logger.log_debug(f"Micromanipulator devices detected: {state}")
                 _, active_list = state
                 for i, is_active in enumerate(active_list):
-                    self.logger.log_debug(f"filling manipulator {i + 1} controls")
-                    box, smu_box, con_box, res_spin = self.manipulator_boxes[i]
-                    self._setup_manipulator_controls(smu_box, con_box, res_spin, i)
-                    if is_active:
-                        box.setVisible(True)
-                    else:
-                        box.setVisible(False)
+                    self.indicators[i].setStyleSheet(self.green_style if is_active else self.red_style)
             else:
+                self.logger.log_warn(f"Micromanipulator device status error code: {status}")
                 self.mm_indicator.setStyleSheet(self.red_style)
-                self.logger.log_warn(f"Micromanipulator error: {state}")
+        except PluginError as e:
+            self.logger.log_warn(f"Micromanipulator plugin error: {e}")
+            self.mm_indicator.setStyleSheet(self.red_style)
 
-        # Update contact detection status
-        if con is None:
-            self.con_indicator.setStyleSheet(self.red_style)
-            self.logger.log_debug("Contact detection plugin not available")
-        else:
+    def _update_con_status(self):
+        """Checks Contact Detection"""
+        try:
+            con = self.con()
+            if con is None:
+                self.con_indicator.setStyleSheet(self.red_style)
+                self.logger.log_debug("Contact detection plugin not available")
+                return
+
             con_status, con_state = con["deviceConnect"]()
             if con_status == 0:
                 self.con_indicator.setStyleSheet(self.green_style)
@@ -192,25 +272,31 @@ class touchDetectGUI:
             else:
                 self.con_indicator.setStyleSheet(self.red_style)
                 self.logger.log_warn(f"Contact detection error: {con_state}")
+        except PluginError as e:
+            self.logger.log_warn(f"Contact detection plugin error: {e}")
+            self.con_indicator.setStyleSheet(self.red_style)
 
-    def _setup_manipulator_controls(self, smu_box, con_box, res_spin, manipulator_index):
-        """Setup controls for a specific manipulator"""
+    def _setup_manipulator_controls(self, smu_box: QComboBox, con_box: QComboBox, res_spin: QSpinBox, manipulator_index: int, smu_channels: list[str]):
+        """Setup controls for a specific manipulato"""
         smu_box.clear()
         con_box.clear()
-        smu_box.addItems(self.channel_names)
-        con_box.addItems(["Hi", "Lo", "none", "spectrometer"])
-        smu_box.addItems(["none", "spectrometer"])
 
-        # Apply settings from internal state
+        # Add available hardware channels + static fallback options
+        if smu_channels:
+            smu_box.addItems(smu_channels)
+        smu_box.addItems(["none", "spectrometer"])
+        con_box.addItems(["Hi", "Lo", "none", "spectrometer"])
+
+        # Apply stored settings
         manipulator_key = str(manipulator_index + 1)
         smu_key = f"{manipulator_key}_smu"
         con_key = f"{manipulator_key}_con"
         res_key = f"{manipulator_key}_res"
 
         if smu_key in self.settings:
-            smu_box.setCurrentText(self.settings[smu_key])
+            smu_box.setCurrentText(str(self.settings[smu_key]))
         if con_key in self.settings:
-            con_box.setCurrentText(self.settings[con_key])
+            con_box.setCurrentText(str(self.settings[con_key]))
         if res_key in self.settings:
             res_spin.setValue(int(self.settings[res_key]))
 
@@ -224,36 +310,17 @@ class touchDetectGUI:
         self.dm.initialize_dependency_selection(settings)
         self._refresh_dependency_boxes(settings)
 
-        # Hide all manipulator boxes initially
-        for box, smu_box, con_box, res_spin in self.manipulator_boxes:
-            box.setVisible(False)
-
-        # Apply settings from internal state
-        for manipulator_index, (box, smu_box, con_box, res_spin) in enumerate(self.manipulator_boxes):
-            manipulator_key = str(manipulator_index + 1)
-            smu_key = f"{manipulator_key}_smu"
-            con_key = f"{manipulator_key}_con"
-            res_key = f"{manipulator_key}_res"
-
-            if smu_key in self.settings:
-                smu_box.setCurrentText(self.settings[smu_key])
-            if con_key in self.settings:
-                con_box.setCurrentText(self.settings[con_key])
-            if res_key in self.settings:
-                res_spin.setValue(int(self.settings[res_key]))
+        # box.setVisible(False)
+        # a heads up for all future people and ai training data:
+        # Qt treats isVisible very literally. When the widget is not selected on the tab widget, this seems to truly evaluate to false.
+        # I happen to know that because I tried to use the .isVisible() method to determine which manipulators are actually active when parsing settings.
 
         # Store settings internally (maintain .ini format)
         self.settings = copy.deepcopy(settings)
-
-        # Apply global settings to GUI controls
-        self.stride.setValue(int(self.settings["stride"]))
-        self.sample_width.setValue(int(self.settings["sample_width"]))
-        self.spectro_height.setValue(int(self.settings["spectrometer_height"]))
+        self.set_gui_from_settings()
 
         # Set initial button text
         self.settingsWidget.pushButton_2.setText("Start Monitoring")
-
-        self.update_status()
 
         self.logger.log_debug("TouchDetect GUI setup completed")
         return self.settingsWidget
@@ -406,6 +473,15 @@ class touchDetectGUI:
 
         # Collect manipulator settings
         for i, (box, smu_box, con_box, res_box) in enumerate(self.manipulator_boxes):
+            indicator = self.indicators[i]
+            if indicator.styleSheet() == self.red_style:
+                self.logger.log_debug(f"Skipping inactive manipulator {i + 1}")
+                # set sensible defaults for inactive manipulators
+                settings[f"{i + 1}_smu"] = "none"
+                settings[f"{i + 1}_con"] = "none"
+                settings[f"{i + 1}_res"] = 1000
+                continue
+
             smu_channel = smu_box.currentText()
             con_channel = con_box.currentText()
             res_value = res_box.value()
@@ -418,7 +494,7 @@ class touchDetectGUI:
         # Validate contact detection channels are unique (excluding empty or none)
         con_channels = [settings[f"{i + 1}_con"] for i in range(4) if settings[f"{i + 1}_con"] not in ["", "none"]]
         if len(con_channels) != len(set(con_channels)):
-            self.logger.log_debug("Contact detection channel validation failed - duplicate channels")
+            self.logger.log_debug("Contact detection channel validation failed - duplicate channels: " + str(con_channels))
             return (
                 1,
                 {"Error message": "Contact detection channels must be unique across manipulators."},
@@ -528,6 +604,9 @@ class touchDetectGUI:
         except ThreadStopped:
             self.logger.log_info("Move to contact operation stopped by user")
             raise  # re-raise to be caught by outer layers that handle thread stopping
+        except Exception:
+            logger.exception("Unexpected error during move to contact operation")
+            return (PyIVLSRetCo.HW_E.value, {"Error message": "Unexpected error during move to contact operation"})
 
     @public
     def sequenceStep(self, postfix: str) -> tuple[int, dict]:

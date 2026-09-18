@@ -4,10 +4,12 @@ import os
 import time
 from enum import Enum
 from threading import Lock
+from typing import Literal
 
 import numpy as np
 import pyvisa
 import usbtmc
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from pyvisa.resources import MessageBasedResource
 
 logger = logging.getLogger(__name__)
@@ -76,6 +78,105 @@ class BackendType(Enum):
 """
 
 
+# move to components?
+class WarnOnDefaultModel(BaseModel):
+    @model_validator(mode="wrap")
+    @classmethod
+    def _detect_defaults(cls, values, handler):
+        validated_self = handler(values)
+
+        if isinstance(values, dict):
+            # Find fields present in model fields but missing from raw input dict
+            for field_name, field_info in cls.model_fields.items():
+                if field_name not in values and field_info.is_required() is False:
+                    default_val = getattr(validated_self, field_name)
+                    logger.debug(f"[{cls.__name__}] Field '{field_name}' missing from input. Falling back to default: {default_val}")
+        return validated_self
+
+
+class InitDict(WarnOnDefaultModel):
+    """Validator BaseModel for hardware settings. This is the GROUND TRUTH for what
+    the present code expects for datatypes. Especially important for booleans, as the string "False" evaluates to true.
+    many such cases!
+
+    This may not make sense in the end, as the settings dicts differ quite a bit between plugins. In any case this discovered some bugs!
+    As i see it, there are a couple of options:
+    1. If we keep this, it would be good to have a standard shape for keithley settings dicts. No ad hoc dicts.
+    Alternatively, we could add default values for most fields.
+    2. Keep things as is.
+    """
+
+    # Channel Configuration
+    # might be good to subclass for sim, real backends. For now this is ok.
+    source: Literal["smua", "smub", "mocka", "mockb"] = Field(description="Source channel")
+    sourcesense: bool = Field(description="Source sense mode: True (4-wire), False (2-wire)")
+    sourcenplc: float = Field(ge=0.001, le=25, description="Source integration time in NPLC units")
+    sourcehighc: bool = Field(description="High capacitance mode for source")
+    delay: bool = Field(description="Source delay mode: True (Auto), False (Manual)")
+    pulse: bool = Field(description="Pulsed mode: True (pulsed), False (continuous)")
+    sourcedelayfactor: float = Field(ge=0, description="Source auto delay factor multiplier")
+    delayduration: float = Field(ge=0, description="Source manual delay duration in seconds")
+    type: Literal["i", "v"] = Field(description="Source inject type")
+    start: float = Field(description="Start value of sweep")
+    end: float = Field(description="End value of sweep")
+    limit: float = Field(description="Source limit (compliance voltage/current)")
+    sourcefiltertype: Literal[
+        "FILTER_OFF",
+        "FILTER_MOVING_AVG",
+        "FILTER_REPEAT_AVG",
+        "FILTER_MEDIAN",
+    ] = Field(description="Source filter type ('Off' or filter string)")
+    sourcefiltervalue: int | None = Field(description="number of points in source filter buffer", gt=0, le=100, default=None)
+    single_ch: bool = Field(description="Single channel mode active flag")
+    drain: Literal["smua", "smub", "mocka", "mockb"] = Field(description="Drain channel")
+    drainsense: bool = Field(description="Drain sense mode: True (4-wire), False (2-wire)")
+    drainnplc: float = Field(ge=0.001, le=25, description="Drain integration time in NPLC units")
+    drainhighc: bool = Field(description="High capacitance mode for drain")
+    draindelay: bool = Field(description="Drain delay mode: True (Auto), False (Manual)")
+    draindelayfactor: float = Field(ge=0, description="Drain auto delay factor multiplier")
+    draindelayduration: float = Field(ge=0, description="Drain manual delay duration in seconds")
+    drainfiltertype: Literal[
+        "FILTER_OFF",
+        "FILTER_MOVING_AVG",
+        "FILTER_REPEAT_AVG",
+        "FILTER_MEDIAN",
+    ] = Field(description="Drain filter type ('Off' or filter string)")
+    drainfiltervalue: int | None = Field(description="number of points in drain filter buffer", gt=0, le=100, default=None)
+    drainlimit: float = Field(description="Drain limit (compliance voltage/current)")
+
+    # logarithmic sweep settings
+
+    # actually only required for keithley_sweep
+    # pulsepause: float = Field(ge=0, description="Pause time between pulses in seconds")
+    # drainvoltage: float = Field(description="Voltage setpoint on drain")
+    # repeat: int = Field(gt=0, description="Repeat count (must be > 0)")
+
+    # Repeat Count
+
+    # Explicit Drain Settings
+
+    @model_validator(mode="after")
+    def validate_channels(self) -> "InitDict":
+        if not self.single_ch and self.source == self.drain:
+            raise ValueError(f"Source and Drain cannot use the same channel '{self.source}' when single_ch is False.")
+        return self
+
+
+def validate_init(s: dict) -> InitDict:
+    """
+    Validates a settings dictionary against the HardwareSettings schema.
+    Returns the validated HardwareSettings instance.
+    """
+    try:
+        # Pydantic parses keys, enforces types, and runs validators
+        validated_settings = InitDict.model_validate(s)
+        return validated_settings
+
+    except ValidationError as e:
+        logger.error(f"Validation error for settings: {s}\nError details: {e.json(indent=2)}")
+        raise
+
+
 class Keithley2612B:
     ke: MessageBasedResource | None = None
     k: usbtmc.Instrument | None = None
@@ -123,7 +224,7 @@ class Keithley2612B:
             ##IRtodo#### mov to the log
             logger.error(f"Exception sending command: {command}\nException: {e}")
             ##IRtothink#### some exception handling should be implemented
-            raise e
+            raise
 
     def safequery(self, command: str) -> str:
         try:
@@ -149,7 +250,7 @@ class Keithley2612B:
             ##IRtodo#### mov to the log
             logger.error(f"Exception querying command: {command}\nException: {e}")
             ##IRtothink#### some exception handling implemented
-            raise e
+            raise
 
     def keithley_IDN(self) -> str:
         return "keith"
@@ -268,9 +369,10 @@ class Keithley2612B:
             message contains line frequency as float, or an error message otherwise
         """
         if self.backend == BackendType.MOCK.value:
-            freq = 50.0
+            freq = 50
         else:
             freq = float(self.safequery("print(localnode.linefreq)"))
+            freq = round(freq)
         return freq
 
     def getIV(self, channel) -> list[float]:
@@ -305,7 +407,7 @@ class Keithley2612B:
         if outputType == "v":
             self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCVOLTS")
         self.safewrite(f"{channel}.source.level{outputType} = {value}")
-        print(f"Set {channel} output to {value} {outputType}")
+        logger.info(f"Set {channel} output to {value} {outputType}")
 
     def get_last_buffer_value(self, channel, readings=None) -> list[float | None]:
         """
@@ -458,6 +560,11 @@ class Keithley2612B:
         #        Args:
         #            s (dict): Configuration dictionary.
         #      """
+
+        # check settings
+        s_val = validate_init(s)
+        s = s_val.model_dump()  # convert back to dict so I dont have to rewrite anything.
+
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
 
@@ -484,12 +591,14 @@ class Keithley2612B:
         ####set stabilization times for source
         ##IRtodo#### add delay factor to GUI
         if s["delay"]:
+            logger.debug(f"Setting source delay to auto with factor {s['sourcedelayfactor']:.2f}")
             self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
             if not s["pulse"]:
                 self.safewrite(f"{s['source']}.measure.delayfactor = {s['sourcedelayfactor']:.2f}")
             else:
                 self.safewrite(f"{s['source']}.measure.delayfactor = 1.0")
         else:
+            logger.debug(f"Setting source delay to manual with duration {s['delayduration']:.6f} seconds")
             self.safewrite(f"{s['source']}.measure.delay = {s['delayduration']}")
 
         # set limits and modes
@@ -572,13 +681,13 @@ class Keithley2612B:
             # set limits and modes
             ##IRtodo#### drain limits are not set, probably it should be done the same way as for the source
             if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (s["type"] == "v" and abs(s["limit"]) >= 1.5):
-                self.safewrite(f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF")
-                self.safewrite(f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
-                self.safewrite(f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
+                self.safewrite(f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF")  # FIXME: Typo?
+                self.safewrite(f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF")  # FIXME: Typo?
+                self.safewrite(f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF")  # FIXME: Typo?
                 self.safewrite(f"{s['drain']}.source.rangei = 10")
             else:
                 # Set filter for drain
-                if not s["drainfiltertype"] == "FILTER_OFF":
+                if s["drainfiltertype"] != "FILTER_OFF":
                     self.safewrite(f"{s['drain']}.measure.filter.count = {s['drainfiltervalue']}")
                     self.safewrite(f"{s['drain']}.measure.filter.enable = {s['drain']}.FILTER_ON")
                     self.safewrite(f"{s['drain']}.measure.filter.type = {s['drain']}.{s['drainfiltertype']}")
@@ -629,7 +738,14 @@ class Keithley2612B:
                 # see trigger models on pp 3-35-36 (172-173) of the manual
                 self.safewrite(f"{s['source']}.trigger.count = {s['steps']}")
                 self.safewrite(f"{s['source']}.trigger.arm.count = {s['repeat']}")
-                self.safewrite(f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})")
+
+                # determine type of sweep:
+                if type(s["logsweep"]) is not bool:
+                    raise ValueError(f"Invalid logsweep value: {s['logsweep']}. Must be a boolean.")
+                if s["logsweep"]:
+                    self.safewrite(f"{s['source']}.trigger.source.log{s['type']}({s['start']},{s['end']},{s['steps']},{s['asymptote']})")
+                else:
+                    self.safewrite(f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})")
 
                 #### initialize actions for sweep (see trigger models on pp 3-35-36 (172-173) of the manual)
                 self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
@@ -671,16 +787,15 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.initiate()")
                 return 0
 
-            except Exception as e:
+            except Exception:
                 # if something fails, abort the measurement and turn off the source.
                 self.safewrite(f"{s['source']}.abort()")
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
                 if not s["single_ch"]:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
-                logger.error(f"Caught exception during keithley_run_sweep : {e}")
-                raise e
-                return 1
+                logger.exception("Unexpected exception occurred during keithley_run_sweep")
+                raise
 
     def keithley_run_trigpulse(self, s: dict):  # -> status:
         """Makes a single pulse with predetermined duration and triggers a DIGIO line at the end of source action
@@ -828,17 +943,15 @@ class Keithley2612B:
                 self.safewrite("trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
                 # Configure source action to start immediately.
                 self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")
-                if s["usedrain"]:
-                    if s["spectro_check_after"]:
-                        if s["use_timeafter"]:
-                            logger.info(f"Using time after time: {s['timeafter']}")
-                            self.safewrite(f"trigger.timer[3].delay = {s['timeafter']:.6f}")
-                            self.safewrite("trigger.timer[3].count = 1")
-                            self.safewrite("trigger.timer[3].passthrough = false")
-                            self.safewrite("trigger.timer[3].stimulus = trigger.timer[2].EVENT_ID")
-                            self.safewrite("trigger.blender[2].orenable = true")
-                            self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
-                            self.safewrite("trigger.blender[2].stimulus[2] = trigger.timer[3].EVENT_ID")
+                if s["usedrain"] and s["spectro_check_after"] and s["use_timeafter"]:
+                    logger.info(f"Using time after time: {s['timeafter']}")
+                    self.safewrite(f"trigger.timer[3].delay = {s['timeafter']:.6f}")
+                    self.safewrite("trigger.timer[3].count = 1")
+                    self.safewrite("trigger.timer[3].passthrough = false")
+                    self.safewrite("trigger.timer[3].stimulus = trigger.timer[2].EVENT_ID")
+                    self.safewrite("trigger.blender[2].orenable = true")
+                    self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                    self.safewrite("trigger.blender[2].stimulus[2] = trigger.timer[3].EVENT_ID")
                 # Configure endpulse action to achieve a pulse.
                 self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
                 self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
@@ -886,7 +999,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
                 logger.error(f"Caught exception during keithley_run_sweep : {e}")
-                raise e
+                raise
                 return 1
 
     def keithley_run_fastpulse(self, s: dict):  # -> status:
@@ -1050,7 +1163,7 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
                 logger.error(f"Caught exception during keithley_run_sweep : {e}")
-                raise e
+                raise
                 return 1
 
     def set_digio(self, line_id: int, value: bool):

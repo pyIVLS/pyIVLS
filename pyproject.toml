@@ -25,10 +25,8 @@ dependencies = [
     "pydantic>=2.11.10",
     "pyftdi>=0.56.0",
     "pyparsing>=3.2.1",
-    "pyqt6>=6.9.0",
-    "pyqt6-qt6>=6.8.1",
-    "pyqt6-sip>=13.9.1",
     "pyserial>=3.5",
+    "pyside6>=6.11.2",
     "python-dateutil>=2.9.0.post0",
     "python-usbtmc>=0.8",
     "pytz>=2025.1",
@@ -44,6 +42,14 @@ dependencies = [
     "zope-interface>=7.2",
 ]
 
+[project.optional-dependencies]
+cli = [
+    "typer>=0.27.2",
+]
+rich = [
+    "rich>=15.0.0",
+]
+
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_level = "DEBUG"
@@ -52,9 +58,11 @@ addopts = "-v"
 [tool.ruff]
 line-length = 200 
 
+[tool.ruff.lint]
+ignore = ["BLE001", "EXE002", "EXE001"] 
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
 ]
-
 

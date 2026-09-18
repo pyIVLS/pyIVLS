@@ -22,36 +22,42 @@ import os
 
 # from mock import itc503  # for testing without the real device
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 from itc503 import itc503
+from itc503_mdiwidget import Ui_previewForm
+from itc503_settingswidget import Ui_Form
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QFileDialog, QVBoxLayout
+from PySide6 import QtWidgets
+from PySide6.QtCore import QObject, QTimer, Signal
+from PySide6.QtWidgets import QFileDialog, QVBoxLayout
 from threadStopped import thread_with_exception
 
 logger = logging.getLogger(__name__)
 
 
+class Itc503SW(QtWidgets.QWidget, Ui_Form):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+
+class Itc503MDI(QtWidgets.QWidget, Ui_previewForm):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+
 class itc503GUI(QObject):
     """itc503 controller"""
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "parse_settings_widget",
-        "setSettings",
-        "getIterations",
-        "loopingIteration",
-    ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
+
     ########Signals
 
-    log_message = pyqtSignal(str)
-    info_message = pyqtSignal(str)
-    closeLock = pyqtSignal(bool)
-    arrayT = []
-    arraytemp = []
+    log_message = Signal(str)
+    info_message = Signal(str)
+    closeLock = Signal(bool)
     runningFlag = False
 
     ########Functions
@@ -60,12 +66,21 @@ class itc503GUI(QObject):
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
 
-        self.settingsWidget = uic.loadUi(self.path + "itc503_settingsWidget.ui")
-        self.MDIWidget = uic.loadUi(self.path + "itc503_MDIWidget.ui")
+        self.settingsWidget = Itc503SW()
+        self.MDIWidget = Itc503MDI()
 
         # Initialize the functionality core that should be independent on GUI
         self.itc503 = itc503()
 
+        self.arrayT = []
+        self.arraytemp = []
+        self.non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
+        self.public_methods = [
+            "parse_settings_widget",
+            "setSettings",
+            "getIterations",
+            "loopingIteration",
+        ]  # add function names here, necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
         self._connect_signals()
         self.settings = {}
         self._create_plt()
@@ -108,7 +123,7 @@ class itc503GUI(QObject):
             self.closeLock.emit(True)
             return [0, "OK"]
         except Exception as e:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")  # noqa: DTZ005
             self.info_message.emit(f"itc503 plugin : {e}")
             return [e, {"Error message": f"{e}"}]
 
@@ -123,19 +138,19 @@ class itc503GUI(QObject):
                 self.closeLock.emit(False)
                 return [0, "OK"]
             except Exception as e:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")  # noqa: DTZ005
                 self.info_message.emit(f"itc503 plugin : {e}")
                 return [4, {"Error message": f"{e}"}]
 
     def _setTAction(self):
         [status, info] = self._parse_settings_setT()
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")  # noqa: DTZ005
             self.info_message.emit(f"itc503 plugin : {info}")
             return [status, info]
         [status, info] = self._setT()
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")  # noqa: DTZ005
             self.info_message.emit(f"itc503 plugin : {info}")
             return [status, info]
         return [0, "OK"]
@@ -161,7 +176,7 @@ class itc503GUI(QObject):
             self.timer.stop()
             return [1, "Running already"]
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 : {info}, status = {status}")
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 : {info}, status = {status}")  # noqa: DTZ005
             self.info_message.emit(f"itc503 plugin : {info}")
         else:
             self.run_thread = thread_with_exception(self._run_check)
@@ -308,7 +323,7 @@ class itc503GUI(QObject):
     def _closeThread(self):
         try:
             self.run_thread.thread_stop()
-        except:
+        except Exception:
             logger.info("Temperature log is not running.")
         self._createFileLoop()
 
@@ -356,9 +371,9 @@ class itc503GUI(QObject):
         # varDict['comment'] - str:comment
         comment = "ITC403 operated by pyIVSL\n"
         comment = f"{comment}#[SpectrumHeader]\n"
-        comment = f"{comment}Date;{datetime.now().strftime('%Y%m%d')}\n"
-        comment = f"{comment}Time;{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
-        comment = f"{comment}GMTTime;{datetime.utcnow().strftime('%H%M%S%f')[:-4]}\n"
+        comment = f"{comment}Date;{datetime.now().strftime('%Y%m%d')}\n"  # noqa: DTZ005
+        comment = f"{comment}Time;{datetime.now().strftime('%H%M%S%f')[:-4]}\n"  # noqa: DTZ005
+        comment = f"{comment}GMTTime;{datetime.now(tz=timezone.utc).strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}XAxisUnit;time(s)\n"
         comment = f"{comment}YAxisUnit;temperature(K)\n"
         comment = f"{comment}Average;0\n"
@@ -636,9 +651,9 @@ class itc503GUI(QObject):
             except Exception as e:
                 return [4, {"Error message": f"{e}"}]
             if abs(info - self.settings["sett"]) > 0.2:
-                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")
+                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")  # noqa: DTZ005
                 tic = time.time()
             else:
-                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")
+                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")  # noqa: DTZ005
             time.sleep(20)
         return [0, f"_{info}K"]

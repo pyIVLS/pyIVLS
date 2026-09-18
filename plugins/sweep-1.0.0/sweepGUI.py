@@ -1,4 +1,5 @@
 import copy
+import logging
 import os
 import time
 from datetime import datetime
@@ -7,15 +8,30 @@ import numpy as np
 import pandas as pd
 from MplCanvas import MplCanvas  # this should be moved to some pluginsShare
 from pathvalidate import is_valid_filename
-from plugin_components import CloseLockSignalProvider, LoggingHelper, PyIVLSReturnCode, filter_to_valid_methods, get_public_methods, public
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, Qt, pyqtSlot
-from PyQt6.QtWidgets import QComboBox, QFileDialog, QLabel, QVBoxLayout, QWidget
+from plugin_components import CloseLockSignalProvider, LoggingHelper, PyIVLSReturnCode, filter_to_valid_methods, get_public_methods, ini_to_bool, public
+from PySide6.QtCore import QObject, Qt, Slot
+from PySide6.QtWidgets import QFileDialog, QVBoxLayout, QWidget
+from sweep_mdiwidget import Ui_previewForm
+from sweep_settingswidget import Ui_Form
 from sweepCommon import create_file_header, create_sweep_reciepe
 from threadStopped import (
     ThreadStopped,
     thread_with_exception,
 )
+
+logger = logging.getLogger(__name__)
+
+
+class SweepMDI(QWidget, Ui_previewForm):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+
+
+class SweepSW(QWidget, Ui_Form):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
 
 
 class sweepException(Exception):
@@ -25,14 +41,6 @@ class sweepException(Exception):
 class sweepGUI(QObject):
     """Basic sweep module"""
 
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "parse_settings_widget",
-        "set_running",
-        "setSettings",
-        "sequenceStep",
-        "set_gui_from_settings",
-    ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     ####################################  threads
 
     ################################### internal functions
@@ -65,12 +73,12 @@ class sweepGUI(QObject):
 
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "sweep_settingsWidget.ui")
-        self.MDIWidget = uic.loadUi(self.path + "sweep_MDIWidget.ui")
+        self.settingsWidget = SweepSW()
+        self.MDIWidget = SweepMDI()
         self._connect_signals()
         self.settings = {}
         self._create_plt()
-        self.logger.log_info("Initialized.")
+        logger.info("Initialized.")
 
     ########Functions
 
@@ -87,13 +95,12 @@ class sweepGUI(QObject):
         self.MDIWidget.setLayout(layout)
 
     def _connect_signals(self):
-        # Connect the channel combobox
 
         # Connect the inject type combobox
-        inject_box = self.settingsWidget.findChild(QComboBox, "comboBox_inject")
-        delay_continuous = self.settingsWidget.findChild(QComboBox, "comboBox_continuousDelayMode")
-        delay_pulsed = self.settingsWidget.findChild(QComboBox, "comboBox_pulsedDelayMode")
-        delay_drain = self.settingsWidget.findChild(QComboBox, "comboBox_drainDelayMode")
+        inject_box = self.settingsWidget.comboBox_inject
+        delay_continuous = self.settingsWidget.comboBox_continuousDelayMode
+        delay_pulsed = self.settingsWidget.comboBox_pulsedDelayMode
+        delay_drain = self.settingsWidget.comboBox_drainDelayMode
 
         # the overhead created by just calling _update_GUI_state instead of the smaller updates is negligible,
         # but it helps to keep the code simpler IMO
@@ -104,6 +111,7 @@ class sweepGUI(QObject):
         delay_drain.currentIndexChanged.connect(self._update_GUI_state)
         self.settingsWidget.smuBox.activated.connect(self._update_GUI_state)
         self.settingsWidget.checkBox_singleChannel.stateChanged.connect(self._update_GUI_state)
+        self.settingsWidget.checkBox_logSweep.stateChanged.connect(self._update_GUI_state)
 
         self.settingsWidget.directoryButton.clicked.connect(self._getAddress)
         self.settingsWidget.stopButton.clicked.connect(self._stopAction)
@@ -126,14 +134,14 @@ class sweepGUI(QObject):
         """
         ##populates GUI with values stored in settings
 
-        self.logger.log_debug("Initializing GUI with plugin_info: " + str(plugin_info))
+        logger.debug("Initializing GUI with plugin_info")
 
         default_smu = plugin_info["smu"]
         # get channel names
         try:
             self.settingsWidget.comboBox_channel.addItems(self.function_dict["smu"][default_smu]["smu_channelNames"]())
         except KeyError:
-            self.logger.log_warn(f"SMU {default_smu} not found in function_dict")
+            logger.warning(f"SMU {default_smu} not found in function_dict")
         self.settingsWidget.smuBox.clear()  # clear previous items
         self.settingsWidget.smuBox.addItems(list(self.function_dict["smu"].keys()))
         # set default SMU
@@ -141,12 +149,12 @@ class sweepGUI(QObject):
             self.settingsWidget.smuBox.setCurrentText(default_smu)
         # self.parse_settings_widget() #parse settings widgets asks all the other plugins to parse their widgets, should not be done immediately
         self.settings.update(plugin_info)
-        self.logger.log_debug(f"Settings after update: {self.settings}")
+        logger.debug("Settings after update")
         self.set_gui_from_settings()
         return 0
 
     def _getAddress(self):
-        self.logger.log_debug("Opening directory selection dialog.")
+        logger.debug("Opening directory selection dialog.")
         address = self.settingsWidget.lineEdit_path.text()
         if not (os.path.exists(address)):
             address = self.path
@@ -165,7 +173,7 @@ class sweepGUI(QObject):
     # region GUI react to change
 
     def _update_GUI_state(self):
-        self.logger.log_debug("Updating GUI state.")
+        logger.debug("Updating GUI state.")
         self._mode_changed(self.settingsWidget.comboBox_mode.currentIndex())
         self._inject_changed(self.settingsWidget.comboBox_inject.currentIndex())
         self._delay_continuous_mode_changed(self.settingsWidget.comboBox_continuousDelayMode.currentIndex())
@@ -173,11 +181,14 @@ class sweepGUI(QObject):
         self._delay_drain_mode_changed(self.settingsWidget.comboBox_drainDelayMode.currentIndex())
         self._single_channel_changed()
         self._smu_plugin_changed()
+        self._log_sweep_changed()
+
+        self.settingsWidget.update()  # Update the settings widget to reflect changes
 
     def _mode_changed(self, index):
         """Handles the visibility of the mode input fields based on the selected mode."""
-        group_continuous = self.settingsWidget.findChild(QWidget, "groupBox_continuousSweep")
-        group_pulsed = self.settingsWidget.findChild(QWidget, "groupBox_pulsedSweep")
+        group_continuous = self.settingsWidget.groupBox_continuousSweep
+        group_pulsed = self.settingsWidget.groupBox_pulsedSweep
 
         mode = self.settingsWidget.comboBox_mode.currentText()
         if mode == "Continuous":
@@ -190,22 +201,20 @@ class sweepGUI(QObject):
             group_continuous.setEnabled(True)
             group_pulsed.setEnabled(True)
 
-        self.settingsWidget.update()
-
     def _inject_changed(self, index):
         """Changes the unit labels based on the selected injection type."""
-        continuous_start_label = self.settingsWidget.findChild(QLabel, "label_continuousStartUnits")
-        pulse_start_label = self.settingsWidget.findChild(QLabel, "label_pulsedStartUnits")
-        drain_start_label = self.settingsWidget.findChild(QLabel, "label_drainStartUnits")
-        continuous_end_label = self.settingsWidget.findChild(QLabel, "label_continuousEndUnits")
+        continuous_start_label = self.settingsWidget.label_continuousStartUnits
+        pulse_start_label = self.settingsWidget.label_pulsedStartUnits
+        drain_start_label = self.settingsWidget.label_drainStartUnits
+        continuous_end_label = self.settingsWidget.label_continuousEndUnits
 
-        pulse_end_label = self.settingsWidget.findChild(QLabel, "label_pulsedEndUnits")
+        pulse_end_label = self.settingsWidget.label_pulsedEndUnits
 
-        drain_end_label = self.settingsWidget.findChild(QLabel, "label_drainEndUnits")
+        drain_end_label = self.settingsWidget.label_drainEndUnits
 
-        continuous_limit_label = self.settingsWidget.findChild(QLabel, "label_continuousLimitUnits")
-        pulse_limit_label = self.settingsWidget.findChild(QLabel, "label_pulsedLimitUnits")
-        drain_limit_label = self.settingsWidget.findChild(QLabel, "label_drainLimitUnits")
+        continuous_limit_label = self.settingsWidget.label_continuousLimitUnits
+        pulse_limit_label = self.settingsWidget.label_pulsedLimitUnits
+        drain_limit_label = self.settingsWidget.label_drainLimitUnits
 
         inject_type = self.settingsWidget.comboBox_inject.currentText()
         if inject_type == "Voltage":
@@ -240,8 +249,6 @@ class sweepGUI(QObject):
             self.settingsWidget.lineEdit_continuousDelay.setEnabled(True)
             self.settingsWidget.label_continuousDelayUnits.setEnabled(True)
 
-        self.settingsWidget.update()
-
     def _delay_pulsed_mode_changed(self, index):
         """Handles the visibility of the delay input fields based on the selected mode."""
         if self.settingsWidget.comboBox_pulsedDelayMode.currentText() == "Auto":
@@ -252,8 +259,6 @@ class sweepGUI(QObject):
             self.settingsWidget.label_pulsedDelay.setEnabled(True)
             self.settingsWidget.lineEdit_pulsedDelay.setEnabled(True)
             self.settingsWidget.label_pulsedDelayUnits.setEnabled(True)
-
-        self.settingsWidget.update()
 
     def _delay_drain_mode_changed(self, index):
         """Handles the visibility of the delay input fields based on the selected mode."""
@@ -266,8 +271,6 @@ class sweepGUI(QObject):
             self.settingsWidget.lineEdit_drainDelay.setEnabled(True)
             self.settingsWidget.label_drainDelayUnits.setEnabled(True)
 
-        self.settingsWidget.update()
-
     def _single_channel_changed(self):
         """Handles the visibility of the drain input fields based use single chennel box"""
         if self.settingsWidget.checkBox_singleChannel.isChecked():
@@ -275,10 +278,8 @@ class sweepGUI(QObject):
         else:
             self.settingsWidget.groupBox_drainSweep.setEnabled(True)
 
-        self.settingsWidget.update()
-
     def _smu_plugin_changed(self):
-        self.logger.log_debug("SMU plugin changed to: " + self.settingsWidget.smuBox.currentText())
+        logger.debug("SMU plugin changed to: " + self.settingsWidget.smuBox.currentText())
         """Handles the visibility of the SMU settings based on the selected SMU plugin."""
         smu_selection = self.settingsWidget.smuBox.currentText()
         if smu_selection in self.function_dict["smu"]:
@@ -295,7 +296,13 @@ class sweepGUI(QObject):
                     self.settingsWidget.comboBox_channel.setCurrentText(current_channel)
                 else:
                     self.settingsWidget.comboBox_channel.setCurrentIndex(0)
-        self.settingsWidget.update()
+
+    def _log_sweep_changed(self):
+        """Handles the visibility of the asymptote input fields based on the log sweep checkbox."""
+        if self.settingsWidget.checkBox_logSweep.isChecked():
+            self.settingsWidget.spinBox_asymp.setEnabled(True)
+        else:
+            self.settingsWidget.spinBox_asymp.setEnabled(False)
 
     # endregion
     ########Functions
@@ -306,7 +313,7 @@ class sweepGUI(QObject):
         valid, missing = filter_to_valid_methods(function_dict, self.dependency)
         if not valid:
             self.logger.info_popup("Missing functions for sweep plugin. Check log for details.")
-            self.logger.log_warn("Missing functions for sweep plugin: " + str(missing))
+            logger.warning("Missing functions for sweep plugin: " + str(missing))
         self.function_dict = function_dict
         return missing
 
@@ -586,6 +593,31 @@ class sweepGUI(QObject):
         new_settings["samplename"] = self.settingsWidget.lineEdit_sampleName.text()
         new_settings["comment"] = self.settingsWidget.lineEdit_comment.text()
 
+        # log sweep
+        new_settings["logsweep"] = self.settingsWidget.checkBox_logSweep.isChecked()
+        new_settings["asymptote"] = self.settingsWidget.spinBox_asymp.value()
+
+        # asymptote must be outside the range defined by the starting and ending values.
+        asym = new_settings["asymptote"]
+
+        # FIXME: This is only parsed when in logsweep mode. Issue or nah? probably nah.
+        if new_settings["logsweep"]:
+            if new_settings["mode"] == "continuous":
+                start, end = new_settings["continuousstart"], new_settings["continuousend"]
+            elif new_settings["mode"] == "pulsed":
+                start, end = new_settings["pulsedstart"], new_settings["pulsedend"]
+            elif new_settings["mode"] == "mixed":
+                # needs to check both continuous and pulsed ranges
+                start, end = new_settings["continuousstart"], new_settings["continuousend"]
+                start2, end2 = new_settings["pulsedstart"], new_settings["pulsedend"]
+                if min(start2, end2) <= asym <= max(start2, end2):
+                    return [1, {"Error message": "Value error in sweep plugin: Asymptote must be outside the range defined by the starting and ending values."}]
+            else:
+                return [1, {"Error message": "Value error in sweep plugin: Unknown mode"}]
+
+            if min(start, end) <= asym <= max(start, end):
+                return [1, {"Error message": "Value error in sweep plugin: Asymptote must be outside the range defined by the starting and ending values."}]
+
         # Commit internal state only after all validation passed.
         self.settings = copy.deepcopy(new_settings)
         self.smu_settings = copy.deepcopy(smu_settings)
@@ -595,7 +627,7 @@ class sweepGUI(QObject):
 
     @public
     def setSettings(self, settings):
-        self.logger.log_debug("Setting settings for sweep plugin: " + str(settings))
+        logger.debug("Setting settings for sweep plugin")
         # the filename in settings may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
         self.settings = {}
         self.settings = copy.deepcopy(settings)
@@ -608,7 +640,7 @@ class sweepGUI(QObject):
         #        self._setGUIfromSettings()
 
     ###############GUI enable/disable
-    @pyqtSlot(bool)
+    @Slot(bool)
     def set_running(self, status):
         self.settingsWidget.groupBox_general.setEnabled(not status)
         self.settingsWidget.groupBox_sweep.setEnabled(not status)
@@ -643,9 +675,9 @@ class sweepGUI(QObject):
             status, message = step()
             if status:
                 if status == 1:
-                    self.logger.log_warn(str(message))
+                    logger.warning(str(message))
                 else:
-                    self.logger.log_info(str(message))
+                    logger.info(str(message))
                 self.logger.info_popup(message["Error message"])
                 self.set_running(False)
                 self.function_dict["smu"][self.settings["smu"]]["set_running"](False)
@@ -658,7 +690,7 @@ class sweepGUI(QObject):
         return [0, "OK"]
 
     def _sweepImplementation(self):
-        [recipe, drainsteps, sensesteps, modesteps] = create_sweep_reciepe(self.settings, self.smu_settings)
+        [recipe, drainsteps, sensesteps, modesteps] = create_sweep_reciepe(self.settings, self.smu_settings)  # here we combine the results of the GUI parsing, and the keithley GUI parsing.
         data = np.array([])
         for recipeStep, measurement in enumerate(recipe):
             if self.function_dict["smu"][self.settings["smu"]]["smu_init"](measurement):  # reinitialization at every step is needed because limits for pused and continuous may be deffierent
@@ -709,7 +741,7 @@ class sweepGUI(QObject):
                         plot_refs = self.axes.plot(Xdata_source, Ydata_source, "bo")
                         _plot_ref_source = plot_refs[0]
                         if not measurement["single_ch"]:
-                            [lastI_drain, lastV_drain, lastPoints_drain] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["source"], lastPoints)
+                            [lastI_drain, lastV_drain, _lastPoints_drain] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["source"], lastPoints)
                             Xdata_drain = [lastV]
                             Ydata_drain = [lastI]
                             plot_refs = self.axes.plot(Xdata_drain, Ydata_drain, "go")
@@ -720,7 +752,7 @@ class sweepGUI(QObject):
                         _plot_ref_source.set_xdata(Xdata_source)
                         _plot_ref_source.set_ydata(Ydata_source)
                         if not measurement["single_ch"]:
-                            [lastI_drain, lastV_drain, lastPoints_drain] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["drain"], lastPoints)
+                            [lastI_drain, lastV_drain, _lastPoints_drain] = self.function_dict["smu"][self.settings["smu"]]["smu_getLastBufferValue"](measurement["drain"], lastPoints)
                             Xdata_drain.append(lastV_drain)
                             Ydata_drain.append(lastI_drain)
                             _plot_ref_drain.set_xdata(Xdata_source)
@@ -767,9 +799,9 @@ class sweepGUI(QObject):
             else:
                 fulladdress = self.settings["address"] + os.sep + self.settings["filename"] + ".dat"
 
-            # check wheter the file already exists. If it does, prevent writing
+            # check whether the file already exists. If it does, ask user to overwrite.
             if os.path.exists(fulladdress):
-                raise sweepException(f"file {fulladdress} already exists. Aborting to prevent overwriting data.")
+                raise sweepException(f"Sweep aborted by user to prevent overwriting {fulladdress}.")
             with open(fulladdress, "w") as f:
                 f.write(fileheader + f"{columnheader[1:-1]}" + "\n")
                 pd.DataFrame(data).to_csv(f, index=False, header=False, float_format="%.12e", sep=",")
@@ -788,18 +820,18 @@ class sweepGUI(QObject):
             self._sweepImplementation()
             return (0, {})
         except sweepException as e:
-            self.logger.log_info(f"Sweep stopped because of exception: {e}")
+            logger.info(f"Sweep stopped because of exception: {e}")
             self.logger.info_popup(f"Sweep stopped because of exception: {e}")
             exception = 1
             return (1, {"Error message": f"{e}"})
 
         except ThreadStopped:
-            self.logger.log_info("sweep plugin implementation aborted by user request")
+            logger.info("sweep plugin implementation aborted by user request")
             exception = 2
             raise
 
         except Exception as e:
-            self.logger.log_info(f"sweep plugin implementation stopped because of unexpected exception: {e}")
+            logger.info(f"sweep plugin implementation stopped because of unexpected exception: {e}")
             self.logger.info_popup(f"sweep plugin implementation stopped because of unexpected exception: {e}")
             exception = 3
             return (1, {"Error message": f"Unexpected error: {e}"})
@@ -824,13 +856,13 @@ class sweepGUI(QObject):
             exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
             self._sweepImplementation()
         except sweepException as e:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f"Sweep stopped because of exception: {e}")
+            logger.info(datetime.now().strftime("%H:%M:%S.%f") + f"Sweep stopped because of exception: {e}")  # noqa: DTZ005
             exception = 1
         except ThreadStopped:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")
+            logger.info(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")  # noqa: DTZ005
             exception = 2
         except Exception as e:
-            self.logger.log_info(datetime.now().strftime("%H:%M:%S.%f") + f": sweep plugin implementation stopped because of unexpected exception: {e}")
+            logger.info(datetime.now().strftime("%H:%M:%S.%f") + f": sweep plugin implementation stopped because of unexpected exception: {e}")  # noqa: DTZ005
             exception = 3
         finally:
             try:
@@ -843,7 +875,7 @@ class sweepGUI(QObject):
                 if exception == 3 or exception == 1:
                     self.logger.info_popup("Implementation stopped because of exception. Check log")
             except Exception as e:
-                self.logger.log_error(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")
+                logger.error(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")  # noqa: DTZ005
                 self.logger.info_popup("SMU turn off failed. Check log")
             finally:
                 self.set_running(False)
@@ -874,7 +906,7 @@ class sweepGUI(QObject):
                 return True
             return False
 
-        self.logger.log_debug("Setting GUI from internal settings")
+        logger.debug("Setting GUI from internal settings")
         self.settingsWidget.lineEdit_path.setText(self.settings["address"])
         self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
         self.settingsWidget.lineEdit_sampleName.setText(self.settings["samplename"])
@@ -892,33 +924,33 @@ class sweepGUI(QObject):
         #        line_freq = self.smu_settings["lineFrequency"]
         try:
             self.settingsWidget.lineEdit_continuousNPLC.setText(str(float(self.settings["continuousnplc"]) * 1000))  # value in settings is in s; value in GUI is in ms
-        except:
-            self.logger.log_warn("Setting GUI from settings conversion failed. continuousnplc is set as it is in settings")
+        except ValueError:
+            logger.warning("Setting GUI from settings conversion failed. continuousnplc is set as it is in settings")
             self.settingsWidget.lineEdit_continuousNPLC.setText(str(self.settings["continuousnplc"]))
         try:
             self.settingsWidget.lineEdit_continuousDelay.setText(str(float(self.settings["continuousdelay"]) * 1000))  # value in settings is in s; value in GUI is in ms
-        except:
-            self.logger.log_warn("Setting GUI from settings conversion failed. continuousdelay is set as it is in settings")
+        except ValueError:
+            logger.warning("Setting GUI from settings conversion failed. continuousdelay is set as it is in settings")
             self.settingsWidget.lineEdit_continuousDelay.setText(str(self.settings["continuousdelay"]))
         try:
             self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"]) * 1000))  # value in settings is in s; value in GUI is in ms
-        except:
-            self.logger.log_warn("Setting GUI from settings conversion failed. pulsednplc is set as it is in settings")
+        except ValueError:
+            logger.warning("Setting GUI from settings conversion failed. pulsednplc is set as it is in settings")
             self.settingsWidget.lineEdit_pulsedNPLC.setText(str(float(self.settings["pulsednplc"])))
         try:
             self.settingsWidget.lineEdit_pulsedDelay.setText(str(float(self.settings["pulseddelay"]) * 1000))
-        except:
-            self.logger.log_warn("Setting GUI from settings conversion failed. pulseddelay is set as it is")
+        except ValueError:
+            logger.warning("Setting GUI from settings conversion failed. pulseddelay is set as it is")
             self.settingsWidget.lineEdit_pulsedDelay.setText(str(self.settings["pulseddelay"]))
         try:
             self.settingsWidget.lineEdit_drainNPLC.setText(str(float(self.settings["drainnplc"]) * 1000))  # value in settings is in s; value in GUI is in ms
-        except:
-            self.logger.log_warn("Setting GUI from settings conversion failed. drainnplc is set as it is")
+        except ValueError:
+            logger.warning("Setting GUI from settings conversion failed. drainnplc is set as it is")
             self.settingsWidget.lineEdit_drainNPLC.setText(str(self.settings["drainnplc"]))
         try:
             self.settingsWidget.lineEdit_drainDelay.setText(str(float(self.settings["draindelay"]) * 1000))
-        except:
-            self.logger.log_warn("Setting GUI from settings conversion failed. draindelay is set as it is")
+        except ValueError:
+            logger.warning("Setting GUI from settings conversion failed. draindelay is set as it is")
             self.settingsWidget.lineEdit_drainDelay.setText(str(self.settings["draindelay"]))
 
         self.settingsWidget.spinBox_plotUpdate.setValue(int(self.settings["plotupdate"]))
@@ -947,6 +979,13 @@ class sweepGUI(QObject):
             if self.settings["singlechannel"].lower() == "true":
                 self.settingsWidget.checkBox_singleChannel.setChecked(True)
         else:
-            raise ValueError("Invalid type for singlechannel setting: expected bool or str, got {}".format(type(self.settings["singlechannel"])))
-        self.logger.log_debug("GUI settings set from internal settings")
+            raise TypeError("Invalid type for singlechannel setting: expected bool or str, got {}".format(type(self.settings["singlechannel"])))
+
+        # set logarithmic checkbox state
+        self.settingsWidget.checkBox_logSweep.setChecked(ini_to_bool(self.settings["logsweep"]))
+
+        # set asymptote spinbox
+        self.settingsWidget.spinBox_asymp.setValue(float(self.settings["asymptote"]))
+
+        logger.debug("GUI settings set from internal settings")
         self._update_GUI_state()

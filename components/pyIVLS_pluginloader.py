@@ -4,33 +4,25 @@
 
 import logging
 import os
-import sys
-from os.path import sep
 
-from PyQt6 import QtWidgets, uic
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
+from compiled_ui.pyivls_pluginloader import Ui_pyIVLSpluginloader
+from PySide6 import QtWidgets
+from PySide6.QtCore import Qt, Signal, Slot
 
 logger = logging.getLogger(__name__)
 
 
-class pyIVLS_pluginloader(QtWidgets.QDialog):
+class pyIVLS_pluginloader(QtWidgets.QDialog, Ui_pyIVLSpluginloader):
     """Gui for the plugin loader"""
 
     #### Internal functions
     def __init__(self, path):
         super().__init__()
         self.path = path
-        ui_file_name = path + "components" + sep + "pyIVLS_pluginloader.ui"
-        window_option = uic.loadUi(ui_file_name, self)
-        if window_option is None:
-            logger.error("Cannot open pyIVLS_pluginloader")
-            sys.exit(-1)
-        else:
-            self.window: QtWidgets.QDialog = window_option
-            self.table_widget: QtWidgets.QTableWidget = self.window.pluginList
-            # Link buttons
-            self.applyButton.clicked.connect(self.apply)
-            self.uploadButton.clicked.connect(self.upload)
+        self.setupUi(self)
+        # Link buttons
+        self.applyButton.clicked.connect(self.apply)
+        self.uploadButton.clicked.connect(self.upload)
 
     def show_message(self, str):
         msg = QtWidgets.QMessageBox()
@@ -44,26 +36,26 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
     #### Signals for communication
 
     # Request available plugins from the container
-    request_available_plugins_signal = pyqtSignal()
+    request_available_plugins_signal = Signal()
     # Tell the container to register the plugins
-    register_plugins_signal = pyqtSignal(list, list)
+    register_plugins_signal = Signal(list, list)
     # Signal to update the config file with a new plugin
-    update_config_signal = pyqtSignal(list)
+    update_config_signal = Signal(list)
 
     #### Slots for communication
-    @pyqtSlot(dict)
+    @Slot(dict)
     def populate_list(self, plugins: dict[str, dict[str, str]]):
         """Populates the list of plugins in the plugin GUI. This is called from the container signal "available_plugins_signal".
 
         Args:
             plugins (dict): dictionary of plugin information from the container.
         """
-        self.table_widget.clear()
-        self.table_widget.setRowCount(len(plugins))
-        self.table_widget.setColumnCount(7)
+        self.pluginList.clear()
+        self.pluginList.setRowCount(len(plugins))
+        self.pluginList.setColumnCount(7)
 
         # set header labels
-        self.table_widget.setHorizontalHeaderLabels(["load", "hidden", "Plugin Name", "Type", "Version", "Function", "Dependencies"])
+        self.pluginList.setHorizontalHeaderLabels(["load", "hidden", "Plugin Name", "Type", "Version", "Function", "Dependencies"])
 
         for row, (item, properties) in enumerate(plugins.items()):
             # Create the items for each column
@@ -82,14 +74,14 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             hidden_item.setCheckState(Qt.CheckState.Checked if properties["hidden"] == "True" else Qt.CheckState.Unchecked)
 
             # Set the items in the row
-            self.table_widget.setItem(row, 0, load_item)
-            self.table_widget.setItem(row, 1, hidden_item)
-            self.table_widget.setItem(row, 2, name_item)
-            self.table_widget.setItem(row, 3, type_item)
-            self.table_widget.setItem(row, 4, version_item)
-            self.table_widget.setItem(row, 5, function_item)
-            self.table_widget.setItem(row, 6, dependencies_item)
-        self.table_widget.resizeColumnsToContents()
+            self.pluginList.setItem(row, 0, load_item)
+            self.pluginList.setItem(row, 1, hidden_item)
+            self.pluginList.setItem(row, 2, name_item)
+            self.pluginList.setItem(row, 3, type_item)
+            self.pluginList.setItem(row, 4, version_item)
+            self.pluginList.setItem(row, 5, function_item)
+            self.pluginList.setItem(row, 6, dependencies_item)
+        self.pluginList.resizeColumnsToContents()
         # self.table_widget.resizeRowsToContents()
 
     #### Button actions
@@ -105,11 +97,14 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
         plugins = []
         hidden = []
 
-        for i in range(self.table_widget.rowCount()):
-            load_item = self.table_widget.item(i, 0)
-            hidden_item = self.table_widget.item(i, 1)
+        for i in range(self.pluginList.rowCount()):
+            load_item = self.pluginList.item(i, 0)
+            hidden_item = self.pluginList.item(i, 1)
+            name_item = self.pluginList.item(i, 2)
+            if load_item is None or hidden_item is None or name_item is None:
+                raise ValueError(f"One of the items in row {i} is None. load_item: {load_item}, hidden_item: {hidden_item}, name_item: {name_item}")
             if load_item.checkState() == Qt.CheckState.Checked:
-                plugin_name = self.table_widget.item(i, 2).text()
+                plugin_name = name_item.text()
                 plugin = plugin_name + "_plugin"
                 plugins.append(plugin)
                 if hidden_item.checkState() == Qt.CheckState.Checked:
@@ -155,7 +150,7 @@ class pyIVLS_pluginloader(QtWidgets.QDialog):
             return  # if no directory is selected, return
 
         # here we handle the case where the user selects the top directory which contains all plugins.
-        print(f"Selected plugin directory: {plugin_dir}, Start directory: {start_dir}")
+        logger.info(f"Selected plugin directory: {plugin_dir}, Start directory: {start_dir}")
         if plugin_dir == start_dir:
             logger.debug("User selected the top-level plugins directory. Processing all subdirectories.")
             # iterate through all subdirectories of the plugins directory

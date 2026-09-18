@@ -1,14 +1,13 @@
-
 ################################################################################
-## Form generated from reading UI file 'affineMatchDialogHUXkMY.ui'
+## Form generated from reading UI file 'affineMatchDialog.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.0
+## Created by: Qt User Interface Compiler version 6.11.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PyQt6.QtCore import QCoreApplication, QMetaObject, Qt
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QCoreApplication, QMetaObject, Qt
+from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
