@@ -787,7 +787,7 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.initiate()")
                 return 0
 
-            except Exception as e:
+            except Exception:
                 # if something fails, abort the measurement and turn off the source.
                 self.safewrite(f"{s['source']}.abort()")
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")

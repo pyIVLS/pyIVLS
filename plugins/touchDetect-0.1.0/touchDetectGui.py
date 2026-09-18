@@ -2,18 +2,15 @@ import copy
 import os
 from typing import Any
 
-from plugin_components import (
-    ConnectionIndicatorStyle,
-    DependencyManager,
-    LoggingHelper,
-    get_public_methods,
-    public,
-)
+from plugin_components import ConnectionIndicatorStyle, DependencyManager, LoggingHelper, get_public_methods, public, PyIVLSRetCo
 from PySide6.QtWidgets import QComboBox, QGroupBox, QSpinBox, QWidget
 from threadStopped import ThreadStopped
 from touchDetect import ManipulatorInfo, PluginError, touchDetect
 from touchdetect_settings import Ui_Form
 from worker_thread import WorkerThread
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TdSWidget(QWidget, Ui_Form):
@@ -318,13 +315,9 @@ class touchDetectGUI:
         # Qt treats isVisible very literally. When the widget is not selected on the tab widget, this seems to truly evaluate to false.
         # I happen to know that because I tried to use the .isVisible() method to determine which manipulators are actually active when parsing settings.
 
-
-
         # Store settings internally (maintain .ini format)
         self.settings = copy.deepcopy(settings)
         self.set_gui_from_settings()
-
-
 
         # Set initial button text
         self.settingsWidget.pushButton_2.setText("Start Monitoring")
@@ -611,6 +604,9 @@ class touchDetectGUI:
         except ThreadStopped:
             self.logger.log_info("Move to contact operation stopped by user")
             raise  # re-raise to be caught by outer layers that handle thread stopping
+        except Exception:
+            logger.exception("Unexpected error during move to contact operation")
+            return (PyIVLSRetCo.HW_E.value, {"Error message": "Unexpected error during move to contact operation"})
 
     @public
     def sequenceStep(self, postfix: str) -> tuple[int, dict]:
