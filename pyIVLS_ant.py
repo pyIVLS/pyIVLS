@@ -20,7 +20,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QPoint, Qt
 from PyQt6.QtGui import QTextCursor
 
 from threadStopped import thread_with_exception, ThreadStopped
-from LLM.pyIVLS_LLM import pyIVLS_LLM
+from LLM.pyIVLS_LLM import LLM_Aalto
 
 import json
 
@@ -46,7 +46,7 @@ class pyIVLS_ant(QObject):
         self.path = path
         self.logger = logger
 
-        self.llm = pyIVLS_LLM()
+        self.llm = LLM_Aalto()
         self.messages = []              # full raw chat history
         self.chat_summary = ""          # compact running summary
         self.llm_context_blocks = []    # user-added context blocks
@@ -155,6 +155,9 @@ class pyIVLS_ant(QObject):
         for action in self.pending_actions:
             self.widget.execList_list.addItem(f"{action.get('plugin', '')}:{action.get('function', '')}")
 
+    def _autoSummary(self):
+        return self.widget.msgMetaChat_auto.isChecked()
+
     @pyqtSlot(QPoint)
     def show_exec_list_menu(self, position):
         list_widget = self.widget.execList_list
@@ -222,11 +225,43 @@ class pyIVLS_ant(QObject):
 
     @pyqtSlot(str)
     def _llm_request_finished(self, answer):
+        is_json, payload = self._parse_LLM_json_payload(answer)
+
+        if is_json:
+            parsed_message, actions = self._extract_LLM_payload_fields(payload)
+
+            added = []
+            rejected = []
+            if actions:
+                added, rejected = self.add_pending_actions_from_LLM(actions)
+
+            lines = []
+            if parsed_message:
+                lines.append(parsed_message)
+
+            if added:
+                lines.append("Added to pending actions:")
+                for action in added:
+                    lines.append(
+                        f"- {action.get('plugin', '')}:{action.get('function', '')}"
+                    )
+
+            if rejected:
+                lines.append("Rejected actions:")
+                for item in rejected:
+                    lines.append(f"- {item.get('error', 'Unknown error')}")
+
+            chat_text = "\n".join(lines).strip()
+            if not chat_text:
+                chat_text = "JSON payload processed."
+        else:
+            chat_text = answer
+
         self.messages.append({
             "role": "assistant",
-            "content": answer,
+            "content": chat_text,
         })
-        self._add_message("ANT", answer)
+        self._add_message("ANT", chat_text)
         self._buildSummary()
 
     @pyqtSlot(str)
@@ -236,6 +271,50 @@ class pyIVLS_ant(QObject):
     @pyqtSlot()
     def _llm_request_stopped(self):
         self._add_message("ANT", "LLM request stopped.")
+
+    #### functions for parsing LLM returned messages
+    def _parse_LLM_json_payload(self, answer):
+        """Try to parse LLM answer as JSON payload.
+
+        Supported structure:
+        {
+            "message": "...",      # optional
+            "actions": [ ... ]     # optional
+        }
+
+        Returns:
+            tuple[bool,  dict]:
+                (is_json, payload_dict)
+        """
+        if not isinstance(answer, str):
+            return False, {}
+
+        text = answer.strip()
+        if not text:
+            return False, {}
+
+        try:
+            payload = json.loads(text)
+        except Exception:
+            return False, {}
+
+        if not isinstance(payload, dict):
+            return False, {}
+
+        return True, payload
+
+    def _extract_LLM_payload_fields(self, payload):
+        """Extract supported fields from parsed JSON payload."""
+        message = payload.get("message", "")
+        actions = payload.get("actions", [])
+
+        if not isinstance(message, str):
+            message = str(message)
+
+        if not isinstance(actions, list):
+            actions = []
+
+        return message, actions
 
     #### functions for creating LLM message
 
@@ -312,6 +391,26 @@ class pyIVLS_ant(QObject):
             "Your main job is to help the operator to perform the needed measurement. "
             "To implement this job you propose structured actions using only the "
             "currently loaded plugins and their public functions.\n\n"
+            
+            "OUTPUT RULES:\n"
+            "- If your reply is only chat to the operator and does not require ANT to do anything, return plain text.\n"
+            "- If your reply requires ANT to do anything beyond chat, such as interacting with a plugin, "
+            "changing GUI-related state, adding actions to the pending list, or suggesting executable steps, "
+            "return a valid JSON object and nothing else.\n"
+            "- In JSON replies, fields are optional. Use only the fields you need.\n"
+            "- Supported JSON fields currently are:\n"
+            '  "message": optional human-readable message for chat\n'
+            '  "actions": optional list of action objects\n'
+            "- Each action object must use this schema:\n"
+            "  {\n"
+            '    "plugin": "PluginName",\n'
+            '    "function": "public_function_name",\n'
+            '    "args": {},\n'
+            '    "reason": "optional explanation"\n'
+            "  }\n"
+            "- Do not wrap JSON in markdown code fences.\n\n"
+
+            
             "Rules:\n"
             "- Use only plugins and functions explicitly provided in the tool summary.\n"
             "- If a plugin is marked unavailable for LLM use, ignore it for planning.\n"
@@ -933,7 +1032,7 @@ class pyIVLS_ant(QObject):
         if isinstance(raw_result, (list, tuple)):
             if len(raw_result) == 2:
                 return f"Returned pair: {raw_result[0]}, {raw_result[1]}"
-            return f"Returned list/tuple of length {len(raw_result)}.
+            return f"Returned list/tuple of length {len(raw_result)}."
 
         if isinstance(raw_result, dict):
             return f"Returned dict with keys: {', '.join(raw_result.keys())}"

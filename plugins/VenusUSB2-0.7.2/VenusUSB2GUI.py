@@ -17,12 +17,16 @@ public API:
 - camera_close() -> None
 - camera_capture_image() -> image / None
 
+Plugin adjusted to be used with ANT
 
 version 0.6
 2025.05.12
 ivarad
 version 0.7
 2025.06.11
+otsoha
+version 0.72
+2026.09.18
 otsoha
 """
 
@@ -82,12 +86,6 @@ class VenusUSB2GUI(QObject):
     new_camera_thread = pyqtSignal(object)  # Emits the new camera thread
 
     non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "camera_open",
-        "camera_close",
-        "camera_capture_image",
-        "get_thread",
-    ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
     default_timerInterval = 42  # ms, it is close to 24 fps that is standard for movies and TV
 
     ########Functions
