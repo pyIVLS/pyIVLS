@@ -1,6 +1,5 @@
 import copy
 import logging
-import os
 from functools import wraps
 from typing import Any
 
@@ -12,10 +11,11 @@ from plugin_components import (
     ini_to_bool,
     public,
 )
-from PyQt6 import QtCore, QtWidgets, uic
-from PyQt6.QtCore import QObject, pyqtSlot
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtCore import QObject, Slot
 from serial import SerialException
 from Sutter import Mpc325
+from sutter_settingswidget import Ui_Form
 from threadStopped import ThreadStopped
 from virtual import VirtualMpc325
 
@@ -39,6 +39,12 @@ drain nplc field should be numeric"}]
 "Exception" : exception from called function
 
 """
+
+
+class SutterSW(QtWidgets.QWidget, Ui_Form):
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
 
 
 class Mancache:
@@ -101,12 +107,11 @@ class SutterGUI(QObject):
     otsoha
     """
 
-    MM_FUNCTION_TYPES = ["probe", "not connected", "spectrometer"]
     GREEN_STYLE = ConnectionIndicatorStyle.GREEN_CONNECTED.value
     RED_STYLE = ConnectionIndicatorStyle.RED_DISCONNECTED.value
-    update_gui_signal = QtCore.pyqtSignal()
-    change_active_device_signal = QtCore.pyqtSignal(int)
-    connection_status_signal = QtCore.pyqtSignal(bool)
+    update_gui_signal = QtCore.Signal()
+    change_active_device_signal = QtCore.Signal(int)
+    connection_status_signal = QtCore.Signal(bool)
 
     @property
     def settingsWidget(self) -> Any:
@@ -131,11 +136,11 @@ class SutterGUI(QObject):
         super().__init__()
         self._hal = Mpc325()
         self._virhal = VirtualMpc325()
+        self.MM_FUNCTION_TYPES = ["probe", "not connected", "spectrometer"]
 
         self.logger = LoggingHelper(self)
         self.cl = CloseLockSignalProvider()
-        path = os.path.dirname(__file__) + os.path.sep
-        self._settingsWidget = uic.loadUi(path + "Sutter_settingsWidget.ui")  # type: ignore
+        self._settingsWidget = SutterSW()
 
         # connect buttons to functions. HOX: comboboxes are using currentIndexChanged signal which also triggers on non-user changes.
         self.settingsWidget.connectButton.clicked.connect(self._connect_button)  # type: ignore
@@ -197,7 +202,7 @@ class SutterGUI(QObject):
         return self.settingsWidget
 
     # GUI interactions
-    @pyqtSlot()
+    @Slot()
     def _apply_settings_to_gui(self):
         """Apply internal settings to GUI controls."""
         # Handle quickmove setting - can be boolean or string
@@ -221,7 +226,7 @@ class SutterGUI(QObject):
 
         logger.debug("Sutter GUI applied settings to GUI controls: %s", self.settings)
 
-    @pyqtSlot(int)
+    @Slot(int)
     def _change_active_device_gui(self, dev_num: int):
         """Slot to change active device from a non-GUI thread."""
         # block signals from changing the combobox index while we update it
@@ -273,7 +278,7 @@ class SutterGUI(QObject):
         logger.debug("Parsed settings from GUI: %s", self.settings)
         return (0, settings)
 
-    @pyqtSlot(bool)
+    @Slot(bool)
     def _gui_change_device_connected(self, connected: bool):
         logger.debug("GUI change device connected: %s", connected)
         if connected:

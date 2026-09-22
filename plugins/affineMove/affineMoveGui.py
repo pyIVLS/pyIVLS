@@ -4,6 +4,8 @@ import os
 
 import cv2
 import numpy as np
+from affinemove_mdi import Ui_previewForm
+from affinemove_settings import Ui_Form
 from affineMoveVisualization import AffineMoveVisualization
 from collisionDetection import CollisionDetector
 from plugin_components import (
@@ -14,16 +16,15 @@ from plugin_components import (
     get_public_methods,
     public,
 )
-from PyQt6 import uic
-from PyQt6.QtCore import QEvent, QEventLoop, QObject, Qt, pyqtSignal
-from PyQt6.QtWidgets import QComboBox, QGraphicsScene, QGraphicsView
+from PySide6.QtCore import QEvent, QEventLoop, QObject, Qt, Signal
+from PySide6.QtWidgets import QComboBox, QGraphicsScene, QGraphicsView, QWidget
 from threadStopped import ThreadStopped
 
 logger = logging.getLogger(__name__)
 
 # TODO: Refactor to clean up collision detection code.
 
-HARDCODED_SPECTRO_NUM = 3  # FIXME: get this from somewhere.
+HARDCODED_SPECTRO_NUM = 3  # FIXME: get this from micromanipulator plugin instead of hardcoding
 HARDCODED_SPECTRO_Z = 0
 HARDCODED_MANI_z = 21000  # default z
 HARDCODED_MANI_OFFSET = 2000
@@ -46,11 +47,10 @@ class ViewportClickCatcher(QObject):
                 self._clicked_pos = (scene_pos.x(), scene_pos.y())
                 self._loop.quit()
                 return True
-        elif event.type() == QEvent.Type.KeyPress:
-            if event.key() == Qt.Key.Key_Escape:
-                self._cancelled = True
-                self._loop.quit()
-                return True
+        elif event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Escape:
+            self._cancelled = True
+            self._loop.quit()
+            return True
         return False
 
     def wait_for_click(self):
@@ -62,13 +62,25 @@ class ViewportClickCatcher(QObject):
         return self._clicked_pos
 
 
+class AffMoveSW(QWidget, Ui_Form):
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+
+
+class AffMoveMDI(QWidget, Ui_previewForm):
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+
+
 class affineMoveGUI(QObject):
     """Affine Move GUI with dictionary-based plugin architecture."""
 
     # Signals for thread-safe communication
-    update_planned_moves_signal = pyqtSignal(list)  # List of (manipulator_idx, current_pos, target_pos)
-    clear_planned_moves_signal = pyqtSignal()
-    sequence_completed_signal = pyqtSignal()
+    update_planned_moves_signal = Signal(list)  # List of (manipulator_idx, current_pos, target_pos)
+    clear_planned_moves_signal = Signal()
+    sequence_completed_signal = Signal()
 
     # consts
 
@@ -80,10 +92,8 @@ class affineMoveGUI(QObject):
         self.logger = LoggingHelper(self)
         self.cl = CloseLockSignalProvider()
 
-        self.settingsWidget = uic.loadUi(self.path + "affinemove_Settings.ui")  # type: ignore
-        self.MDIWidget = uic.loadUi(self.path + "affinemove_MDI.ui")  # type: ignore
-        assert self.settingsWidget is not None, "AffineMove: settingsWidget is None"
-        assert self.MDIWidget is not None, "AffineMove: MDIWidget is None"
+        self.settingsWidget = AffMoveSW()
+        self.MDIWidget = AffMoveMDI()
 
         # Initialize dependency manager
         dependencies = {
@@ -570,11 +580,9 @@ class affineMoveGUI(QObject):
             loaded_count = 0
             for manipulator_idx in range(1, 5):  # Indices 1-4
                 bbox = self.get_bounding_box_from_settings(manipulator_idx)
-                if bbox is not None:
-                    # Store in CollisionDetector
-                    if self.collision_detector.set_manipulator_bounding_box(manipulator_idx, bbox):
-                        loaded_count += 1
-                        self.logger.log_debug(f"Loaded bounding box for manipulator {manipulator_idx}")
+                if bbox is not None and self.collision_detector.set_manipulator_bounding_box(manipulator_idx, bbox):
+                    loaded_count += 1
+                    self.logger.log_debug(f"Loaded bounding box for manipulator {manipulator_idx}")
         except Exception as e:
             self.logger.log_warn(f"Failed to load bounding boxes from settings: {e}")
 
@@ -600,7 +608,7 @@ class affineMoveGUI(QObject):
         if status:
             self.logger.log_info(f"{state['Error message']} {state.get('Exception', '')}")
             return
-        dev_count, dev_statuses = ret
+        _dev_count, dev_statuses = ret
         # calibrate every available manipulator
         for i, status in enumerate(dev_statuses):
             if status == 1:
@@ -801,7 +809,7 @@ class affineMoveGUI(QObject):
         """
         positions = {}
         try:
-            for manipulator_idx in self.cached_manipulator_positions.keys():
+            for manipulator_idx in self.cached_manipulator_positions:
                 try:
                     cached_pos = self.get_cached_manipulator_position(manipulator_idx)
                     if cached_pos and len(cached_pos) >= 2:
@@ -970,7 +978,7 @@ class affineMoveGUI(QObject):
         This function is called by the micromanipulator plugin when the status changes.
         """
         try:
-            mm, cam, pos = self._fetch_dep_plugins()
+            mm, _cam, pos = self._fetch_dep_plugins()
             assert pos is not None, "Positioning plugin not available"
             assert mm is not None, "Micromanipulator plugin not available"
             self.mm_indicator.setStyleSheet(ConnectionIndicatorStyle.GREEN_CONNECTED.value)
@@ -1182,12 +1190,12 @@ class affineMoveGUI(QObject):
                 self.logger.log_warn(f"Movement execution failed: {message}")
                 return [1, "Error in movement execution"]
 
-        except ThreadStopped as e:
+        except ThreadStopped:
             mm, _, _ = self._fetch_dep_plugins()
             if mm:
                 mm["mm_stop"]()
             self.logger.log_info("Movement thread stopped by user")
-            raise e  # re-raise to to signal to seqbuilder
+            raise  # re-raise to to signal to seqbuilder
         except Exception as e:
             self.logger.log_info(f"Error in loopingIteration: {e!s}")
             return [2, f"Error in looping iteration: {e!s}"]

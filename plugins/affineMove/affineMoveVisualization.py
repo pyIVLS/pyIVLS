@@ -7,14 +7,13 @@ import logging
 
 import numpy as np
 from plugin_components import MANIPULATOR_COLORS
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QBrush, QFont, QImage, QPen, QPixmap
-from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsRectItem, QGraphicsScene, QGraphicsTextItem, QGraphicsView
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QBrush, QFont, QImage, QPen, QPixmap
+from PySide6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsRectItem, QGraphicsScene, QGraphicsTextItem, QGraphicsView
 
 from plugins.affineMove.collisionDetection import AABB
 
 logger = logging.getLogger(__name__)
-
 
 
 class AffineMoveVisualization:
@@ -41,7 +40,7 @@ class AffineMoveVisualization:
 
         # Convert to QImage
         if isinstance(img, np.ndarray):
-            height, width, channel = img.shape
+            height, width, _channel = img.shape
             bytes_per_line = 3 * width
             q_image = QImage(img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
 
@@ -79,7 +78,7 @@ class AffineMoveVisualization:
                     self._draw_manipulator_dot(pos, mm_idx)
 
         if target_positions:
-            for point_name, location_dict in target_positions.items():
+            for location_dict in target_positions.values():
                 for mm_idx, pos in location_dict.items():
                     if pos:
                         self._draw_target_reference_dot(pos, mm_idx)

@@ -1,9 +1,8 @@
-
 from plugin_components import MANIPULATOR_COLORS
-from PyQt6 import QtGui
-from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import (
+from PySide6 import QtGui
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal, Slot
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
     QGraphicsScene,
@@ -17,7 +16,7 @@ from PyQt6.QtWidgets import (
 
 class GraphicsView(QGraphicsView):
     # signal for added points
-    point_clicked = pyqtSignal(QPointF)
+    point_clicked = Signal(QPointF)
 
     def __init__(self, scene: QGraphicsScene, parent: QWidget | None = None) -> None:
         super().__init__(scene, parent)
@@ -239,10 +238,10 @@ class DualGraphicsWidget(QWidget):
         else:
             raise ValueError(f"Invalid side: {side}, must be 'left' or 'right'")
 
-    @pyqtSlot()
+    @Slot()
     def draw_points_on_left(self, points: list[list[QPointF]]) -> None:
         self._view_left.draw_point_list(points)
 
-    @pyqtSlot()
+    @Slot()
     def draw_points_on_right(self, points: list[list[QPointF]]) -> None:
         self._view_right.draw_point_list(points)
