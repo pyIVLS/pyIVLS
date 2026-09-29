@@ -161,6 +161,7 @@ def create_sweep_reciepe(settings, settings_smu):
     s["drain"] = settings["drainchannel"]
     s["logsweep"] = settings["logsweep"]  # log sweep: may be True or False
     s["asymptote"] = settings["asymptote"]  # asymptote for log sweep: may be float, only used if logsweep is True
+    s["errorcheck"] = settings_smu.get("errorcheck", False)  # error check: may be True or False
 
     # debugging, i think we should avoid silent else conditions, since they may hide errors in the GUI
     if settings["inject"] == "voltage":  # source inject current or voltage: may take values [i ,v]

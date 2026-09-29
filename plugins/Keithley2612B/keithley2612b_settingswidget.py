@@ -27,7 +27,7 @@ class Ui_Form:
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, -66, 753, 540))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 753, 488))
         self.verticalLayout_10 = QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout_10.setObjectName("verticalLayout_10")
         self.groupBox_HWsettings = QGroupBox(self.scrollAreaWidgetContents)
@@ -100,6 +100,11 @@ class Ui_Form:
         self.backendCombobox.setObjectName("backendCombobox")
 
         self.horizontalLayout_2.addWidget(self.backendCombobox)
+
+        self.errorCheckBox = QCheckBox(self.groupBox_HWsettings)
+        self.errorCheckBox.setObjectName("errorCheckBox")
+
+        self.horizontalLayout_2.addWidget(self.errorCheckBox)
 
         self.horizontalSpacer_3 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
@@ -313,6 +318,7 @@ class Ui_Form:
         self.backendCombobox.setItemText(1, QCoreApplication.translate("Form", "Ethernet", None))
         self.backendCombobox.setItemText(2, QCoreApplication.translate("Form", "MOCK", None))
 
+        self.errorCheckBox.setText(QCoreApplication.translate("Form", "Check for errors during operation", None))
         self.groupBox_channels.setTitle(QCoreApplication.translate("Form", "Channels", None))
         self.groupBox_source.setTitle(QCoreApplication.translate("Form", "Source", None))
         self.checkBox_sourceHighC.setText(QCoreApplication.translate("Form", "High C mode", None))

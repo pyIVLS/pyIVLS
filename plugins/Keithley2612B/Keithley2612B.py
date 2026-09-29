@@ -201,6 +201,7 @@ class Keithley2612B:
         self.datafile_address = os.path.dirname(__file__) + os.path.sep + "ivls_data.dat"
         self.linepointer = 0
         self.dataarray = np.array([])
+        self.check = False  # flag to indicate whether the error queue should be checked.
 
     ## Communication functions
     def _raw_write(self, command: str) -> None:
@@ -279,7 +280,7 @@ class Keithley2612B:
 
         Returns:
             Tuple[int, str, int, int]: (error code, error message, severity, node)
-            
+
         """
         ret = self._raw_query("print(errorqueue.next())")
         # ret has following structure: "1.1020000000000e+03     Parameter too small     2.0000000000000e+01     1.0000000000000e+00"
@@ -310,17 +311,17 @@ class Keithley2612B:
         # int conversion is pure truncation. I trust keithley to actually return whole numbers.
         return int(ret)
 
-    def safewrite(self, command: str, check=False) -> None:
+    def safewrite(self, command: str) -> None:
         self._raw_write(command)
         # python evals ifs left to right with short-circuiting, so this will not call the instrument unless check is True
-        if check and self.errors_in_buffer() > 0:
+        if self.check and self.errors_in_buffer() > 0:
             ec, message, severity, node = self.read_error()
             logger.error(f"Error found after command '{command}': {ec} - {message} (severity: {severity}, node: {node})")
 
-    def safequery(self, command: str, check=False) -> str:
+    def safequery(self, command: str) -> str:
         ret = self._raw_query(command)
         # python evals ifs left to right with short-circuiting, so this will not call the instrument unless check is True
-        if check and self.errors_in_buffer() > 0:
+        if self.check and self.errors_in_buffer() > 0:
             err = self.read_error()
             logger.error(f"Error found after command '{command}': {err}")
         return ret
@@ -634,9 +635,8 @@ class Keithley2612B:
         #            s (dict): Configuration dictionary.
         #      """
 
-        # check settings
-        s_val = validate_init(s)
-        s = s_val.model_dump()  # convert back to dict so I dont have to rewrite anything.
+        if s.get("errorcheck", False):
+            self.check = True
 
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
@@ -769,7 +769,8 @@ class Keithley2612B:
                 # set autoranges on for drain. see ranges on 2-83 (108) of the manual
                 self.safewrite(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_ON")
                 self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_ON")
-
+        if s.get("errorcheck", False):
+            self.check = False
         return 0
 
     def keithley_run_sweep(self, s: dict):  # -> status:
@@ -789,6 +790,8 @@ class Keithley2612B:
         ##IRtothink#### is locking really needed?
         with self.lock:
             try:
+                if s.get("errorcheck", False):
+                    self.check = True
                 # Clear buffers, set repeats and steps, set sweep range.
                 self.safewrite(f"{s['source']}.nvbuffer1.clear()")
                 self.safewrite(f"{s['source']}.nvbuffer2.clear()")
@@ -858,6 +861,8 @@ class Keithley2612B:
                 # Turn on the source and trigger the sweep.
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
                 self.safewrite(f"{s['source']}.trigger.initiate()")
+                if s.get("errorcheck", False):
+                    self.check = False
                 return 0
 
             except Exception:
@@ -868,6 +873,8 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
                 logger.exception("Unexpected exception occurred during keithley_run_sweep")
+                if s.get("errorcheck", False):
+                    self.check = False
                 raise
 
     def keithley_run_trigpulse(self, s: dict):  # -> status:

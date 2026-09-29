@@ -60,9 +60,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
-
-
 class KeithleySW(QtWidgets.QWidget, Ui_Form):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -227,6 +224,10 @@ class Keithley2612BGUI(QObject):
                 logger.warning("Hardware error in Keithley2612B plugin: can not get line frequency, returned line frequency is 0")
                 logger.warning(f"Exception: {e}")
                 self.settings["lineFrequency"] = 0
+
+        # parse errorcheck
+        self.settings["errorcheck"] = self.settingsWidget.errorCheckBox.isChecked()
+
         return (0, self.settings)
 
     def _parse_settings_address(self) -> None:
@@ -293,6 +294,9 @@ class Keithley2612BGUI(QObject):
         self.settingsWidget.lineEdit_drainFilter.setText(str(self.settings["drainfiltervalue"]))
         self.settingsWidget.lineEdit_sourceDelayFactor.setText(f"{self.settings['sourcedelayfactor']}")
         self.settingsWidget.lineEdit_drainDelayFactor.setText(f"{self.settings['draindelayfactor']}")
+        self.settingsWidget.errorCheckBox.setChecked(
+            to_bool(self.settings.get("errorcheck", False))
+        )  # eww using get here, but this is done so that the user does not have to reupload the keithley plugin.
         logger.debug("GUI settings set from internal settings")
         self._update_GUI_state()
 
