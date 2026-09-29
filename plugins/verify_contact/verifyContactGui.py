@@ -2,8 +2,8 @@ import copy
 import os
 
 from plugin_components import ConnectionIndicatorStyle, DependencyManager, LoggingHelper, get_public_methods, public
-from PyQt6 import uic
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QWidget
 
 
 class verifyContactGUI:
@@ -17,7 +17,8 @@ class verifyContactGUI:
         self.logger = LoggingHelper(self)
 
         # Load UI
-        self.settingsWidget: QWidget = uic.loadUi(self.path + "verifyContact_Settings.ui")  # type: ignore
+        loader = QUiLoader()
+        self.settingsWidget: QWidget = loader.load(self.path + "verifyContact_Settings.ui")  # type: ignore
 
         # Initialize DependencyManager
         dependencies = {"contactingmove": ["parse_settings_widget", "setSettings", "verify_contact"]}
@@ -26,7 +27,7 @@ class verifyContactGUI:
         # Internal settings storage
         self.settings = {}
 
-        # connect button
+        # connect the button
         self.settingsWidget.pushButton.clicked.connect(self._on_verify_contact)
 
     def _on_verify_contact(self):

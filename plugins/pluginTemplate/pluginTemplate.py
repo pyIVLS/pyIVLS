@@ -16,10 +16,7 @@ class pluginTemplate:
         Returns:
             bool: Success or failure of the function
         """
-        if arg1 > arg2:
-            return True
-        else:
-            return False
+        return arg1 > arg2
 
     def get_internal_state(self) -> dict:
         """This is an example of a function that returns the internal state of the plugin. 

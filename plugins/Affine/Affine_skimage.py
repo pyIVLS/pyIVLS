@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 from typing import Any
 
 import cv2 as cv
@@ -30,7 +29,7 @@ def str_to_bool(value: Any) -> bool:
         else:
             raise ValueError(f"Cannot convert string to bool: {value}")
     else:
-        raise ValueError(f"Cannot convert type {type(value)} to bool: {value}")
+        raise TypeError(f"Cannot convert type {type(value)} to bool: {value}")
 
 
 class Preprocessor:
@@ -64,31 +63,30 @@ class Preprocessor:
 
     def __init__(self) -> None:
         self.settings: dict[str, Any] = {}
-
-    PREPROCESSOR_KEYS = {
-        "blurmask",
-        "invertmask",
-        "equalizemask",
-        "cannymask",
-        "otsumask",
-        "manualthresholdmask",
-        "thresholdmask",
-        "morphologymask",
-        "morphologytypemask",
-        "morphologystrengthmask",
-        "blurimage",
-        "invertimage",
-        "equalizeimage",
-        "cannyimage",
-        "otsuimage",
-        "manualthresholdimage",
-        "thresholdimage",
-        "morphologyimage",
-        "morphologytypeimage",
-        "morphologystrengthimage",
-        "sigmaimage",
-        "sigmamask",
-    }
+        self.PREPROCESSOR_KEYS = {
+            "blurmask",
+            "invertmask",
+            "equalizemask",
+            "cannymask",
+            "otsumask",
+            "manualthresholdmask",
+            "thresholdmask",
+            "morphologymask",
+            "morphologytypemask",
+            "morphologystrengthmask",
+            "blurimage",
+            "invertimage",
+            "equalizeimage",
+            "cannyimage",
+            "otsuimage",
+            "manualthresholdimage",
+            "thresholdimage",
+            "morphologyimage",
+            "morphologytypeimage",
+            "morphologystrengthimage",
+            "sigmaimage",
+            "sigmamask",
+        }
 
     def update_settings(self, settings_dict: dict[str, Any]) -> None:
         """
@@ -221,8 +219,7 @@ class AffineError(Exception):
         super().__init__(message)
         self.error_code: int = error_code
         self.message: str = message
-        self.timestamp: str = datetime.now().strftime("%H:%M:%S.%f")
-        self.message = f"{self.timestamp}: {self.message} (Affine error Code: {self.error_code})"
+        self.message = f"{self.message} (Affine error Code: {self.error_code})"
 
     def __str__(self) -> str:
         return self.message
@@ -288,7 +285,7 @@ class Affine:
             settings (dict, optional): Settings for algorithm and preprocessing.
         """
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.result = dict()
+        self.result = {}
         self.A = None  # Affine transformation matrix
         self.internal_img = None  # Internal image
         self.internal_mask = None  # Internal mask
@@ -338,7 +335,7 @@ class Affine:
         float_keys = {"sigmaimage", "sigmamask"}
         str_keys = {"morphologytypemask", "morphologytypeimage"}
 
-        for key in Preprocessor.PREPROCESSOR_KEYS:
+        for key in self.preprocessor.PREPROCESSOR_KEYS:
             if key not in settings:
                 continue
             val = settings[key]
@@ -513,7 +510,7 @@ class Affine:
             src = np.array(src, dtype=np.float32)
             dst = np.array(dst, dtype=np.float32)
 
-            model, inliers = self.get_transformation(
+            model, _inliers = self.get_transformation(
                 src,
                 dst,
             )

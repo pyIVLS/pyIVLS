@@ -1,11 +1,11 @@
-from PyQt6.QtCore import QThread, pyqtSignal
+from PySide6.QtCore import QThread, Signal
 
 
 class WorkerThread(QThread):
-    progress = pyqtSignal(object)  # Signal to emit progress updates with any data type
-    finished = pyqtSignal()  # Signal to indicate task completion
-    error = pyqtSignal(str)  # Signal to emit error messages
-    result_signal = pyqtSignal(object)  # Optional: Signal to emit the final result
+    progress = Signal(object)  # Signal to emit progress updates with any data type
+    finished = Signal()  # Signal to indicate task completion
+    error = Signal(str)  # Signal to emit error messages
+    result_signal = Signal(object)  # Optional: Signal to emit the final result
 
     def __init__(self, task, *args, **kwargs):
         super().__init__()
@@ -29,9 +29,8 @@ class WorkerThread(QThread):
         except Exception as e:
             self.error.emit(str(e))
         finally:
-            if not self._stop_requested:
-                if self.result_return is not None:
-                    self.result_signal.emit(self.result_return)  # Emit the final result if available
+            if not self._stop_requested and self.result_return is not None:
+                self.result_signal.emit(self.result_return)  # Emit the final result if available
 
     def stop(self):
         """Request the thread to stop gracefully."""

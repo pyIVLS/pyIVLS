@@ -51,7 +51,7 @@ class pyIVLS_affineMove_plugin:
         Returns: Missing methods
         """
         # set functions to DependencyManager
-        is_valid, missing = self.plg.dm.set_available_dependency_functions(function_dict)
+        _is_valid, missing = self.plg.dm.set_available_dependency_functions(function_dict)
         return {self.name: missing}
 
     @hookimpl

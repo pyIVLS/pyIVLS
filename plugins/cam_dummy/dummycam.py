@@ -6,12 +6,13 @@ import cv2 as cv
 class DummyCamera:
     """Mock camera implementing VenusUSB2-like API, reading frames from a file."""
 
-    exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
     bufferSize = 1
 
     def __init__(self):
         self.image_path = None
         self.opened = False
+        self.exposures = [1, 2, 5, 10, 20, 39, 78, 156, 312]
+
 
     def open(self, source=None, exposure=None):
         """Opens the mock camera by validating the source file path."""

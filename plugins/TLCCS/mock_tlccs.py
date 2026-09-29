@@ -1,6 +1,9 @@
+import logging
 import time
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class MockCCSDRV:
@@ -13,30 +16,30 @@ class MockCCSDRV:
 
     def open(self, spectrometerVID, spectrometerPID, integration_time=0.01):
         self.integration_time = integration_time
-        print(f"[Mock] Opened connection to device VID: {hex(spectrometerVID)}, PID: {hex(spectrometerPID)} with integration time {integration_time}s")
+        logger.info(f"[Mock] Opened connection to device VID: {hex(spectrometerVID)}, PID: {hex(spectrometerPID)} with integration time {integration_time}s")
         return True
 
     def close(self):
-        print("[Mock] Closed connection to device")
+        logger.info("[Mock] Closed connection to device")
         self.continuous_scan_requested = False
         self.ext_scan_requested = False
         self.single_scan_requested = False
 
     def get_integration_time(self):
-        print(f"[Mock] Current integration time: {self.integration_time}s")
+        logger.info(f"[Mock] Current integration time: {self.integration_time}s")
         # stop continous scanning when integration time is queried, to simulate the behavior of the real device:
         self.continuous_scan_requested = False
         return self.integration_time
 
     def pipe_status(self):
-        print("[Mock] Pipe OK")
+        logger.info("[Mock] Pipe OK")
         return "[Mock] Pipe OK"
 
     def set_integration_time(self, intg_time: float) -> bool:
         if not (1e-6 <= intg_time <= 60):
             raise ValueError("Integration time out of valid range")
         self.integration_time = intg_time
-        print(f"[Mock] Set integration time to: {self.integration_time}s")
+        logger.info(f"[Mock] Set integration time to: {self.integration_time}s")
         self.continuous_scan_requested = False
         return True
 
@@ -48,24 +51,24 @@ class MockCCSDRV:
             statuses.append("SCAN_TRANSFER")
         else:
             statuses.append("SCAN_IDLE")
-        print(f"[Mock] Device status: {statuses}")
+        logger.info(f"[Mock] Device status: {statuses}")
         return statuses
 
     def start_scan(self):
         # a single scan resets the continous scanning and triggered scanning:
         self.continuous_scan_requested = False
         self.ext_scan_requested = False
-        # single scan simu
+        # single scan simulation
         self.single_scan_requested = True
-        print("[Mock] Starting single scan...")
+        logger.info("[Mock] Starting single scan...")
         self.scan_start_time = time.time()
 
     def start_scan_continuous(self):
-        print("[Mock] Starting continuous scan...")
+        logger.info("[Mock] Starting continuous scan...")
         self.continuous_scan_requested = True
 
     def start_scan_ext_trigger(self):
-        print("[Mock] Starting external trigger scan...")
+        logger.info("[Mock] Starting external trigger scan...")
         self.ext_scan_requested = True
 
     def get_scan_data(self) -> np.ndarray:

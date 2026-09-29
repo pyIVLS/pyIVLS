@@ -8,7 +8,7 @@ from os.path import basename, dirname, sep
 import pluggy
 
 # Import to communicate with the GUI
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PySide6.QtCore import QObject, Signal, Slot
 
 from components.pyIVLS_hookspec import pyIVLS_hookspec
 
@@ -25,15 +25,15 @@ class pyIVLS_container(QObject):
     ### main config name
     configFileName = "pyIVLS.ini"  # FIXME: Magic path until plugin importer is implemented.
     # send available plugins to the plugin loader
-    available_plugins_signal = pyqtSignal(dict)
+    available_plugins_signal = Signal(dict)
     # update the settings widget. This goes all the way to pyIVLS.py which handles the updating of the main GUI.
-    plugins_updated_signal = pyqtSignal()
+    plugins_updated_signal = Signal()
     # send available plugins and functions to seqBuilder
-    seqComponents_signal = pyqtSignal(dict, list)
+    seqComponents_signal = Signal(dict, list)
     # show a message to the user in the plugin loader GUI
-    show_message_signal = pyqtSignal(str)
+    show_message_signal = Signal(str)
     # add info to log
-    log_message = pyqtSignal(str)
+    log_message = Signal(str)
 
     def emit_log(self, message: str):
         self.logger.info(message)
@@ -43,13 +43,13 @@ class pyIVLS_container(QObject):
         self.logger.error(message)
 
     #### Slots for communication
-    @pyqtSlot()
+    @Slot()
     def read_available_plugins(self):
         """Called from the plugin loader to request the available plugins.
         Emits the available_plugins_signal with the plugin dictionary."""
         self.available_plugins_signal.emit(self.get_plugin_dict())
 
-    @pyqtSlot(list, list)
+    @Slot(list, list)
     def update_registration(self, plugins_to_activate: list, hidden_activation: list):
         """Updates the registrations based on the list of plugins to activate. Unloads all other plugins.
         Only signals the settings widget to update if changes are applied.
@@ -89,7 +89,7 @@ class pyIVLS_container(QObject):
             self.plugins_updated_signal.emit()
             self.cleanup()
 
-    @pyqtSlot(list)
+    @Slot(list)
     def update_config(self, add_ini):
         """Imports a new plugin from an ini file.
 
@@ -184,7 +184,7 @@ class pyIVLS_container(QObject):
         finally:
             sys.path.remove(self.path + "plugins" + sep + new_config[section_plugin]["address"])
 
-    @pyqtSlot(str)
+    @Slot(str)
     def export_config_file(self, config_path: str) -> None:
         """Exports the current config file to the given path. This is called from the plugin loader to export the config file.
 
@@ -196,7 +196,7 @@ class pyIVLS_container(QObject):
         with open(config_path, "w") as configfile:
             self.config.write(configfile)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def import_config_file(self, config_path: str) -> None:
         """Updates the config file with the given path. This is called from the plugin loader to update the config file.
 
@@ -213,7 +213,7 @@ class pyIVLS_container(QObject):
         self.register_start_up()
         self.plugins_updated_signal.emit()
 
-    @pyqtSlot()
+    @Slot()
     def save_settings(self):
         modifications = {}
         current_config: list = self.pm.hook.get_plugin_settings()

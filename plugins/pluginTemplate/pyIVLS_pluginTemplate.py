@@ -88,7 +88,7 @@ class pyIVLS_pluginTemplate_plugin:
         :return: list containing missed plugins or functions in form of [plg1, plg2:func3]
         """
         # set functions to DependencyManager
-        is_valid, missing = self.pluginClass.dm.set_available_dependency_functions(function_dict)
+        _is_valid, missing = self.pluginClass.dm.set_available_dependency_functions(function_dict)
 
         return {self.name: missing}
 

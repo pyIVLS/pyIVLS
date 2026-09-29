@@ -1,34 +1,30 @@
 import logging
 
-from PyQt6 import QtWidgets, uic
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QAction, QCloseEvent
+from PySide6 import QtWidgets
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QCloseEvent
 
+# Import the compiled UI class from your build step
+from components.compiled_ui.pyivls_gui import Ui_MainWindow
 from components.pyIVLS_dockWindow import pyIVLS_dockWindow
 
 logger = logging.getLogger(__name__)
 
 
 class pyIVLS_mainWindow(QtWidgets.QMainWindow):
-    closeSignal = pyqtSignal()
+    closeSignal = Signal()
 
     def __init__(self, uipath):
-        QtWidgets.QMainWindow.__init__(self)
-        uic.loadUi(uipath + "pyIVLS_GUI.ui", self)
+        super().__init__()
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
         self.seqBuilder_dockWidget = pyIVLS_dockWindow(parent=self, position=Qt.DockWidgetArea.RightDockWidgetArea)
         self.dockWidget = pyIVLS_dockWindow(parent=self, position=Qt.DockWidgetArea.BottomDockWidgetArea)
 
-        # Ensure mdiArea and actions are accessible
-        self.mdiArea = self.findChild(QtWidgets.QMdiArea, "mdiArea")
-        self.actionPlugins = self.findChild(QAction, "actionPlugins")
-        self.actionSequence_builder = self.findChild(QAction, "actionSequence_builder")
-        self.actionDockWidget = self.findChild(QAction, "actionDockWidget")
-
         # add a menu for MDI windows under the view -> show menu
-        menuShow = self.findChild(QtWidgets.QMenu, "menuShow")
         self.mdiWindowsMenu = QtWidgets.QMenu("MDI windows", self)
         self.mdiWindowsMenu.setObjectName("mdiWindowsMenu")
-        menuShow.addMenu(self.mdiWindowsMenu)
+        self.ui.menuShow.addMenu(self.mdiWindowsMenu)
 
         self.closeOK = True
         self.blocking = set()  # Initialize blocking as an empty set

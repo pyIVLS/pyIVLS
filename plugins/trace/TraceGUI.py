@@ -1,8 +1,8 @@
 import os
 
-from PyQt6.QtCore import QObject, QTimer
-from PyQt6.QtGui import QColor, QSyntaxHighlighter, QTextCharFormat
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QObject, QTimer
+from PySide6.QtGui import QColor, QSyntaxHighlighter, QTextCharFormat
+from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFileDialog,
@@ -251,7 +251,6 @@ class TraceGui(QObject):
             self.levelCombo.setCurrentIndex(idx)
         self.lineCountSpin.setValue(int(settings["display_line_count"]))
         self.liveUpdateCheck.setChecked(settings.get("live_update", "True") == "True")
-
 
         # Automatically open the stored logfile if present
         log_file = settings["log_file"]

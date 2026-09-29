@@ -4,14 +4,13 @@ import time
 
 import matplotlib.pyplot as plt
 import numpy as np
-from affineMatchDialog import Ui_Dialog
 from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
 from plugin_components import LoggingHelper, ini_to_bool
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QBrush, QColor, QImage, QPixmap
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtGui import QBrush, QColor, QImage, QPixmap
+from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
@@ -22,19 +21,17 @@ from PyQt6.QtWidgets import (
 )
 from worker_thread import WorkerThread
 
+from plugins.Affine.Affine_skimage import AffineError
+from plugins.Affine.widgets.affineMatchDialog import Ui_Dialog
 
-class dialog(QDialog):
+
+class dialog(QDialog, Ui_Dialog):
     """
     Affine registration dialog for manual and automatic matching.
     Handles preprocessing settings, manual point selection, and result visualization.
     """
 
-    # good sigmas:
-    sigma_list = [1.0, 2.0, 3.0, 4.0, 5.0]
-    # morphological operation types
-    morphology_types = ["erosion", "dilation", "opening", "closing"]
-
-    info_msg = pyqtSignal(str)
+    info_msg = Signal(str)
 
     def __init__(self, affine, img, mask, settings, pointslist=None, logger: LoggingHelper | None = None):
         """
@@ -47,10 +44,13 @@ class dialog(QDialog):
             pointslist: Optional list of points on the mask that represent the targets.
         """
         super().__init__(None, Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint)
-        self.ui = Ui_Dialog()
-        self.ui.setupUi(self)
+        self.setupUi(self)
         self.info_msg.connect(self.show_message)  # TODO: this is in fact completely BORKED, no messages are getting through.
 
+        # good sigmas:
+        self.sigma_list = [1.0, 2.0, 3.0, 4.0, 5.0]
+        # morphological operation types
+        self.morphology_types = ["erosion", "dilation", "opening", "closing"]
         self.affine = affine
         self.pointslist = pointslist
         self.img = img
@@ -67,63 +67,63 @@ class dialog(QDialog):
         self.worker_thread = None  # Initialize worker thread reference
 
         # Connect mouse events for manual mode
-        self.ui.imgView.mousePressEvent = self._img_view_clicked
-        self.ui.maskView.mousePressEvent = self._mask_view_clicked
-        self.ui.matchButton.clicked.connect(self._on_match_button_clicked)
-        self.ui.manualButton.clicked.connect(self._on_manual_button_clicked)
+        self.imgView.mousePressEvent = self._img_view_clicked
+        self.maskView.mousePressEvent = self._mask_view_clicked
+        self.matchButton.clicked.connect(self._on_match_button_clicked)
+        self.manualButton.clicked.connect(self._on_manual_button_clicked)
         # Fill comboboxes
         for sigma in self.sigma_list:
-            self.ui.sigmaImage.addItem(str(sigma))
-            self.ui.sigmaMask.addItem(str(sigma))
+            self.sigmaImage.addItem(str(sigma))
+            self.sigmaMask.addItem(str(sigma))
 
         # Fill morphology type comboboxes
         for morph_type in self.morphology_types:
-            self.ui.morphologyTypeMask.addItem(morph_type)
-            self.ui.morphologyTypeImage.addItem(morph_type)
+            self.morphologyTypeMask.addItem(morph_type)
+            self.morphologyTypeImage.addItem(morph_type)
 
         # Fill backend combobox
         backends = ["SIFT", "ORB"]
         for backend in backends:
-            self.ui.backendCombo.addItem(backend)
+            self.backendCombo.addItem(backend)
 
         # Set initial values from settings
-        self.ui.blurMask.setChecked(ini_to_bool(settings["blurmask"]))
-        self.ui.invertMask.setChecked(ini_to_bool(settings["invertmask"]))
-        self.ui.equalizeMask.setChecked(ini_to_bool(settings["equalizemask"]))
-        self.ui.cannyMask.setChecked(ini_to_bool(settings["cannymask"]))
-        self.ui.blurImage.setChecked(ini_to_bool(settings["blurimage"]))
-        self.ui.invertImage.setChecked(ini_to_bool(settings["invertimage"]))
-        self.ui.equalizeImage.setChecked(ini_to_bool(settings["equalizeimage"]))
-        self.ui.cannyImage.setChecked(ini_to_bool(settings["cannyimage"]))
-        self.ui.otsuMask.setChecked(ini_to_bool(settings["otsumask"]))
-        self.ui.otsuImage.setChecked(ini_to_bool(settings["otsuimage"]))
-        self.ui.manualThresholdMask.setChecked(ini_to_bool(settings["manualthresholdmask"]))
-        self.ui.manualThresholdImage.setChecked(ini_to_bool(settings["manualthresholdimage"]))
-        self.ui.morphologyMask.setChecked(ini_to_bool(settings["morphologymask"]))
-        self.ui.morphologyImage.setChecked(ini_to_bool(settings["morphologyimage"]))
-        self.ui.sigmaImage.setCurrentText(str(settings["sigmaimage"]))
-        self.ui.sigmaMask.setCurrentText(str(settings["sigmamask"]))
-        self.ui.thresholdImage.setValue(int(settings["thresholdimage"]))
-        self.ui.thresholdMask.setValue(int(settings["thresholdmask"]))
-        self.ui.morphologyTypeMask.setCurrentText(settings["morphologytypemask"])
-        self.ui.morphologyTypeImage.setCurrentText(settings["morphologytypeimage"])
-        self.ui.morphologyStrengthMask.setValue(int(settings["morphologystrengthmask"]))
-        self.ui.morphologyStrengthImage.setValue(int(settings["morphologystrengthimage"]))
-        self.ui.crossCheck.setChecked(ini_to_bool(settings["crosscheck"]))
-        self.ui.ratioTestSpinBox.setValue(float(settings["ratiotest"]))
-        self.ui.residualTestSpinBox.setValue(int(settings["residualthreshold"]))
-        self.ui.backendCombo.setCurrentText(settings["backend"])
-        self.ui.scalingSpinBox.setValue(float(settings["scalingfactor"]))
+        self.blurMask.setChecked(ini_to_bool(settings["blurmask"]))
+        self.invertMask.setChecked(ini_to_bool(settings["invertmask"]))
+        self.equalizeMask.setChecked(ini_to_bool(settings["equalizemask"]))
+        self.cannyMask.setChecked(ini_to_bool(settings["cannymask"]))
+        self.blurImage.setChecked(ini_to_bool(settings["blurimage"]))
+        self.invertImage.setChecked(ini_to_bool(settings["invertimage"]))
+        self.equalizeImage.setChecked(ini_to_bool(settings["equalizeimage"]))
+        self.cannyImage.setChecked(ini_to_bool(settings["cannyimage"]))
+        self.otsuMask.setChecked(ini_to_bool(settings["otsumask"]))
+        self.otsuImage.setChecked(ini_to_bool(settings["otsuimage"]))
+        self.manualThresholdMask.setChecked(ini_to_bool(settings["manualthresholdmask"]))
+        self.manualThresholdImage.setChecked(ini_to_bool(settings["manualthresholdimage"]))
+        self.morphologyMask.setChecked(ini_to_bool(settings["morphologymask"]))
+        self.morphologyImage.setChecked(ini_to_bool(settings["morphologyimage"]))
+        self.sigmaImage.setCurrentText(str(settings["sigmaimage"]))
+        self.sigmaMask.setCurrentText(str(settings["sigmamask"]))
+        self.thresholdImage.setValue(int(settings["thresholdimage"]))
+        self.thresholdMask.setValue(int(settings["thresholdmask"]))
+        self.morphologyTypeMask.setCurrentText(settings["morphologytypemask"])
+        self.morphologyTypeImage.setCurrentText(settings["morphologytypeimage"])
+        self.morphologyStrengthMask.setValue(int(settings["morphologystrengthmask"]))
+        self.morphologyStrengthImage.setValue(int(settings["morphologystrengthimage"]))
+        self.crossCheck.setChecked(ini_to_bool(settings["crosscheck"]))
+        self.ratioTestSpinBox.setValue(float(settings["ratiotest"]))
+        self.residualTestSpinBox.setValue(int(settings["residualthreshold"]))
+        self.backendCombo.setCurrentText(settings["backend"])
+        self.scalingSpinBox.setValue(float(settings["scalingfactor"]))
 
         # Set up conditional enabling connections
-        self.ui.manualThresholdMask.stateChanged.connect(self._update_threshold_mask_state)
-        self.ui.manualThresholdImage.stateChanged.connect(self._update_threshold_image_state)
-        self.ui.morphologyMask.stateChanged.connect(self._update_morphology_mask_state)
-        self.ui.morphologyImage.stateChanged.connect(self._update_morphology_image_state)
-        self.ui.blurMask.stateChanged.connect(self._update_sigma_mask_state)
-        self.ui.cannyMask.stateChanged.connect(self._update_sigma_mask_state)
-        self.ui.blurImage.stateChanged.connect(self._update_sigma_image_state)
-        self.ui.cannyImage.stateChanged.connect(self._update_sigma_image_state)
+        self.manualThresholdMask.stateChanged.connect(self._update_threshold_mask_state)
+        self.manualThresholdImage.stateChanged.connect(self._update_threshold_image_state)
+        self.morphologyMask.stateChanged.connect(self._update_morphology_mask_state)
+        self.morphologyImage.stateChanged.connect(self._update_morphology_image_state)
+        self.blurMask.stateChanged.connect(self._update_sigma_mask_state)
+        self.cannyMask.stateChanged.connect(self._update_sigma_mask_state)
+        self.blurImage.stateChanged.connect(self._update_sigma_image_state)
+        self.cannyImage.stateChanged.connect(self._update_sigma_image_state)
 
         # Update initial states
         self._update_threshold_mask_state()
@@ -139,7 +139,7 @@ class dialog(QDialog):
             self.info_message("Showing saved result")
 
         # Connect UI elements to settings change handler at the end to prevent unncessary signaling during setup
-        for child in self.ui.groupBox.children():
+        for child in self.groupBox.children():
             if isinstance(child, QCheckBox):
                 child.stateChanged.connect(self._preprocessing_settings_changed)
             elif isinstance(child, QComboBox):
@@ -150,7 +150,7 @@ class dialog(QDialog):
                 child.textChanged.connect(self._preprocessing_settings_changed)
 
         # Connect backend combobox to settings change handler
-        for child in self.ui.groupBox_2.children():
+        for child in self.groupBox_2.children():
             if isinstance(child, QComboBox):
                 child.currentTextChanged.connect(self._preprocessing_settings_changed)
 
@@ -162,42 +162,42 @@ class dialog(QDialog):
         Called when preprocessing settings are changed. Updates local settings and refreshes the displayed images.
         """
         settings = {}
-        blurMask = self.ui.blurMask.isChecked()
-        invertMask = self.ui.invertMask.isChecked()
-        equalizeMask = self.ui.equalizeMask.isChecked()
-        cannyMask = self.ui.cannyMask.isChecked()
-        blurImage = self.ui.blurImage.isChecked()
-        invertImage = self.ui.invertImage.isChecked()
-        equalizeImage = self.ui.equalizeImage.isChecked()
-        cannyImage = self.ui.cannyImage.isChecked()
-        otsuMask = self.ui.otsuMask.isChecked()
-        otsuImage = self.ui.otsuImage.isChecked()
-        manualThresholdMask = self.ui.manualThresholdMask.isChecked()
-        manualThresholdImage = self.ui.manualThresholdImage.isChecked()
-        morphologyMask = self.ui.morphologyMask.isChecked()
-        morphologyImage = self.ui.morphologyImage.isChecked()
-        crossCheck = self.ui.crossCheck.isChecked()
+        blurMask = self.blurMask.isChecked()
+        invertMask = self.invertMask.isChecked()
+        equalizeMask = self.equalizeMask.isChecked()
+        cannyMask = self.cannyMask.isChecked()
+        blurImage = self.blurImage.isChecked()
+        invertImage = self.invertImage.isChecked()
+        equalizeImage = self.equalizeImage.isChecked()
+        cannyImage = self.cannyImage.isChecked()
+        otsuMask = self.otsuMask.isChecked()
+        otsuImage = self.otsuImage.isChecked()
+        manualThresholdMask = self.manualThresholdMask.isChecked()
+        manualThresholdImage = self.manualThresholdImage.isChecked()
+        morphologyMask = self.morphologyMask.isChecked()
+        morphologyImage = self.morphologyImage.isChecked()
+        crossCheck = self.crossCheck.isChecked()
         try:
-            sigmaImage = float(self.ui.sigmaImage.currentText())
+            sigmaImage = float(self.sigmaImage.currentText())
         except ValueError:
             sigmaImage = 1.0
         try:
-            sigmaMask = float(self.ui.sigmaMask.currentText())
+            sigmaMask = float(self.sigmaMask.currentText())
         except ValueError:
             sigmaMask = 1.0
-        thresholdImage = self.ui.thresholdImage.value()
-        thresholdMask = self.ui.thresholdMask.value()
+        thresholdImage = self.thresholdImage.value()
+        thresholdMask = self.thresholdMask.value()
         # Get morphology settings
-        morphologyTypeMask = self.ui.morphologyTypeMask.currentText()
-        morphologyTypeImage = self.ui.morphologyTypeImage.currentText()
-        morphologyStrengthMask = self.ui.morphologyStrengthMask.value()
-        morphologyStrengthImage = self.ui.morphologyStrengthImage.value()
-        settings["ratiotest"] = self.ui.ratioTestSpinBox.value()
-        settings["residualthreshold"] = self.ui.residualTestSpinBox.value()
-        settings["scalingfactor"] = self.ui.scalingSpinBox.value()
+        morphologyTypeMask = self.morphologyTypeMask.currentText()
+        morphologyTypeImage = self.morphologyTypeImage.currentText()
+        morphologyStrengthMask = self.morphologyStrengthMask.value()
+        morphologyStrengthImage = self.morphologyStrengthImage.value()
+        settings["ratiotest"] = self.ratioTestSpinBox.value()
+        settings["residualthreshold"] = self.residualTestSpinBox.value()
+        settings["scalingfactor"] = self.scalingSpinBox.value()
 
         # Get backend setting
-        settings["backend"] = self.ui.backendCombo.currentText()
+        settings["backend"] = self.backendCombo.currentText()
 
         settings["blurmask"] = blurMask
         settings["invertmask"] = invertMask
@@ -229,31 +229,31 @@ class dialog(QDialog):
 
     def _update_threshold_mask_state(self):
         """Enable/disable threshold mask spinbox based on checkbox state."""
-        self.ui.thresholdMask.setEnabled(self.ui.manualThresholdMask.isChecked())
+        self.thresholdMask.setEnabled(self.manualThresholdMask.isChecked())
 
     def _update_threshold_image_state(self):
         """Enable/disable threshold image spinbox based on checkbox state."""
-        self.ui.thresholdImage.setEnabled(self.ui.manualThresholdImage.isChecked())
+        self.thresholdImage.setEnabled(self.manualThresholdImage.isChecked())
 
     def _update_morphology_mask_state(self):
         """Enable/disable morphology mask controls based on checkbox state."""
-        enabled = self.ui.morphologyMask.isChecked()
-        self.ui.morphologyTypeMask.setEnabled(enabled)
-        self.ui.morphologyStrengthMask.setEnabled(enabled)
+        enabled = self.morphologyMask.isChecked()
+        self.morphologyTypeMask.setEnabled(enabled)
+        self.morphologyStrengthMask.setEnabled(enabled)
 
     def _update_morphology_image_state(self):
         """Enable/disable morphology image controls based on checkbox state."""
-        enabled = self.ui.morphologyImage.isChecked()
-        self.ui.morphologyTypeImage.setEnabled(enabled)
-        self.ui.morphologyStrengthImage.setEnabled(enabled)
+        enabled = self.morphologyImage.isChecked()
+        self.morphologyTypeImage.setEnabled(enabled)
+        self.morphologyStrengthImage.setEnabled(enabled)
 
     def _update_sigma_mask_state(self):
         """Enable/disable sigma mask combobox based on blur or edge detect checkbox state."""
-        self.ui.sigmaMask.setEnabled(self.ui.blurMask.isChecked() or self.ui.cannyMask.isChecked())
+        self.sigmaMask.setEnabled(self.blurMask.isChecked() or self.cannyMask.isChecked())
 
     def _update_sigma_image_state(self):
         """Enable/disable sigma image combobox based on blur or edge detect checkbox state."""
-        self.ui.sigmaImage.setEnabled(self.ui.blurImage.isChecked() or self.ui.cannyImage.isChecked())
+        self.sigmaImage.setEnabled(self.blurImage.isChecked() or self.cannyImage.isChecked())
 
     @staticmethod
     def to_pixmap(image):
@@ -297,8 +297,8 @@ class dialog(QDialog):
             img (np.ndarray): The image to display.
             mask (np.ndarray): The mask to display.
         """
-        imgview = self.ui.imgView
-        maskview = self.ui.maskView
+        imgview = self.imgView
+        maskview = self.maskView
         # Ensure imgview has a valid scene
         if imgview.scene() is None:
             imgview.setScene(QGraphicsScene())
@@ -323,10 +323,10 @@ class dialog(QDialog):
     def info_message(self, msg: str) -> None:
         self.info_msg.emit(msg)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def show_message(self, str):
         timestamp = time.strftime("%H:%M:%S", time.localtime())
-        self.ui.statusText.setText(f"{timestamp}: {str}")
+        self.statusText.setText(f"{timestamp}: {str}")
 
     def draw_result(
         self,
@@ -420,12 +420,12 @@ class dialog(QDialog):
                     x1_, y1_ = transformed[(i + 1) % 4]
                     ax.plot([x0 + w1, x1_ + w1], [y0, y1_], "y-", linewidth=1)
             canvas = FigureCanvas(fig)
-            scene = self.ui.resultView.scene()
+            scene = self.resultView.scene()
             if scene is not None:
                 scene.clear()
             else:
                 scene = QGraphicsScene()
-                self.ui.resultView.setScene(scene)
+                self.resultView.setScene(scene)
             canvas.draw()
             width, height = canvas.get_width_height()
             img_buf = canvas.buffer_rgba()
@@ -471,37 +471,31 @@ class dialog(QDialog):
 
         def _on_matching_finished():
             """Handle completion of the matching process."""
-            self.ui.matchButton.setEnabled(True)
-            self.ui.manualButton.setEnabled(True)
+            self.matchButton.setEnabled(True)
+            self.manualButton.setEnabled(True)
 
         def _on_matching_error(error_message):
             """Handle errors from the matching process."""
             self.info_message(f"Exception during matching: {error_message}")
             # Re-enable the match button if it was disabled
-            self.ui.matchButton.setEnabled(True)
-            self.ui.manualButton.setEnabled(True)
+            self.matchButton.setEnabled(True)
+            self.manualButton.setEnabled(True)
 
-        try:
-            self.info_message("Starting automatic matching...")
-            self._preprocessing_settings_changed()
+        self.info_message("Starting automatic matching...")
+        self._preprocessing_settings_changed()
 
-            # Disable the match button to prevent multiple simultaneous operations
-            self.ui.matchButton.setEnabled(False)
-            self.ui.manualButton.setEnabled(False)
+        # Disable the match button to prevent multiple simultaneous operations
+        self.matchButton.setEnabled(False)
+        self.manualButton.setEnabled(False)
 
-            # Create and configure the worker thread
-            self.worker_thread = WorkerThread(task=_run_matching)
-            self.worker_thread.progress.connect(_on_matching_progress)
-            self.worker_thread.finished.connect(_on_matching_finished)
-            self.worker_thread.error.connect(_on_matching_error)
+        # Create and configure the worker thread
+        self.worker_thread = WorkerThread(task=_run_matching)
+        self.worker_thread.progress.connect(_on_matching_progress)
+        self.worker_thread.finished.connect(_on_matching_finished)
+        self.worker_thread.error.connect(_on_matching_error)
 
-            # Start the worker thread
-            self.worker_thread.start()
-
-        except Exception as e:
-            self.info_message(f"Failed to start matching: {e}")
-            # Re-enable the match button in case of setup failure
-            self.ui.matchButton.setEnabled(True)
+        # Start the worker thread
+        self.worker_thread.start()
 
     def _on_manual_button_clicked(self):
         """
@@ -513,15 +507,15 @@ class dialog(QDialog):
         self.img_points = []
         self._draw_manual_points()
         self.info_message(f"Manual mode enabled. Click {self.num_needed} points on the mask (left), then {self.num_needed} on the image (right). Colors indicate matching order.")
-        self.ui.groupBox.setEnabled(False)  # disable preprocessing settings during manual mode
-        self.ui.groupBox_2.setEnabled(False)  # disable backend selection during manual mode
+        self.groupBox.setEnabled(False)  # disable preprocessing settings during manual mode
+        self.groupBox_2.setEnabled(False)  # disable backend selection during manual mode
 
     def _draw_manual_points(self):
         """
         Draw points on mask and image views for visual feedback during manual mode.
         """
-        maskview = self.ui.maskView
-        imgview = self.ui.imgView
+        maskview = self.maskView
+        imgview = self.imgView
         # Ensure scenes exist
         if maskview.scene() is None:
             maskview.setScene(QGraphicsScene())
@@ -558,11 +552,11 @@ class dialog(QDialog):
         if not self.manual_mode or self.expecting_img_click:
             return
         pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
-        scene_pos = self.ui.maskView.mapToScene(pos)
+        scene_pos = self.maskView.mapToScene(pos)
         x, y = scene_pos.x(), scene_pos.y()
         if len(self.mask_points) < self.num_needed:
             self.mask_points.append((x, y))
-            maskview = self.ui.maskView
+            maskview = self.maskView
             if maskview.scene() is None:
                 maskview.setScene(QGraphicsScene())
             mask_scene = maskview.scene()
@@ -584,11 +578,11 @@ class dialog(QDialog):
         if not self.manual_mode or not self.expecting_img_click:
             return
         pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
-        scene_pos = self.ui.imgView.mapToScene(pos)
+        scene_pos = self.imgView.mapToScene(pos)
         x, y = scene_pos.x(), scene_pos.y()
         if len(self.img_points) < self.num_needed:
             self.img_points.append((x, y))
-            imgview = self.ui.imgView
+            imgview = self.imgView
             if imgview.scene() is None:
                 imgview.setScene(QGraphicsScene())
             img_scene = imgview.scene()
@@ -606,15 +600,15 @@ class dialog(QDialog):
                         self.pointslist,
                         draw_matches=True,
                     )
-                except Exception as e:
+                except AffineError as e:
                     self.info_message(f"Manual transformation failed: {e}")
-                    self.ui.groupBox.setEnabled(True)  # manual mode over, re-enable preprocessing settings
-                    self.ui.groupBox_2.setEnabled(True)  # manual mode over, re-enable backend selection
+                    self.groupBox.setEnabled(True)  # manual mode over, re-enable preprocessing settings
+                    self.groupBox_2.setEnabled(True)  # manual mode over, re-enable backend selection
                 self.manual_mode = False
                 self.mask_points = []
                 self.img_points = []
                 self._draw_manual_points()
         else:
             self.info_message("All image points selected. If you want to retry, re-enter manual mode.")
-            self.ui.groupBox.setEnabled(True)  # manual mode over, re-enable preprocessing settings
-            self.ui.groupBox_2.setEnabled(True)  # manual mode over, re-enable backend selection
+            self.groupBox.setEnabled(True)  # manual mode over, re-enable preprocessing settings
+            self.groupBox_2.setEnabled(True)  # manual mode over, re-enable backend selection

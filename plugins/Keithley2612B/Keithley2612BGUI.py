@@ -1,10 +1,12 @@
 import os
+from copy import deepcopy
 
 # from Keithley2612B_test import Keithley2612B
 from Keithley2612B import Keithley2612B
+from keithley2612b_settingswidget import Ui_Form
 from plugin_components import LoggingHelper, get_public_methods, public
-from PyQt6 import uic
-from PyQt6.QtCore import QObject, Qt, pyqtSlot
+from PySide6 import QtWidgets
+from PySide6.QtCore import QObject, Qt, Slot
 
 """
             settings dictionary for class
@@ -53,32 +55,22 @@ from PyQt6.QtCore import QObject, Qt, pyqtSlot
 
 
 """
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+
+
+
+class KeithleySW(QtWidgets.QWidget, Ui_Form):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
 
 
 class Keithley2612BGUI(QObject):
     """GUI for Keithley2612B"""
-
-    non_public_methods = []  # add function names here, if they should not be exported as public to another plugins
-    public_methods = [
-        "set_running",
-        "set_gui_from_settings",
-        "smu_set_digio",
-        "smu_resmes",
-        "smu_setup_resmes",
-        "smu_setOutput",
-        "smu_getIV",
-        "smu_bufferRead",
-        "smu_getLastBufferValue",
-        "smu_runSweep",
-        "smu_init",
-        "smu_outputOFF",
-        "smu_outputON",
-        "smu_abort",
-        "smu_disconnect",
-        "smu_connect",
-        "smu_channelNames",
-        "smu_trigpulse",
-    ]  # necessary for descendents of QObject, otherwise _get_public_methods returns a lot of QObject methods
 
     ####################################  threads
 
@@ -92,10 +84,10 @@ class Keithley2612BGUI(QObject):
     def __init__(self):
         super().__init__()
         self.verbose = True  # Enable verbose logging
-        self.logger = LoggingHelper(self)
         # Load the settings based on the name of this file.
         self.path = os.path.dirname(__file__) + os.path.sep
-        self.settingsWidget = uic.loadUi(self.path + "Keithley2612B_settingsWidget.ui")
+        self.settingsWidget = KeithleySW()
+        self.logger = LoggingHelper(self)  # this exists purely for sending popups to the main window.
 
         # Initialize Keithley module
         self.smu = Keithley2612B()
@@ -119,14 +111,13 @@ class Keithley2612BGUI(QObject):
         plugin_info,
     ) -> None:
         self.settings.update(plugin_info)
-        self.logger.log_debug(f"Settings after update: {self.settings}")
+        logger.debug(f"Settings after update: {self.settings}")
         self.set_gui_from_settings()
-        return 0
 
     ########Functions
     ###############GUI react to change
     def _update_GUI_state(self):
-        self.logger.log_debug("Updating GUI state.")
+        logger.debug("Updating GUI state.")
         self._sourceFilter_changed(self.settingsWidget.comboBox_sourceFilter.currentIndex())
         self._drainFilter_changed(self.settingsWidget.comboBox_drainFilter.currentIndex())
         self.settingsWidget.update()
@@ -232,8 +223,9 @@ class Keithley2612BGUI(QObject):
                 self.smu_connect()
                 info = self.smu.getLineFrequency()
                 self.settings["lineFrequency"] = info
-            except:
-                self.logger.log_warn("Hardware error in Keithley2612B plugin: can not get line frequency, returned line frequency is 0")
+            except Exception as e:
+                logger.warning("Hardware error in Keithley2612B plugin: can not get line frequency, returned line frequency is 0")
+                logger.warning(f"Exception: {e}")
                 self.settings["lineFrequency"] = 0
         return (0, self.settings)
 
@@ -279,14 +271,14 @@ class Keithley2612BGUI(QObject):
             Returns:
                 bool: True if the value was found and set, False otherwise.
             """
-            self.logger.log_debug(f"Setting combobox {combobox.objectName()} to value: {value}")
+            logger.debug(f"Setting combobox {combobox.objectName()} to value: {value}")
             index = combobox.findText(value, Qt.MatchFlag.MatchFixedString)
             if index != -1:
                 combobox.setCurrentIndex(index)
                 return True
             return False
 
-        self.logger.log_debug("Setting GUI from internal settings")
+        logger.debug("Setting GUI from internal settings")
         self.settings["sourcehighc"] = to_bool(self.settings["sourcehighc"])
         self.settingsWidget.checkBox_sourceHighC.setChecked(self.settings["sourcehighc"])
         self.settings["drainhighc"] = to_bool(self.settings["drainhighc"])
@@ -301,18 +293,18 @@ class Keithley2612BGUI(QObject):
         self.settingsWidget.lineEdit_drainFilter.setText(str(self.settings["drainfiltervalue"]))
         self.settingsWidget.lineEdit_sourceDelayFactor.setText(f"{self.settings['sourcedelayfactor']}")
         self.settingsWidget.lineEdit_drainDelayFactor.setText(f"{self.settings['draindelayfactor']}")
-        self.logger.log_debug("GUI settings set from internal settings")
+        logger.debug("GUI settings set from internal settings")
         self._update_GUI_state()
 
     @public
     def setSettings(self, ext_settings):
-        self.logger.log_debug("Setting settings for sweep plugin: " + str(settings))
+        logger.debug("Setting settings for sweep plugin: " + str(ext_settings))
         # some values may be modified, as settings parameter is pointer, it will modify also the original data. So need to make sure that the original data is intact
-        self.settings.update(copy.deepcopy(ext_settings))  # may not work with nested dicts, needs to be checked
+        self.settings.update(deepcopy(ext_settings))  # may not work with nested dicts, needs to be checked
 
     ###############GUI enable/disable
     @public
-    @pyqtSlot(bool)
+    @Slot(bool)
     def set_running(self, status: bool) -> None:
         """Sets the running state of the GUI elements.
 
@@ -339,13 +331,13 @@ class Keithley2612BGUI(QObject):
             status, message = step()
             if status:
                 if status == 1:
-                    self.logger.log_warn(str(message))
+                    logger.warning(str(message))
                 else:
-                    self.logger.log_info(str(message))
+                    logger.info(str(message))
                 self.logger.info_popup(message["Error message"])
                 return [status, message]
 
-        self.logger.log_debug("Reset successful")
+        logger.debug("Reset successful")
         return [status, message]
 
     ###############providing access to SMU functions
@@ -477,6 +469,16 @@ class Keithley2612BGUI(QObject):
         return self.smu.read_buffers(channel)
 
     @public
+    def smu_bufferReadTimestamp(self, channel):
+        """an interface for an externall calling function to get the content of a channel buffer with timestamps from Keithley
+        s: channel to get the last value (may be 'smua' or 'smub')
+
+        Returns:
+            np.ndarray (current, voltage)
+        """
+        return self.smu.read_buffers_timestamp(channel)
+
+    @public
     def smu_getIV(self, channel) -> tuple[int, list[float]]:
         """gets IV data
 
@@ -534,7 +536,7 @@ class Keithley2612BGUI(QObject):
         Returns:
             tuple: (status, message) where status is 0 for success, non-zero for error.
         """
-        self.smu.set_digio(id, value)
+        self.smu.set_digio(channel, value)
         return (0, {"Error message": "Digital output set successfully"})
 
     @public
@@ -557,3 +559,24 @@ class Keithley2612BGUI(QObject):
             return (0, {"Error message": "OK"})
         except Exception as e:
             return (4, {"Error message": f"HW issue in keithley trigpulse: {e}"})
+
+    @public
+    def smu_fastpulse(self, s):
+        """an interface for an externall calling function to run trigger pulse on Keithley
+        s: dictionary containing the settings to run the sweep. It is different from the self.settings and from dictionary for normal sweep
+        the structure is given in header to keithley_run_trigpulse
+
+        Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+
+        Args:
+            s (dict): Configuration dictionary.
+
+        Note: this function reinitializes the Keithley, separate init is not needed
+        """
+        try:
+            self.smu.keithley_run_fastpulse(s)
+            return (0, {"Error message": "OK"})
+        except Exception as e:
+            return (4, {"Error message": f"HW issue in keithley fastpulse: {e}"})

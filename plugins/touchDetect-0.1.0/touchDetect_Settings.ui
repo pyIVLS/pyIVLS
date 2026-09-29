@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1148</width>
-    <height>921</height>
+    <width>893</width>
+    <height>551</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -30,8 +30,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>1128</width>
-        <height>901</height>
+        <width>879</width>
+        <height>537</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_6">
@@ -48,7 +48,7 @@
            </item>
            <item>
             <widget class="QComboBox" name="smuBox">
-             <property name="placeholderText">
+             <property name="placeholderText" stdset="0">
               <string>no SMU plugins found</string>
              </property>
             </widget>
@@ -66,7 +66,7 @@
            </item>
            <item>
             <widget class="QComboBox" name="micromanipulatorBox">
-             <property name="placeholderText">
+             <property name="placeholderText" stdset="0">
               <string>no Micromanipulators found</string>
              </property>
             </widget>
@@ -84,7 +84,7 @@
            </item>
            <item>
             <widget class="QComboBox" name="condetBox">
-             <property name="placeholderText">
+             <property name="placeholderText" stdset="0">
               <string>No condet plugins found</string>
              </property>
             </widget>
@@ -326,44 +326,67 @@ min-width: 20px;</string>
               <property name="title">
                <string>Manipulator 1</string>
               </property>
-              <layout class="QVBoxLayout" name="verticalLayout">
+              <layout class="QHBoxLayout" name="horizontalLayout_8">
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_2">
+                <layout class="QVBoxLayout" name="verticalLayout">
                  <item>
-                  <widget class="QComboBox" name="mansmu_1"/>
+                  <layout class="QHBoxLayout" name="horizontalLayout_2">
+                   <item>
+                    <widget class="QComboBox" name="mansmu_1"/>
+                   </item>
+                   <item>
+                    <widget class="QComboBox" name="mancon_1"/>
+                   </item>
+                  </layout>
                  </item>
                  <item>
-                  <widget class="QComboBox" name="mancon_1"/>
+                  <layout class="QHBoxLayout" name="horizontalLayout_7">
+                   <item>
+                    <widget class="QLabel" name="label_10">
+                     <property name="text">
+                      <string>Resistance cutoff</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QSpinBox" name="manres_1">
+                     <property name="minimum">
+                      <number>1</number>
+                     </property>
+                     <property name="maximum">
+                      <number>20</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="label_11">
+                     <property name="text">
+                      <string>Ω</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
                  </item>
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_7">
-                 <item>
-                  <widget class="QLabel" name="label_10">
-                   <property name="text">
-                    <string>Resistance cutoff</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QSpinBox" name="manres_1">
-                   <property name="minimum">
-                    <number>1</number>
-                   </property>
-                   <property name="maximum">
-                    <number>20</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_11">
-                   <property name="text">
-                    <string>Ω</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                <widget class="QLabel" name="manindicator_1">
+                 <property name="maximumSize">
+                  <size>
+                   <width>20</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">border-radius: 10px;
+background-color:rgb(165, 29, 45);
+min-height: 20px;
+min-width: 20px;</string>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
                </item>
               </layout>
              </widget>
@@ -373,44 +396,67 @@ min-width: 20px;</string>
               <property name="title">
                <string>Manipulator 2</string>
               </property>
-              <layout class="QVBoxLayout" name="verticalLayout_2">
+              <layout class="QHBoxLayout" name="horizontalLayout_16">
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_3">
+                <layout class="QVBoxLayout" name="verticalLayout_4">
                  <item>
-                  <widget class="QComboBox" name="mansmu_2"/>
+                  <layout class="QHBoxLayout" name="horizontalLayout_3">
+                   <item>
+                    <widget class="QComboBox" name="mansmu_2"/>
+                   </item>
+                   <item>
+                    <widget class="QComboBox" name="mancon_2"/>
+                   </item>
+                  </layout>
                  </item>
                  <item>
-                  <widget class="QComboBox" name="mancon_2"/>
+                  <layout class="QHBoxLayout" name="horizontalLayout_15">
+                   <item>
+                    <widget class="QLabel" name="label_12">
+                     <property name="text">
+                      <string>Resistance cutoff</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QSpinBox" name="manres_2">
+                     <property name="minimum">
+                      <number>1</number>
+                     </property>
+                     <property name="maximum">
+                      <number>20</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="label_13">
+                     <property name="text">
+                      <string>Ω</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
                  </item>
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_8">
-                 <item>
-                  <widget class="QLabel" name="label_12">
-                   <property name="text">
-                    <string>Resistance cutoff</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QSpinBox" name="manres_2">
-                   <property name="minimum">
-                    <number>1</number>
-                   </property>
-                   <property name="maximum">
-                    <number>20</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_13">
-                   <property name="text">
-                    <string>Ω</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                <widget class="QLabel" name="manindicator_2">
+                 <property name="maximumSize">
+                  <size>
+                   <width>20</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">border-radius: 10px;
+background-color:rgb(165, 29, 45);
+min-height: 20px;
+min-width: 20px;</string>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
                </item>
               </layout>
              </widget>
@@ -420,44 +466,67 @@ min-width: 20px;</string>
               <property name="title">
                <string>Manipulator 4</string>
               </property>
-              <layout class="QVBoxLayout" name="verticalLayout_4">
+              <layout class="QHBoxLayout" name="horizontalLayout_14">
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_5">
+                <layout class="QVBoxLayout" name="verticalLayout_3">
                  <item>
-                  <widget class="QComboBox" name="mansmu_4"/>
+                  <layout class="QHBoxLayout" name="horizontalLayout_5">
+                   <item>
+                    <widget class="QComboBox" name="mansmu_4"/>
+                   </item>
+                   <item>
+                    <widget class="QComboBox" name="mancon_4"/>
+                   </item>
+                  </layout>
                  </item>
                  <item>
-                  <widget class="QComboBox" name="mancon_4"/>
+                  <layout class="QHBoxLayout" name="horizontalLayout_13">
+                   <item>
+                    <widget class="QLabel" name="label_16">
+                     <property name="text">
+                      <string>Resistance cutoff</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QSpinBox" name="manres_4">
+                     <property name="minimum">
+                      <number>1</number>
+                     </property>
+                     <property name="maximum">
+                      <number>20</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="label_17">
+                     <property name="text">
+                      <string>Ω</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
                  </item>
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_10">
-                 <item>
-                  <widget class="QLabel" name="label_16">
-                   <property name="text">
-                    <string>Resistance cutoff</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QSpinBox" name="manres_4">
-                   <property name="minimum">
-                    <number>1</number>
-                   </property>
-                   <property name="maximum">
-                    <number>20</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_17">
-                   <property name="text">
-                    <string>Ω</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                <widget class="QLabel" name="manindicator_4">
+                 <property name="maximumSize">
+                  <size>
+                   <width>20</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">border-radius: 10px;
+background-color:rgb(165, 29, 45);
+min-height: 20px;
+min-width: 20px;</string>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
                </item>
               </layout>
              </widget>
@@ -467,44 +536,67 @@ min-width: 20px;</string>
               <property name="title">
                <string>Manipulator 3</string>
               </property>
-              <layout class="QVBoxLayout" name="verticalLayout_3">
+              <layout class="QHBoxLayout" name="horizontalLayout_10">
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_4">
+                <layout class="QVBoxLayout" name="verticalLayout_2">
                  <item>
-                  <widget class="QComboBox" name="mansmu_3"/>
+                  <layout class="QHBoxLayout" name="horizontalLayout_4">
+                   <item>
+                    <widget class="QComboBox" name="mansmu_3"/>
+                   </item>
+                   <item>
+                    <widget class="QComboBox" name="mancon_3"/>
+                   </item>
+                  </layout>
                  </item>
                  <item>
-                  <widget class="QComboBox" name="mancon_3"/>
+                  <layout class="QHBoxLayout" name="horizontalLayout_9">
+                   <item>
+                    <widget class="QLabel" name="label_14">
+                     <property name="text">
+                      <string>Resistance cutoff</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QSpinBox" name="manres_3">
+                     <property name="minimum">
+                      <number>1</number>
+                     </property>
+                     <property name="maximum">
+                      <number>20</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="label_15">
+                     <property name="text">
+                      <string>Ω</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
                  </item>
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_9">
-                 <item>
-                  <widget class="QLabel" name="label_14">
-                   <property name="text">
-                    <string>Resistance cutoff</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QSpinBox" name="manres_3">
-                   <property name="minimum">
-                    <number>1</number>
-                   </property>
-                   <property name="maximum">
-                    <number>20</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="label_15">
-                   <property name="text">
-                    <string>Ω</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                <widget class="QLabel" name="manindicator_3">
+                 <property name="maximumSize">
+                  <size>
+                   <width>20</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">border-radius: 10px;
+background-color:rgb(165, 29, 45);
+min-height: 20px;
+min-width: 20px;</string>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
                </item>
               </layout>
              </widget>
@@ -534,6 +626,9 @@ min-width: 20px;</string>
        </item>
        <item>
         <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
          <property name="sizeHint" stdset="0">
           <size>
            <width>20</width>

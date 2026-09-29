@@ -3,15 +3,16 @@ import logging
 import os
 
 import numpy as np
-from Affine_MDI import DualGraphicsWidget
 from Affine_skimage import Affine, AffineError
-from affineDialog import dialog
-from gdsLoadFunctionality import gdsLoadDialog
-from plugin_components import CloseLockSignalProvider, DependencyManager, LoggingHelper, PyIVLSReturnCode, get_public_methods, ini_to_bool, load_widget, public
-from PyQt6 import QtWidgets
-from PyQt6.QtCore import QObject, QPointF, Qt, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QAction, QImage, QPixmap
-from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGroupBox, QLabel, QMenu
+from plugin_components import CloseLockSignalProvider, DependencyManager, LoggingHelper, PyIVLSReturnCode, get_public_methods, ini_to_bool, public
+from PySide6 import QtWidgets
+from PySide6.QtCore import QPointF, Qt, Signal, Slot
+from PySide6.QtGui import QAction, QImage, QPixmap
+from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QMenu
+from widgets.Affine_MDI import DualGraphicsWidget
+from widgets.affine_settingswidget import Ui_Form
+from widgets.affineDialog import dialog
+from widgets.gdsLoadFunctionality import gdsLoadDialog
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,20 @@ def image_to_scene(image: np.ndarray) -> QGraphicsScene:
     return scene
 
 
-class AffineGUI(QObject):
+class AffineSW(QtWidgets.QWidget):
+    """
+    Settings widget for the Affine plugin.
+    This widget is used to configure the settings for the Affine plugin.
+    It is a wrapper around the Ui_Form class generated from the Qt Designer .ui file.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.ui = Ui_Form()
+        self.ui.setupUi(self)
+
+
+class AffineGUI(QtWidgets.QWidget):
     """
     GUI implementation of the Affine plugin for pyIVLS.
 
@@ -57,7 +71,7 @@ class AffineGUI(QObject):
     """
 
     COORD_DATA = Qt.ItemDataRole.UserRole + 1
-    gui_update_signal = pyqtSignal()
+    gui_update_signal = Signal()
 
     def __init__(
         self,
@@ -67,7 +81,7 @@ class AffineGUI(QObject):
         self.MDIWidget = DualGraphicsWidget()
         path = os.path.dirname(os.path.abspath(__file__))
         self.path = path + os.path.sep
-        self.settingsWidget = load_widget(settings=True, mdi=False, path=path)
+        self.settingsWidget = AffineSW()
         self._find_labels(self.settingsWidget)
         self._connect_buttons(self.settingsWidget)
 
@@ -85,7 +99,7 @@ class AffineGUI(QObject):
         # init dependency functions
         self.dialog = None
         self.temp_points = list[QPointF]()
-        self.mask = None  # internal reference to the mask ndarray
+        self.mask_array = None  # internal reference to the mask ndarray
 
         # connect gui update signal
         self.gui_update_signal.connect(self._gui_update)
@@ -98,7 +112,7 @@ class AffineGUI(QObject):
 
     def _initGUI(self, settings):
         # Keep mask-related UI state aligned with whether a mask is currently loaded.
-        self._gui_change_mask_uploaded(self.mask is not None)
+        self._gui_change_mask_uploaded(self.mask_array is not None)
         # init camerabox through dm
         self.dm.initialize_dependency_selection(settings)
         self._refresh_dependency_comboboxes(settings)
@@ -126,25 +140,24 @@ class AffineGUI(QObject):
         if preferred and preferred in available:
             self.cameraComboBox.setCurrentText(preferred)
 
-    def _find_labels(self, settingsWidget):
+    def _find_labels(self, settingsWidget: AffineSW):
         """Finds the labels in the settings widget."""
 
         # inputs
-        self.dispKP = settingsWidget.findChild(QtWidgets.QCheckBox, "dispKP")
-        self.pointCount = settingsWidget.findChild(QtWidgets.QSpinBox, "pointCount")
-        self.pointName = settingsWidget.findChild(QtWidgets.QLineEdit, "pointName")
-        self.definedPoints = settingsWidget.findChild(QtWidgets.QListWidget, "definedPoints")
+        self.pointCount = settingsWidget.ui.pointCount
+        self.pointName = settingsWidget.ui.pointName
+        self.definedPoints = settingsWidget.ui.definedPoints
         self.definedPoints.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
         self.definedPoints.setDragEnabled(True)
         self.definedPoints.setAcceptDrops(True)
         self.definedPoints.setDragDropMode(QtWidgets.QAbstractItemView.DragDropMode.InternalMove)
         self.definedPoints.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.cameraComboBox: QtWidgets.QComboBox = settingsWidget.cameraComboBox
-        self.affineBox = settingsWidget.findChild(QGroupBox, "affineBox")
-        self.pointGroupBox = settingsWidget.findChild(QGroupBox, "groupBox")
-        self.maskLabel = settingsWidget.findChild(QLabel, "label")
+        self.cameraComboBox = settingsWidget.ui.cameraComboBox
+        self.affineBox = settingsWidget.ui.affineBox
+        self.pointGroupBox = settingsWidget.ui.groupBox
+        self.mask_arrayLabel = settingsWidget.ui.label
 
-    def _connect_buttons(self, settingsWidget):
+    def _connect_buttons(self, settingsWidget: AffineSW):
         """Connects the buttons, checkboxes and label clicks to their actions.
 
         Args:
@@ -155,7 +168,7 @@ class AffineGUI(QObject):
             _type_: _description_
         """
         # Save inputs that are used in multiple functions
-        self.centerCheckbox = settingsWidget.findChild(QtWidgets.QCheckBox, "centerClicks")
+        self.centerCheckbox = settingsWidget.ui.centerClicks
 
         # add a custom context menu in the list widget to allow point deletion
         self.definedPoints.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -165,10 +178,10 @@ class AffineGUI(QObject):
         self.definedPoints.itemSelectionChanged.connect(self._refresh_left_points_display)
 
         # connect the buttons to their actions
-        settingsWidget.maskButton.clicked.connect(self._mask_button_action)
-        settingsWidget.savePoints.clicked.connect(self.save_points_action)
-        settingsWidget.importPoints.clicked.connect(self._import_points_action)
-        settingsWidget.showButton.clicked.connect(self._open_dialog)
+        settingsWidget.ui.maskButton.clicked.connect(self._mask_button_action)
+        settingsWidget.ui.savePoints.clicked.connect(self.save_points_action)
+        settingsWidget.ui.importPoints.clicked.connect(self._import_points_action)
+        settingsWidget.ui.showButton.clicked.connect(self._open_dialog)
 
         # connect clicks on views to functionality
         self.MDIWidget._view_left.point_clicked.connect(self._on_mask_point_clicked)
@@ -178,7 +191,7 @@ class AffineGUI(QObject):
 
     # GUI Functionality
 
-    @pyqtSlot(QPointF)
+    @Slot(QPointF)
     def _on_mask_point_clicked(self, point: QPointF):
         point_to_store = point
 
@@ -187,13 +200,13 @@ class AffineGUI(QObject):
                 mask_shape = self.affine.internal_mask.shape
                 max_y = mask_shape[0] - 1
                 max_x = mask_shape[1] - 1
-                x = int(round(point.x()))
-                y = int(round(point.y()))
+                x = round(point.x())
+                y = round(point.y())
 
                 if 0 <= x <= max_x and 0 <= y <= max_y:
                     centered_x, centered_y = self.affine.center_on_component(x, y)
                     point_to_store = QPointF(float(centered_x), float(centered_y))
-            except Exception as e:
+            except AffineError as e:
                 self.logger.log_warn(f"Affine: could not center click on component: {e!s}")
 
         self.temp_points.append(point_to_store)
@@ -210,7 +223,7 @@ class AffineGUI(QObject):
             # refresh display to show only selected sets (no temp points)
             # self._refresh_left_points_display()
 
-    @pyqtSlot(QPointF)
+    @Slot(QPointF)
     def _on_image_point_clicked(self, point: QPointF):
         logger.info(f"Affine: Image point clicked at ({point.x()}, {point.y()})")
 
@@ -251,13 +264,13 @@ class AffineGUI(QObject):
     def save_points_action(self):
         """Action for the save button."""
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self.settingsWidget,
+            self,
             "Save points",
             self.path + os.sep + "measurement_points",
             ".csv (*.csv);;All Files (*)",
         )
         if fileName:
-            status, (points, names) = self.positioning_measurement_points()
+            _status, (points, names) = self.positioning_measurement_points()
             with open(fileName, "w", newline="") as csvfile:
                 cswriter = csv.writer(csvfile, delimiter=",")
                 fields = ["Name", "x_mask", "y_mask", "x_img", "y_img"]
@@ -273,7 +286,7 @@ class AffineGUI(QObject):
     def _import_points_action(self):
         """Action for the import points button."""
         fileName, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self.settingsWidget,
+            self,
             "Open points file",
             self.path + os.sep + "measurement_points",
             "comma-separated values (*.csv);;All Files (*)",
@@ -313,11 +326,9 @@ class AffineGUI(QObject):
             if isinstance(pt, QPointF):
                 norm.append(pt)
             else:
-                try:
-                    x, y = float(pt[0]), float(pt[1])
-                    norm.append(QPointF(x, y))
-                except Exception:
-                    continue
+                x, y = float(pt[0]), float(pt[1])
+                norm.append(QPointF(x, y))
+
         return norm
 
     def _refresh_left_points_display(self):
@@ -342,7 +353,7 @@ class AffineGUI(QObject):
         """Interface for the gds mask loading button."""
         try:
             fileName, _ = QtWidgets.QFileDialog.getOpenFileName(
-                self.settingsWidget,
+                self,
                 "Open .GDS, .png or .jpg file",
                 self.path + os.sep + "masks",
                 "Mask Files or Images(*.gds *.png *.jpg);;All Files (*)",
@@ -365,10 +376,10 @@ class AffineGUI(QObject):
                 # mask is now a ndarray, convert to scene and set to mdi
                 mask_scene = image_to_scene(mask)
                 self.MDIWidget.set_scene("left", mask_scene)
-                if self.maskLabel is not None:
-                    self.maskLabel.setText(f"Mask loaded: {os.path.basename(fileName)}")
+                if self.mask_arrayLabel is not None:
+                    self.mask_arrayLabel.setText(f"Mask loaded: {os.path.basename(fileName)}")
                 self._gui_change_mask_uploaded(mask_loaded=True)
-                self.mask = mask  # keep internal reference to the mask ndarray for passing to dialog
+                self.mask_array = mask  # keep internal reference to the mask ndarray for passing to dialog
         except AffineError as e:
             self.logger.log_error(e.message)
 
@@ -414,15 +425,13 @@ class AffineGUI(QObject):
                 if isinstance(pt, QPointF):
                     tmp.append((pt.x(), pt.y()))
                 else:
-                    try:
-                        tmp.append((float(pt[0]), float(pt[1])))
-                    except Exception:
-                        continue
+                    tmp.append((float(pt[0]), float(pt[1])))
+
             pointslist = tmp
         status, settings = self.parse_settings_widget()
         if status == 0:
             # Pass the settings dict to the dialog
-            self.dialog = dialog(self.affine, img[1], self.mask, settings, pointslist=pointslist, logger=self.logger)
+            self.dialog = dialog(self.affine, img[1], self.mask_array, settings, pointslist=pointslist, logger=self.logger)
             self.dialog.finished.connect(_on_close)
             self.dialog.show()
         else:
@@ -482,13 +491,13 @@ class AffineGUI(QObject):
         """
         return get_public_methods(self)
 
-    @pyqtSlot()
+    @Slot()
     def _gui_update(self):
         """Emits a signal to update the GUI."""
         self.pointCount.setValue(int(self.settings["pointcount"]))
         self.centerCheckbox.setChecked(ini_to_bool(self.settings["centerclicks"]))
 
-    @pyqtSlot()
+    @Slot()
     def set_gui_from_settings(self):
         """Sets gui elemenets from internal dict"""
         self.gui_update_signal.emit()

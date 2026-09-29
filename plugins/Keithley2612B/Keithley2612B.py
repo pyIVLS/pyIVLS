@@ -4,10 +4,12 @@ import os
 import time
 from enum import Enum
 from threading import Lock
+from typing import Literal
 
 import numpy as np
 import pyvisa
 import usbtmc
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from pyvisa.resources import MessageBasedResource
 
 logger = logging.getLogger(__name__)
@@ -76,6 +78,105 @@ class BackendType(Enum):
 """
 
 
+# move to components?
+class WarnOnDefaultModel(BaseModel):
+    @model_validator(mode="wrap")
+    @classmethod
+    def _detect_defaults(cls, values, handler):
+        validated_self = handler(values)
+
+        if isinstance(values, dict):
+            # Find fields present in model fields but missing from raw input dict
+            for field_name, field_info in cls.model_fields.items():
+                if field_name not in values and field_info.is_required() is False:
+                    default_val = getattr(validated_self, field_name)
+                    logger.debug(f"[{cls.__name__}] Field '{field_name}' missing from input. Falling back to default: {default_val}")
+        return validated_self
+
+
+class InitDict(WarnOnDefaultModel):
+    """Validator BaseModel for hardware settings. This is the GROUND TRUTH for what
+    the present code expects for datatypes. Especially important for booleans, as the string "False" evaluates to true.
+    many such cases!
+
+    This may not make sense in the end, as the settings dicts differ quite a bit between plugins. In any case this discovered some bugs!
+    As i see it, there are a couple of options:
+    1. If we keep this, it would be good to have a standard shape for keithley settings dicts. No ad hoc dicts.
+    Alternatively, we could add default values for most fields.
+    2. Keep things as is.
+    """
+
+    # Channel Configuration
+    # might be good to subclass for sim, real backends. For now this is ok.
+    source: Literal["smua", "smub", "mocka", "mockb"] = Field(description="Source channel")
+    sourcesense: bool = Field(description="Source sense mode: True (4-wire), False (2-wire)")
+    sourcenplc: float = Field(ge=0.001, le=25, description="Source integration time in NPLC units")
+    sourcehighc: bool = Field(description="High capacitance mode for source")
+    delay: bool = Field(description="Source delay mode: True (Auto), False (Manual)")
+    pulse: bool = Field(description="Pulsed mode: True (pulsed), False (continuous)")
+    sourcedelayfactor: float = Field(ge=0, description="Source auto delay factor multiplier")
+    delayduration: float = Field(ge=0, description="Source manual delay duration in seconds")
+    type: Literal["i", "v"] = Field(description="Source inject type")
+    start: float = Field(description="Start value of sweep")
+    end: float = Field(description="End value of sweep")
+    limit: float = Field(description="Source limit (compliance voltage/current)")
+    sourcefiltertype: Literal[
+        "FILTER_OFF",
+        "FILTER_MOVING_AVG",
+        "FILTER_REPEAT_AVG",
+        "FILTER_MEDIAN",
+    ] = Field(description="Source filter type ('Off' or filter string)")
+    sourcefiltervalue: int | None = Field(description="number of points in source filter buffer", gt=0, le=100, default=None)
+    single_ch: bool = Field(description="Single channel mode active flag")
+    drain: Literal["smua", "smub", "mocka", "mockb"] = Field(description="Drain channel")
+    drainsense: bool = Field(description="Drain sense mode: True (4-wire), False (2-wire)")
+    drainnplc: float = Field(ge=0.001, le=25, description="Drain integration time in NPLC units")
+    drainhighc: bool = Field(description="High capacitance mode for drain")
+    draindelay: bool = Field(description="Drain delay mode: True (Auto), False (Manual)")
+    draindelayfactor: float = Field(ge=0, description="Drain auto delay factor multiplier")
+    draindelayduration: float = Field(ge=0, description="Drain manual delay duration in seconds")
+    drainfiltertype: Literal[
+        "FILTER_OFF",
+        "FILTER_MOVING_AVG",
+        "FILTER_REPEAT_AVG",
+        "FILTER_MEDIAN",
+    ] = Field(description="Drain filter type ('Off' or filter string)")
+    drainfiltervalue: int | None = Field(description="number of points in drain filter buffer", gt=0, le=100, default=None)
+    drainlimit: float = Field(description="Drain limit (compliance voltage/current)")
+
+    # logarithmic sweep settings
+
+    # actually only required for keithley_sweep
+    # pulsepause: float = Field(ge=0, description="Pause time between pulses in seconds")
+    # drainvoltage: float = Field(description="Voltage setpoint on drain")
+    # repeat: int = Field(gt=0, description="Repeat count (must be > 0)")
+
+    # Repeat Count
+
+    # Explicit Drain Settings
+
+    @model_validator(mode="after")
+    def validate_channels(self) -> "InitDict":
+        if not self.single_ch and self.source == self.drain:
+            raise ValueError(f"Source and Drain cannot use the same channel '{self.source}' when single_ch is False.")
+        return self
+
+
+def validate_init(s: dict) -> InitDict:
+    """
+    Validates a settings dictionary against the HardwareSettings schema.
+    Returns the validated HardwareSettings instance.
+    """
+    try:
+        # Pydantic parses keys, enforces types, and runs validators
+        validated_settings = InitDict.model_validate(s)
+        return validated_settings
+
+    except ValidationError as e:
+        logger.error(f"Validation error for settings: {s}\nError details: {e.json(indent=2)}")
+        raise
+
+
 class Keithley2612B:
     ke: MessageBasedResource | None = None
     k: usbtmc.Instrument | None = None
@@ -102,7 +203,15 @@ class Keithley2612B:
         self.dataarray = np.array([])
 
     ## Communication functions
-    def safewrite(self, command: str) -> None:
+    def _raw_write(self, command: str) -> None:
+        """Raw write to device, assumes already connected.
+
+        Args:
+            command (str): TSP command to write to the instrument
+
+        Raises:
+            ValueError: Device not connected, or incorrect backend.
+        """
         try:
             if self.backend == BackendType.USB.value:
                 if self.k is None:
@@ -119,13 +228,25 @@ class Keithley2612B:
             else:
                 raise ValueError(f"Unknown backend: {self.backend}")
 
-        except Exception as e:
-            ##IRtodo#### mov to the log
-            logger.error(f"Exception sending command: {command}\nException: {e}")
-            ##IRtothink#### some exception handling should be implemented
-            raise e
+        except Exception:
+            logger.exception(f"Exception sending command: {command}")
+            # we raise from here since no handling is actually done.
+            # in the future, migth attempt reconnect + resend here.
+            # For now I feel it is best to propagate the exception since we cannot handle it.
+            raise
 
-    def safequery(self, command: str) -> str:
+    def _raw_query(self, command: str) -> str:
+        """Query the instrument. Assumes device is connected
+
+        Args:
+            command (str): TSP command
+
+        Raises:
+            ValueError: device not connected, or incorrect backend.
+
+        Returns:
+            str: unparsed response from instrument
+        """
         try:
             if self.backend == BackendType.USB.value:
                 if self.k is None:
@@ -145,11 +266,50 @@ class Keithley2612B:
                 return "0"
             else:
                 raise ValueError(f"Unknown backend: {self.backend}")
-        except Exception as e:
-            ##IRtodo#### mov to the log
-            logger.error(f"Exception querying command: {command}\nException: {e}")
-            ##IRtothink#### some exception handling implemented
-            raise e
+        except Exception:
+            logger.exception(f"Exception sending command: {command}")
+            # we raise from here since no handling is actually done.
+            # in the future, migth attempt reconnect + resend here.
+            # For now I feel it is best to propagate the exception since we cannot handle it.
+            raise
+
+    def read_error(self) -> str:
+        """Reads a single error from the instrument. Manual p.12-3 states that the error queue
+        is first in, first out so reading gives the oldest error in the queue.
+
+        Returns:
+            str: unparsed error string
+        """
+        ret = self.safequery("print(errorqueue.next())")
+        return ret
+
+    def errors_in_buffer(self) -> int:
+        """Reads the number of errors in the error queue.
+
+        Returns:
+            int: number of errors in the queue
+        """
+        ret = self.safequery("print(errorqueue.count)")
+        # manual pg 9-88 states that return is a float, "4.00000e+00" = 4 errors in queue
+        ret = float(ret)
+        # float() coerces sci.not. into float: Source - https://stackoverflow.com/a/23636566
+        # int conversion is pure truncation. I trust keithley to actually return whole numbers.
+        return int(ret)
+
+    def safewrite(self, command: str, check=False) -> None:
+        self._raw_write(command)
+        # python evals ifs left to right with short-circuiting, so this will not call the instrument unless check is True
+        if check and self.errors_in_buffer() > 0:
+            err = self.read_error()
+            logger.error(f"Error found after command '{command}': {err}")
+
+    def safequery(self, command: str, check=False) -> str:
+        ret = self._raw_query(command)
+        # python evals ifs left to right with short-circuiting, so this will not call the instrument unless check is True
+        if check and self.errors_in_buffer() > 0:
+            err = self.read_error()
+            logger.error(f"Error found after command '{command}': {err}")
+        return ret
 
     def keithley_IDN(self) -> str:
         return "keith"
@@ -173,10 +333,13 @@ class Keithley2612B:
             if self.k is None:
                 #### connect with usbtmc
                 self.k = usbtmc.Instrument(self.address)
+                if self.k is None:
+                    raise ValueError(f"Could not connect to Keithley 2612B via USB at {self.address}")
                 # https://github.com/python-ivi/python-usbtmc/blob/master/usbtmc/usbtmc.py#L756C10-L756C22
                 # source code shows that ask returns a string when message is str, list when message is list or tuple
                 con_test = str(self.k.ask("*IDN?"))
-                assert "keithley" in con_test.lower(), f"Connected to wrong device: {con_test}"
+                if not "keithley" in con_test.lower():
+                    raise ValueError(f"Connected to wrong device: {con_test}")
                 self.set_digio(1, False)  # set digital line 1 to LOW
                 _hello()
                 # https://github.com/python-ivi/python-usbtmc/blob/master/usbtmc/usbtmc.py#L347
@@ -187,7 +350,8 @@ class Keithley2612B:
                 #### connect with pyvisa resource manager
                 visa_rsc_str = f"TCPIP::{self.eth_address}::{self.port}::SOCKET"
                 self.ke = self.rm.open_resource(visa_rsc_str, resource_pyclass=pyvisa.resources.TCPIPSocket)  # type: ignore[assignment]
-                assert self.ke is not None, "Could not connect to Keithley 2612B via Ethernet"
+                if self.ke is None:
+                    raise ValueError(f"Could not connect to Keithley 2612B via Ethernet at {visa_rsc_str}")
                 self.ke.timeout = 25000  # in milliseconds
                 self.ke.read_termination = "\n"
                 self.ke.write_termination = "\n"
@@ -196,7 +360,8 @@ class Keithley2612B:
         elif self.backend == BackendType.MOCK.value:
             self.mock_con = True
             [status, self.dataarray] = readIVLS(self.datafile_address)
-            assert status == 0
+            if status != 0:
+                raise ValueError(f"Could not read mock data file: {self.datafile_address}")
 
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
@@ -263,9 +428,10 @@ class Keithley2612B:
             message contains line frequency as float, or an error message otherwise
         """
         if self.backend == BackendType.MOCK.value:
-            freq = 50.0
+            freq = 50
         else:
             freq = float(self.safequery("print(localnode.linefreq)"))
+            freq = round(freq)
         return freq
 
     def getIV(self, channel) -> list[float]:
@@ -291,14 +457,16 @@ class Keithley2612B:
         outputType = "i" or "v"
         value = float
         """
-        assert channel in self.channel_names(self.backend), f"Invalid channel {channel}"
-        assert outputType in ["i", "v"], f"Invalid output type {outputType}"
+        if channel not in self.channel_names(self.backend):
+            raise ValueError(f"Invalid channel {channel}")
+        if outputType not in ["i", "v"]:
+            raise ValueError(f"Invalid output type {outputType}")
         if outputType == "i":
             self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCAMPS")
         if outputType == "v":
             self.safewrite(f"{channel}.source.func = {channel}.OUTPUT_DCVOLTS")
         self.safewrite(f"{channel}.source.level{outputType} = {value}")
-        print(f"Set {channel} output to {value} {outputType}")
+        logger.info(f"Set {channel} output to {value} {outputType}")
 
     def get_last_buffer_value(self, channel, readings=None) -> list[float | None]:
         """
@@ -351,6 +519,44 @@ class Keithley2612B:
             iv.extend(
                 list(
                     zip(
+                        np.array(i_values.split(",")).astype(float),
+                        np.array(v_values.split(",")).astype(float),
+                    )
+                )
+            )
+            return np.array(iv)
+
+    def read_buffers_timestamp(self, channel) -> np.ndarray:
+        """The maximum this can read is 60000 points. This method should be used after the sweep is finished.
+        Args:
+            channel (str): smua or smub
+
+        Returns:
+            np.ndarray: Each element is a tuple of (current, voltage)
+        """
+        if self.backend == BackendType.MOCK.value:
+            iv = []
+            # Get the number of readings in nvbuffer2
+            t_values = self.dataarray[:, 0]
+            i_values = self.dataarray[:, 0]
+            v_values = self.dataarray[:, 1]
+
+            # Add to the iv array
+            iv.extend(list(zip(i_values, v_values)))
+            return np.array(iv)
+        else:
+            iv = []
+            # Get the number of readings in nvbuffer2
+            readings_count = int(float(self.safequery(f"print({channel}.nvbuffer2.n)")))
+            t_values = self.safequery(f"printbuffer({1}, {readings_count}, {channel}.nvbuffer1.timestamps)")
+            i_values = self.safequery(f"printbuffer({1}, {readings_count}, {channel}.nvbuffer1)")
+            v_values = self.safequery(f"printbuffer({1}, {readings_count}, {channel}.nvbuffer2)")
+            # Add to the iv array
+            ##IRtothink#### some check may be added to make sure that the value may be converted
+            iv.extend(
+                list(
+                    zip(
+                        np.array(t_values.split(",")).astype(float),
                         np.array(i_values.split(",")).astype(float),
                         np.array(v_values.split(",")).astype(float),
                     )
@@ -413,6 +619,11 @@ class Keithley2612B:
         #        Args:
         #            s (dict): Configuration dictionary.
         #      """
+
+        # check settings
+        s_val = validate_init(s)
+        s = s_val.model_dump()  # convert back to dict so I dont have to rewrite anything.
+
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
 
@@ -439,12 +650,14 @@ class Keithley2612B:
         ####set stabilization times for source
         ##IRtodo#### add delay factor to GUI
         if s["delay"]:
+            logger.debug(f"Setting source delay to auto with factor {s['sourcedelayfactor']:.2f}")
             self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
             if not s["pulse"]:
                 self.safewrite(f"{s['source']}.measure.delayfactor = {s['sourcedelayfactor']:.2f}")
             else:
                 self.safewrite(f"{s['source']}.measure.delayfactor = 1.0")
         else:
+            logger.debug(f"Setting source delay to manual with duration {s['delayduration']:.6f} seconds")
             self.safewrite(f"{s['source']}.measure.delay = {s['delayduration']}")
 
         # set limits and modes
@@ -456,7 +669,7 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
 
                 # Set filter for source
-                if not s["sourcefiltertype"] == "FILTER_OFF":
+                if s["sourcefiltertype"] != "FILTER_OFF":
                     self.safewrite(f"{s['source']}.measure.filter.count = {s['sourcefiltervalue']}")
                     self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
                     self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.{s['sourcefiltertype']}")
@@ -473,7 +686,6 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
                 self.safewrite(f"{s['source']}.source.delay = 100e-6")
                 # autozero off turns off automatic ground and voltage reference measurements
-                # FIXME: This is never turned back on. Is that excpected behaviour?
                 self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")
                 self.safewrite(f"{s['source']}.source.rangei = 10")
                 self.safewrite(f"{s['source']}.source.leveli = 0")
@@ -528,13 +740,13 @@ class Keithley2612B:
             # set limits and modes
             ##IRtodo#### drain limits are not set, probably it should be done the same way as for the source
             if (s["type"] == "i" and (abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5)) or (s["type"] == "v" and abs(s["limit"]) >= 1.5):
-                self.safewrite(f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF")
-                self.safewrite(f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF")
-                self.safewrite(f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF")
+                self.safewrite(f"{s['drain']}.measure.filter.enable = {s['source']}.FILTER_OFF")  # FIXME: Typo?
+                self.safewrite(f"{s['drain']}.source.autorangei = {s['source']}.AUTORANGE_OFF")  # FIXME: Typo?
+                self.safewrite(f"{s['drain']}.source.autorangev = {s['source']}.AUTORANGE_OFF")  # FIXME: Typo?
                 self.safewrite(f"{s['drain']}.source.rangei = 10")
             else:
                 # Set filter for drain
-                if not s["drainfiltertype"] == "FILTER_OFF":
+                if s["drainfiltertype"] != "FILTER_OFF":
                     self.safewrite(f"{s['drain']}.measure.filter.count = {s['drainfiltervalue']}")
                     self.safewrite(f"{s['drain']}.measure.filter.enable = {s['drain']}.FILTER_ON")
                     self.safewrite(f"{s['drain']}.measure.filter.type = {s['drain']}.{s['drainfiltertype']}")
@@ -585,7 +797,14 @@ class Keithley2612B:
                 # see trigger models on pp 3-35-36 (172-173) of the manual
                 self.safewrite(f"{s['source']}.trigger.count = {s['steps']}")
                 self.safewrite(f"{s['source']}.trigger.arm.count = {s['repeat']}")
-                self.safewrite(f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})")
+
+                # determine type of sweep:
+                if type(s["logsweep"]) is not bool:
+                    raise ValueError(f"Invalid logsweep value: {s['logsweep']}. Must be a boolean.")
+                if s["logsweep"]:
+                    self.safewrite(f"{s['source']}.trigger.source.log{s['type']}({s['start']},{s['end']},{s['steps']},{s['asymptote']})")
+                else:
+                    self.safewrite(f"{s['source']}.trigger.source.linear{s['type']}({s['start']},{s['end']},{s['steps']})")
 
                 #### initialize actions for sweep (see trigger models on pp 3-35-36 (172-173) of the manual)
                 self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
@@ -627,16 +846,15 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.initiate()")
                 return 0
 
-            except Exception as e:
+            except Exception:
                 # if something fails, abort the measurement and turn off the source.
                 self.safewrite(f"{s['source']}.abort()")
                 self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
                 if not s["single_ch"]:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
-                logger.error(f"Caught exception during keithley_run_sweep : {e}")
-                raise e
-                return 1
+                logger.exception("Unexpected exception occurred during keithley_run_sweep")
+                raise
 
     def keithley_run_trigpulse(self, s: dict):  # -> status:
         """Makes a single pulse with predetermined duration and triggers a DIGIO line at the end of source action
@@ -678,7 +896,6 @@ class Keithley2612B:
             try:
                 self.safewrite("reset()")
                 self.safewrite("beeper.enable=0")
-                self.safewrite("digio.writeport(0)")
                 self.safewrite("errorqueue.clear()")
                 ####set visualization
                 self.safewrite("display.screen = display.SMUA_SMUB")
@@ -716,13 +933,13 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ASYNC")  ## enable asynchronous measurement action (to measure IV before and after the pulse)
                 self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})")  ##
                 # Configure other source parameters for best timing possible.
-                self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_ONCE")  # see p. 585 of Keithley manual
+                self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_OFF")  # see p. 585 of Keithley manual
 
                 if s["usedrain"]:
                     self.safewrite(f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)")
                     self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")  # do not sweep the drain
                     self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ASYNC")  ## enable asynchronous measurement action (to measure IV before and after the pulse)
-                    self.safewrite(f"{s['drain']}.measure.autozero = {s['drain']}.AUTOZERO_ONCE")
+                    self.safewrite(f"{s['drain']}.measure.autozero = {s['drain']}.AUTOZERO_OFF")
 
                 if s["type"] == "v":
                     self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
@@ -785,17 +1002,15 @@ class Keithley2612B:
                 self.safewrite("trigger.timer[1].stimulus = smua.trigger.SOURCE_COMPLETE_EVENT_ID")
                 # Configure source action to start immediately.
                 self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")
-                if s["usedrain"]:
-                    if s["spectro_check_after"]:
-                        if s["use_timeafter"]:
-                            logger.info(f"Using time after time: {s['timeafter']}")
-                            self.safewrite(f"trigger.timer[3].delay = {s['timeafter']:.6f}")
-                            self.safewrite("trigger.timer[3].count = 1")
-                            self.safewrite("trigger.timer[3].passthrough = false")
-                            self.safewrite("trigger.timer[3].stimulus = trigger.timer[2].EVENT_ID")
-                            self.safewrite("trigger.blender[2].orenable = true")
-                            self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
-                            self.safewrite("trigger.blender[2].stimulus[2] = trigger.timer[3].EVENT_ID")
+                if s["usedrain"] and s["spectro_check_after"] and s["use_timeafter"]:
+                    logger.info(f"Using time after time: {s['timeafter']}")
+                    self.safewrite(f"trigger.timer[3].delay = {s['timeafter']:.6f}")
+                    self.safewrite("trigger.timer[3].count = 1")
+                    self.safewrite("trigger.timer[3].passthrough = false")
+                    self.safewrite("trigger.timer[3].stimulus = trigger.timer[2].EVENT_ID")
+                    self.safewrite("trigger.blender[2].orenable = true")
+                    self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                    self.safewrite("trigger.blender[2].stimulus[2] = trigger.timer[3].EVENT_ID")
                 # Configure endpulse action to achieve a pulse.
                 self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
                 self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[1].EVENT_ID")
@@ -843,7 +1058,171 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.abort()")
                     self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
                 logger.error(f"Caught exception during keithley_run_sweep : {e}")
-                raise e
+                raise
+                return 1
+
+    def keithley_run_fastpulse(self, s: dict):  # -> status:
+        """Makes a single pulse with predetermined duration and triggers a DIGIO line at the end of source action
+
+        Args:
+            s (dict): trigpulse settings dictionary
+            s["source"] source channel: may take values [smua, smub]
+            s["sense"] true: 4wire; false: 2wire
+            s["type"] source inject current or voltage: may take values [i ,v]
+            s["value"] pulse voltage if is in voltage injection mode, or current if is in current injection mode (float)
+            s["limit"] limit for the voltage if is in current injection mode, limit for the current if in voltage injection mode (float)
+            s['sourcenplc'] NPLC in nplc units (float)
+            s['nplcms'] NPLC in ms (float), also currently period for the measurement actions
+            s['delay'] True - auto delay before measurement; Flase - manual delay before measurement (bool)
+            s['delayduration'] duration of the delay before measurement if manual in s, max auto delay if measuredelay == True, i.e. 360ms see p.255 (float)
+            s['pulsetime'] duration of the pulse in ms (float)
+            s["usedrain"] True if drain should be used for IV measurement, False if only source (bool)
+        Returns:
+            0 - no error
+            ~0 - error (add error code later on if needed)
+        """
+
+        def ceil_to_power_of_10(x):
+            "Helper function for getting ceil to the injected current in current injection mode"
+            if x == 0:
+                return 0
+            power = math.floor(math.log10(abs(x)))
+            factor = 10**power
+            return math.ceil(x / factor) * factor
+
+        timer_n = int(s["pulsetime"] / (s["nplcms"] / 1000))  # number of timers needed to cover the pulse duration, rounded up
+
+        # Try and acquire the lock to make sure nothing else is running
+        ##IRtothink#### is locking really needed?
+        with self.lock:
+            time.sleep(1)  ## to avoid overlapping error
+            try:
+                self.safewrite("reset()")
+                self.safewrite("beeper.enable=0")
+                self.safewrite("digio.writeport(0)")
+                self.safewrite("errorqueue.clear()")
+                ####set visualization
+                self.safewrite("display.screen = display.SMUA_SMUB")
+                self.safewrite("format.data = format.ASCII")
+                self.safewrite("format.asciiprecision = 14")
+
+                self.safewrite(f"{s['source']}.reset()")
+                ##### based on Single pulse example code (p.183) of Keithley manual
+                # drain
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.reset()")
+
+                if s["sense"]:
+                    self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_REMOTE")
+                else:
+                    self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
+
+                if s["usedrain"]:
+                    if s["sense"]:
+                        self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_REMOTE")
+                    else:
+                        self.safewrite(f"{s['drain']}.sense = {s['drain']}.SENSE_LOCAL")
+
+                # Clear buffers, set repeats and steps, set sweep range.
+                self.safewrite(f"{s['source']}.nvbuffer1.clear()")
+                self.safewrite(f"{s['source']}.nvbuffer2.clear()")
+
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.nvbuffer1.clear()")
+                    self.safewrite(f"{s['drain']}.nvbuffer2.clear()")
+                # Configure a single-point list sweep
+                self.safewrite(f"{s['source']}.trigger.source.action = {s['source']}.ENABLE")  ## enable source action
+                self.safewrite(f"{s['source']}.trigger.measure.iv({s['source']}.nvbuffer1, {s['source']}.nvbuffer2)")
+                self.safewrite(f"{s['source']}.nvbuffer1.collecttimestamps = 1")
+                self.safewrite(f"{s['source']}.trigger.measure.action = {s['source']}.ASYNC")  ## enable asynchronous measurement action (to measure IV before and after the pulse)
+                self.safewrite(f"{s['source']}.trigger.source.list{s['type']}({{{s['value']}}})")  ##
+                # Configure other source parameters for best timing possible.
+                self.safewrite(f"{s['source']}.measure.autozero = {s['source']}.AUTOZERO_ONCE")  # see p. 585 of Keithley manual
+
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.trigger.measure.iv({s['drain']}.nvbuffer1, {s['drain']}.nvbuffer2)")
+                    self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")  # do not sweep the drain
+                    self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ASYNC")  ## enable asynchronous measurement action (to measure IV before and after the pulse)
+                    self.safewrite(f"{s['drain']}.measure.autozero = {s['drain']}.AUTOZERO_ONCE")
+
+                if s["type"] == "v":
+                    self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
+                    self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.source.rangev = {math.ceil(abs(s['value']))}")
+                    self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
+                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCAMPS")
+                else:
+                    self.safewrite(f"{s['source']}.trigger.source.limitv = {s['limit']}")
+                    self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
+                    self.safewrite(f"{s['source']}.source.rangei = {ceil_to_power_of_10(s['value'])}")
+                    self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
+                    self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
+
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.measure.autorangei = {s['drain']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
+                    self.safewrite(f"{s['drain']}.measure.autorangev = {s['drain']}.AUTORANGE_OFF")  # see p. 585 of Keithley manual
+                    self.safewrite(f"{s['drain']}.source.levelv = {s['drainvalue']}")
+                    self.safewrite(f"{s['drain']}.source.limiti = {s['drainlimit']}")
+                    self.safewrite(f"{s['drain']}.measure.nplc = {s['sourcenplc']}")
+                    # self.safewrite(f"display.{s['drain']}.measure.func = display.MEASURE_DCAMPS")
+                # Calculate duration of the pulse:
+                nplc_s = s["nplcms"] / 1000  # change nplc time value from ms to seconds
+                pulsetime_s = s["pulsetime"] * 1.1  # change pulse time value from ms to seconds
+                # self.safewrite(f"{s['source']}.measure.delay = 0")
+                # self.safewrite(f"{s['source']}.source.delay = 0")
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.measure.delay = 0")
+                    self.safewrite(f"{s['drain']}.source.delay = 0")
+                self.safewrite(f"trigger.timer[1].delay = {nplc_s:.6f}")  # set duration of pulse in seconds
+                self.safewrite(f"trigger.timer[1].count = {timer_n}")
+                self.safewrite("trigger.timer[1].passthrough = true")  ## if true the timer will trigger immediately after run
+                # Trigger timer when the SMU sets the power
+                self.safewrite(f"trigger.timer[1].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+
+                self.safewrite(f"trigger.timer[2].delay = {pulsetime_s:.6f}")  # set duration of pulse in seconds
+                self.safewrite("trigger.timer[2].count = 1")
+                self.safewrite("trigger.timer[2].passthrough = false")  ## if true the timer will trigger immediately after run
+                self.safewrite(f"trigger.timer[2].stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+
+                self.safewrite(f"{s['source']}.trigger.measure.stimulus = trigger.timer[1].EVENT_ID")
+                # self.safewrite(f"{s['source']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.trigger.measure.stimulus = trigger.timer[1].EVENT_ID")
+                # Configure source action to start immediately.
+                self.safewrite(f"{s['source']}.trigger.source.stimulus = 0")
+                # Configure endpulse action to achieve a pulse.
+                self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
+                self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.timer[2].EVENT_ID")
+                # self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.trigger.endpulse.action = {s['drain']}.SOURCE_IDLE")
+                    self.safewrite(f"{s['drain']}.trigger.endpulse.stimulus = trigger.timer[2].EVENT_ID")
+                # Set appropriate counts of trigger model.
+                self.safewrite(f"{s['source']}.trigger.count = 1")
+                self.safewrite(f"{s['source']}.trigger.arm.count = 1")
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.trigger.count = 1")
+                    self.safewrite(f"{s['drain']}.trigger.arm.count = 1")
+                # Turn on output and trigger SMU to output a single pulse.
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_ON")
+                    self.safewrite(f"{s['drain']}.trigger.initiate()")
+                    time.sleep(0.1)  ## let the drain settle if it's used
+                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_ON")
+                self.safewrite(f"{s['source']}.trigger.initiate()")
+                return 0
+
+            except Exception as e:
+                # if something fails, abort the measurement and turn off the source.
+                self.safewrite(f"{s['source']}.abort()")
+                self.safewrite(f"{s['source']}.source.output = {s['source']}.OUTPUT_OFF")
+                if s["usedrain"]:
+                    self.safewrite(f"{s['drain']}.abort()")
+                    self.safewrite(f"{s['drain']}.source.output = {s['drain']}.OUTPUT_OFF")
+                logger.error(f"Caught exception during keithley_run_sweep : {e}")
+                raise
                 return 1
 
     def set_digio(self, line_id: int, value: bool):
@@ -881,7 +1260,7 @@ class Keithley2612B:
         curr_value_str: str = self.safequery(f"print(digio.readbit({line_id}))")
         curr_value = curr_value_str[0]  # strip weird formatting
 
-        return True if int(curr_value) == 1 else False
+        return int(curr_value) == 1
 
     def channel_names(self, backend) -> list:
         """Returns the channel names available in the instrument.

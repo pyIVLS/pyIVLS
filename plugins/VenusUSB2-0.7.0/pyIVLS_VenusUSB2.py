@@ -60,7 +60,7 @@ class pyIVLS_VenusUSB2_plugin:
             dict: name, widget
         """
         self.camera_control._initGUI(plugin_data[self.name]["settings"])
-        return {self.metadata["name"]: self.camera_control.settingsWidget}
+        return {self.metadata["name"]: self.camera_control.settingsContainer}
 
     @hookimpl
     def get_MDI_interface(self, args=None) -> dict:
@@ -69,7 +69,7 @@ class pyIVLS_VenusUSB2_plugin:
         Returns:
             dict: name, widget
         """
-        return {self.metadata["name"]: self.camera_control.previewWidget}
+        return {self.metadata["name"]: self.camera_control.previewContainer}
 
     @hookimpl
     def get_functions(self, args=None):

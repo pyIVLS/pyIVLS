@@ -314,7 +314,7 @@ class CollisionDetector:
                 # Convert segmented moves to (manipulator_idx, target_position) format
                 sequence = []
                 for move_key in permutation:
-                    manip_idx, move_type = move_key
+                    manip_idx, _move_type = move_key
                     (_, _), (target_x, target_y) = segmented_moves[move_key]
                     sequence.append((manip_idx, (target_x, target_y)))
                 return sequence
@@ -417,7 +417,7 @@ class CollisionDetector:
                 if move_key not in segmented_moves:
                     continue
 
-                manip_idx, move_type = move_key
+                manip_idx, _move_type = move_key
 
                 # Get current position of this manipulator (may have been updated by previous moves)
                 current_bbox = self.bounding_boxes[manip_idx]
@@ -510,8 +510,8 @@ class CollisionDetector:
             return []
 
         # Get current positions
-        (blocking_current, blocking_target) = moves[blocking_manip]
-        (blocked_current, blocked_target) = moves[blocked_manip]
+        (_blocking_current, blocking_target) = moves[blocking_manip]
+        (_blocked_current, blocked_target) = moves[blocked_manip]
 
         # Calculate avoidance moves - try moving blocking manipulator away from blocked path
         avoidance_moves = self._calculate_avoidance_moves(blocking_manip, blocked_manip, moves)
@@ -542,7 +542,7 @@ class CollisionDetector:
         Returns:
             List of potential avoidance positions
         """
-        (blocking_current, blocking_target) = moves[blocking_manip]
+        (blocking_current, _blocking_target) = moves[blocking_manip]
         (blocked_current, blocked_target) = moves[blocked_manip]
 
         avoidance_positions = []
