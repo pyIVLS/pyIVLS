@@ -203,7 +203,15 @@ class Keithley2612B:
         self.dataarray = np.array([])
 
     ## Communication functions
-    def safewrite(self, command: str) -> None:
+    def _raw_write(self, command: str) -> None:
+        """Raw write to device, assumes already connected.
+
+        Args:
+            command (str): TSP command to write to the instrument
+
+        Raises:
+            ValueError: Device not connected, or incorrect backend.
+        """
         try:
             if self.backend == BackendType.USB.value:
                 if self.k is None:
@@ -220,13 +228,25 @@ class Keithley2612B:
             else:
                 raise ValueError(f"Unknown backend: {self.backend}")
 
-        except Exception as e:
-            ##IRtodo#### mov to the log
-            logger.error(f"Exception sending command: {command}\nException: {e}")
-            ##IRtothink#### some exception handling should be implemented
+        except Exception:
+            logger.exception(f"Exception sending command: {command}")
+            # we raise from here since no handling is actually done.
+            # in the future, migth attempt reconnect + resend here.
+            # For now I feel it is best to propagate the exception since we cannot handle it.
             raise
 
-    def safequery(self, command: str) -> str:
+    def _raw_query(self, command: str) -> str:
+        """Query the instrument. Assumes device is connected
+
+        Args:
+            command (str): TSP command
+
+        Raises:
+            ValueError: device not connected, or incorrect backend.
+
+        Returns:
+            str: unparsed response from instrument
+        """
         try:
             if self.backend == BackendType.USB.value:
                 if self.k is None:
@@ -246,11 +266,50 @@ class Keithley2612B:
                 return "0"
             else:
                 raise ValueError(f"Unknown backend: {self.backend}")
-        except Exception as e:
-            ##IRtodo#### mov to the log
-            logger.error(f"Exception querying command: {command}\nException: {e}")
-            ##IRtothink#### some exception handling implemented
+        except Exception:
+            logger.exception(f"Exception sending command: {command}")
+            # we raise from here since no handling is actually done.
+            # in the future, migth attempt reconnect + resend here.
+            # For now I feel it is best to propagate the exception since we cannot handle it.
             raise
+
+    def read_error(self) -> str:
+        """Reads a single error from the instrument. Manual p.12-3 states that the error queue
+        is first in, first out so reading gives the oldest error in the queue.
+
+        Returns:
+            str: unparsed error string
+        """
+        ret = self.safequery("print(errorqueue.next())")
+        return ret
+
+    def errors_in_buffer(self) -> int:
+        """Reads the number of errors in the error queue.
+
+        Returns:
+            int: number of errors in the queue
+        """
+        ret = self.safequery("print(errorqueue.count)")
+        # manual pg 9-88 states that return is a float, "4.00000e+00" = 4 errors in queue
+        ret = float(ret)
+        # float() coerces sci.not. into float: Source - https://stackoverflow.com/a/23636566
+        # int conversion is pure truncation. I trust keithley to actually return whole numbers.
+        return int(ret)
+
+    def safewrite(self, command: str, check=False) -> None:
+        self._raw_write(command)
+        # python evals ifs left to right with short-circuiting, so this will not call the instrument unless check is True
+        if check and self.errors_in_buffer() > 0:
+            err = self.read_error()
+            logger.error(f"Error found after command '{command}': {err}")
+
+    def safequery(self, command: str, check=False) -> str:
+        ret = self._raw_query(command)
+        # python evals ifs left to right with short-circuiting, so this will not call the instrument unless check is True
+        if check and self.errors_in_buffer() > 0:
+            err = self.read_error()
+            logger.error(f"Error found after command '{command}': {err}")
+        return ret
 
     def keithley_IDN(self) -> str:
         return "keith"
