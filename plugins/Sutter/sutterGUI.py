@@ -117,10 +117,8 @@ class SutterGUI(QObject):
     @property
     def hal(self) -> Mpc325 | VirtualMpc325:
         if self.settings["backend"] == "virtual":
-            logger.debug("Using virtual backend for Sutter HAL")
             return self._virhal
         elif self.settings["backend"] == "usb":
-            logger.debug("Using USB backend for Sutter HAL")
             return self._hal
         else:
             raise ValueError(f"Unknown backend specified in settings: {self.settings['backend']}")

@@ -222,8 +222,8 @@ class touchDetect:
                         if r < 0:
                             raise Exception("Keithley HW exception")
 
-                        # Log resistance updates less frequently to avoid spam
-                        if last_resistance_log is None or abs(r - last_resistance_log) > info.threshold * 0.1:
+                        # Log resistance updates only if if changes over 30 % 
+                        if last_resistance_log is None or abs(r - last_resistance_log) / last_resistance_log > 0.3:
                             if progress_callback:
                                 progress_callback(f"Manipulator {info.mm_number} resistance: {r:.1f} Ω (threshold: {info.threshold} Ω)")
                             last_resistance_log = r
@@ -508,7 +508,6 @@ class touchDetect:
         if not isinstance(info.threshold, (int, float)):
             raise TypeError(f"Expected threshold to be int or float, got {type(info.threshold)} with value {info.threshold}")
 
-        self._log(f"Measured resistance: {r} Ω, threshold: {info.threshold} Ω")
         if r < info.threshold:
             self._log(f"Contact detected! Resistance {r} below threshold {info.threshold}")
             return True, r
@@ -567,11 +566,7 @@ class touchDetect:
             # Calculate adaptive stride based on proximity to last known position
             current_stride = self._calculate_adaptive_stride(manipulator_info.stride, r)
 
-            status, state = mm["mm_zmove"](current_stride)
-            if status != 0:
-                error_msg = f"Z-move failed for manipulator {manipulator_info.mm_number}: {state}"
-                return (status, {"Error message": error_msg})
-            self._log(f"Moving manipulator {manipulator_info.mm_number} down by {current_stride} microns (total moved: {total_distance + current_stride})")
+            unpack_resp(mm["mm_zmove"](current_stride))
 
             total_distance += current_stride
             contacting, r = self._contacting(smu, manipulator_info)

@@ -526,10 +526,16 @@ class touchDetectGUI:
         except ThreadStopped:
             self.logger.log_info("Move to contact operation stopped by user")
             raise  # re-raise to be caught by outer layers that handle thread stopping
+        except RuntimeError as e:
+            logger.error(f"Runtime error during move to contact operation: {e}")
+            return (PyIVLSRetCo.HW_E.value, {"Error message": f"Runtime error during move to contact operation: {e}"})
+        except Exception:
+            logger.exception("Unexpected error during move to contact operation")
+            return (PyIVLSRetCo.HW_E.value, {"Error message": "Unexpected error during move to contact operation"})
 
     @public
     def sequenceStep(self, postfix: str) -> tuple[int, dict]:
-        """Performs the sequence step by moving all configured manipulators to contact."""
+        """Performs the sequence step by moving all configured manipulators to contact.""" 
         self.logger.log_info(f"Starting touchDetect sequence step with postfix: {postfix}")
         # Execute move to contact for all configured manipulators
         status, state = self.move_to_contact()
