@@ -273,15 +273,29 @@ class Keithley2612B:
             # For now I feel it is best to propagate the exception since we cannot handle it.
             raise
 
-    def read_error(self) -> str:
+    def read_error(self) -> tuple[int, str, int, int]:
         """Reads a single error from the instrument. Manual p.12-3 states that the error queue
         is first in, first out so reading gives the oldest error in the queue.
 
         Returns:
-            str: unparsed error string
+            Tuple[int, str, int, int]: (error code, error message, severity, node)
+            
         """
-        ret = self.safequery("print(errorqueue.next())")
-        return ret
+        ret = self._raw_query("print(errorqueue.next())")
+        # ret has following structure: "1.1020000000000e+03     Parameter too small     2.0000000000000e+01     1.0000000000000e+00"
+        # split into parts:
+        ret_parts = ret.split("\t")
+        code = ret_parts[0].strip()
+        message = ret_parts[1].strip()
+        severity = ret_parts[2].strip()
+        node = ret_parts[3].strip()
+
+        # again, these are all in scientific notation, so we do the usual song and dance
+        code = int(float(code))
+        severity = int(float(severity))
+        node = int(float(node))
+
+        return code, message, severity, node
 
     def errors_in_buffer(self) -> int:
         """Reads the number of errors in the error queue.
@@ -289,7 +303,7 @@ class Keithley2612B:
         Returns:
             int: number of errors in the queue
         """
-        ret = self.safequery("print(errorqueue.count)")
+        ret = self._raw_query("print(errorqueue.count)")
         # manual pg 9-88 states that return is a float, "4.00000e+00" = 4 errors in queue
         ret = float(ret)
         # float() coerces sci.not. into float: Source - https://stackoverflow.com/a/23636566
@@ -300,8 +314,8 @@ class Keithley2612B:
         self._raw_write(command)
         # python evals ifs left to right with short-circuiting, so this will not call the instrument unless check is True
         if check and self.errors_in_buffer() > 0:
-            err = self.read_error()
-            logger.error(f"Error found after command '{command}': {err}")
+            ec, message, severity, node = self.read_error()
+            logger.error(f"Error found after command '{command}': {ec} - {message} (severity: {severity}, node: {node})")
 
     def safequery(self, command: str, check=False) -> str:
         ret = self._raw_query(command)
