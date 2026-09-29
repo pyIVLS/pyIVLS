@@ -676,6 +676,7 @@ class Keithley2612B:
 
         # set limits and modes
         if s["type"] == "i":  # if current injection
+            # low injection branch
             if abs(s["start"]) < 1.5 and abs(s["end"]) < 1.5:
                 # if the sweep maximum is under 1.5 A, set the limit from the GUI.
                 # 10A limit is available only in pulse mode (see 2-83, p108 of manual)
@@ -683,16 +684,21 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.source.limitv = {s['limit']}")
 
                 # Set filter for source
+                # branch for active filter
                 if s["sourcefiltertype"] != "FILTER_OFF":
                     self.safewrite(f"{s['source']}.measure.filter.count = {s['sourcefiltervalue']}")
                     self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
                     self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.{s['sourcefiltertype']}")
+
+                # branch for inactive filter, i.e. filter = FILTER_OFF
                 else:
-                    self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.{s['sourcefiltertype']}")
+                    # explicitly set filter to off, even though it is the default.
+                    self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF")
 
                 # set autoranges on for source. see ranges on 2-83 (108) of the manual
                 self.safewrite(f"{s['source']}.measure.autorangei = {s['source']}.AUTORANGE_ON")
                 self.safewrite(f"{s['source']}.measure.autorangev = {s['source']}.AUTORANGE_ON")
+            # high current injection branch
             else:
                 # If the sweep maximum is over 1.5 A, make sure pulses are as short as possible, i.e. no range adjust, no delays, no filtering:
                 self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF")
@@ -707,11 +713,26 @@ class Keithley2612B:
                 self.safewrite(f"{s['source']}.trigger.source.limiti = 10")
             self.safewrite(f"display.{s['source']}.measure.func = display.MEASURE_DCVOLTS")
         else:  # if voltage injection
+            # low voltage injection branch
             if abs(s["limit"]) < 1.5:
                 # if the sweep maximum is under 1.5 A, set the limit from the GUI.
                 # 10A limit is available only in pulse mode (see 2-83, p108 of manual)
                 self.safewrite(f"{s['source']}.trigger.source.limiti = {s['limit']}")
                 self.safewrite(f"{s['source']}.source.limiti = {s['limit']}")
+
+                # Set filter for source
+                # branch for active filter
+                if s["sourcefiltertype"] != "FILTER_OFF":
+                    self.safewrite(f"{s['source']}.measure.filter.count = {s['sourcefiltervalue']}")
+                    self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
+                    self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.{s['sourcefiltertype']}")
+
+                # branch for inactive filter, i.e. filter = FILTER_OFF
+                else:
+                    # explicitly set filter to off, even though it is the default.
+                    self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF")
+
+            # high voltage injection branch
             else:
                 # If the current limit is over 1.5 A, make sure pulses are as short as possible, i.e. no range adjust, no delays, no filtering:
                 self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_OFF")
@@ -802,6 +823,10 @@ class Keithley2612B:
                 #### by default smuX.trigger.source.stimulus = 0, i.e. next set point in sweep will be set py source without waiting for an event (7-250, 595)
                 else:
                     self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
+                    # the following 8 lines: 
+                    # - set up a timer to wait for pulsepause seconds after the pulse is complete, and then senc a single pulse
+                    # - A blender which activates either on the SWEEPING_EVENT_ID or PULSE_COMPLETE_EVENT_ID,
+                    # - The blender then triggers the timer, which in turn triggers the next source to begin.
                     self.safewrite(f"trigger.timer[1].delay = {s['pulsepause']}")
                     self.safewrite("trigger.timer[1].passthrough = false")
                     self.safewrite("trigger.timer[1].count = 1")
