@@ -33,6 +33,7 @@ from plugin_components import (
 )
 from PySide6 import QtWidgets
 from PySide6.QtCore import QObject
+from threadStopped import ThreadStopped
 
 
 class ConDetSW(QtWidgets.QWidget, Ui_Form):
@@ -210,6 +211,9 @@ class conDetectGUI(QObject):
             self._GUIchange_deviceConnected(self.connected)
             self.logger.log_debug("Device connected in deviceConnect.")
             return (0, "OK")
+        except ThreadStopped:
+            self.logger.log_warn("ThreadStopped exception in deviceConnect.")
+            raise
         except Exception as e:
             self.logger.log_warn(f"Exception in deviceConnect: {e}")
             return (4, {"Error message": f"{e}"})
@@ -241,6 +245,9 @@ class conDetectGUI(QObject):
             else:
                 self.settingsWidget.hiConnectionIndicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
             return (0, "OK")
+        except ThreadStopped:
+            self.logger.log_warn("ThreadStopped exception in deviceConnect.")
+            raise
         except Exception as e:
             self.logger.log_warn(f"Exception in deviceHiCheck: {e}")
             return (4, {"Error message": f"{e}"})
@@ -255,6 +262,9 @@ class conDetectGUI(QObject):
             else:
                 self.settingsWidget.loConnectionIndicator.setStyleSheet(ConnectionIndicatorStyle.RED_DISCONNECTED.value)
             return (0, "OK")
+        except ThreadStopped:
+            self.logger.log_warn("ThreadStopped exception in deviceConnect.")
+            raise
         except Exception as e:
             self.logger.log_warn(f"Exception in deviceLoCheck: {e}")
             return (4, {"Error message": f"{e}"})

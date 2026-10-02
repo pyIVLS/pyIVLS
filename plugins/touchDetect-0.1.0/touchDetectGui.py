@@ -613,7 +613,7 @@ class touchDetectGUI:
 
     @public
     def sequenceStep(self, postfix: str) -> tuple[int, dict]:
-        """Performs the sequence step by moving all configured manipulators to contact.""" 
+        """Performs the sequence step by moving all configured manipulators to contact."""
         self.logger.log_info(f"Starting touchDetect sequence step with postfix: {postfix}")
         # Execute move to contact for all configured manipulators
         status, state = self.move_to_contact()

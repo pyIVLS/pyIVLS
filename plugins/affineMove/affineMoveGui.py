@@ -489,8 +489,8 @@ class affineMoveGUI(QObject):
                         if current_tip_pos:
                             # Update cached position
                             self.update_manipulator_position(manipulator_idx, mm_pos)
-            except Exception as e:
-                self.logger.log_debug(f"Could not get current manipulator position: {e}")
+            except Exception:
+                logger.exception("Could not get current manipulator position:")
 
             if current_tip_pos:
                 # Calculate relative coordinates from tip position
@@ -513,6 +513,7 @@ class affineMoveGUI(QObject):
             return status, message
 
         except Exception as e:
+            logger.exception("Error setting up bounding box:")
             return 1, f"Error setting up bounding box: {e}"
 
     def set_manipulator_bounding_box(self, manipulator_idx: int, relative_coords: list[tuple[float, float]]) -> tuple[int, str]:
@@ -546,6 +547,7 @@ class affineMoveGUI(QObject):
                 return 1, f"Failed to set bounding box for manipulator {manipulator_idx}"
 
         except Exception as e:
+            logger.exception("Error setting bounding box:")
             return 1, f"Error setting bounding box: {e}"
 
     def clear_manipulator_bounding_box(self, manipulator_idx: int) -> tuple[int, str]:
@@ -584,6 +586,7 @@ class affineMoveGUI(QObject):
                     loaded_count += 1
                     self.logger.log_debug(f"Loaded bounding box for manipulator {manipulator_idx}")
         except Exception as e:
+            logger.exception("Failed to load bounding boxes from settings:")
             self.logger.log_warn(f"Failed to load bounding boxes from settings: {e}")
 
     # endregion internal functions
@@ -797,6 +800,7 @@ class affineMoveGUI(QObject):
             )
 
         except Exception as e:
+            logger.exception("Error adding visual overlays:")
             self.logger.log_warn(f"Error adding visual overlays: {e}")
 
     def _get_manipulator_positions_in_camera(self):
@@ -818,12 +822,12 @@ class affineMoveGUI(QObject):
                         positions[manipulator_idx] = cam_pos
                     else:
                         positions[manipulator_idx] = None
-                except Exception as e:
-                    self.logger.log_debug(f"Could not convert cached position for manipulator {manipulator_idx}: {e}")
+                except Exception:
+                    logger.exception(f"Could not convert cached position for manipulator {manipulator_idx}")
                     positions[manipulator_idx] = None
 
-        except Exception as e:
-            self.logger.log_warn(f"Error getting cached manipulator positions: {e}")
+        except Exception:
+            logger.exception("Error getting cached manipulator positions")
 
         return positions
 
@@ -838,8 +842,8 @@ class affineMoveGUI(QObject):
                 self.logger.log_debug(f"Updated bounding box tip for manipulator {manipulator_idx}: {cam_pos}")
         except ThreadStopped:
             raise
-        except Exception as e:
-            self.logger.log_debug(f"Could not update bounding box tip for manipulator {manipulator_idx}: {e}")
+        except Exception:
+            logger.exception(f"Could not update bounding box tip for manipulator {manipulator_idx}:")
 
     def get_cached_manipulator_position(self, manipulator_idx: int) -> tuple | None:
         """Get cached position for a manipulator"""
@@ -878,16 +882,16 @@ class affineMoveGUI(QObject):
                                     # Update collision detector with new tip position
                                     self.collision_detector.update_manipulator_tip_position(manipulator_idx, cam_pos[0], cam_pos[1])
                                     self.logger.log_debug(f"Updated bounding box tip for manipulator {manipulator_idx}: {cam_pos}")
-                            except Exception as e:
-                                self.logger.log_debug(f"Could not update bounding box tip for manipulator {manipulator_idx}: {e}")
+                            except Exception:
+                                logger.exception(f"Could not update bounding box tip for manipulator {manipulator_idx}")
 
                             success_count += 1
                             self.logger.log_debug(f"Updated position for manipulator {manipulator_idx}: {position}")
-                except Exception as e:
-                    self.logger.log_debug(f"Could not refresh position for manipulator {manipulator_idx}: {e}")
+                except Exception:
+                    logger.exception(f"Could not refresh position for manipulator {manipulator_idx}")
 
-        except Exception as e:
-            self.logger.log_warn(f"Error refreshing manipulator positions: {e}")
+        except Exception:
+            logger.exception("Error refreshing manipulator positions:")
 
         # reset back to original manipulator
         if mm is not None:
@@ -965,9 +969,11 @@ class affineMoveGUI(QObject):
                             if status == 0:
                                 target_coords[point_idx][device_idx] = (float(camera_x), float(camera_y))
                         except Exception as e:
+                            logger.exception(f"Error converting mask coordinates {point} to camera coordinates:")
                             self.logger.log_debug(f"Error converting mask coordinates {point} to camera coordinates: {e}")
 
         except Exception as e:
+            logger.exception("Error getting target coordinates")
             self.logger.log_warn(f"Error getting target coordinates: {e}")
 
         return target_coords
@@ -1145,6 +1151,7 @@ class affineMoveGUI(QObject):
                 except ThreadStopped:
                     raise
                 except Exception as e:
+                    logger.exception(f"Error getting position for manipulator {manip_idx}:")
                     self.logger.log_warn(f"Exception getting position for manipulator {manip_idx}: {e}")
                     continue
 
@@ -1197,7 +1204,8 @@ class affineMoveGUI(QObject):
             self.logger.log_info("Movement thread stopped by user")
             raise  # re-raise to to signal to seqbuilder
         except Exception as e:
-            self.logger.log_info(f"Error in loopingIteration: {e!s}")
+            logger.exception("Error in loopingIteration")
+            self.logger.log_info(f"Error (not threadstopped) in loopingIteration: {e!s}")
             return [2, f"Error in looping iteration: {e!s}"]
 
     @public

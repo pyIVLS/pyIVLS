@@ -1,7 +1,6 @@
 """Module for the MPC-325 abstraction layer"""
 
 import struct  # Handling binary
-import threading  # for thread safety
 import time  # for device-specified wait-times
 from typing import Final  # for constants and options
 
@@ -61,7 +60,6 @@ class Mpc325:
         # vars for a single instance
         self.ser = serial.Serial()  # init a closed port
         # Initialize settings:
-        self._comm_lock = threading.Lock()
         self.end_marker_bytes = struct.pack("<B", 13)  # End marker (ASCII: CR)
 
     def read(self, size: int) -> bytes:
@@ -92,23 +90,21 @@ class Mpc325:
         """
 
     def open(self, port: str | None = None):
-        with self._comm_lock:
-            # Open port
-            if not self.is_connected():
-                self.ser.port = port
-                self.ser.baudrate = self._BAUDRATE
-                self.ser.parity = self._PARITY
-                self.ser.stopbits = self._STOPBITS
-                self.ser.timeout = self._TIMEOUT
-                self.ser.bytesize = self._DATABITS
-                self.ser.open()
-                time.sleep(0.2)  # wait for the port to open??
-                self._flush()  # Flush the buffers after opening the port??
+        # Open port
+        if not self.is_connected():
+            self.ser.port = port
+            self.ser.baudrate = self._BAUDRATE
+            self.ser.parity = self._PARITY
+            self.ser.stopbits = self._STOPBITS
+            self.ser.timeout = self._TIMEOUT
+            self.ser.bytesize = self._DATABITS
+            self.ser.open()
+            time.sleep(0.2)  # wait for the port to open??
+            self._flush()  # Flush the buffers after opening the port??
 
     def close(self):
-        with self._comm_lock:
-            if self.is_connected():
-                self.ser.close()
+        if self.is_connected():
+            self.ser.close()
 
     def is_connected(self):
         """Check if the port is open and connected.
@@ -150,14 +146,13 @@ class Mpc325:
             tuple: first element is how many devices connected, second element is a list representing
             the status of connected devices
         """
-        with self._comm_lock:
-            self._flush()
-            self.ser.write(bytes([85]))  # Send command to the device (ASCII: U)
-            output = self.read(6)  # Expecting 6 bytes back: 1 byte for number of devices, 4 bytes for device statuses, 1 byte for end marker
-            unpacked_data = self._validate_and_unpack("6B", output, name="get_connected_devices_status")
-            num_devices = unpacked_data[0]  # Number of devices connected
-            device_statuses = unpacked_data[1:5]  # Status of each device (0 or 1)
-            return (num_devices, device_statuses)
+        self._flush()
+        self.ser.write(bytes([85]))  # Send command to the device (ASCII: U)
+        output = self.read(6)  # Expecting 6 bytes back: 1 byte for number of devices, 4 bytes for device statuses, 1 byte for end marker
+        unpacked_data = self._validate_and_unpack("6B", output, name="get_connected_devices_status")
+        num_devices = unpacked_data[0]  # Number of devices connected
+        device_statuses = unpacked_data[1:5]  # Status of each device (0 or 1)
+        return (num_devices, device_statuses)
 
     def get_active_device(self):
         """Returns the current active device.
@@ -165,12 +160,11 @@ class Mpc325:
         Returns:
             int: active device number
         """
-        with self._comm_lock:
-            self._flush()
-            self.ser.write(bytes([75]))  # Send command to the device (ASCII: K)
-            output = self.read(4)  # Expecting 4 bytes back: 1 byte for active device number, 2 bytes for FW version, 1 byte for end marker
-            unpacked = self._validate_and_unpack("4B", output, name="get_active_device")
-            return unpacked[0]
+        self._flush()
+        self.ser.write(bytes([75]))  # Send command to the device (ASCII: K)
+        output = self.read(4)  # Expecting 4 bytes back: 1 byte for active device number, 2 bytes for FW version, 1 byte for end marker
+        unpacked = self._validate_and_unpack("4B", output, name="get_active_device")
+        return unpacked[0]
 
     def change_active_device(self, dev_num: int):
         """Change active device
@@ -181,18 +175,17 @@ class Mpc325:
         Returns:
             bool: Change successful
         """
-        with self._comm_lock:
-            self._flush()
-            if dev_num < 1 or dev_num > 4:
-                raise ValueError(f"Device number {dev_num} is out of range. Must be between 1 and 4.")
-            command = struct.pack("<2B", 73, dev_num)
-            self.ser.write(command)  # Send command to the device (ASCII: I )
-            output = self.read(2)  # Expecting 2 bytes back: 1 byte for active device number, 1 byte for end marker
-            unpacked = self._validate_and_unpack("2B", output, name="change_active_device")
-            # check that the device is available and active
-            if unpacked[0] != dev_num:
-                raise RuntimeError(f"Failed to change active device. Expected {dev_num}, got {unpacked[0]}.")
-            return True
+        self._flush()
+        if dev_num < 1 or dev_num > 4:
+            raise ValueError(f"Device number {dev_num} is out of range. Must be between 1 and 4.")
+        command = struct.pack("<2B", 73, dev_num)
+        self.ser.write(command)  # Send command to the device (ASCII: I )
+        output = self.read(2)  # Expecting 2 bytes back: 1 byte for active device number, 1 byte for end marker
+        unpacked = self._validate_and_unpack("2B", output, name="change_active_device")
+        # check that the device is available and active
+        if unpacked[0] != dev_num:
+            raise RuntimeError(f"Failed to change active device. Expected {dev_num}, got {unpacked[0]}.")
+        return True
 
     def get_current_position(self):
         """Get current position in microns.
@@ -200,27 +193,25 @@ class Mpc325:
         Returns:
             tuple: (x,y,z)
         """
-        with self._comm_lock:
-            self._flush()
-            self.ser.write(bytes([67]))  # Send command (ASCII: C)
-            output = self.read(14)  # Expecting 14 bytes back: 1 byte drv number 3*4 bytes for x,y,z positions in microsteps, 1 byte for end marker
-            unpacked = self._validate_and_unpack("=BIIIB", output, name="get_current_position")
-            return (self._s2m(unpacked[1]), self._s2m(unpacked[2]), self._s2m(unpacked[3]))
+        self._flush()
+        self.ser.write(bytes([67]))  # Send command (ASCII: C)
+        output = self.read(14)  # Expecting 14 bytes back: 1 byte drv number 3*4 bytes for x,y,z positions in microsteps, 1 byte for end marker
+        unpacked = self._validate_and_unpack("=BIIIB", output, name="get_current_position")
+        return (self._s2m(unpacked[1]), self._s2m(unpacked[2]), self._s2m(unpacked[3]))
 
     def calibrate(self):
         """Calibrate the device. Does the same thing as the calibrate button on the back of the control unit.
         (moves to 0,0,0)
         """
-        with self._comm_lock:
-            if self.is_connected:
-                # add longer timeout for this
-                self.ser.timeout = self._TIMEOUT * 10
-                self._flush()
-                self.ser.write(bytes([78]))  # Send command (ASCII: N)
-                output = self.read(1)  # Expecting 1 byte back: end marker
-                self._validate_and_unpack("<B", output, name="calibrate")  # Just to validate the end marker
-                self.ser.timeout = self._TIMEOUT  # reset timeout to default
-                return True
+        if self.is_connected():
+            # add longer timeout for this
+            self.ser.timeout = self._TIMEOUT * 10
+            self._flush()
+            self.ser.write(bytes([78]))  # Send command (ASCII: N)
+            output = self.read(1)  # Expecting 1 byte back: end marker
+            self._validate_and_unpack("<B", output, name="calibrate")  # Just to validate the end marker
+            self.ser.timeout = self._TIMEOUT  # reset timeout to default
+            return True
 
     def stop(self):
         """Stop the current movement"""
