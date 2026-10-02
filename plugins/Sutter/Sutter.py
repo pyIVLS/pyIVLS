@@ -216,6 +216,7 @@ class Mpc325:
     def stop(self):
         """Stop the current movement"""
         self.ser.write(struct.pack("<B", 0x03))
+        self._flush()
 
     def move(self, x=None, y=None, z=None, quick_move=True, speed=7, segment=True, segment_length=500):
         """Move to a position. If quick_move is set to True, the movement will be at full speed.
