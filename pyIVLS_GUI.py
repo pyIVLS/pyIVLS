@@ -205,6 +205,9 @@ class pyIVLS_GUI(QObject):
         :param widgets: dict of QtWidgets.QWidget instances to be added to MDI windows
         """
 
+        #append additional MDI widgets to list
+        widgets.update(self.ant.get_MDI_interface())
+        
         subwindows = self.window.mdiArea.subWindowList()
         subwindow_names = [subwindow.windowTitle() for subwindow in subwindows]
 

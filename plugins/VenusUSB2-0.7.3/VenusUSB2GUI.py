@@ -17,7 +17,7 @@ public API:
 - camera_close() -> None
 - camera_capture_image() -> image / None
 
-Plugin adjusted to be used with ANT
+Plugin adjusted to be used with ANT. Public preview function for ANT control added.
 
 version 0.6
 2025.05.12
@@ -25,9 +25,12 @@ ivarad
 version 0.7
 2025.06.11
 otsoha
-version 0.72
+version 0.7.2
 2026.09.18
-otsoha
+ivarad
+version 0.7.3
+2026.09.29
+ivarad
 """
 
 import os
@@ -380,3 +383,9 @@ class VenusUSB2GUI(QObject):
         self.settingsWidget.lineEdit_path.setText(self.settings["address"])
         self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
         self.settingsWidget.exposure.setCurrentText(str(self.settings["exposure"]))
+
+    @public
+    def preview_control(self):
+        """Public method for activating/deactivation user preview from other SW components
+        """
+        self._previewAction()

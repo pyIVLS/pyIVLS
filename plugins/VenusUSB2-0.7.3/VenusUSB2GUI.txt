@@ -380,3 +380,9 @@ class VenusUSB2GUI(QObject):
         self.settingsWidget.lineEdit_path.setText(self.settings["address"])
         self.settingsWidget.lineEdit_filename.setText(self.settings["filename"])
         self.settingsWidget.exposure.setCurrentText(str(self.settings["exposure"]))
+
+    @public
+    def preview_control(self):
+        """Public method for activating/deactivation user preview from other SW components
+        """
+        self._previewAction()

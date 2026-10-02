@@ -6,6 +6,7 @@
 import os
 import httpx
 from openai import OpenAI
+import json
 
 
 class LLM_Aalto:
@@ -47,14 +48,38 @@ class LLM_Aalto:
             ),
         )
 
-    def send(self, request_obj):
-        messages = self._convert_to_LLM_specific_messages(request_obj)
+    def send(self, request_obj, payload):
+        messages = self._convert_to_LLM_specific_messages(request_obj, payload)
+
         response = self.client.responses.create(
             model=self.model,
             input=messages,
+            tools=[
+                {
+                    "type": "image_generation"
+                }
+            ],
         )
 
-        return response.output_text
+        result = {}
+
+        result["error"] = ""
+        
+        if response.output_text:
+            result["message"] = response.output_text
+
+        images = [
+            item.result
+            for item in response.output
+            if item.type == "image_generation_call"
+        ]
+
+        if images:
+            result["image"] = images[0]
+            if len(images) > 1:
+                result["error"] = f"Number of images returned is {len(images)}. Expected at most 1."
+
+        return result
 
     def reset(self):
         # Conversation history is maintained by the caller.
@@ -62,7 +87,7 @@ class LLM_Aalto:
 
     #### LLM specific part
 
-    def _convert_to_LLM_specific_messages(self, request_obj):
+    def _convert_to_LLM_specific_messages(self, request_obj, payload=None):
         """Convert structured request object into OpenAI-style messages."""
         messages = []
 
@@ -111,5 +136,61 @@ class LLM_Aalto:
                 "role": role,
                 "content": text,
             })
+        
+        #############Adding system_call_responses
+        if payload is not None:
+            system_call_instruction = request_obj.get("system_call_response", "")
+
+            if system_call_instruction:
+                messages.append({
+                    "role": "system",
+                    "content": system_call_instruction,
+                })
+
+            for response in payload:
+                result = response.get("system_call_result", response)
+
+                payload_type = result.get("payload_type")
+
+                if payload_type == "img":
+                    image = result.get("payload")
+
+                    # Do not put the image into the JSON representation.
+                    result_without_payload = {
+                        key: value
+                        for key, value in result.items()
+                        if key != "payload"
+                    }
+
+                    messages.append({
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": json.dumps({
+                                    "system_call_result": result_without_payload
+                                })
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": f"data:image/jpeg;base64,{image}",
+                                "detail": "low",
+                            }
+                        ]
+                    })
+
+                else:
+                    ####IRnote: this potentially might fail, as payload may be non-serializable. Not a concern for now, but need to keep in mind
+                    messages.append({
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": json.dumps({
+                                    "system_call_result": result
+                                })
+                            }
+                        ]
+                    })
 
         return messages
