@@ -345,6 +345,20 @@ class AffineGUI(QtWidgets.QWidget):
         # draw or clear if nothing selected and no temp points
         if point_sets:
             self.MDIWidget.draw_points_on_left(point_sets)
+            # check if we have a transformation matrix, if so, draw the transformed points on the right view
+            if self.affine.A is not None:
+                transformed_sets = []
+                for pts in point_sets:
+                    transformed_pts = []
+                    for pt in pts:
+                        try:
+                            x_img, y_img = self.affine.coords((pt.x(), pt.y()))
+                            transformed_pts.append(QPointF(x_img, y_img))
+                        except AffineError:
+                            continue
+                    if transformed_pts:
+                        transformed_sets.append(transformed_pts)
+                self.MDIWidget.draw_points_on_right(transformed_sets)
         else:
             # clear any previously drawn points by drawing empty sets
             self.MDIWidget.draw_points_on_left([])
