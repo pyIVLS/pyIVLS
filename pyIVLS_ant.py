@@ -27,7 +27,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QPoint, Qt
 from PyQt6.QtGui import QTextCursor, QPixmap
 
 from threadStopped import thread_with_exception, ThreadStopped
-from LLM.pyIVLS_LLM import LLM_Aalto
+from LLM.pyIVLS_LLM_Aalto import LLM_Aalto
 
 import json
 import base64
@@ -43,8 +43,8 @@ class pyIVLS_ant(QObject):
     info_message = pyqtSignal(str)
     log_message = pyqtSignal(str)
 
-    _llm_finished = pyqtSignal(str)
-    _llm_summary_finished = pyqtSignal(str)
+    _llm_finished = pyqtSignal(dict)
+    _llm_summary_finished = pyqtSignal(dict)
     _llm_error = pyqtSignal(str)
     _llm_stopped = pyqtSignal()
 
@@ -276,7 +276,8 @@ class pyIVLS_ant(QObject):
         error = llm_return.get("error")
         image = llm_return.get("image")
         if error is not None:
-            self.logger.log_error(error)
+#            self.logger.log_error(error)
+            print(error)
         
         if image is not None:
             self.setImage(image)
@@ -539,8 +540,7 @@ class pyIVLS_ant(QObject):
             '    "call": 1,\n'
             '    "type": "action_result",\n'
             '    "args": 12,\n'
-            '    "reason": "this field will be returned back together with the call result. Explanation provided here should be sufficient for ANT to understand\n
-                             why this result is needed and what to do with it further."\n'
+            '    "reason": "this field will be returned back together with the call result. Explanation provided here should be sufficient for ANT to understand why this result is needed and what to do with it further."\n'
             "  }\n"
             "- For system_calls, \"call\" is a unique integer identifier chosen by you for relating returned information to the request.\n"
             "- For system_calls with \"type\": \"action_result\", \"args\" must be the integer corresponding to the action_id in the execution results list. This identifies the raw result that should be provided to ANT.\n"
@@ -709,7 +709,7 @@ class pyIVLS_ant(QObject):
             "6. The reason field is provided by the ANT and sent in original system_call, it is intended to explain the purpose of the request and the intended further use of the result. Consider the reason together with the returned data, execution status, and other available information when processing the result.\n"
             )
 
-            return system_call_prompt
+        return system_call_prompt
 
     def _get_last_n_messages(self):
         """Return the last N chat messages from full conversation history."""
