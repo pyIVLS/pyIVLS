@@ -239,8 +239,8 @@ class VenusUSB2GUI(QObject):
             return [status, info]
         if self.q_img is not None:
             save_path = Path(self.settings["address"]) / f"{self.settings['filename']}.jpeg"
-            self.q_img.save(str(save_path), b"JPEG")  # explicit bytes object to satisfy the ever-vigilant language server.
-
+            #self.q_img.save(str(save_path), b"JPEG")  # explicit bytes object to satisfy the ever-vigilant language server.
+            self.q_img.save(str(save_path))
     ########Functions
     ###############GUI setting up
 
