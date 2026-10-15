@@ -3,10 +3,10 @@
 # Generic Aalto OpenAI API backend.
 # This module is independent of pyIVLS.
 
-import os
-import httpx
-from openai import OpenAI
 import json
+import os
+
+from openai import OpenAI
 
 
 class LLM_Aalto:
@@ -17,7 +17,7 @@ class LLM_Aalto:
 #    DEFAULT_MODEL = "gpt-oss-120b"
     DEFAULT_MODEL = "gpt-5.4-2026-03-05"
 
-    def __init__(self, model=None, api_key=None):
+    def __init__(self, model=None, api_key=None) -> None:
         api_key = api_key or os.environ.get("AALTO_OPENAI_API_KEY")
 
         if not api_key:

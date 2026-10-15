@@ -3,10 +3,11 @@
 # Generic Aalto OpenAI API backend.
 # This module is independent of pyIVLS.
 
+import json
 import os
+
 import httpx
 from openai import OpenAI
-import json
 
 
 class LLM_Aalto:

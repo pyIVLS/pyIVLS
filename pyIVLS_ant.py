@@ -17,22 +17,21 @@
 # ivarad + ai aalto (chatgpt 5.4)
 # ver. 0.3
 
-import logging
-from os.path import sep
-from datetime import datetime
-
-from PyQt6 import uic
-from PyQt6.QtWidgets import QMenu
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QPoint, Qt
-from PyQt6.QtGui import QTextCursor, QPixmap
-
-from threadStopped import thread_with_exception, ThreadStopped
-from LLM.pyIVLS_LLM_Aalto import LLM_Aalto
-
-import json
 import base64
+import json
+import logging
+from datetime import datetime
+from os.path import sep
+
 import cv2 as cv
 import numpy as np
+from PyQt6 import uic
+from PyQt6.QtCore import QObject, QPoint, Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QPixmap, QTextCursor
+from PyQt6.QtWidgets import QMenu
+from threadStopped import ThreadStopped, thread_with_exception
+
+from LLM.pyIVLS_LLM_Aalto import LLM_Aalto
 
 logger = logging.getLogger(__name__)
 

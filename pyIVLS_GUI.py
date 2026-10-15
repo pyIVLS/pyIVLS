@@ -11,9 +11,9 @@ from components.pyIVLS_mainWindow import pyIVLS_mainWindow
 
 # move this to mainwindow?
 from components.pyIVLS_mdiWindow import pyIVLS_mdiWindow
+from pyIVLS_ant import pyIVLS_ant
 from pyIVLS_pluginloader import pyIVLS_pluginloader
 from pyIVLS_seqBuilder import pyIVLS_seqBuilder
-from pyIVLS_ant import pyIVLS_ant
 
 logger = logging.getLogger(__name__)
 

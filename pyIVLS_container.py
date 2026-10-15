@@ -3,7 +3,7 @@ import importlib
 import logging
 import sys
 from configparser import ConfigParser
-from os.path import basename, dirname, sep, exists
+from os.path import basename, dirname, exists, sep
 
 import pluggy
 
