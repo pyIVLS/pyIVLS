@@ -311,6 +311,16 @@ class Keithley2612B:
         # int conversion is pure truncation. I trust keithley to actually return whole numbers.
         return int(ret)
 
+    def read_all_errors(self) -> list[tuple[int, str, int, int]]:
+        """Reads all errors in the error queue.
+
+        Returns:
+           list: a list of tuples (code, message, severity, node)"""
+        errors = []
+        while self.errors_in_buffer() > 0:
+            errors.append(self.read_error())
+        return errors
+
     def safewrite(self, command: str) -> None:
         self._raw_write(command)
         # python evals ifs left to right with short-circuiting, so this will not call the instrument unless check is True
@@ -637,6 +647,10 @@ class Keithley2612B:
 
         if s.get("errorcheck", False):
             self.check = True
+            logger.debug("Error checking enabled for Keithley 2612B.")
+        else:
+            self.check = False
+            logger.debug("Error checking disabled for Keithley 2612B.")
 
         self.safewrite("reset()")
         self.safewrite("beeper.enable=0")
@@ -651,27 +665,33 @@ class Keithley2612B:
 
         if s["sourcesense"]:
             self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_REMOTE")
+            logger.debug(f"Setting {s['source']} to 4-wire sensing mode.")
         else:
             self.safewrite(f"{s['source']}.sense = {s['source']}.SENSE_LOCAL")
+            logger.debug(f"Setting {s['source']} to 2-wire sensing mode.")
 
         self.safewrite(f"{s['source']}.measure.nplc = {s['sourcenplc']}")
+        logger.debug(f"Setting {s['source']} NPLC to {s['sourcenplc']}.")
 
         if s["sourcehighc"]:
             self.safewrite(f"{s['source']}.source.highc = {s['source']}.ENABLE")
+            logger.debug(f"Enabling high capacitance mode for {s['source']}.")
 
         self.safewrite(f"{s['source']}.source.settling = {s['source']}.SETTLE_FAST_RANGE")
+        logger.debug(f"Setting {s['source']} settling mode to fast range.")
 
         ####set stabilization times for source
         ##IRtodo#### add delay factor to GUI
-        if s["delay"]:
-            logger.debug(f"Setting source delay to auto with factor {s['sourcedelayfactor']:.2f}")
+        if s["delay"]:  # delay is auto/manual => true/false
             self.safewrite(f"{s['source']}.measure.delay = {s['source']}.DELAY_AUTO")
             if not s["pulse"]:
+                logger.debug(f"Setting source delay to auto with factor {s['sourcedelayfactor']:.2f}")
                 self.safewrite(f"{s['source']}.measure.delayfactor = {s['sourcedelayfactor']:.2f}")
             else:
+                logger.debug("Setting source delay to auto with factor 1.0 (pulsed mode)")
                 self.safewrite(f"{s['source']}.measure.delayfactor = 1.0")
         else:
-            logger.debug(f"Setting source delay to manual with duration {s['delayduration']:.6f} seconds")
+            logger.debug(f"delay set to manual, setting to {s['delayduration']:.6f} seconds")
             self.safewrite(f"{s['source']}.measure.delay = {s['delayduration']}")
 
         # set limits and modes
@@ -689,7 +709,6 @@ class Keithley2612B:
                     self.safewrite(f"{s['source']}.measure.filter.count = {s['sourcefiltervalue']}")
                     self.safewrite(f"{s['source']}.measure.filter.enable = {s['source']}.FILTER_ON")
                     self.safewrite(f"{s['source']}.measure.filter.type = {s['source']}.{s['sourcefiltertype']}")
-
                 # branch for inactive filter, i.e. filter = FILTER_OFF
                 else:
                     # explicitly set filter to off, even though it is the default.
@@ -823,7 +842,7 @@ class Keithley2612B:
                 #### by default smuX.trigger.source.stimulus = 0, i.e. next set point in sweep will be set py source without waiting for an event (7-250, 595)
                 else:
                     self.safewrite(f"{s['source']}.trigger.endpulse.action = {s['source']}.SOURCE_IDLE")
-                    # the following 8 lines: 
+                    # the following 8 lines:
                     # - set up a timer to wait for pulsepause seconds after the pulse is complete, and then senc a single pulse
                     # - A blender which activates either on the SWEEPING_EVENT_ID or PULSE_COMPLETE_EVENT_ID,
                     # - The blender then triggers the timer, which in turn triggers the next source to begin.
@@ -870,10 +889,12 @@ class Keithley2612B:
                     self.safewrite(f"{s['drain']}.trigger.measure.action = {s['drain']}.ENABLE")
                     self.safewrite(f"{s['drain']}.trigger.source.action = {s['drain']}.DISABLE")  # do not sweep the source (see 7-243 or 590 of the manual)
                     self.safewrite(f"{s['drain']}.trigger.measure.stimulus = {s['source']}.trigger.SOURCE_COMPLETE_EVENT_ID")
-                    self.safewrite("trigger.blender[2].orenable = false")
-                    self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")
-                    self.safewrite(f"trigger.blender[2].stimulus[2] = {s['drain']}.trigger.MEASURE_COMPLETE_EVENT_ID")
-                    self.safewrite(f"{s['source']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID")
+                    self.safewrite("trigger.blender[2].orenable = false")  # a blender with the AND condition
+                    self.safewrite(f"trigger.blender[2].stimulus[1] = {s['source']}.trigger.MEASURE_COMPLETE_EVENT_ID")  # source measured
+                    self.safewrite(f"trigger.blender[2].stimulus[2] = {s['drain']}.trigger.MEASURE_COMPLETE_EVENT_ID")  # drain measured
+                    self.safewrite(
+                        f"{s['source']}.trigger.endpulse.stimulus = trigger.blender[2].EVENT_ID"
+                    )  # when both measured, trigger blender2 event, which triggers the endpulse event for the source
 
                     self.safewrite(f"{s['drain']}.source.func = {s['drain']}.OUTPUT_DCVOLTS")
                     self.safewrite(f"{s['drain']}.source.levelv = {s['drainvoltage']}")
