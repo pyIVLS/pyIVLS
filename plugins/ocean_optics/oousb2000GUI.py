@@ -741,8 +741,8 @@ class OOUSB2000_GUI(QObject):
             varDict = {}
         comment = "Thorlabs FTS operated by pyIVSL\n"
         comment = f"{comment}#[SpectrumHeader]\n"
-        comment = f"{comment}Date{separator}{datetime.now().strftime('%Y%m%d')}\n"  # noqa: DTZ005
-        comment = f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"  # noqa: DTZ005
+        comment = f"{comment}Date{separator}{datetime.now().strftime('%Y%m%d')}\n"
+        comment = f"{comment}Time{separator}{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}GMTTime{separator}{datetime.now(timezone.utc).strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}XAxisUnit{separator}nm_air\n"
         comment = f"{comment}YAxisUnit{separator}intensity\n"

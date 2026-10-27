@@ -278,7 +278,7 @@ class FileManager:
             comment = f"{comment}\n#\n# measurement of {{noname}}\n#\n#"
         else:
             comment = f"{comment}\n#\n# measurement of {settings['samplename']}\n#\n#"
-        comment = f"{comment}date {dt.datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"  #  # noqa: DTZ005
+        comment = f"{comment}date {dt.datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"
         comment = f"{comment}Keithley source {settings['channel']}\n#"
         comment = f"{comment}Source in {settings['inject']} injection mode\n#"
         if settings["inject"] == "voltage":
@@ -388,8 +388,8 @@ class FileManager:
 
         comment = "Thorlabs FTS operated by pyIVSL\n"
         comment = f"{comment}#[SpectrumHeader]\n"
-        comment = f"{comment}Date{separator}{dt.datetime.now().strftime('%Y%m%d')}\n"  # noqa: DTZ005
-        comment = f"{comment}Time{separator}{dt.datetime.now().strftime('%H%M%S%f')[:-4]}\n"  # noqa: DTZ005
+        comment = f"{comment}Date{separator}{dt.datetime.now().strftime('%Y%m%d')}\n"
+        comment = f"{comment}Time{separator}{dt.datetime.now().strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}GMTTime{separator}{dt.datetime.now(dt.timezone.utc).strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}XAxisUnit{separator}nm_air\n"
         comment = f"{comment}YAxisUnit{separator}intensity\n"

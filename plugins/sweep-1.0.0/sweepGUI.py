@@ -856,13 +856,13 @@ class sweepGUI(QObject):
             exception = 0  # handling turning off smu in case of exceptions. 0 = no exception, 1 - failure in smu, 2 - threadStopped, 3 - unexpected
             self._sweepImplementation()
         except sweepException as e:
-            logger.info(datetime.now().strftime("%H:%M:%S.%f") + f"Sweep stopped because of exception: {e}")  # noqa: DTZ005
+            logger.info(datetime.now().strftime("%H:%M:%S.%f") + f"Sweep stopped because of exception: {e}")
             exception = 1
         except ThreadStopped:
-            logger.info(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")  # noqa: DTZ005
+            logger.info(datetime.now().strftime("%H:%M:%S.%f") + ": sweep plugin implementation aborted")
             exception = 2
         except Exception as e:
-            logger.info(datetime.now().strftime("%H:%M:%S.%f") + f": sweep plugin implementation stopped because of unexpected exception: {e}")  # noqa: DTZ005
+            logger.info(datetime.now().strftime("%H:%M:%S.%f") + f": sweep plugin implementation stopped because of unexpected exception: {e}")
             exception = 3
         finally:
             try:
@@ -875,7 +875,7 @@ class sweepGUI(QObject):
                 if exception == 3 or exception == 1:
                     self.logger.info_popup("Implementation stopped because of exception. Check log")
             except Exception as e:
-                logger.error(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")  # noqa: DTZ005
+                logger.error(datetime.now().strftime("%H:%M:%S.%f") + f" : sweep plugin: smu turn off failed because of unexpected exception: {e}")
                 self.logger.info_popup("SMU turn off failed. Check log")
             finally:
                 self.set_running(False)

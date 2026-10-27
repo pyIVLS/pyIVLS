@@ -123,7 +123,7 @@ class itc503GUI(QObject):
             self.closeLock.emit(True)
             return [0, "OK"]
         except Exception as e:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")  # noqa: DTZ005
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
             self.info_message.emit(f"itc503 plugin : {e}")
             return [e, {"Error message": f"{e}"}]
 
@@ -138,19 +138,19 @@ class itc503GUI(QObject):
                 self.closeLock.emit(False)
                 return [0, "OK"]
             except Exception as e:
-                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")  # noqa: DTZ005
+                self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {e}, status = 4")
                 self.info_message.emit(f"itc503 plugin : {e}")
                 return [4, {"Error message": f"{e}"}]
 
     def _setTAction(self):
         [status, info] = self._parse_settings_setT()
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")  # noqa: DTZ005
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
             self.info_message.emit(f"itc503 plugin : {info}")
             return [status, info]
         [status, info] = self._setT()
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")  # noqa: DTZ005
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 plugin : {info}, status = {status}")
             self.info_message.emit(f"itc503 plugin : {info}")
             return [status, info]
         return [0, "OK"]
@@ -176,7 +176,7 @@ class itc503GUI(QObject):
             self.timer.stop()
             return [1, "Running already"]
         if status:
-            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 : {info}, status = {status}")  # noqa: DTZ005
+            self.log_message.emit(datetime.now().strftime("%H:%M:%S.%f") + f" : itc503 : {info}, status = {status}")
             self.info_message.emit(f"itc503 plugin : {info}")
         else:
             self.run_thread = thread_with_exception(self._run_check)
@@ -371,8 +371,8 @@ class itc503GUI(QObject):
         # varDict['comment'] - str:comment
         comment = "ITC403 operated by pyIVSL\n"
         comment = f"{comment}#[SpectrumHeader]\n"
-        comment = f"{comment}Date;{datetime.now().strftime('%Y%m%d')}\n"  # noqa: DTZ005
-        comment = f"{comment}Time;{datetime.now().strftime('%H%M%S%f')[:-4]}\n"  # noqa: DTZ005
+        comment = f"{comment}Date;{datetime.now().strftime('%Y%m%d')}\n"
+        comment = f"{comment}Time;{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}GMTTime;{datetime.now(tz=timezone.utc).strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}XAxisUnit;time(s)\n"
         comment = f"{comment}YAxisUnit;temperature(K)\n"
@@ -651,9 +651,9 @@ class itc503GUI(QObject):
             except Exception as e:
                 return [4, {"Error message": f"{e}"}]
             if abs(info - self.settings["sett"]) > 0.2:
-                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")  # noqa: DTZ005
+                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" wait for T. T={info} K")
                 tic = time.time()
             else:
-                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")  # noqa: DTZ005
+                logger.info(datetime.now().strftime("%H:%M:%S.%f") + f" Stabilization period. T={info} K")
             time.sleep(20)
         return [0, f"_{info}K"]

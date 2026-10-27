@@ -23,7 +23,7 @@ def create_file_header(settings, smu_settings, backVoltage=None):
         comment = f"{comment}\n#\n# measurement of {{noname}}\n#\n#"
     else:
         comment = f"{comment}\n#\n# measurement of {settings['samplename']}\n#\n#"
-    comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"  # noqa: DTZ005
+    comment = f"{comment}date {datetime.now().strftime('%d-%b-%Y, %H:%M:%S')}\n#"
     comment = f"{comment}Keithley source {settings['channel']}\n#"
     comment = f"{comment}Source in {settings['inject']} injection mode\n#"
     if settings["inject"] == "voltage":

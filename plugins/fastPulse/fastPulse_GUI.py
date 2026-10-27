@@ -697,8 +697,8 @@ class fastPulse_GUI(QWidget):
         # varDict['comment'] - str:comment
         comment = "ITC403 operated by pyIVSL\n"
         comment = f"{comment}#[SpectrumHeader]\n"
-        comment = f"{comment}Date;{datetime.now().strftime('%Y%m%d')}\n"  # noqa: DTZ005
-        comment = f"{comment}Time;{datetime.now().strftime('%H%M%S%f')[:-4]}\n"  # noqa: DTZ005
+        comment = f"{comment}Date;{datetime.now().strftime('%Y%m%d')}\n"
+        comment = f"{comment}Time;{datetime.now().strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}GMTTime;{datetime.now(tz=timezone.utc).strftime('%H%M%S%f')[:-4]}\n"
         comment = f"{comment}XAxisUnit;time(s)\n"
         comment = f"{comment}YAxisUnit;temperature(K)\n"
